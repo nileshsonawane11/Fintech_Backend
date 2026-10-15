@@ -1,0 +1,37 @@
+server:
+  port: 8761
+
+spring:
+  application:
+    name: SERVICE-DISCOVERY
+
+eureka:
+  instance:
+    hostname: localhost
+
+  client:
+    # Eureka Server must not register itself as a client.
+    register-with-eureka: false
+
+    # Do not fetch the registry from another Eureka server.
+    fetch-registry: false
+
+  server:
+    # Development setting: do not wait before starting
+    # the eviction process for expired registrations.
+    eviction-interval-timer-in-ms: 5000
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+
+  endpoint:
+    health:
+      show-details: never
+
+logging:
+  level:
+    com.netflix.eureka: INFO
+    com.netflix.discovery: INFO
