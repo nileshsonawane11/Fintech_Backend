@@ -1,16 +1,15 @@
 package com.fintech.identity.controller;
 
-import com.fintech.identity.dto.request.LoginRequest;
-import com.fintech.identity.dto.request.RegisterRequest;
-import com.fintech.identity.dto.request.VerifyMfaRequest;
-import com.fintech.identity.dto.request.VerifyOtpRequest;
+import com.fintech.identity.dto.request.*;
 import com.fintech.identity.dto.response.LoginResponse;
 import com.fintech.identity.dto.response.OtpVerificationResponse;
 import com.fintech.identity.dto.response.RegisterResponse;
 import com.fintech.identity.dto.response.TokenResponse;
 import com.fintech.identity.service.AuthService;
+import com.fintech.identity.service.RefreshTokenService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
@@ -20,9 +19,11 @@ import org.springframework.web.bind.annotation.*;
 public class AuthController {
 
     private final AuthService authService;
+    private final RefreshTokenService refreshTokenService;
 
-    public AuthController(AuthService authService) {
+    public AuthController(AuthService authService, RefreshTokenService refreshTokenService) {
         this.authService = authService;
+        this.refreshTokenService = refreshTokenService;
     }
 
     @PostMapping("/register")
@@ -53,5 +54,14 @@ public class AuthController {
             @AuthenticationPrincipal Jwt jwt
     ) {
         return authService.verifyMfa(request, jwt);
+    }
+
+    @PostMapping("/refresh")
+    public ResponseEntity<TokenResponse> refresh(
+            @Valid @RequestBody RefreshTokenRequest request
+    ) {
+        return ResponseEntity.ok(
+                refreshTokenService.rotate(request.refreshToken())
+        );
     }
 }

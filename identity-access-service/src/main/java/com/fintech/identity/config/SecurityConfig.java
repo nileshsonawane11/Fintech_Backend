@@ -54,7 +54,8 @@ public class SecurityConfig {
                                 HttpMethod.POST,
                                 "/api/v1/auth/register",
                                 "/api/v1/auth/otp/verify",
-                                "/api/v1/auth/login"
+                                "/api/v1/auth/login",
+                                "/api/v1/auth/refresh"
                         ).permitAll()
                         .requestMatchers(
                                 HttpMethod.POST,
