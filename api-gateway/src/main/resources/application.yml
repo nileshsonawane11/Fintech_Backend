@@ -87,7 +87,9 @@ logging:
   level:
     org.springframework.cloud.gateway: INFO
     com.netflix.discovery: INFO
+    org.springframework.security: TRACE
+    org.springframework.security.oauth2: TRACE
 
 jwt:
   public-key-path: ${JWT_PUBLIC_KEY_PATH:./keys/public.pem}
-  issuer: ${JWT_ISSUER:finbank-identity-service}
+  issuer: ${JWT_ISSUER:identity-service}
