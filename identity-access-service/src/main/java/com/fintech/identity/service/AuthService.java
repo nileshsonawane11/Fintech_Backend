@@ -3,6 +3,7 @@ package com.fintech.identity.service;
 
 import com.fintech.identity.dto.request.*;
 import com.fintech.identity.dto.response.*;
+import com.fintech.events.CustomerRegisteredEvent;
 import com.fintech.identity.exception.ApiException;
 import com.fintech.identity.model.Customer;
 import com.fintech.identity.model.OtpChallenge;
@@ -12,6 +13,7 @@ import com.fintech.identity.model.enums.OtpPurpose;
 import com.fintech.identity.repository.CustomerRepository;
 import com.fintech.identity.repository.RefreshTokenRepository;
 import com.fintech.identity.security.JwtService;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.crypto.password.PasswordEncoder;
 import org.springframework.security.oauth2.jwt.Jwt;
@@ -30,6 +32,7 @@ public class AuthService {
 
     private final CustomerRepository customerRepository;
     private final RefreshTokenRepository refreshTokenRepository;
+    private final ApplicationEventPublisher applicationEventPublisher;
     private final PasswordEncoder passwordEncoder;
     private final OtpService otpService;
     private final JwtService jwtService;
@@ -37,18 +40,20 @@ public class AuthService {
 
     public AuthService(
             CustomerRepository customerRepository,
-            RefreshTokenRepository refreshTokenRepository,
+            RefreshTokenRepository refreshTokenRepository, ApplicationEventPublisher applicationEventPublisher,
             PasswordEncoder passwordEncoder,
             OtpService otpService,
             JwtService jwtService
     ) {
         this.customerRepository = customerRepository;
         this.refreshTokenRepository = refreshTokenRepository;
+        this.applicationEventPublisher = applicationEventPublisher;
         this.passwordEncoder = passwordEncoder;
         this.otpService = otpService;
         this.jwtService = jwtService;
     }
 
+    @Transactional
     public RegisterResponse register(RegisterRequest request) {
         String mobile = request.mobileNumber().trim();
         String email = request.email().trim().toLowerCase(Locale.ROOT);
@@ -83,6 +88,13 @@ public class AuthService {
                 saved,
                 OtpPurpose.REGISTRATION,
                 saved.getMobileNumber()
+        );
+
+        applicationEventPublisher.publishEvent(
+                new CustomerRegisteredEvent(
+                        saved.getId(),
+                        Instant.now()
+                )
         );
 
         return new RegisterResponse(
