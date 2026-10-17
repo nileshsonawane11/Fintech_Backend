@@ -4,7 +4,7 @@ server:
 
 spring:
   application:
-    name: customer-service
+    name: CUSTOMER-SERVICE
 
   datasource:
     url: ${CUSTOMER_DB_URL:jdbc:postgresql://localhost:5432/fintech_customer}
@@ -13,6 +13,7 @@ spring:
     driver-class-name: org.postgresql.Driver
 
   jpa:
+    show-sql: true
     open-in-view: false
     hibernate:
       ddl-auto: validate
@@ -31,18 +32,16 @@ spring:
       auto-offset-reset: earliest
       enable-auto-commit: false
       key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
-      value-deserializer: org.springframework.kafka.support.serializer.JsonDeserializer
-      properties:
-        "[spring.json.trusted.packages]": "com.fintech.customer.kafka.event"
-        "[spring.json.use.type.headers]": false
-        "[spring.json.value.default.type]": "com.fintech.customer.kafka.event.IdentityCustomerRegisteredEvent"
-    producer:
-      key-serializer: org.apache.kafka.common.serialization.StringSerializer
-      value-serializer: org.springframework.kafka.support.serializer.JsonSerializer
+      value-deserializer: org.apache.kafka.common.serialization.JsonDeserializer
 
   security:
     filter:
       dispatcher-types: request,async,error
+
+app:
+  kafka:
+    topics:
+      customer-registered: identity.customer-events.v1
 
 eureka:
   client:
@@ -57,12 +56,33 @@ management:
   endpoints:
     web:
       exposure:
-        include: health,info
+        include: health,info,mappings
   endpoint:
     health:
-      probes:
-        enabled: true
+      show-details: never
 
 security:
   jwt:
     public-key-location: classpath:keys/public.pem
+
+  data-encryption-key: "A6zUYKLUu7Q98OeKx77T7AxCZ+yxJKR40JgJNyEaZg4="
+
+storage:
+  s3:
+    bucket: ${CUSTOMER_DOCUMENT_BUCKET:fintech-customer-documents}
+    region: ${AWS_REGION:ap-south-1}
+    endpoint: ${S3_ENDPOINT:}
+    access-key: ${S3_ACCESS_KEY:}
+    secret-key: ${S3_SECRET_KEY:}
+    upload-url-minutes: 5
+    max-file-size-bytes: 10485760
+
+logging:
+  level:
+    org.hibernate.SQL: DEBUG
+    org.hibernate.orm.jdbc.bind: TRACE
+    org.springframework.orm.jpa: DEBUG
+    org.springframework.transaction: TRACE
+    com.fintech.customer: DEBUG
+    org.springframework.kafka: DEBUG
+    org.apache.kafka.clients.consumer: INFO
