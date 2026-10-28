@@ -1,8 +1,8 @@
 // FinBank / FinEdge REST API Client
 // Implements RFC 9457 problem details, OAuth 2.0 / JWT bearer authorization,
-// Idempotency-Key headers, Correlation-IDs, and seamless offline-persistence fallback.
+// Idempotency-Key headers, Correlation-IDs, granular RBAC, and seamless offline-persistence fallback.
 
-const BASE_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+const BASE_URL = import.meta.env?.VITE_API_URL || 'http://localhost:8080';
 
 // UUID v4 generator for Idempotency-Key and X-Correlation-Id
 export const generateUUID = () => {
@@ -21,22 +21,28 @@ const TOKEN_KEY = 'finedge_access_token';
 const REFRESH_TOKEN_KEY = 'finedge_refresh_token';
 const MANAGER_TOKEN_KEY = 'finedge_manager_token';
 const MOCK_STORAGE_KEY = 'finedge_persistent_db';
+const SESSION_CUST_KEY = 'finedge_session_customer_id';
 
-export const getAccessToken = () => localStorage.getItem(TOKEN_KEY);
+export const getAccessToken = () => (typeof localStorage !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null);
 export const setTokens = (accessToken, refreshToken) => {
+  if (typeof localStorage === 'undefined') return;
   if (accessToken) localStorage.setItem(TOKEN_KEY, accessToken);
   if (refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
 };
 export const clearTokens = () => {
+  if (typeof localStorage === 'undefined') return;
   localStorage.removeItem(TOKEN_KEY);
   localStorage.removeItem(REFRESH_TOKEN_KEY);
+  localStorage.removeItem(SESSION_CUST_KEY);
 };
 
-export const getManagerToken = () => localStorage.getItem(MANAGER_TOKEN_KEY);
+export const getManagerToken = () => (typeof localStorage !== 'undefined' ? localStorage.getItem(MANAGER_TOKEN_KEY) : null);
 export const setManagerToken = (token) => {
+  if (typeof localStorage === 'undefined') return;
   if (token) localStorage.setItem(MANAGER_TOKEN_KEY, token);
 };
 export const clearManagerToken = () => {
+  if (typeof localStorage === 'undefined') return;
   localStorage.removeItem(MANAGER_TOKEN_KEY);
 };
 
@@ -44,12 +50,14 @@ export const clearManagerToken = () => {
 // INITIAL PERSISTENT STORE (Mirrors FinBank API Data Model)
 // ============================================================================
 const getInitialDb = () => {
-  const existing = localStorage.getItem(MOCK_STORAGE_KEY);
-  if (existing) {
-    try {
-      return JSON.parse(existing);
-    } catch (e) {
-      console.error('Error parsing existing DB, resetting to defaults', e);
+  if (typeof localStorage !== 'undefined') {
+    const existing = localStorage.getItem(MOCK_STORAGE_KEY);
+    if (existing) {
+      try {
+        return JSON.parse(existing);
+      } catch (e) {
+        console.error('Error parsing existing DB, resetting to defaults', e);
+      }
     }
   }
 
@@ -61,6 +69,7 @@ const getInitialDb = () => {
         fullName: 'Vikramaditya Sharma',
         mobileNumber: '9876543210',
         email: 'vikram@example.com',
+        password: 'Password@123',
         pan: 'ABCDE1234F',
         dateOfBirth: '1995-08-14',
         gender: 'MALE',
@@ -75,6 +84,31 @@ const getInitialDb = () => {
           city: 'Mumbai',
           state: 'MAHARASHTRA',
           postalCode: '400051',
+          country: 'INDIA',
+          addressType: 'CURRENT'
+        }
+      },
+      {
+        customerId: 'CUS-100235',
+        userId: '8c2cfb4e-4c8e-5cbe-8cee-3c1e8c4ecb7e',
+        fullName: 'Aarav Patel',
+        mobileNumber: '9844001122',
+        email: 'aarav.patel@example.com',
+        password: 'Password@123',
+        pan: 'XYZAB5678C',
+        dateOfBirth: '1992-04-10',
+        gender: 'MALE',
+        occupation: 'BUSINESS',
+        annualIncomeRange: '1500000_2500000',
+        kycStatus: 'UNDER_REVIEW',
+        riskCategory: 'MEDIUM',
+        createdAt: '2026-10-28T09:00:00Z',
+        address: {
+          addressLine1: 'Flat 12B, Ocean View',
+          addressLine2: 'Juhu Tara Road',
+          city: 'Mumbai',
+          state: 'MAHARASHTRA',
+          postalCode: '400049',
           country: 'INDIA',
           addressType: 'CURRENT'
         }
@@ -118,6 +152,25 @@ const getInitialDb = () => {
           holdBalance: 0.00,
           currency: 'INR'
         }
+      },
+      {
+        accountId: 'ACC-2001',
+        accountNumber: '************9988',
+        rawAccountNumber: '98201100009988',
+        accountType: 'CURRENT',
+        productCode: 'CURRENT_BUSINESS',
+        productName: 'BRAVO Business Current Account',
+        customerId: 'CUS-100235',
+        status: 'ACTIVE',
+        currency: 'INR',
+        openedAt: '2026-10-28T09:30:00Z',
+        interestRate: 0.00,
+        balance: {
+          ledgerBalance: 500000.00,
+          availableBalance: 500000.00,
+          holdBalance: 0.00,
+          currency: 'INR'
+        }
       }
     ],
     cards: [
@@ -157,6 +210,24 @@ const getInitialDb = () => {
           contactlessEnabled: true,
           atmWithdrawalEnabled: true,
           dailyLimit: 50000.00
+        }
+      },
+      {
+        cardId: 'CARD-3003',
+        cardType: 'DEBIT',
+        cardName: 'Business Platinum Debit Card',
+        maskedCardNumber: '************9988',
+        expiryMonth: 10,
+        expiryYear: 2029,
+        status: 'ACTIVE',
+        linkedAccountId: 'ACC-2001',
+        customerId: 'CUS-100235',
+        controls: {
+          onlineEnabled: true,
+          internationalEnabled: true,
+          contactlessEnabled: true,
+          atmWithdrawalEnabled: true,
+          dailyLimit: 100000.00
         }
       }
     ],
@@ -199,6 +270,19 @@ const getInitialDb = () => {
         referenceNumber: 'INT-330191',
         valueDate: '2026-09-30',
         createdAt: '2026-09-30T18:30:00Z'
+      },
+      {
+        transactionId: 'TXN-771101',
+        accountId: 'ACC-2001',
+        transactionType: 'TRANSFER',
+        direction: 'CREDIT',
+        amount: 50000.00,
+        currency: 'INR',
+        status: 'SUCCESS',
+        description: 'Client Invoice Payment — Zenith Logistics',
+        referenceNumber: 'PAY-771101',
+        valueDate: '2026-10-28',
+        createdAt: '2026-10-28T10:00:00Z'
       }
     ],
     beneficiaries: [
@@ -302,7 +386,7 @@ const getInitialDb = () => {
         customerName: 'Aarav Patel',
         cardType: 'CREDIT',
         cardName: 'FinEdge Millennia Cashback Card',
-        linkedAccountId: 'ACC-1002',
+        linkedAccountId: 'ACC-2001',
         status: 'UNDER_REVIEW',
         submittedAt: '2026-10-28T11:30:00Z'
       }
@@ -312,6 +396,7 @@ const getInitialDb = () => {
         staffId: 'STF-001',
         fullName: 'Devendra Singhania',
         email: 'manager@finedge.bank',
+        password: 'Manager@2026',
         role: 'BANK_MANAGER',
         roleTitle: 'Chief Branch Manager',
         department: 'Branch Operations',
@@ -331,6 +416,7 @@ const getInitialDb = () => {
         staffId: 'STF-002',
         fullName: 'Ananya Deshmukh',
         email: 'kyc.officer@finedge.bank',
+        password: 'Manager@2026',
         role: 'KYC_OFFICER',
         roleTitle: 'Senior KYC Verification Officer',
         department: 'Compliance & AML',
@@ -346,6 +432,7 @@ const getInitialDb = () => {
         staffId: 'STF-003',
         fullName: 'Rohan Mehra',
         email: 'ops@finedge.bank',
+        password: 'Manager@2026',
         role: 'ACCOUNT_OPS',
         roleTitle: 'Account & Card Operations Specialist',
         department: 'Operations',
@@ -397,6 +484,7 @@ const getInitialDb = () => {
     notifications: [
       {
         notificationId: 'NOT-900123',
+        customerId: 'CUS-100234',
         templateCode: 'PAYMENT_SUCCESS',
         channel: 'IN_APP',
         title: 'Payment Successful',
@@ -406,6 +494,7 @@ const getInitialDb = () => {
       },
       {
         notificationId: 'NOT-900122',
+        customerId: 'CUS-100234',
         templateCode: 'KYC_APPROVED',
         channel: 'IN_APP',
         title: 'KYC Verification Completed',
@@ -417,6 +506,7 @@ const getInitialDb = () => {
     supportTickets: [
       {
         ticketId: 'TCK-700123',
+        customerId: 'CUS-100234',
         status: 'OPEN',
         category: 'PAYMENT_ISSUE',
         subject: 'IMPS UTR Inquiry',
@@ -426,11 +516,14 @@ const getInitialDb = () => {
     ]
   };
 
-  localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(defaultDb));
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(defaultDb));
+  }
   return defaultDb;
 };
 
 export const getDb = () => {
+  if (typeof localStorage === 'undefined') return getInitialDb();
   const existing = localStorage.getItem(MOCK_STORAGE_KEY);
   if (!existing) return getInitialDb();
   try {
@@ -441,7 +534,9 @@ export const getDb = () => {
 };
 
 export const saveDb = (db) => {
-  localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(db));
+  if (typeof localStorage !== 'undefined') {
+    localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(db));
+  }
 };
 
 export const appendAuditLog = (actor, actorRole, action, target, status, details) => {
@@ -460,6 +555,94 @@ export const appendAuditLog = (actor, actorRole, action, target, status, details
   db.auditLogs.unshift(logEntry);
   saveDb(db);
   return logEntry;
+};
+
+// ============================================================================
+// SECURITY HELPERS: Data Isolation & Staff Authorization
+// ============================================================================
+
+export const getAuthenticatedCustomerId = (db) => {
+  if (typeof localStorage !== 'undefined') {
+    const sessionCustId = localStorage.getItem(SESSION_CUST_KEY);
+    if (sessionCustId && db.customers.some(c => c.customerId === sessionCustId)) {
+      return sessionCustId;
+    }
+    const demoUser = localStorage.getItem('finedge_demo_user');
+    if (demoUser) {
+      try {
+        const parsed = JSON.parse(demoUser);
+        const match = db.customers.find(c => 
+          (c.email && c.email.toLowerCase() === parsed.email?.toLowerCase()) || 
+          c.customerId === parsed.customerId
+        );
+        if (match) return match.customerId;
+      } catch (e) {}
+    }
+  }
+  return db.customers[0]?.customerId || 'CUS-100234';
+};
+
+export const verifyStaffPermission = (db, requiredPermission, options = {}) => {
+  let staffUser = null;
+  const token = options.headers?.['Authorization'] || (options.isManager ? getManagerToken() : null);
+
+  if (typeof localStorage !== 'undefined') {
+    const savedMgr = localStorage.getItem('finedge_manager_user');
+    if (savedMgr) {
+      try {
+        const parsed = JSON.parse(savedMgr);
+        staffUser = db.staffUsers.find(s => 
+          (s.email && s.email.toLowerCase() === parsed.email?.toLowerCase()) || 
+          s.staffId === parsed.staffId
+        );
+      } catch (e) {}
+    }
+  }
+
+  // Token role inspection fallback
+  if (!staffUser && token) {
+    if (token.includes('BANK_MANAGER')) {
+      staffUser = db.staffUsers.find(s => s.role === 'BANK_MANAGER');
+    } else if (token.includes('KYC_OFFICER')) {
+      staffUser = db.staffUsers.find(s => s.role === 'KYC_OFFICER');
+    } else if (token.includes('ACCOUNT_OPS')) {
+      staffUser = db.staffUsers.find(s => s.role === 'ACCOUNT_OPS');
+    }
+  }
+
+  // Default to Branch Manager if calling with manager authorization flag
+  if (!staffUser && options.isManager) {
+    staffUser = db.staffUsers[0];
+  }
+
+  if (!staffUser) {
+    throw {
+      status: 401,
+      code: 'UNAUTHORIZED',
+      title: 'Authentication Required',
+      detail: 'Staff authentication token missing or invalid. Manager access required.'
+    };
+  }
+
+  if (staffUser.status === 'DISABLED' || staffUser.status === 'DEACTIVATED') {
+    throw {
+      status: 403,
+      code: 'STAFF_ACCOUNT_DEACTIVATED',
+      title: 'Account Disabled',
+      detail: `Staff account ${staffUser.staffId} (${staffUser.email}) has been deactivated. Administrative actions are prohibited.`
+    };
+  }
+
+  if (requiredPermission && !staffUser.permissions.includes(requiredPermission)) {
+    throw {
+      status: 403,
+      code: 'INSUFFICIENT_PERMISSIONS',
+      title: 'Access Forbidden',
+      detail: `Staff member ${staffUser.email} lacks the required '${requiredPermission}' permission to perform this banking operation.`
+    };
+  }
+
+  return staffUser;
 };
 
 // ============================================================================
@@ -487,14 +670,12 @@ export const apiRequest = async (endpoint, options = {}) => {
   }
 
   try {
-    // Attempt actual live network call to Spring Boot API Gateway
     const response = await fetch(url, {
       ...options,
       headers
     });
 
     if (response.status === 401 && !options._retry && !options.isManager) {
-      // Automatic token refresh attempt
       const refreshed = await tryRefreshToken();
       if (refreshed) {
         options._retry = true;
@@ -522,10 +703,7 @@ export const apiRequest = async (endpoint, options = {}) => {
 
     return data;
   } catch (err) {
-    // If backend connection fails (network error, CORS, offline, or demo mode),
-    // Route seamlessly through the RFC-compliant local database engine!
     if (err.name === 'TypeError' || err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
-      console.warn(`[FinEdge Client API] Live gateway unreachable at ${url}. Executing request via local persistent engine: ${options.method || 'GET'} ${endpoint}`);
       return handleLocalFallback(endpoint, options);
     }
     throw err;
@@ -533,6 +711,7 @@ export const apiRequest = async (endpoint, options = {}) => {
 };
 
 const tryRefreshToken = async () => {
+  if (typeof localStorage === 'undefined') return false;
   const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
   if (!refreshToken) return false;
   try {
@@ -556,7 +735,7 @@ const tryRefreshToken = async () => {
 // ============================================================================
 // LOCAL PERSISTENT FALLBACK ENGINE (Exact FinBank API Contract)
 // ============================================================================
-const handleLocalFallback = (endpoint, options = {}) => {
+export const handleLocalFallback = (endpoint, options = {}) => {
   const method = (options.method || 'GET').toUpperCase();
   const db = getDb();
   let body = {};
@@ -570,7 +749,25 @@ const handleLocalFallback = (endpoint, options = {}) => {
 
   // 1. /api/v1/auth/register
   if (endpoint === '/api/v1/auth/register' && method === 'POST') {
-    const existing = db.customers.find(c => c.mobileNumber === body.mobileNumber || c.email === body.email);
+    if (!body.email || !body.mobileNumber || !body.fullName) {
+      throw {
+        status: 422,
+        code: 'VALIDATION_ERROR',
+        title: 'Validation Failed',
+        detail: 'Legal name, mobile number, and email address are required.'
+      };
+    }
+
+    if (!body.password || body.password.length < 8) {
+      throw {
+        status: 422,
+        code: 'INVALID_PASSWORD',
+        title: 'Validation Error',
+        detail: 'Password must be at least 8 characters long.'
+      };
+    }
+
+    const existing = db.customers.find(c => c.mobileNumber === body.mobileNumber || c.email?.toLowerCase() === body.email?.toLowerCase());
     if (existing) {
       throw {
         status: 409,
@@ -579,13 +776,15 @@ const handleLocalFallback = (endpoint, options = {}) => {
         detail: 'A customer with this mobile number or email is already registered.'
       };
     }
+
     const newUserId = generateUUID();
     const newCustomer = {
       customerId: 'CUS-' + Math.floor(100000 + Math.random() * 900000),
       userId: newUserId,
-      fullName: body.fullName || 'New Customer',
+      fullName: body.fullName,
       mobileNumber: body.mobileNumber,
-      email: body.email,
+      email: body.email.toLowerCase(),
+      password: body.password,
       pan: body.pan || '',
       dateOfBirth: body.dateOfBirth || '1998-01-01',
       kycStatus: 'NOT_STARTED',
@@ -594,7 +793,7 @@ const handleLocalFallback = (endpoint, options = {}) => {
     };
     db.customers.push(newCustomer);
     saveDb(db);
-    appendAuditLog(body.email, 'CUSTOMER', 'CUSTOMER_REGISTERED', newCustomer.customerId, 'SUCCESS', 'New user registered');
+    appendAuditLog(body.email, 'CUSTOMER', 'CUSTOMER_REGISTERED', newCustomer.customerId, 'SUCCESS', 'New customer registration created');
 
     return {
       userId: newUserId,
@@ -607,6 +806,14 @@ const handleLocalFallback = (endpoint, options = {}) => {
 
   // 2. /api/v1/auth/otp/verify
   if (endpoint === '/api/v1/auth/otp/verify' && method === 'POST') {
+    if (body.otp && body.otp !== '123456') {
+      throw {
+        status: 400,
+        code: 'INVALID_OTP',
+        title: 'Verification Failed',
+        detail: 'The one-time passcode entered is invalid or expired.'
+      };
+    }
     return {
       verified: true,
       referenceId: body.referenceId || 'otp-ref-' + Math.floor(10000 + Math.random() * 90000),
@@ -616,43 +823,128 @@ const handleLocalFallback = (endpoint, options = {}) => {
 
   // 3. /api/v1/auth/login
   if (endpoint === '/api/v1/auth/login' && method === 'POST') {
+    const ident = (body.identifier || '').trim().toLowerCase();
+    const customer = db.customers.find(c => 
+      (c.email && c.email.toLowerCase() === ident) || 
+      c.mobileNumber === ident
+    );
+
+    if (!customer) {
+      throw {
+        status: 401,
+        code: 'INVALID_CREDENTIALS',
+        title: 'Authentication Failed',
+        detail: 'No registered customer account found with the provided credentials.'
+      };
+    }
+
+    if (customer.password && customer.password !== body.password) {
+      throw {
+        status: 401,
+        code: 'INVALID_CREDENTIALS',
+        title: 'Authentication Failed',
+        detail: 'The password entered is incorrect. Please check your credentials.'
+      };
+    }
+
+    // Record session customer ID
+    if (typeof localStorage !== 'undefined') {
+      localStorage.setItem(SESSION_CUST_KEY, customer.customerId);
+    }
+
+    appendAuditLog(customer.email, 'CUSTOMER', 'CUSTOMER_LOGIN_CHALLENGE', customer.customerId, 'SUCCESS', 'Customer credentials verified; 2FA MFA challenge issued');
+
     return {
       accessToken: 'jwt_access_' + generateUUID(),
       refreshToken: 'jwt_refresh_' + generateUUID(),
       tokenType: 'Bearer',
       expiresIn: 900,
       mfaRequired: true,
-      mfaReferenceId: 'mfa-ref-' + Math.floor(10000 + Math.random() * 90000)
+      mfaReferenceId: 'mfa-ref-' + Math.floor(10000 + Math.random() * 90000),
+      customerId: customer.customerId
     };
   }
 
   // 4. /api/v1/auth/mfa/verify
   if (endpoint === '/api/v1/auth/mfa/verify' && method === 'POST') {
+    const currentCustId = getAuthenticatedCustomerId(db);
+    appendAuditLog(currentCustId, 'CUSTOMER', 'MFA_VERIFIED', currentCustId, 'SUCCESS', '2FA MFA OTP successfully verified');
     return {
       accessToken: 'jwt_full_access_' + generateUUID(),
       refreshToken: 'jwt_refresh_' + generateUUID(),
       tokenType: 'Bearer',
       expiresIn: 900,
-      customerId: 'CUS-100234'
+      customerId: currentCustId
     };
   }
 
-  // 5. /api/v1/customers/me
-  if (endpoint === '/api/v1/customers/me' && method === 'GET') {
-    return db.customers[0];
+  // 5. /admin/api/v1/auth/login (Dedicated Staff Authentication)
+  if (endpoint === '/admin/api/v1/auth/login' && method === 'POST') {
+    const ident = (body.identifier || '').trim().toLowerCase();
+    const staff = db.staffUsers.find(s => s.email.toLowerCase() === ident);
+
+    if (!staff) {
+      throw {
+        status: 401,
+        code: 'STAFF_NOT_FOUND',
+        title: 'Authentication Failed',
+        detail: 'Unauthorized: No bank staff account found with this corporate email.'
+      };
+    }
+
+    if (staff.status === 'DISABLED' || staff.status === 'DEACTIVATED') {
+      throw {
+        status: 403,
+        code: 'STAFF_ACCOUNT_DEACTIVATED',
+        title: 'Account Disabled',
+        detail: 'This staff account has been deactivated by administration. Access denied.'
+      };
+    }
+
+    if (staff.password && staff.password !== body.password) {
+      throw {
+        status: 401,
+        code: 'INVALID_CREDENTIALS',
+        title: 'Authentication Failed',
+        detail: 'The administrative password entered is incorrect.'
+      };
+    }
+
+    const token = 'jwt_mgr_token_' + staff.role + '_' + generateUUID();
+    appendAuditLog(staff.email, staff.role, 'STAFF_LOGIN_SUCCESS', staff.staffId, 'SUCCESS', 'Staff user logged into Operations Terminal');
+
+    return {
+      accessToken: token,
+      staffId: staff.staffId,
+      fullName: staff.fullName,
+      email: staff.email,
+      role: staff.role,
+      permissions: staff.permissions
+    };
   }
 
-  // 6. /api/v1/customers/me/kyc
+  // 6. /api/v1/customers/me (Strict Customer Data Isolation)
+  if (endpoint === '/api/v1/customers/me' && method === 'GET') {
+    const currentCustId = getAuthenticatedCustomerId(db);
+    const customer = db.customers.find(c => c.customerId === currentCustId);
+    if (!customer) {
+      return db.customers[0];
+    }
+    return customer;
+  }
+
+  // 7. /api/v1/customers/me/kyc
   if (endpoint === '/api/v1/customers/me/kyc') {
+    const currentCustId = getAuthenticatedCustomerId(db);
     if (method === 'GET') {
-      const kyc = db.kycApplications.find(k => k.customerId === 'CUS-100234') || db.kycApplications[0];
-      return kyc;
+      const kyc = db.kycApplications.find(k => k.customerId === currentCustId);
+      return kyc || { customerId: currentCustId, status: 'NOT_STARTED' };
     }
     if (method === 'POST') {
       const newKycCase = {
         kycCaseId: 'KYC-' + Math.floor(500000 + Math.random() * 500000),
-        customerId: 'CUS-100234',
-        fullName: body.fullName || 'Vikramaditya Sharma',
+        customerId: currentCustId,
+        fullName: body.fullName || 'Customer User',
         status: 'SUBMITTED',
         riskCategory: 'UNASSESSED',
         occupation: body.occupation || 'SALARIED',
@@ -662,20 +954,22 @@ const handleLocalFallback = (endpoint, options = {}) => {
         documents: body.documentReferences || []
       };
       db.kycApplications.unshift(newKycCase);
-      // update customer profile
-      db.customers[0].kycStatus = 'SUBMITTED';
+      const cust = db.customers.find(c => c.customerId === currentCustId);
+      if (cust) {
+        cust.kycStatus = 'SUBMITTED';
+      }
       saveDb(db);
-      appendAuditLog('CUS-100234', 'CUSTOMER', 'KYC_SUBMITTED', newKycCase.kycCaseId, 'SUCCESS', 'Customer submitted digital KYC');
+      appendAuditLog(currentCustId, 'CUSTOMER', 'KYC_SUBMITTED', newKycCase.kycCaseId, 'SUCCESS', 'Customer submitted digital KYC');
       return {
         kycCaseId: newKycCase.kycCaseId,
-        customerId: 'CUS-100234',
+        customerId: currentCustId,
         status: 'SUBMITTED',
         estimatedCompletionTime: new Date(Date.now() + 72 * 3600 * 1000).toISOString()
       };
     }
   }
 
-  // 7. /api/v1/customers/me/kyc/documents
+  // 8. /api/v1/customers/me/kyc/documents
   if (endpoint === '/api/v1/customers/me/kyc/documents' && method === 'POST') {
     const docRef = 'doc-' + Math.floor(100 + Math.random() * 900);
     return {
@@ -686,17 +980,35 @@ const handleLocalFallback = (endpoint, options = {}) => {
     };
   }
 
-  // 8. /api/v1/accounts
+  // 9. /api/v1/accounts (Strict Customer Data Isolation)
   if (endpoint === '/api/v1/accounts') {
+    const currentCustId = getAuthenticatedCustomerId(db);
     if (method === 'GET') {
-      return { data: db.accounts };
+      const customerAccounts = db.accounts.filter(a => a.customerId === currentCustId);
+      return { data: customerAccounts };
     }
     if (method === 'POST') {
+      // Duplicate application prevention
+      const existingPending = db.accountApplications.find(a => 
+        a.customerId === currentCustId && 
+        a.productCode === body.productCode && 
+        ['UNDER_REVIEW', 'PENDING_APPROVAL', 'SUBMITTED'].includes(a.status)
+      );
+      if (existingPending) {
+        throw {
+          status: 409,
+          code: 'DUPLICATE_APPLICATION',
+          title: 'Application Already In Progress',
+          detail: `An active application (${existingPending.accountApplicationId}) for this account product is currently under review.`
+        };
+      }
+
       const newAppId = 'ACC-APP-' + Math.floor(900000 + Math.random() * 100000);
+      const cust = db.customers.find(c => c.customerId === currentCustId);
       const newApp = {
         accountApplicationId: newAppId,
-        customerId: 'CUS-100234',
-        customerName: 'Vikramaditya Sharma',
+        customerId: currentCustId,
+        customerName: cust?.fullName || 'Customer',
         productCode: body.productCode || 'SAVINGS_REGULAR',
         productName: body.productCode === 'CURRENT_BUSINESS' ? 'BRAVO Business Current Account' : 'FIRST High-Yield Savings Account',
         initialFundingAmount: body.initialFundingAmount || 10000.00,
@@ -706,10 +1018,10 @@ const handleLocalFallback = (endpoint, options = {}) => {
       };
       db.accountApplications.unshift(newApp);
       saveDb(db);
-      appendAuditLog('CUS-100234', 'CUSTOMER', 'ACCOUNT_APPLICATION_SUBMITTED', newAppId, 'SUCCESS', `Applied for ${newApp.productName}`);
+      appendAuditLog(currentCustId, 'CUSTOMER', 'ACCOUNT_APPLICATION_SUBMITTED', newAppId, 'SUCCESS', `Applied for ${newApp.productName}`);
       return {
         accountApplicationId: newAppId,
-        customerId: 'CUS-100234',
+        customerId: currentCustId,
         productCode: newApp.productCode,
         status: 'PENDING_APPROVAL',
         estimatedCompletionTime: new Date(Date.now() + 48 * 3600 * 1000).toISOString()
@@ -717,42 +1029,90 @@ const handleLocalFallback = (endpoint, options = {}) => {
     }
   }
 
-  // 9. /api/v1/accounts/{accountId}
+  // 10. /api/v1/accounts/{accountId} (Cross-Customer Access Protection)
   const accountMatch = endpoint.match(/\/api\/v1\/accounts\/([^/]+)$/);
   if (accountMatch && method === 'GET') {
-    const acc = db.accounts.find(a => a.accountId === accountMatch[1]) || db.accounts[0];
+    const currentCustId = getAuthenticatedCustomerId(db);
+    const acc = db.accounts.find(a => a.accountId === accountMatch[1]);
+    if (!acc) {
+      throw {
+        status: 404,
+        code: 'ACCOUNT_NOT_FOUND',
+        title: 'Account Not Found',
+        detail: `No bank account exists with ID ${accountMatch[1]}.`
+      };
+    }
+    if (acc.customerId !== currentCustId) {
+      throw {
+        status: 403,
+        code: 'FORBIDDEN_RESOURCE',
+        title: 'Access Denied',
+        detail: 'Unauthorized cross-customer access attempt blocked by security policy.'
+      };
+    }
     return acc;
   }
 
-  // 10. /api/v1/accounts/{accountId}/transactions
+  // 11. /api/v1/accounts/{accountId}/transactions (Cross-Customer Protection)
   const txnMatch = endpoint.match(/\/api\/v1\/accounts\/([^/]+)\/transactions/);
   if (txnMatch && method === 'GET') {
-    const accTxns = db.transactions.filter(t => t.accountId === txnMatch[1]);
+    const currentCustId = getAuthenticatedCustomerId(db);
+    const acc = db.accounts.find(a => a.accountId === txnMatch[1]);
+    if (!acc) {
+      throw {
+        status: 404,
+        code: 'ACCOUNT_NOT_FOUND',
+        title: 'Account Not Found',
+        detail: `Account ${txnMatch[1]} does not exist.`
+      };
+    }
+    if (acc.customerId !== currentCustId) {
+      throw {
+        status: 403,
+        code: 'FORBIDDEN_RESOURCE',
+        title: 'Access Denied',
+        detail: 'Unauthorized cross-customer ledger access blocked.'
+      };
+    }
+    const accTxns = db.transactions.filter(t => t.accountId === acc.accountId);
     return {
-      data: accTxns.length ? accTxns : db.transactions,
-      pagination: {
-        nextCursor: null,
-        hasMore: false,
-        limit: 50
-      }
+      data: accTxns,
+      pagination: { nextCursor: null, hasMore: false, limit: 50 }
     };
   }
 
-  // 11. /api/v1/payments/transfers
+  // 12. /api/v1/payments/transfers
   if (endpoint === '/api/v1/payments/transfers' && method === 'POST') {
-    const debitAcc = db.accounts.find(a => a.accountId === body.debitAccountId) || db.accounts[0];
+    const currentCustId = getAuthenticatedCustomerId(db);
+    const debitAcc = db.accounts.find(a => a.accountId === body.debitAccountId && a.customerId === currentCustId);
+    if (!debitAcc) {
+      throw {
+        status: 403,
+        code: 'INVALID_DEBIT_ACCOUNT',
+        title: 'Debit Account Forbidden',
+        detail: 'Selected debit account does not belong to the authenticated customer.'
+      };
+    }
+
     const amount = Number(body.amount);
+    if (!amount || amount <= 0) {
+      throw {
+        status: 422,
+        code: 'INVALID_AMOUNT',
+        title: 'Validation Failed',
+        detail: 'Transfer amount must be greater than zero.'
+      };
+    }
 
     if (debitAcc.balance.availableBalance < amount) {
       throw {
         status: 422,
         code: 'INSUFFICIENT_BALANCE',
-        title: 'Business rule violation',
-        detail: `The transfer amount ₹${amount.toLocaleString()} exceeds available balance ₹${debitAcc.balance.availableBalance.toLocaleString()}.`
+        title: 'Business Rule Violation',
+        detail: `Transfer amount ₹${amount.toLocaleString()} exceeds available balance ₹${debitAcc.balance.availableBalance.toLocaleString()}.`
       };
     }
 
-    // Deduct balance
     debitAcc.balance.availableBalance -= amount;
     debitAcc.balance.ledgerBalance -= amount;
 
@@ -774,9 +1134,9 @@ const handleLocalFallback = (endpoint, options = {}) => {
     };
     db.transactions.unshift(newTxn);
 
-    // Push notification
     db.notifications.unshift({
       notificationId: 'NOT-' + Math.floor(100000 + Math.random() * 900000),
+      customerId: currentCustId,
       templateCode: 'PAYMENT_SUCCESS',
       channel: 'IN_APP',
       title: 'Transfer Executed',
@@ -786,7 +1146,7 @@ const handleLocalFallback = (endpoint, options = {}) => {
     });
 
     saveDb(db);
-    appendAuditLog('CUS-100234', 'CUSTOMER', 'PAYMENT_TRANSFER_SUCCESS', paymentId, 'SUCCESS', `Transferred ₹${amount} via ${body.transferMode || 'IMPS'}`);
+    appendAuditLog(currentCustId, 'CUSTOMER', 'PAYMENT_TRANSFER_SUCCESS', paymentId, 'SUCCESS', `Transferred ₹${amount} via ${body.transferMode || 'IMPS'}`);
 
     return {
       paymentId,
@@ -800,20 +1160,38 @@ const handleLocalFallback = (endpoint, options = {}) => {
     };
   }
 
-  // 12. /api/v1/cards
+  // 13. /api/v1/cards (Strict Customer Data Isolation)
   if (endpoint === '/api/v1/cards') {
+    const currentCustId = getAuthenticatedCustomerId(db);
     if (method === 'GET') {
-      return { data: db.cards };
+      const customerCards = db.cards.filter(c => c.customerId === currentCustId);
+      return { data: customerCards };
     }
   }
 
-  // 13. /api/v1/cards/applications
+  // 14. /api/v1/cards/applications
   if (endpoint === '/api/v1/cards/applications' && method === 'POST') {
+    const currentCustId = getAuthenticatedCustomerId(db);
+    const existingCardApp = db.cardApplications.find(c => 
+      c.customerId === currentCustId && 
+      c.cardType === body.cardType && 
+      ['UNDER_REVIEW', 'PENDING_APPROVAL'].includes(c.status)
+    );
+    if (existingCardApp) {
+      throw {
+        status: 409,
+        code: 'DUPLICATE_APPLICATION',
+        title: 'Application Already Pending',
+        detail: `An active application (${existingCardApp.cardApplicationId}) for this card product is currently under review.`
+      };
+    }
+
+    const cust = db.customers.find(c => c.customerId === currentCustId);
     const newCardAppId = 'CARD-APP-' + Math.floor(400000 + Math.random() * 100000);
     const newCardApp = {
       cardApplicationId: newCardAppId,
-      customerId: 'CUS-100234',
-      customerName: 'Vikramaditya Sharma',
+      customerId: currentCustId,
+      customerName: cust?.fullName || 'Customer',
       cardType: body.cardType || 'METAL_CREDIT',
       cardName: body.cardName || 'FinEdge Ashva Metal Card',
       linkedAccountId: body.linkedAccountId || 'ACC-1001',
@@ -822,7 +1200,7 @@ const handleLocalFallback = (endpoint, options = {}) => {
     };
     db.cardApplications.unshift(newCardApp);
     saveDb(db);
-    appendAuditLog('CUS-100234', 'CUSTOMER', 'CARD_APPLICATION_SUBMITTED', newCardAppId, 'SUCCESS', `Applied for ${newCardApp.cardName}`);
+    appendAuditLog(currentCustId, 'CUSTOMER', 'CARD_APPLICATION_SUBMITTED', newCardAppId, 'SUCCESS', `Applied for ${newCardApp.cardName}`);
     return {
       cardApplicationId: newCardAppId,
       cardType: body.cardType,
@@ -831,48 +1209,82 @@ const handleLocalFallback = (endpoint, options = {}) => {
     };
   }
 
-  // 14. /api/v1/cards/{cardId}/block
+  // 15. /api/v1/cards/{cardId}/block (Customer Ownership Check)
   const blockCardMatch = endpoint.match(/\/api\/v1\/cards\/([^/]+)\/block/);
   if (blockCardMatch && method === 'POST') {
+    const currentCustId = getAuthenticatedCustomerId(db);
     const card = db.cards.find(c => c.cardId === blockCardMatch[1]);
-    if (card) {
-      card.status = 'BLOCKED';
-      card.blockedAt = new Date().toISOString();
-      card.reason = body.reason || 'CUSTOMER_REQUEST';
-      saveDb(db);
-      appendAuditLog('CUS-100234', 'CUSTOMER', 'CARD_BLOCKED', card.cardId, 'SUCCESS', `Card permanently blocked due to: ${body.reason}`);
-      return {
-        cardId: card.cardId,
-        status: 'BLOCKED',
-        blockedAt: card.blockedAt,
-        reason: card.reason
+    if (!card) {
+      throw {
+        status: 404,
+        code: 'CARD_NOT_FOUND',
+        title: 'Card Not Found',
+        detail: `No payment card found with ID ${blockCardMatch[1]}.`
       };
     }
+    if (card.customerId !== currentCustId) {
+      throw {
+        status: 403,
+        code: 'FORBIDDEN_RESOURCE',
+        title: 'Access Denied',
+        detail: 'Unauthorized cross-customer card modification blocked.'
+      };
+    }
+    card.status = 'BLOCKED';
+    card.blockedAt = new Date().toISOString();
+    card.reason = body.reason || 'CUSTOMER_REQUEST';
+    saveDb(db);
+    appendAuditLog(currentCustId, 'CUSTOMER', 'CARD_BLOCKED', card.cardId, 'SUCCESS', `Card permanently blocked due to: ${body.reason}`);
+    return {
+      cardId: card.cardId,
+      status: 'BLOCKED',
+      blockedAt: card.blockedAt,
+      reason: card.reason
+    };
   }
 
-  // 15. /api/v1/cards/{cardId}/controls
+  // 16. /api/v1/cards/{cardId}/controls (Customer Ownership Check)
   const controlsMatch = endpoint.match(/\/api\/v1\/cards\/([^/]+)\/controls/);
   if (controlsMatch && (method === 'PUT' || method === 'POST')) {
+    const currentCustId = getAuthenticatedCustomerId(db);
     const card = db.cards.find(c => c.cardId === controlsMatch[1]);
-    if (card) {
-      card.controls = { ...card.controls, ...body };
-      saveDb(db);
-      return { cardId: card.cardId, controls: card.controls };
+    if (!card) {
+      throw {
+        status: 404,
+        code: 'CARD_NOT_FOUND',
+        title: 'Card Not Found',
+        detail: `No payment card found with ID ${controlsMatch[1]}.`
+      };
     }
+    if (card.customerId !== currentCustId) {
+      throw {
+        status: 403,
+        code: 'FORBIDDEN_RESOURCE',
+        title: 'Access Denied',
+        detail: 'Unauthorized cross-customer card control update blocked.'
+      };
+    }
+    card.controls = { ...card.controls, ...body };
+    saveDb(db);
+    return { cardId: card.cardId, controls: card.controls };
   }
 
-  // 16. /api/v1/notifications
+  // 17. /api/v1/notifications
   if (endpoint.startsWith('/api/v1/notifications')) {
+    const currentCustId = getAuthenticatedCustomerId(db);
+    const userNotifs = db.notifications.filter(n => !n.customerId || n.customerId === currentCustId);
     return {
-      data: db.notifications,
+      data: userNotifs,
       pagination: { nextCursor: null, hasMore: false, limit: 20 }
     };
   }
 
-  // 17. /api/v1/support/tickets
+  // 18. /api/v1/support/tickets
   if (endpoint === '/api/v1/support/tickets' && method === 'POST') {
+    const currentCustId = getAuthenticatedCustomerId(db);
     const newTicket = {
       ticketId: 'TCK-' + Math.floor(700000 + Math.random() * 100000),
+      customerId: currentCustId,
       status: 'OPEN',
       category: body.category || 'GENERAL_QUERY',
       subject: body.subject,
@@ -885,155 +1297,199 @@ const handleLocalFallback = (endpoint, options = {}) => {
   }
 
   // ==========================================================================
-  // MANAGER OPERATIONS (ops/api/v1 and admin/api/v1)
+  // MANAGER OPERATIONS (ops/api/v1 and admin/api/v1) WITH RBAC ENFORCEMENT
   // ==========================================================================
 
-  // Ops: Approve KYC
-  const opsApproveKycMatch = endpoint.match(/\/ops\/api\/v1\/kyc\/([^/]+)\/approve/);
-  if (opsApproveKycMatch && method === 'POST') {
-    const kyc = db.kycApplications.find(k => k.kycCaseId === opsApproveKycMatch[1]);
-    if (kyc) {
-      kyc.status = 'APPROVED';
-      kyc.riskCategory = body.riskCategory || 'LOW';
-      kyc.approvedBy = 'manager@finedge.bank';
-      kyc.approvedAt = new Date().toISOString();
-
-      const cust = db.customers.find(c => c.customerId === kyc.customerId);
-      if (cust) {
-        cust.kycStatus = 'APPROVED';
-        cust.riskCategory = kyc.riskCategory;
-      }
-      saveDb(db);
-      appendAuditLog('manager@finedge.bank', 'BANK_MANAGER', 'KYC_APPROVED', kyc.kycCaseId, 'SUCCESS', `Approved with remarks: ${body.remarks}`);
-      return {
-        kycCaseId: kyc.kycCaseId,
-        customerId: kyc.customerId,
-        status: 'APPROVED',
-        riskCategory: kyc.riskCategory,
-        approvedBy: 'manager@finedge.bank',
-        approvedAt: kyc.approvedAt
-      };
-    }
-  }
-
-  // Ops: Reject KYC
-  const opsRejectKycMatch = endpoint.match(/\/ops\/api\/v1\/kyc\/([^/]+)\/reject/);
-  if (opsRejectKycMatch && method === 'POST') {
-    const kyc = db.kycApplications.find(k => k.kycCaseId === opsRejectKycMatch[1]);
-    if (kyc) {
-      kyc.status = 'REJECTED';
-      kyc.rejectedBy = 'manager@finedge.bank';
-      kyc.rejectedAt = new Date().toISOString();
-
-      const cust = db.customers.find(c => c.customerId === kyc.customerId);
-      if (cust) {
-        cust.kycStatus = 'REJECTED';
-      }
-      saveDb(db);
-      appendAuditLog('manager@finedge.bank', 'BANK_MANAGER', 'KYC_REJECTED', kyc.kycCaseId, 'SUCCESS', `Rejected with remarks: ${body.remarks}`);
-      return {
-        kycCaseId: kyc.kycCaseId,
-        customerId: kyc.customerId,
-        status: 'REJECTED',
-        riskCategory: kyc.riskCategory,
-        approvedBy: 'manager@finedge.bank',
-        approvedAt: kyc.rejectedAt
-      };
-    }
-  }
-
-  // Ops: List KYC Applications
+  // Ops: List KYC Applications (requires kyc.read)
   if (endpoint === '/ops/api/v1/kyc/applications' && method === 'GET') {
+    verifyStaffPermission(db, 'kyc.read', options);
     return db.kycApplications;
   }
 
-  // Ops: Account Applications
+  // Ops: Approve KYC (requires kyc.approve)
+  const opsApproveKycMatch = endpoint.match(/\/ops\/api\/v1\/kyc\/([^/]+)\/approve/);
+  if (opsApproveKycMatch && method === 'POST') {
+    const staff = verifyStaffPermission(db, 'kyc.approve', options);
+    const kyc = db.kycApplications.find(k => k.kycCaseId === opsApproveKycMatch[1]);
+    if (!kyc) {
+      throw { status: 404, code: 'KYC_NOT_FOUND', detail: 'KYC case not found.' };
+    }
+    kyc.status = 'APPROVED';
+    kyc.riskCategory = body.riskCategory || 'LOW';
+    kyc.approvedBy = staff.email;
+    kyc.approvedAt = new Date().toISOString();
+
+    const cust = db.customers.find(c => c.customerId === kyc.customerId);
+    if (cust) {
+      cust.kycStatus = 'APPROVED';
+      cust.riskCategory = kyc.riskCategory;
+    }
+    saveDb(db);
+    appendAuditLog(staff.email, staff.role, 'KYC_APPROVED', kyc.kycCaseId, 'SUCCESS', `Approved with remarks: ${body.remarks}`);
+    return {
+      kycCaseId: kyc.kycCaseId,
+      customerId: kyc.customerId,
+      status: 'APPROVED',
+      riskCategory: kyc.riskCategory,
+      approvedBy: staff.email,
+      approvedAt: kyc.approvedAt
+    };
+  }
+
+  // Ops: Reject KYC (requires kyc.review or kyc.approve)
+  const opsRejectKycMatch = endpoint.match(/\/ops\/api\/v1\/kyc\/([^/]+)\/reject/);
+  if (opsRejectKycMatch && method === 'POST') {
+    const staff = verifyStaffPermission(db, 'kyc.review', options);
+    const kyc = db.kycApplications.find(k => k.kycCaseId === opsRejectKycMatch[1]);
+    if (!kyc) {
+      throw { status: 404, code: 'KYC_NOT_FOUND', detail: 'KYC case not found.' };
+    }
+    kyc.status = 'REJECTED';
+    kyc.rejectedBy = staff.email;
+    kyc.rejectedAt = new Date().toISOString();
+
+    const cust = db.customers.find(c => c.customerId === kyc.customerId);
+    if (cust) {
+      cust.kycStatus = 'REJECTED';
+    }
+    saveDb(db);
+    appendAuditLog(staff.email, staff.role, 'KYC_REJECTED', kyc.kycCaseId, 'SUCCESS', `Rejected with remarks: ${body.remarks}`);
+    return {
+      kycCaseId: kyc.kycCaseId,
+      customerId: kyc.customerId,
+      status: 'REJECTED',
+      riskCategory: kyc.riskCategory,
+      approvedBy: staff.email,
+      approvedAt: kyc.rejectedAt
+    };
+  }
+
+  // Ops: Account Applications List (requires accounts.read or accounts.review)
   if (endpoint === '/ops/api/v1/accounts/applications' && method === 'GET') {
+    verifyStaffPermission(db, 'accounts.read', options);
     return db.accountApplications;
   }
 
+  // Ops: Account Application Approve (requires accounts.approve)
   const opsApproveAccountMatch = endpoint.match(/\/ops\/api\/v1\/accounts\/applications\/([^/]+)\/approve/);
   if (opsApproveAccountMatch && method === 'POST') {
+    const staff = verifyStaffPermission(db, 'accounts.approve', options);
     const app = db.accountApplications.find(a => a.accountApplicationId === opsApproveAccountMatch[1]);
-    if (app) {
-      app.status = 'APPROVED';
-      app.approvedAt = new Date().toISOString();
-      const generatedAccId = 'ACC-' + Math.floor(1003 + Math.random() * 8000);
-      const generatedNumber = Math.floor(1000 + Math.random() * 9000);
-
-      // Materialize live active account in customer accounts
-      db.accounts.push({
-        accountId: generatedAccId,
-        accountNumber: `************${generatedNumber}`,
-        rawAccountNumber: `9820110000${generatedNumber}`,
-        accountType: app.productCode.includes('CURRENT') ? 'CURRENT' : 'SAVINGS',
-        productCode: app.productCode,
-        productName: app.productName,
-        customerId: app.customerId,
-        status: 'ACTIVE',
-        currency: 'INR',
-        openedAt: new Date().toISOString(),
-        interestRate: app.productCode.includes('CURRENT') ? 0 : 7.00,
-        balance: {
-          ledgerBalance: Number(app.initialFundingAmount) || 10000,
-          availableBalance: Number(app.initialFundingAmount) || 10000,
-          holdBalance: 0,
-          currency: 'INR'
-        }
-      });
-      saveDb(db);
-      appendAuditLog('manager@finedge.bank', 'BANK_MANAGER', 'ACCOUNT_APPLICATION_APPROVED', app.accountApplicationId, 'SUCCESS', `Activated new account ${generatedAccId}`);
-      return { success: true, accountApplicationId: app.accountApplicationId, accountId: generatedAccId };
+    if (!app) {
+      throw { status: 404, code: 'APPLICATION_NOT_FOUND', detail: 'Account application not found.' };
     }
+
+    if (app.status === 'APPROVED') {
+      throw {
+        status: 409,
+        code: 'APPLICATION_ALREADY_APPROVED',
+        title: 'Duplicate Approval Prohibited',
+        detail: `Application ${app.accountApplicationId} has already been approved. Duplicate account creation prevented.`
+      };
+    }
+
+    app.status = 'APPROVED';
+    app.approvedAt = new Date().toISOString();
+    const generatedAccId = 'ACC-' + Math.floor(1003 + Math.random() * 8000);
+    const generatedNumber = Math.floor(1000 + Math.random() * 9000);
+
+    db.accounts.push({
+      accountId: generatedAccId,
+      accountNumber: `************${generatedNumber}`,
+      rawAccountNumber: `9820110000${generatedNumber}`,
+      accountType: app.productCode.includes('CURRENT') ? 'CURRENT' : 'SAVINGS',
+      productCode: app.productCode,
+      productName: app.productName,
+      customerId: app.customerId,
+      status: 'ACTIVE',
+      currency: 'INR',
+      openedAt: new Date().toISOString(),
+      interestRate: app.productCode.includes('CURRENT') ? 0 : 7.00,
+      balance: {
+        ledgerBalance: Number(app.initialFundingAmount) || 10000,
+        availableBalance: Number(app.initialFundingAmount) || 10000,
+        holdBalance: 0,
+        currency: 'INR'
+      }
+    });
+
+    saveDb(db);
+    appendAuditLog(staff.email, staff.role, 'ACCOUNT_APPLICATION_APPROVED', app.accountApplicationId, 'SUCCESS', `Activated new account ${generatedAccId} for ${app.customerId}`);
+    return { success: true, accountApplicationId: app.accountApplicationId, accountId: generatedAccId };
   }
 
-  // Ops: Card Applications
+  // Ops: Card Applications List (requires cards.read or cards.review)
   if (endpoint === '/ops/api/v1/cards/applications' && method === 'GET') {
+    verifyStaffPermission(db, 'cards.read', options);
     return db.cardApplications;
   }
 
+  // Ops: Card Application Approve (requires cards.approve)
   const opsApproveCardMatch = endpoint.match(/\/ops\/api\/v1\/cards\/applications\/([^/]+)\/approve/);
   if (opsApproveCardMatch && method === 'POST') {
+    const staff = verifyStaffPermission(db, 'cards.approve', options);
     const cardApp = db.cardApplications.find(c => c.cardApplicationId === opsApproveCardMatch[1]);
-    if (cardApp) {
-      cardApp.status = 'APPROVED';
-      const newCardId = 'CARD-' + Math.floor(3003 + Math.random() * 6000);
-      const cardNum = Math.floor(1000 + Math.random() * 9000);
-
-      db.cards.push({
-        cardId: newCardId,
-        cardType: cardApp.cardType,
-        cardName: cardApp.cardName,
-        maskedCardNumber: `************${cardNum}`,
-        expiryMonth: 10,
-        expiryYear: 2031,
-        status: 'ACTIVE',
-        linkedAccountId: cardApp.linkedAccountId || 'ACC-1001',
-        customerId: cardApp.customerId,
-        controls: {
-          onlineEnabled: true,
-          internationalEnabled: true,
-          contactlessEnabled: true,
-          atmWithdrawalEnabled: true,
-          dailyLimit: 50000.00
-        }
-      });
-      saveDb(db);
-      appendAuditLog('manager@finedge.bank', 'BANK_MANAGER', 'CARD_APPLICATION_APPROVED', cardApp.cardApplicationId, 'SUCCESS', `Issued new card ${newCardId}`);
-      return { success: true, cardApplicationId: cardApp.cardApplicationId, cardId: newCardId };
+    if (!cardApp) {
+      throw { status: 404, code: 'APPLICATION_NOT_FOUND', detail: 'Card application not found.' };
     }
+
+    if (cardApp.status === 'APPROVED') {
+      throw {
+        status: 409,
+        code: 'CARD_ALREADY_ISSUED',
+        title: 'Duplicate Issuance Prohibited',
+        detail: `Card application ${cardApp.cardApplicationId} has already been approved and card issued.`
+      };
+    }
+
+    cardApp.status = 'APPROVED';
+    const newCardId = 'CARD-' + Math.floor(3003 + Math.random() * 6000);
+    const cardNum = Math.floor(1000 + Math.random() * 9000);
+
+    db.cards.push({
+      cardId: newCardId,
+      cardType: cardApp.cardType,
+      cardName: cardApp.cardName,
+      maskedCardNumber: `************${cardNum}`,
+      expiryMonth: 10,
+      expiryYear: 2031,
+      status: 'ACTIVE',
+      linkedAccountId: cardApp.linkedAccountId || 'ACC-1001',
+      customerId: cardApp.customerId,
+      controls: {
+        onlineEnabled: true,
+        internationalEnabled: true,
+        contactlessEnabled: true,
+        atmWithdrawalEnabled: true,
+        dailyLimit: 50000.00
+      }
+    });
+
+    saveDb(db);
+    appendAuditLog(staff.email, staff.role, 'CARD_APPLICATION_APPROVED', cardApp.cardApplicationId, 'SUCCESS', `Issued new card ${newCardId} for ${cardApp.customerId}`);
+    return { success: true, cardApplicationId: cardApp.cardApplicationId, cardId: newCardId };
   }
 
-  // Manager: Staff Management
+  // Manager: Customer Directory (requires customers.read)
+  if (endpoint === '/admin/api/v1/customers' && method === 'GET') {
+    verifyStaffPermission(db, 'customers.read', options);
+    return db.customers;
+  }
+
+  // Manager: Staff List (requires staff.read)
   if (endpoint === '/admin/api/v1/staff' && method === 'GET') {
+    verifyStaffPermission(db, 'staff.read', options);
     return db.staffUsers;
   }
 
+  // Manager: Create Staff User (requires staff.create)
   if (endpoint === '/admin/api/v1/staff' && method === 'POST') {
+    const staff = verifyStaffPermission(db, 'staff.create', options);
     const newStaff = {
       staffId: 'STF-00' + (db.staffUsers.length + 1),
       fullName: body.fullName,
       email: body.email,
+      password: body.password || 'Manager@2026',
       role: body.role || 'KYC_OFFICER',
       roleTitle: body.roleTitle || 'Operations Specialist',
       department: body.department || 'Operations',
@@ -1043,17 +1499,47 @@ const handleLocalFallback = (endpoint, options = {}) => {
     };
     db.staffUsers.push(newStaff);
     saveDb(db);
-    appendAuditLog('manager@finedge.bank', 'BANK_MANAGER', 'STAFF_USER_CREATED', newStaff.staffId, 'SUCCESS', `Created internal staff user ${newStaff.email}`);
+    appendAuditLog(staff.email, staff.role, 'STAFF_USER_CREATED', newStaff.staffId, 'SUCCESS', `Created internal staff user ${newStaff.email}`);
     return newStaff;
   }
 
-  // Manager: Audit Logs
+  // Manager: Update Staff Permissions (requires roles.manage or permissions.assign)
+  const staffPermMatch = endpoint.match(/\/admin\/api\/v1\/staff\/([^/]+)\/permissions/);
+  if (staffPermMatch && (method === 'PUT' || method === 'POST')) {
+    const staff = verifyStaffPermission(db, 'roles.manage', options);
+    const targetStaff = db.staffUsers.find(s => s.staffId === staffPermMatch[1]);
+    if (!targetStaff) {
+      throw { status: 404, code: 'STAFF_NOT_FOUND', detail: 'Staff member not found.' };
+    }
+    targetStaff.permissions = body.permissions || [];
+    saveDb(db);
+    appendAuditLog(staff.email, staff.role, 'STAFF_PERMISSIONS_UPDATED', targetStaff.staffId, 'SUCCESS', `Updated permissions to ${targetStaff.permissions.length} items`);
+    return targetStaff;
+  }
+
+  // Manager: Toggle Staff Account Status (requires staff.update)
+  const staffStatusMatch = endpoint.match(/\/admin\/api\/v1\/staff\/([^/]+)\/status/);
+  if (staffStatusMatch && (method === 'PUT' || method === 'POST')) {
+    const staff = verifyStaffPermission(db, 'staff.update', options);
+    const targetStaff = db.staffUsers.find(s => s.staffId === staffStatusMatch[1]);
+    if (!targetStaff) {
+      throw { status: 404, code: 'STAFF_NOT_FOUND', detail: 'Staff member not found.' };
+    }
+    targetStaff.status = body.status === 'DISABLED' ? 'DISABLED' : 'ACTIVE';
+    saveDb(db);
+    appendAuditLog(staff.email, staff.role, 'STAFF_STATUS_UPDATED', targetStaff.staffId, 'SUCCESS', `Status changed to ${targetStaff.status}`);
+    return targetStaff;
+  }
+
+  // Manager: Audit Logs (requires audit.read)
   if (endpoint === '/admin/api/v1/audit-logs' && method === 'GET') {
+    verifyStaffPermission(db, 'audit.read', options);
     return db.auditLogs;
   }
 
-  // Manager: Metrics
+  // Manager: Metrics (requires any staff access)
   if (endpoint === '/admin/api/v1/metrics' && method === 'GET') {
+    verifyStaffPermission(db, null, options);
     return {
       totalCustomers: db.customers.length,
       pendingKycCount: db.kycApplications.filter(k => k.status === 'UNDER_REVIEW' || k.status === 'SUBMITTED').length,

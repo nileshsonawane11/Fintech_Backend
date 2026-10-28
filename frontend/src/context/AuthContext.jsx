@@ -60,10 +60,14 @@ export const AuthProvider = ({ children }) => {
       const cardList = cardsData?.data || cardsData || [];
       setCards(cardList);
 
-      // Load persistent applications
+      // Load persistent applications isolated to this customer
       const db = getDb();
+      const currentCustId = user?.customerId;
+      const filteredAccApps = (db.accountApplications || []).filter(a => !currentCustId || a.customerId === currentCustId);
+      const filteredCardApps = (db.cardApplications || []).filter(c => !currentCustId || c.customerId === currentCustId);
+
       const combinedApps = [
-        ...(db.accountApplications || []).map(a => ({
+        ...filteredAccApps.map(a => ({
           id: a.accountApplicationId,
           productType: 'Account',
           productName: a.productName,
@@ -77,7 +81,7 @@ export const AuthProvider = ({ children }) => {
             { name: 'Account Activation', completed: a.status === 'APPROVED', date: a.status === 'APPROVED' ? 'Active' : 'Pending' }
           ]
         })),
-        ...(db.cardApplications || []).map(c => ({
+        ...filteredCardApps.map(c => ({
           id: c.cardApplicationId,
           productType: 'Card',
           productName: c.cardName,
@@ -101,9 +105,13 @@ export const AuthProvider = ({ children }) => {
   useEffect(() => {
     if (user) {
       localStorage.setItem('finedge_demo_user', JSON.stringify(user));
+      if (user.customerId) {
+        localStorage.setItem('finedge_session_customer_id', user.customerId);
+      }
       refreshCustomerData();
     } else {
       localStorage.removeItem('finedge_demo_user');
+      localStorage.removeItem('finedge_session_customer_id');
       setAccounts([]);
       setCards([]);
       setProfile(null);
@@ -126,12 +134,19 @@ export const AuthProvider = ({ children }) => {
       if (res.mfaRequired) {
         return { mfaRequired: true, mfaReferenceId: res.mfaReferenceId };
       }
+      const db = getDb();
+      const matched = db.customers.find(c => 
+        (c.email && c.email.toLowerCase() === identifier.toLowerCase()) || 
+        c.mobileNumber === identifier || 
+        c.customerId === res.customerId
+      ) || db.customers[0];
+
       const initialUser = {
-        name: 'Vikramaditya Sharma',
-        email: identifier.includes('@') ? identifier : 'vikram@example.com',
-        mobile: identifier.includes('@') ? '9876543210' : identifier,
-        customerId: res.customerId || 'CUS-100234',
-        kycStatus: 'APPROVED',
+        name: matched.fullName || 'FinEdge Customer',
+        email: matched.email || identifier,
+        mobile: matched.mobileNumber || identifier,
+        customerId: matched.customerId || res.customerId,
+        kycStatus: matched.kycStatus || 'APPROVED',
         lastLogin: new Date().toLocaleString('en-IN')
       };
       setUser(initialUser);
@@ -146,12 +161,15 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     try {
       const res = await authService.verifyMfa({ mfaReferenceId, otp });
+      const db = getDb();
+      const matched = db.customers.find(c => c.customerId === res.customerId) || db.customers[0];
+
       const initialUser = {
-        name: 'Vikramaditya Sharma',
-        email: 'vikram@example.com',
-        mobile: '9876543210',
-        customerId: res.customerId || 'CUS-100234',
-        kycStatus: 'APPROVED',
+        name: matched.fullName || 'FinEdge Customer',
+        email: matched.email || 'customer@example.com',
+        mobile: matched.mobileNumber || '9876543210',
+        customerId: matched.customerId || res.customerId,
+        kycStatus: matched.kycStatus || 'APPROVED',
         lastLogin: new Date().toLocaleString('en-IN')
       };
       setUser(initialUser);

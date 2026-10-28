@@ -116,7 +116,7 @@ export const ManagerPortalPage = () => {
       await loadAllData();
       alert(`KYC Case ${kycCaseId} has been successfully APPROVED.`);
     } catch (e) {
-      alert('Error approving KYC');
+      alert(e.detail || e.message || 'Error approving KYC');
     }
   };
 
@@ -130,7 +130,7 @@ export const ManagerPortalPage = () => {
       await loadAllData();
       alert(`KYC Case ${kycCaseId} has been REJECTED.`);
     } catch (e) {
-      alert('Error rejecting KYC');
+      alert(e.detail || e.message || 'Error rejecting KYC');
     }
   };
 
@@ -141,7 +141,7 @@ export const ManagerPortalPage = () => {
       await loadAllData();
       alert(`Account Application ${appId} Approved! New account created and activated.`);
     } catch (e) {
-      alert('Error approving account');
+      alert(e.detail || e.message || 'Error approving account');
     }
   };
 
@@ -152,7 +152,7 @@ export const ManagerPortalPage = () => {
       await loadAllData();
       alert(`Card Application ${cardAppId} Approved! Card issued and linked.`);
     } catch (e) {
-      alert('Error approving card');
+      alert(e.detail || e.message || 'Error approving card');
     }
   };
 
@@ -175,7 +175,19 @@ export const ManagerPortalPage = () => {
       await loadAllData();
       alert('New staff member provisioned successfully.');
     } catch (e) {
-      alert('Error creating staff user');
+      alert(e.detail || e.message || 'Error creating staff user');
+    }
+  };
+
+  // Toggle Staff Status (Active / Disabled)
+  const handleToggleStaffStatus = async (staffId, currentStatus) => {
+    const newStatus = currentStatus === 'ACTIVE' ? 'DISABLED' : 'ACTIVE';
+    try {
+      await managerService.toggleStaffStatus(staffId, newStatus);
+      await loadAllData();
+      alert(`Staff ${staffId} status updated to ${newStatus}.`);
+    } catch (e) {
+      alert(e.detail || e.message || 'Error updating staff status');
     }
   };
 
@@ -751,6 +763,7 @@ export const ManagerPortalPage = () => {
                     <th className="py-3 px-4">Role Title</th>
                     <th className="py-3 px-4">Status</th>
                     <th className="py-3 px-4">Assigned Permissions</th>
+                    <th className="py-3 px-4 text-right">Action</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-medium">
@@ -766,6 +779,20 @@ export const ManagerPortalPage = () => {
                       </td>
                       <td className="py-3.5 px-4 font-mono text-[11px] text-slate-400">
                         {s.permissions?.length || 0} permissions
+                      </td>
+                      <td className="py-3.5 px-4 text-right">
+                        {s.role !== 'BANK_MANAGER' && (
+                          <button
+                            onClick={() => handleToggleStaffStatus(s.staffId, s.status)}
+                            className={`text-[11px] font-bold px-2.5 py-1 rounded-md transition-colors ${
+                              s.status === 'ACTIVE'
+                                ? 'bg-red-500/10 text-red-400 hover:bg-red-500/20 border border-red-500/30'
+                                : 'bg-green-500/10 text-green-400 hover:bg-green-500/20 border border-green-500/30'
+                            }`}
+                          >
+                            {s.status === 'ACTIVE' ? 'Deactivate' : 'Activate'}
+                          </button>
+                        )}
                       </td>
                     </tr>
                   ))}

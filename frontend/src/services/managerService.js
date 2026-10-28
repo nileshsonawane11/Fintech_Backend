@@ -89,6 +89,14 @@ export const managerService = {
     });
   },
 
+  async toggleStaffStatus(staffId, status) {
+    return apiRequest(`/admin/api/v1/staff/${staffId}/status`, {
+      method: 'PUT',
+      isManager: true,
+      body: JSON.stringify({ status })
+    });
+  },
+
   // Audit Logs
   async getAuditLogs() {
     return apiRequest('/admin/api/v1/audit-logs', { isManager: true });
