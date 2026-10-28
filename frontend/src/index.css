@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+@layer base {
+  :root {
+    --finedge-red: #9D1D27;
+    --finedge-red-hover: #7A1620;
+    --finedge-gold: #C9A227;
+    --finedge-dark: #1C1B1F;
+    --finedge-navy: #25243B;
+    --finedge-slate: #4A4A6A;
+    --finedge-light-slate: #6C757D;
+    --finedge-bg: #F7F8FA;
+    --finedge-border: #E2E5EA;
+  }
+
+  body {
+    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+    color: #25243B;
+    background-color: #F7F8FA;
+    margin: 0;
+    padding: 0;
+    -webkit-font-smoothing: antialiased;
+  }
+}
+
+/* Accessibility settings */
+html.text-size-s {
+  font-size: 13px;
+}
+html.text-size-m {
+  font-size: 14px;
+}
+html.text-size-l {
+  font-size: 16px;
+}
+
+body.letter-spacing-tight {
+  letter-spacing: -0.2px;
+}
+body.letter-spacing-normal {
+  letter-spacing: 0px;
+}
+body.letter-spacing-wide {
+  letter-spacing: 0.8px;
+}
+body.letter-spacing-wider {
+  letter-spacing: 1.5px;
+}
+
+/* Smooth transitions */
+.transition-standard {
+  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
+}
+
+/* Reduced motion support */
+@media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
