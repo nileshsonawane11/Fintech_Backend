@@ -10,13 +10,16 @@ export const AccessibilityBar = () => {
   return (
     <div className="bg-[#F5F5F5] border-b border-[#E2E5EA] py-1 text-xs text-gray-600 transition-standard">
       <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">
-        <div className="hidden sm:flex items-center gap-3 text-[11px] text-gray-500">
-          <span>RBI Licensed Scheduled Commercial Bank</span>
-          <span>•</span>
-          <span className="text-green-700 font-medium">DICGC Insured up to ₹5 Lakhs</span>
-          <span>•</span>
-          <Link to="/manager/login" className="text-amber-700 hover:text-amber-900 font-extrabold flex items-center gap-1">
-            Staff Portal ↗
+        <div className="flex items-center gap-2 sm:gap-3 text-[11px] text-gray-500">
+          <span className="hidden md:inline">RBI Licensed Scheduled Commercial Bank</span>
+          <span className="hidden md:inline">•</span>
+          <span className="hidden sm:inline text-green-700 font-medium">DICGC Insured up to ₹5 Lakhs</span>
+          <span className="hidden sm:inline">•</span>
+          <Link
+            to="/manager/login"
+            className="px-2 py-0.5 rounded bg-[#1C2541] hover:bg-[#0B132B] text-cyan-300 hover:text-white font-bold flex items-center gap-1 border border-[#3A506B]/50 transition-colors"
+          >
+            🛡️ Staff Terminal ↗
           </Link>
         </div>
 

@@ -109,12 +109,18 @@ export const Footer = () => {
                 <span>FinEdge Towers, BKC, Bandra East, Mumbai - 400051</span>
               </div>
 
-              <div className="pt-2">
+              <div className="pt-2 space-y-2">
                 <Link
                   to="/portal/login"
                   className="w-full text-center py-2 px-3 rounded-lg bg-gray-800 hover:bg-gray-700 text-white font-semibold block transition-colors border border-gray-700"
                 >
                   Customer NetBanking
+                </Link>
+                <Link
+                  to="/manager/login"
+                  className="w-full text-center py-2 px-3 rounded-lg bg-[#0B132B] hover:bg-[#1C2541] text-cyan-300 hover:text-white font-semibold block transition-colors border border-[#3A506B]/60 flex items-center justify-center gap-1.5"
+                >
+                  <ShieldCheck className="w-3.5 h-3.5 text-cyan-400" /> Staff & Manager Portal ↗
                 </Link>
               </div>
             </div>
