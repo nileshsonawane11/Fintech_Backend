@@ -19,7 +19,8 @@ export const Button = ({
     outline: 'border border-[#9D1D27] text-[#9D1D27] hover:bg-[#9D1D27] hover:text-white focus:ring-[#9D1D27]',
     outlineWhite: 'border border-white/70 text-white hover:bg-white/10 hover:border-white focus:ring-white',
     ghost: 'text-[#25243B] hover:bg-gray-100 focus:ring-gray-300',
-    white: 'bg-white text-[#9D1D27] hover:bg-gray-50 focus:ring-white shadow-md'
+    white: 'bg-white text-[#9D1D27] hover:bg-gray-50 focus:ring-white shadow-md',
+    whiteDark: 'bg-white text-slate-900 hover:bg-gray-100 focus:ring-white shadow-md'
   };
 
   const sizes = {

@@ -930,7 +930,7 @@ export const HomePage = () => {
 
               <div className="flex items-center gap-4 pt-2">
                 <Link to="/calculators">
-                  <Button variant="outline" className="border-gray-500 text-white hover:bg-white hover:text-black font-bold text-xs py-2.5 px-4 rounded-xl">
+                  <Button variant="outlineWhite" className="border-gray-500 font-bold text-xs py-2.5 px-4 rounded-xl hover:bg-white hover:text-black">
                     <SlidersHorizontal className="w-3.5 h-3.5 mr-1.5 inline-block" />
                     Open Detailed Multi-Product Calculator Suite →
                   </Button>
@@ -1076,8 +1076,13 @@ export const HomePage = () => {
 
               <div className="lg:col-span-4 flex justify-start lg:justify-end">
                 <Link to="/portal/login">
-                  <Button variant="primary" size="lg" className="bg-white hover:bg-gray-100 text-[#1C1B1F] font-bold text-sm px-6 py-3.5 rounded-xl shadow-lg">
-                    Access Support Desk →
+                  <Button 
+                    variant="white" 
+                    size="lg" 
+                    className="font-extrabold text-sm px-7 py-3.5 rounded-xl shadow-xl hover:bg-white text-[#9D1D27] hover:text-[#7A1620] hover:shadow-2xl transition-all transform hover:-translate-y-0.5 group"
+                  >
+                    <span>Access Support Desk</span>
+                    <ArrowRight className="w-4 h-4 ml-2 inline-block text-[#9D1D27] group-hover:translate-x-1 transition-transform" />
                   </Button>
                 </Link>
               </div>
