@@ -130,12 +130,19 @@ export const Footer = () => {
         {/* Bottom Bar: Copyright & Legal */}
         <div className="pt-8 border-t border-gray-800 flex flex-col md:flex-row items-center justify-between text-xs text-gray-500 gap-4">
           <p>© 2026 FinEdge Bank Limited. All Rights Reserved. CIN: L65110MH2014PLC083619</p>
-          <div className="flex flex-wrap gap-4">
+          <div className="flex flex-wrap items-center gap-4">
             <span className="hover:text-gray-300 cursor-pointer">Privacy Policy</span>
             <span className="hover:text-gray-300 cursor-pointer">Terms & Conditions</span>
             <span className="hover:text-gray-300 cursor-pointer">RBI Disclosures</span>
             <span className="hover:text-gray-300 cursor-pointer">Grievance Redressal</span>
             <span className="hover:text-gray-300 cursor-pointer">Fair Practice Code</span>
+            <span className="text-gray-600">•</span>
+            <Link
+              to="/manager/login"
+              className="text-cyan-400 hover:text-cyan-300 font-bold flex items-center gap-1 transition-colors"
+            >
+              <ShieldCheck className="w-3.5 h-3.5" /> Bank Staff / Manager Login
+            </Link>
           </div>
         </div>
       </div>
