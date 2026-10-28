@@ -325,6 +325,12 @@ export const PortalDashboardPage = () => {
             >
               <LogOut className="w-3.5 h-3.5 mr-1" /> Logout
             </Button>
+            <Link
+              to="/manager/login"
+              className="bg-slate-900/90 hover:bg-slate-950 text-cyan-300 border border-cyan-500/40 text-xs py-2 px-3.5 rounded-lg font-bold flex items-center shadow-xs transition-colors"
+            >
+              <ShieldCheck className="w-3.5 h-3.5 mr-1.5 text-cyan-400" /> Staff Portal ↗
+            </Link>
           </div>
         </div>
 
