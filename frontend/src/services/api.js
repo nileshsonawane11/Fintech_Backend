@@ -1498,8 +1498,8 @@ export const handleLocalFallback = (endpoint, options = {}) => {
   }
 
   // 10. /api/v1/accounts/{accountId} (Cross-Customer Access Protection)
-  const accountMatch = endpoint.match(/\/api\/v1\/accounts\/([^/]+)$/);
-  if (accountMatch && method === 'GET') {
+  const accountMatch = endpoint.match(/^\/api\/v1\/accounts\/([^/]+)$/);
+  if (accountMatch && accountMatch[1] !== 'applications' && method === 'GET') {
     const currentCustId = getAuthenticatedCustomerId(db);
     const acc = db.accounts.find(a => a.accountId === accountMatch[1]);
     if (!acc) {
@@ -1522,7 +1522,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
   }
 
   // 11. /api/v1/accounts/{accountId}/transactions (Cross-Customer Protection)
-  const txnMatch = endpoint.match(/\/api\/v1\/accounts\/([^/]+)\/transactions/);
+  const txnMatch = endpoint.match(/^\/api\/v1\/accounts\/([^/]+)\/transactions/);
   if (txnMatch && method === 'GET') {
     const currentCustId = getAuthenticatedCustomerId(db);
     const acc = db.accounts.find(a => a.accountId === txnMatch[1]);
@@ -1678,7 +1678,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
   }
 
   // 15. /api/v1/cards/{cardId}/block (Customer Ownership Check)
-  const blockCardMatch = endpoint.match(/\/api\/v1\/cards\/([^/]+)\/block/);
+  const blockCardMatch = endpoint.match(/^\/api\/v1\/cards\/([^/]+)\/block/);
   if (blockCardMatch && method === 'POST') {
     const currentCustId = getAuthenticatedCustomerId(db);
     const card = db.cards.find(c => c.cardId === blockCardMatch[1]);
@@ -1712,7 +1712,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
   }
 
   // 16. /api/v1/cards/{cardId}/controls (Customer Ownership Check)
-  const controlsMatch = endpoint.match(/\/api\/v1\/cards\/([^/]+)\/controls/);
+  const controlsMatch = endpoint.match(/^\/api\/v1\/cards\/([^/]+)\/controls/);
   if (controlsMatch && (method === 'PUT' || method === 'POST')) {
     const currentCustId = getAuthenticatedCustomerId(db);
     const card = db.cards.find(c => c.cardId === controlsMatch[1]);

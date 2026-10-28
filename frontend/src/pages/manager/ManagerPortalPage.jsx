@@ -119,7 +119,7 @@ export const ManagerPortalPage = () => {
 
   const loadAllData = async () => {
     try {
-      const [m, custs, kyc, accApps, cardApps, staff, audit] = await Promise.all([
+      const results = await Promise.allSettled([
         managerService.getMetrics(),
         managerService.getCustomers(),
         managerService.getKycApplications(),
@@ -128,13 +128,13 @@ export const ManagerPortalPage = () => {
         managerService.getStaffUsers(),
         managerService.getAuditLogs()
       ]);
-      setMetrics(m);
-      setCustomersList(custs || []);
-      setKycQueue(kyc || []);
-      setAccountAppsQueue(accApps || []);
-      setCardAppsQueue(cardApps || []);
-      setStaffList(staff || []);
-      setAuditList(audit || []);
+      if (results[0].status === 'fulfilled') setMetrics(results[0].value);
+      if (results[1].status === 'fulfilled') setCustomersList(results[1].value || []);
+      if (results[2].status === 'fulfilled') setKycQueue(results[2].value || []);
+      if (results[3].status === 'fulfilled') setAccountAppsQueue(results[3].value || []);
+      if (results[4].status === 'fulfilled') setCardAppsQueue(results[4].value || []);
+      if (results[5].status === 'fulfilled') setStaffList(results[5].value || []);
+      if (results[6].status === 'fulfilled') setAuditList(results[6].value || []);
     } catch (e) {
       console.error('Error loading manager data', e);
     }
