@@ -7,7 +7,8 @@ public record RegisterResponse(
         String mobileNumber,
         String email,
         String status,
-        String nextStep,
-        String referenceId
+        Boolean type
+//        String nextStep,
+//        String referenceId
 ) {
 }

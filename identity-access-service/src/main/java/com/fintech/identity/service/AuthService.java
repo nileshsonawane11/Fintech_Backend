@@ -82,13 +82,14 @@ public class AuthService {
                 request.marketingConsent()
         );
 
+        customer.activate();
         Customer saved = customerRepository.saveAndFlush(customer);
 
-        OtpChallenge challenge = otpService.create(
-                saved,
-                OtpPurpose.REGISTRATION,
-                saved.getMobileNumber()
-        );
+//        OtpChallenge challenge = otpService.create(
+////                saved,
+////                OtpPurpose.REGISTRATION,
+////                saved.getMobileNumber()
+////        );
 
         applicationEventPublisher.publishEvent(
                 new CustomerRegisteredEvent(
@@ -102,8 +103,9 @@ public class AuthService {
                 maskMobile(saved.getMobileNumber()),
                 maskEmail(saved.getEmail()),
                 saved.getStatus().name(),
-                "VERIFY_OTP",
-                challenge.getReferenceId()
+                true
+//                "VERIFY_OTP",
+//                challenge.getReferenceId()
         );
     }
 
@@ -145,7 +147,7 @@ public class AuthService {
         );
     }
 
-    public LoginResponse login(LoginRequest request) {
+    public TokenResponse login(LoginRequest request) {
         String identifier = request.identifier().trim();
 
         Customer customer;
@@ -198,23 +200,42 @@ public class AuthService {
         customer.resetFailedLogins();
         customerRepository.save(customer);
 
-        OtpChallenge challenge = otpService.create(
+//        OtpChallenge challenge = otpService.create(
+//                customer,
+//                OtpPurpose.LOGIN_MFA,
+//                customer.getMobileNumber()
+//        );
+
+//        String temporaryToken = jwtService.createMfaToken(
+//                customer,
+//                challenge.getReferenceId()
+//        );
+//
+//        return new LoginResponse(
+//                "Bearer",
+//                300,
+//                true,
+//                challenge.getReferenceId(),
+//                temporaryToken
+//        );
+
+        String accessToken = jwtService.createAccessToken(customer);
+        String refreshToken = generateRefreshToken();
+
+        RefreshToken savedToken = new RefreshToken(
                 customer,
-                OtpPurpose.LOGIN_MFA,
-                customer.getMobileNumber()
+                hashToken(refreshToken),
+                Instant.now().plusSeconds(30L * 24 * 60 * 60)
         );
 
-        String temporaryToken = jwtService.createMfaToken(
-                customer,
-                challenge.getReferenceId()
-        );
+        refreshTokenRepository.save(savedToken);
 
-        return new LoginResponse(
+        return new TokenResponse(
+                accessToken,
+                refreshToken,
                 "Bearer",
-                300,
-                true,
-                challenge.getReferenceId(),
-                temporaryToken
+                jwtService.getAccessTokenSeconds(),
+                customer.getId()
         );
     }
 

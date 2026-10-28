@@ -42,7 +42,7 @@ public class AuthController {
     }
 
     @PostMapping("/login")
-    public LoginResponse login(
+    public TokenResponse login(
             @Valid @RequestBody LoginRequest request
     ) {
         return authService.login(request);
