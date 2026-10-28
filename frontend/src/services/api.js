@@ -49,19 +49,8 @@ export const clearManagerToken = () => {
 // ============================================================================
 // INITIAL PERSISTENT STORE (Mirrors FinBank API Data Model)
 // ============================================================================
-const getInitialDb = () => {
-  if (typeof localStorage !== 'undefined') {
-    const existing = localStorage.getItem(MOCK_STORAGE_KEY);
-    if (existing) {
-      try {
-        return JSON.parse(existing);
-      } catch (e) {
-        console.error('Error parsing existing DB, resetting to defaults', e);
-      }
-    }
-  }
-
-  const defaultDb = {
+export const getDefaultDb = () => {
+  return {
     customers: [
       {
         customerId: 'CUS-100234',
@@ -109,6 +98,156 @@ const getInitialDb = () => {
           city: 'Mumbai',
           state: 'MAHARASHTRA',
           postalCode: '400049',
+          country: 'INDIA',
+          addressType: 'CURRENT'
+        }
+      },
+      {
+        customerId: 'CUS-100236',
+        userId: '7b3dfa3f-5d9f-4dbf-9dff-4d2f9d5fdb8f',
+        fullName: 'Priya Nair',
+        mobileNumber: '9820123456',
+        email: 'priya.nair@example.com',
+        password: 'Password@123',
+        pan: 'PRYAN7766A',
+        dateOfBirth: '1990-11-23',
+        gender: 'FEMALE',
+        occupation: 'SALARIED',
+        annualIncomeRange: '2500000_5000000',
+        kycStatus: 'UNDER_REVIEW',
+        riskCategory: 'LOW',
+        createdAt: '2026-10-28T14:15:00Z',
+        address: {
+          addressLine1: 'Villa 18, Palm Meadows',
+          addressLine2: 'Whitefield',
+          city: 'Bengaluru',
+          state: 'KARNATAKA',
+          postalCode: '560066',
+          country: 'INDIA',
+          addressType: 'CURRENT'
+        }
+      },
+      {
+        customerId: 'CUS-100237',
+        userId: '6a4eea2e-6e0e-5ece-ae00-5e3e0e6eea90',
+        fullName: 'Rajesh Kulkarni',
+        mobileNumber: '9765432109',
+        email: 'rajesh.kulkarni@example.com',
+        password: 'Password@123',
+        pan: 'RKULK8899B',
+        dateOfBirth: '1984-06-18',
+        gender: 'MALE',
+        occupation: 'BUSINESS',
+        annualIncomeRange: '5000000_10000000',
+        kycStatus: 'APPROVED',
+        riskCategory: 'LOW',
+        createdAt: '2026-10-25T11:00:00Z',
+        address: {
+          addressLine1: 'Penthouse 7, Horizon Crest',
+          addressLine2: 'Kalyani Nagar',
+          city: 'Pune',
+          state: 'MAHARASHTRA',
+          postalCode: '411006',
+          country: 'INDIA',
+          addressType: 'CURRENT'
+        }
+      },
+      {
+        customerId: 'CUS-100238',
+        userId: '5b5ddb1d-7f1f-6fdf-bf11-6f4f1f7ffba1',
+        fullName: 'Dr. Arjun Singhal',
+        mobileNumber: '9911223344',
+        email: 'arjun.singhal@example.com',
+        password: 'Password@123',
+        pan: 'ASING4433C',
+        dateOfBirth: '1988-02-14',
+        gender: 'MALE',
+        occupation: 'PROFESSIONAL',
+        annualIncomeRange: '2500000_5000000',
+        kycStatus: 'APPROVED',
+        riskCategory: 'LOW',
+        createdAt: '2026-10-26T08:30:00Z',
+        address: {
+          addressLine1: 'B-14, Vasant Vihar',
+          addressLine2: 'South West',
+          city: 'New Delhi',
+          state: 'DELHI',
+          postalCode: '110057',
+          country: 'INDIA',
+          addressType: 'CURRENT'
+        }
+      },
+      {
+        customerId: 'CUS-100239',
+        userId: '4c6cca0c-8a2a-7aea-cf22-7a5a2a8aacb2',
+        fullName: 'Meera Iyer',
+        mobileNumber: '9819988776',
+        email: 'meera.iyer@example.com',
+        password: 'Password@123',
+        pan: 'MIYER1122D',
+        dateOfBirth: '1962-09-05',
+        gender: 'FEMALE',
+        occupation: 'RETIRED',
+        annualIncomeRange: '500000_1000000',
+        kycStatus: 'APPROVED',
+        riskCategory: 'LOW',
+        createdAt: '2026-10-20T10:00:00Z',
+        address: {
+          addressLine1: '28, Karpagam Avenue',
+          addressLine2: 'R.A. Puram',
+          city: 'Chennai',
+          state: 'TAMIL_NADU',
+          postalCode: '600028',
+          country: 'INDIA',
+          addressType: 'CURRENT'
+        }
+      },
+      {
+        customerId: 'CUS-100240',
+        userId: '3d7bb9fb-9b3b-8bfa-df33-8b6b3b9bbdc3',
+        fullName: 'Neha Kapoor',
+        mobileNumber: '9871122445',
+        email: 'neha.kapoor@example.com',
+        password: 'Password@123',
+        pan: 'NKAPO3344E',
+        dateOfBirth: '1996-03-30',
+        gender: 'FEMALE',
+        occupation: 'BUSINESS',
+        annualIncomeRange: '1000000_1500000',
+        kycStatus: 'UNDER_REVIEW',
+        riskCategory: 'MEDIUM',
+        createdAt: '2026-10-28T16:45:00Z',
+        address: {
+          addressLine1: 'Tower C, Golf Course Road',
+          addressLine2: 'Sector 54',
+          city: 'Gurugram',
+          state: 'HARYANA',
+          postalCode: '122002',
+          country: 'INDIA',
+          addressType: 'CURRENT'
+        }
+      },
+      {
+        customerId: 'CUS-100241',
+        userId: '2e8aa8ea-0c4c-9ceb-ef44-9c7c4c0cced4',
+        fullName: 'Rohan Verma',
+        mobileNumber: '9833112233',
+        email: 'rohan.verma@example.com',
+        password: 'Password@123',
+        pan: 'RVERN5566F',
+        dateOfBirth: '1997-12-15',
+        gender: 'MALE',
+        occupation: 'SALARIED',
+        annualIncomeRange: '1500000_2500000',
+        kycStatus: 'PENDING_SUBMISSION',
+        riskCategory: 'UNASSESSED',
+        createdAt: '2026-10-29T00:15:00Z',
+        address: {
+          addressLine1: 'Plot 45, Jubilee Hills',
+          addressLine2: 'Road No 36',
+          city: 'Hyderabad',
+          state: 'TELANGANA',
+          postalCode: '500033',
           country: 'INDIA',
           addressType: 'CURRENT'
         }
@@ -171,6 +310,63 @@ const getInitialDb = () => {
           holdBalance: 0.00,
           currency: 'INR'
         }
+      },
+      {
+        accountId: 'ACC-3001',
+        accountNumber: '************4455',
+        rawAccountNumber: '98201100004455',
+        accountType: 'CURRENT',
+        productCode: 'CURRENT_BUSINESS',
+        productName: 'BRAVO Business Current Account',
+        customerId: 'CUS-100237',
+        status: 'ACTIVE',
+        currency: 'INR',
+        openedAt: '2026-10-25T11:30:00Z',
+        interestRate: 0.00,
+        balance: {
+          ledgerBalance: 1840000.00,
+          availableBalance: 1840000.00,
+          holdBalance: 0.00,
+          currency: 'INR'
+        }
+      },
+      {
+        accountId: 'ACC-3002',
+        accountNumber: '************7788',
+        rawAccountNumber: '98201100007788',
+        accountType: 'SAVINGS',
+        productCode: 'SAVINGS_REGULAR',
+        productName: 'FIRST High-Yield Savings Account',
+        customerId: 'CUS-100238',
+        status: 'ACTIVE',
+        currency: 'INR',
+        openedAt: '2026-10-26T09:00:00Z',
+        interestRate: 7.00,
+        balance: {
+          ledgerBalance: 675000.00,
+          availableBalance: 675000.00,
+          holdBalance: 0.00,
+          currency: 'INR'
+        }
+      },
+      {
+        accountId: 'ACC-3003',
+        accountNumber: '************3322',
+        rawAccountNumber: '98201100003322',
+        accountType: 'SAVINGS',
+        productCode: 'SAVINGS_SENIOR',
+        productName: 'Senior Citizen High-Yield Savings Account',
+        customerId: 'CUS-100239',
+        status: 'ACTIVE',
+        currency: 'INR',
+        openedAt: '2026-10-20T10:30:00Z',
+        interestRate: 7.75,
+        balance: {
+          ledgerBalance: 3450000.00,
+          availableBalance: 3450000.00,
+          holdBalance: 0.00,
+          currency: 'INR'
+        }
       }
     ],
     cards: [
@@ -229,6 +425,60 @@ const getInitialDb = () => {
           atmWithdrawalEnabled: true,
           dailyLimit: 100000.00
         }
+      },
+      {
+        cardId: 'CARD-3004',
+        cardType: 'DEBIT',
+        cardName: 'Business Platinum Debit Card',
+        maskedCardNumber: '************4455',
+        expiryMonth: 5,
+        expiryYear: 2030,
+        status: 'ACTIVE',
+        linkedAccountId: 'ACC-3001',
+        customerId: 'CUS-100237',
+        controls: {
+          onlineEnabled: true,
+          internationalEnabled: true,
+          contactlessEnabled: true,
+          atmWithdrawalEnabled: true,
+          dailyLimit: 200000.00
+        }
+      },
+      {
+        cardId: 'CARD-3005',
+        cardType: 'DEBIT',
+        cardName: 'FinEdge Platinum Contactless Debit Card',
+        maskedCardNumber: '************7788',
+        expiryMonth: 9,
+        expiryYear: 2029,
+        status: 'ACTIVE',
+        linkedAccountId: 'ACC-3002',
+        customerId: 'CUS-100238',
+        controls: {
+          onlineEnabled: true,
+          internationalEnabled: false,
+          contactlessEnabled: true,
+          atmWithdrawalEnabled: true,
+          dailyLimit: 100000.00
+        }
+      },
+      {
+        cardId: 'CARD-3006',
+        cardType: 'DEBIT',
+        cardName: 'FinEdge Classic Rupay Card',
+        maskedCardNumber: '************3322',
+        expiryMonth: 4,
+        expiryYear: 2031,
+        status: 'ACTIVE',
+        linkedAccountId: 'ACC-3003',
+        customerId: 'CUS-100239',
+        controls: {
+          onlineEnabled: true,
+          internationalEnabled: false,
+          contactlessEnabled: true,
+          atmWithdrawalEnabled: true,
+          dailyLimit: 25000.00
+        }
       }
     ],
     transactions: [
@@ -283,6 +533,19 @@ const getInitialDb = () => {
         referenceNumber: 'PAY-771101',
         valueDate: '2026-10-28',
         createdAt: '2026-10-28T10:00:00Z'
+      },
+      {
+        transactionId: 'TXN-882201',
+        accountId: 'ACC-3001',
+        transactionType: 'TRANSFER',
+        direction: 'CREDIT',
+        amount: 320000.00,
+        currency: 'INR',
+        status: 'SUCCESS',
+        description: 'SaaS Customer Subscriptions Receipt Batch #401',
+        referenceNumber: 'PAY-882201',
+        valueDate: '2026-10-27',
+        createdAt: '2026-10-27T14:20:00Z'
       }
     ],
     beneficiaries: [
@@ -331,6 +594,36 @@ const getInitialDb = () => {
           { documentType: 'PAN', fileName: 'pan_aarav.pdf', verified: false },
           { documentType: 'ADDRESS_PROOF', fileName: 'aadhaar_front.pdf', verified: false }
         ]
+      },
+      {
+        kycCaseId: 'KYC-500989',
+        customerId: 'CUS-100236',
+        fullName: 'Priya Nair',
+        status: 'UNDER_REVIEW',
+        riskCategory: 'LOW',
+        occupation: 'SALARIED',
+        annualIncomeRange: '2500000_5000000',
+        aadhaarConsent: true,
+        submittedAt: '2026-10-28T14:15:00Z',
+        documents: [
+          { documentType: 'PAN', fileName: 'pan_priya_nair.pdf', verified: false },
+          { documentType: 'ADDRESS_PROOF', fileName: 'passport_front.pdf', verified: false }
+        ]
+      },
+      {
+        kycCaseId: 'KYC-500990',
+        customerId: 'CUS-100240',
+        fullName: 'Neha Kapoor',
+        status: 'UNDER_REVIEW',
+        riskCategory: 'MEDIUM',
+        occupation: 'BUSINESS',
+        annualIncomeRange: '1000000_1500000',
+        aadhaarConsent: true,
+        submittedAt: '2026-10-28T16:45:00Z',
+        documents: [
+          { documentType: 'PAN', fileName: 'pan_neha_blurred.pdf', verified: false },
+          { documentType: 'ADDRESS_PROOF', fileName: 'electricity_bill.pdf', verified: false }
+        ]
       }
     ],
     accountApplications: [
@@ -366,6 +659,38 @@ const getInitialDb = () => {
           dateOfBirth: '1998-05-12',
           mobileNumber: '9844001122'
         }
+      },
+      {
+        accountApplicationId: 'ACC-APP-900125',
+        customerId: 'CUS-100236',
+        customerName: 'Priya Nair',
+        productCode: 'SAVINGS_WEALTH',
+        productName: 'FIRST Wealth High-Yield Savings',
+        initialFundingAmount: 100000.00,
+        status: 'UNDER_REVIEW',
+        submittedAt: '2026-10-28T14:30:00Z',
+        nominee: {
+          fullName: 'Kishore Nair',
+          relationship: 'BROTHER',
+          dateOfBirth: '1993-08-10',
+          mobileNumber: '9820998877'
+        }
+      },
+      {
+        accountApplicationId: 'ACC-APP-900126',
+        customerId: 'CUS-100238',
+        customerName: 'Dr. Arjun Singhal',
+        productCode: 'CURRENT_BUSINESS',
+        productName: 'Medical Practice Current Account',
+        initialFundingAmount: 50000.00,
+        status: 'UNDER_REVIEW',
+        submittedAt: '2026-10-28T15:10:00Z',
+        nominee: {
+          fullName: 'Ananya Singhal',
+          relationship: 'SPOUSE',
+          dateOfBirth: '1990-07-25',
+          mobileNumber: '9911998877'
+        }
       }
     ],
     cardApplications: [
@@ -389,6 +714,26 @@ const getInitialDb = () => {
         linkedAccountId: 'ACC-2001',
         status: 'UNDER_REVIEW',
         submittedAt: '2026-10-28T11:30:00Z'
+      },
+      {
+        cardApplicationId: 'CARD-APP-400125',
+        customerId: 'CUS-100236',
+        customerName: 'Priya Nair',
+        cardType: 'METAL_CREDIT',
+        cardName: 'Ashva Metal Credit Card',
+        linkedAccountId: 'ACC-1001',
+        status: 'UNDER_REVIEW',
+        submittedAt: '2026-10-28T14:45:00Z'
+      },
+      {
+        cardApplicationId: 'CARD-APP-400126',
+        customerId: 'CUS-100240',
+        customerName: 'Neha Kapoor',
+        cardType: 'CREDIT',
+        cardName: 'FinEdge Millennia Cashback Card',
+        linkedAccountId: 'ACC-1001',
+        status: 'UNDER_REVIEW',
+        submittedAt: '2026-10-28T17:00:00Z'
       }
     ],
     staffUsers: [
@@ -444,6 +789,39 @@ const getInitialDb = () => {
           'audit.read'
         ],
         lastLogin: '2026-10-28T10:15:00Z'
+      },
+      {
+        staffId: 'STF-004',
+        fullName: 'Pooja Verma',
+        email: 'audit.officer@finedge.bank',
+        password: 'Manager@2026',
+        role: 'AUDIT_COMPLIANCE',
+        roleTitle: 'Senior Internal Auditor',
+        department: 'Risk & Audit',
+        status: 'ACTIVE',
+        permissions: [
+          'customers.read',
+          'audit.read',
+          'reports.read'
+        ],
+        lastLogin: '2026-10-28T09:00:00Z'
+      },
+      {
+        staffId: 'STF-005',
+        fullName: 'Sameer Khan',
+        email: 'support@finedge.bank',
+        password: 'Manager@2026',
+        role: 'CUSTOMER_SUPPORT',
+        roleTitle: 'Customer Care Lead',
+        department: 'Customer Care',
+        status: 'ACTIVE',
+        permissions: [
+          'customers.read',
+          'kyc.read',
+          'accounts.read',
+          'cards.read'
+        ],
+        lastLogin: '2026-10-28T08:45:00Z'
       }
     ],
     auditLogs: [
@@ -515,21 +893,111 @@ const getInitialDb = () => {
       }
     ]
   };
+};
 
+export const resetDemoDb = () => {
+  const defaults = getDefaultDb();
   if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(defaultDb));
+    localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(defaults));
   }
-  return defaultDb;
+  return defaults;
+};
+
+export const getInitialDb = () => {
+  return getDb();
 };
 
 export const getDb = () => {
-  if (typeof localStorage === 'undefined') return getInitialDb();
-  const existing = localStorage.getItem(MOCK_STORAGE_KEY);
-  if (!existing) return getInitialDb();
+  const defaults = getDefaultDb();
+  if (typeof localStorage === 'undefined') return defaults;
+  const existingStr = localStorage.getItem(MOCK_STORAGE_KEY);
+  if (!existingStr) {
+    localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(defaults));
+    return defaults;
+  }
   try {
-    return JSON.parse(existing);
+    const db = JSON.parse(existingStr);
+    let dirty = false;
+
+    // Auto-merge seeded customers if missing
+    defaults.customers.forEach(dc => {
+      if (!db.customers?.some(c => c.customerId === dc.customerId)) {
+        db.customers = db.customers || [];
+        db.customers.push(dc);
+        dirty = true;
+      }
+    });
+
+    // Auto-merge seeded accounts
+    defaults.accounts.forEach(da => {
+      if (!db.accounts?.some(a => a.accountId === da.accountId)) {
+        db.accounts = db.accounts || [];
+        db.accounts.push(da);
+        dirty = true;
+      }
+    });
+
+    // Auto-merge seeded cards
+    defaults.cards.forEach(dc => {
+      if (!db.cards?.some(c => c.cardId === dc.cardId)) {
+        db.cards = db.cards || [];
+        db.cards.push(dc);
+        dirty = true;
+      }
+    });
+
+    // Auto-merge seeded transactions
+    defaults.transactions.forEach(dt => {
+      if (!db.transactions?.some(t => t.transactionId === dt.transactionId)) {
+        db.transactions = db.transactions || [];
+        db.transactions.push(dt);
+        dirty = true;
+      }
+    });
+
+    // Auto-merge seeded KYC applications
+    defaults.kycApplications.forEach(dk => {
+      if (!db.kycApplications?.some(k => k.kycCaseId === dk.kycCaseId)) {
+        db.kycApplications = db.kycApplications || [];
+        db.kycApplications.push(dk);
+        dirty = true;
+      }
+    });
+
+    // Auto-merge seeded account applications
+    defaults.accountApplications.forEach(da => {
+      if (!db.accountApplications?.some(a => a.accountApplicationId === da.accountApplicationId)) {
+        db.accountApplications = db.accountApplications || [];
+        db.accountApplications.push(da);
+        dirty = true;
+      }
+    });
+
+    // Auto-merge seeded card applications
+    defaults.cardApplications.forEach(dc => {
+      if (!db.cardApplications?.some(c => c.cardApplicationId === dc.cardApplicationId)) {
+        db.cardApplications = db.cardApplications || [];
+        db.cardApplications.push(dc);
+        dirty = true;
+      }
+    });
+
+    // Auto-merge seeded staff users
+    defaults.staffUsers.forEach(ds => {
+      if (!db.staffUsers?.some(s => s.staffId === ds.staffId)) {
+        db.staffUsers = db.staffUsers || [];
+        db.staffUsers.push(ds);
+        dirty = true;
+      }
+    });
+
+    if (dirty) {
+      localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(db));
+    }
+    return db;
   } catch (e) {
-    return getInitialDb();
+    localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(defaults));
+    return defaults;
   }
 };
 
@@ -1474,6 +1942,40 @@ export const handleLocalFallback = (endpoint, options = {}) => {
   if (endpoint === '/admin/api/v1/customers' && method === 'GET') {
     verifyStaffPermission(db, 'customers.read', options);
     return db.customers;
+  }
+
+  // Manager: Create Customer Profile (requires customers.update)
+  if (endpoint === '/admin/api/v1/customers' && method === 'POST') {
+    const staff = verifyStaffPermission(db, 'customers.update', options);
+    const newCust = {
+      customerId: 'CUS-' + Math.floor(100000 + Math.random() * 900000),
+      userId: generateUUID(),
+      fullName: body.fullName || 'New Customer',
+      mobileNumber: body.mobileNumber || '98' + Math.floor(10000000 + Math.random() * 90000000),
+      email: (body.email || `customer${Date.now()}@example.com`).toLowerCase(),
+      password: body.password || 'Password@123',
+      pan: body.pan || 'ABCDE1234F',
+      dateOfBirth: body.dateOfBirth || '1995-01-01',
+      gender: body.gender || 'MALE',
+      occupation: body.occupation || 'SALARIED',
+      annualIncomeRange: body.annualIncomeRange || '1000000_1500000',
+      kycStatus: body.kycStatus || 'APPROVED',
+      riskCategory: body.riskCategory || 'LOW',
+      createdAt: new Date().toISOString(),
+      address: body.address || {
+        addressLine1: '402, FinEdge Horizon Towers',
+        addressLine2: 'BKC, Bandra East',
+        city: 'Mumbai',
+        state: 'MAHARASHTRA',
+        postalCode: '400051',
+        country: 'INDIA',
+        addressType: 'CURRENT'
+      }
+    };
+    db.customers.push(newCust);
+    saveDb(db);
+    appendAuditLog(staff.email, staff.role, 'CUSTOMER_CREATED_BY_STAFF', newCust.customerId, 'SUCCESS', `Staff created customer profile for ${newCust.fullName}`);
+    return newCust;
   }
 
   // Manager: Staff List (requires staff.read)

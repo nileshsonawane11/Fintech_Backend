@@ -1,5 +1,5 @@
 // Bank Manager & Staff Operations Service
-import { apiRequest, getDb, saveDb, appendAuditLog } from './api';
+import { apiRequest, getDb, saveDb, appendAuditLog, resetDemoDb } from './api';
 
 export const managerService = {
   // Operational Dashboard Metrics
@@ -12,6 +12,20 @@ export const managerService = {
     return apiRequest('/admin/api/v1/customers', { isManager: true }).catch(() => {
       return getDb().customers;
     });
+  },
+
+  // Create Customer Profile
+  async createCustomer(customerData) {
+    return apiRequest('/admin/api/v1/customers', {
+      method: 'POST',
+      isManager: true,
+      body: JSON.stringify(customerData)
+    });
+  },
+
+  // Reset Demo Database to default rich seed data
+  resetDemoData() {
+    return resetDemoDb();
   },
 
   // KYC Queue & Approvals (Section 3.4)

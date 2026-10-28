@@ -66,11 +66,56 @@ export const ManagerPortalPage = () => {
   const [newStaffDept, setNewStaffDept] = useState('Operations');
   const [newStaffRole, setNewStaffRole] = useState('KYC_OFFICER');
 
+  // Customer onboarding modal
+  const [showAddCustomerModal, setShowAddCustomerModal] = useState(false);
+  const [newCustName, setNewCustName] = useState('');
+  const [newCustEmail, setNewCustEmail] = useState('');
+  const [newCustMobile, setNewCustMobile] = useState('');
+  const [newCustPan, setNewCustPan] = useState('');
+  const [newCustOccupation, setNewCustOccupation] = useState('SALARIED');
+  const [newCustIncome, setNewCustIncome] = useState('1000000_1500000');
+  const [newCustCity, setNewCustCity] = useState('Mumbai');
+  const [newCustState, setNewCustState] = useState('MAHARASHTRA');
+
   // Selected staff for permissions
   const [selectedStaffId, setSelectedStaffId] = useState('STF-001');
 
   // Search filter
   const [searchQuery, setSearchQuery] = useState('');
+
+  const handleCreateCustomer = async (e) => {
+    e.preventDefault();
+    try {
+      await managerService.createCustomer({
+        fullName: newCustName,
+        email: newCustEmail,
+        mobileNumber: newCustMobile,
+        pan: newCustPan.toUpperCase(),
+        occupation: newCustOccupation,
+        annualIncomeRange: newCustIncome,
+        kycStatus: 'APPROVED',
+        riskCategory: 'LOW',
+        address: {
+          addressLine1: 'FinEdge Onboarded Account',
+          addressLine2: 'Branch Banking Desk',
+          city: newCustCity,
+          state: newCustState,
+          postalCode: '400001',
+          country: 'INDIA',
+          addressType: 'CURRENT'
+        }
+      });
+      setShowAddCustomerModal(false);
+      setNewCustName('');
+      setNewCustEmail('');
+      setNewCustMobile('');
+      setNewCustPan('');
+      await loadAllData();
+      alert(`Customer ${newCustName} successfully registered!`);
+    } catch (err) {
+      alert(err.detail || err.message || 'Error creating customer');
+    }
+  };
 
   const loadAllData = async () => {
     try {
@@ -248,7 +293,31 @@ export const ManagerPortalPage = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2">
+          <Button
+            variant="outline"
+            onClick={async () => {
+              await loadAllData();
+            }}
+            className="text-xs py-1.5 px-3 bg-slate-800 text-slate-200 border-slate-700 hover:bg-slate-700"
+            title="Refresh dashboard data"
+          >
+            <RefreshCw className="w-3.5 h-3.5 mr-1" /> Refresh
+          </Button>
+          <Button
+            variant="outline"
+            onClick={async () => {
+              if (confirm('Reseed demo database with default realistic customers, accounts, cards, and KYC applications?')) {
+                managerService.resetDemoData();
+                await loadAllData();
+                alert('Database successfully reseeded with 8 demo customers and complete banking workflows!');
+              }
+            }}
+            className="text-xs py-1.5 px-3 bg-amber-500/10 text-amber-300 border-amber-500/30 hover:bg-amber-500/20"
+            title="Reset and reload demo data"
+          >
+            <FileCheck className="w-3.5 h-3.5 mr-1" /> Reseed Demo Users
+          </Button>
           <Link
             to="/portal"
             className="text-xs text-slate-400 hover:text-white flex items-center gap-1 font-semibold px-3 py-1.5 rounded-lg border border-slate-800 hover:bg-slate-800 transition-all"
@@ -430,10 +499,44 @@ export const ManagerPortalPage = () => {
         {/* ========================================================================= */}
         {activeTab === 'customers' && (
           <div className="space-y-6">
-            <div className="flex justify-between items-center">
+            <div className="flex flex-col md:flex-row md:items-center justify-between gap-4">
               <div>
-                <h2 className="text-xl font-black text-white">Registered Customer Directory</h2>
-                <p className="text-xs text-slate-400">Inspect full customer records, risk assessments, and active portfolios.</p>
+                <div className="flex items-center gap-2">
+                  <h2 className="text-xl font-black text-white">Registered Customer Directory</h2>
+                  <span className="px-2.5 py-0.5 rounded-full text-xs font-mono font-bold bg-amber-500/10 text-amber-400 border border-amber-500/20">
+                    {customersList.length} Active Records
+                  </span>
+                </div>
+                <p className="text-xs text-slate-400">Inspect full customer records, risk assessments, addresses, and portfolios.</p>
+              </div>
+
+              <div className="flex items-center gap-3">
+                <div className="relative">
+                  <Search className="w-3.5 h-3.5 absolute left-3 top-1/2 -translate-y-1/2 text-slate-500" />
+                  <input
+                    type="text"
+                    placeholder="Search name, email, PAN, ID..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    className="text-xs bg-slate-900 border border-slate-700 rounded-xl pl-8 pr-3 py-2 text-white placeholder-slate-500 focus:outline-none focus:border-amber-400 w-56 sm:w-64"
+                  />
+                  {searchQuery && (
+                    <button
+                      onClick={() => setSearchQuery('')}
+                      className="absolute right-2.5 top-1/2 -translate-y-1/2 text-xs text-slate-400 hover:text-white"
+                    >
+                      ×
+                    </button>
+                  )}
+                </div>
+
+                <Button
+                  variant="primary"
+                  onClick={() => setShowAddCustomerModal(true)}
+                  className="text-xs py-2 px-3 bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold flex items-center gap-1.5"
+                >
+                  <Plus className="w-3.5 h-3.5" /> Onboard Customer
+                </Button>
               </div>
             </div>
 
@@ -445,30 +548,72 @@ export const ManagerPortalPage = () => {
                     <th className="py-3 px-4">Full Legal Name</th>
                     <th className="py-3 px-4">Contact Info</th>
                     <th className="py-3 px-4">PAN</th>
+                    <th className="py-3 px-4">Occupation / City</th>
                     <th className="py-3 px-4">KYC State</th>
-                    <th className="py-3 px-4">Risk Category</th>
-                    <th className="py-3 px-4">Onboarding Date</th>
+                    <th className="py-3 px-4">Risk Level</th>
+                    <th className="py-3 px-4">Onboarded</th>
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-slate-800/60 font-medium">
-                  {customersList.map(c => (
-                    <tr key={c.customerId} className="hover:bg-slate-800/40 transition-colors">
-                      <td className="py-3.5 px-4 font-mono font-bold text-amber-400">{c.customerId}</td>
-                      <td className="py-3.5 px-4 font-bold text-white">{c.fullName}</td>
-                      <td className="py-3.5 px-4 text-slate-300">
-                        {c.email}<br />
-                        <span className="text-[11px] text-slate-500">{c.mobileNumber}</span>
+                  {customersList
+                    .filter(c => {
+                      if (!searchQuery.trim()) return true;
+                      const q = searchQuery.toLowerCase();
+                      return (
+                        c.fullName?.toLowerCase().includes(q) ||
+                        c.email?.toLowerCase().includes(q) ||
+                        c.mobileNumber?.includes(q) ||
+                        c.customerId?.toLowerCase().includes(q) ||
+                        c.pan?.toLowerCase().includes(q) ||
+                        c.address?.city?.toLowerCase().includes(q)
+                      );
+                    })
+                    .map(c => (
+                      <tr key={c.customerId} className="hover:bg-slate-800/40 transition-colors">
+                        <td className="py-3.5 px-4 font-mono font-bold text-amber-400">{c.customerId}</td>
+                        <td className="py-3.5 px-4">
+                          <span className="font-bold text-white block">{c.fullName}</span>
+                          <span className="text-[10px] text-slate-500 font-mono">UID: {c.userId?.slice(0, 8)}...</span>
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-300">
+                          {c.email}<br />
+                          <span className="text-[11px] text-slate-500">{c.mobileNumber}</span>
+                        </td>
+                        <td className="py-3.5 px-4 font-mono text-slate-300">{c.pan || 'UNVERIFIED'}</td>
+                        <td className="py-3.5 px-4 text-slate-300">
+                          <span className="text-white block font-medium">{c.occupation || 'N/A'}</span>
+                          <span className="text-[11px] text-slate-500">{c.address?.city || 'India'}</span>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <Badge variant={c.kycStatus === 'APPROVED' ? 'success' : c.kycStatus === 'REJECTED' ? 'danger' : 'warning'}>
+                            {c.kycStatus}
+                          </Badge>
+                        </td>
+                        <td className="py-3.5 px-4">
+                          <span className={`font-bold ${c.riskCategory === 'HIGH' ? 'text-rose-400' : c.riskCategory === 'MEDIUM' ? 'text-amber-400' : 'text-emerald-400'}`}>
+                            {c.riskCategory || 'LOW'}
+                          </span>
+                        </td>
+                        <td className="py-3.5 px-4 text-slate-400">{c.createdAt?.split('T')[0]}</td>
+                      </tr>
+                    ))}
+                  {customersList.filter(c => {
+                    if (!searchQuery.trim()) return true;
+                    const q = searchQuery.toLowerCase();
+                    return (
+                      c.fullName?.toLowerCase().includes(q) ||
+                      c.email?.toLowerCase().includes(q) ||
+                      c.mobileNumber?.includes(q) ||
+                      c.customerId?.toLowerCase().includes(q) ||
+                      c.pan?.toLowerCase().includes(q)
+                    );
+                  }).length === 0 && (
+                    <tr>
+                      <td colSpan={8} className="py-8 text-center text-slate-500 text-xs">
+                        No customers matched your search query "{searchQuery}".
                       </td>
-                      <td className="py-3.5 px-4 font-mono text-slate-300">{c.pan || 'UNVERIFIED'}</td>
-                      <td className="py-3.5 px-4">
-                        <Badge variant={c.kycStatus === 'APPROVED' ? 'success' : 'warning'}>{c.kycStatus}</Badge>
-                      </td>
-                      <td className="py-3.5 px-4">
-                        <span className="font-bold text-emerald-400">{c.riskCategory || 'LOW'}</span>
-                      </td>
-                      <td className="py-3.5 px-4 text-slate-400">{c.createdAt?.split('T')[0]}</td>
                     </tr>
-                  ))}
+                  )}
                 </tbody>
               </table>
             </div>
@@ -999,6 +1144,148 @@ export const ManagerPortalPage = () => {
                 </Button>
                 <Button type="submit" variant="primary" className="flex-1 py-2 text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold">
                   Provision User
+                </Button>
+              </div>
+            </form>
+          </Card>
+        </div>
+      )}
+
+      {/* MODAL: ONBOARD NEW CUSTOMER */}
+      {showAddCustomerModal && (
+        <div className="fixed inset-0 bg-slate-950/80 backdrop-blur-sm z-50 flex items-center justify-center p-4">
+          <Card className="w-full max-w-lg bg-slate-900 border-slate-700 shadow-2xl p-6 rounded-3xl">
+            <div className="flex justify-between items-center mb-5">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-xl bg-amber-500/10 text-amber-400 flex items-center justify-center border border-amber-500/20">
+                  <UserPlus className="w-4 h-4" />
+                </div>
+                <div>
+                  <h3 className="text-sm font-bold text-white">Onboard New Customer</h3>
+                  <p className="text-[11px] text-slate-400">Direct branch desk registration and CIF creation.</p>
+                </div>
+              </div>
+              <button onClick={() => setShowAddCustomerModal(false)} className="text-slate-400 hover:text-white text-lg font-bold">
+                ×
+              </button>
+            </div>
+
+            <form onSubmit={handleCreateCustomer} className="space-y-3.5">
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-300 block mb-1 uppercase">Full Legal Name</label>
+                  <input
+                    type="text"
+                    required
+                    value={newCustName}
+                    onChange={(e) => setNewCustName(e.target.value)}
+                    placeholder="e.g. Siddharth Joshi"
+                    className="w-full text-xs bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-300 block mb-1 uppercase">Primary Email</label>
+                  <input
+                    type="email"
+                    required
+                    value={newCustEmail}
+                    onChange={(e) => setNewCustEmail(e.target.value)}
+                    placeholder="siddharth@example.com"
+                    className="w-full text-xs bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-300 block mb-1 uppercase">Mobile Number</label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={10}
+                    value={newCustMobile}
+                    onChange={(e) => setNewCustMobile(e.target.value)}
+                    placeholder="98XXXXXXXX"
+                    className="w-full text-xs bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-300 block mb-1 uppercase">PAN Card Number</label>
+                  <input
+                    type="text"
+                    required
+                    maxLength={10}
+                    value={newCustPan}
+                    onChange={(e) => setNewCustPan(e.target.value.toUpperCase())}
+                    placeholder="ABCDE1234F"
+                    className="w-full text-xs bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-white uppercase font-mono"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-300 block mb-1 uppercase">Occupation</label>
+                  <select
+                    value={newCustOccupation}
+                    onChange={(e) => setNewCustOccupation(e.target.value)}
+                    className="w-full text-xs bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-white"
+                  >
+                    <option value="SALARIED">Salaried Employee</option>
+                    <option value="BUSINESS">Business Owner</option>
+                    <option value="PROFESSIONAL">Independent Professional</option>
+                    <option value="RETIRED">Senior / Retired</option>
+                  </select>
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-300 block mb-1 uppercase">Annual Income Range</label>
+                  <select
+                    value={newCustIncome}
+                    onChange={(e) => setNewCustIncome(e.target.value)}
+                    className="w-full text-xs bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-white"
+                  >
+                    <option value="500000_1000000">₹ 5 - 10 Lakhs</option>
+                    <option value="1000000_1500000">₹ 10 - 15 Lakhs</option>
+                    <option value="1500000_2500000">₹ 15 - 25 Lakhs</option>
+                    <option value="2500000_5000000">₹ 25 - 50 Lakhs</option>
+                    <option value="5000000_10000000">₹ 50 Lakhs - 1 Crore</option>
+                  </select>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="text-[11px] font-bold text-slate-300 block mb-1 uppercase">City</label>
+                  <input
+                    type="text"
+                    value={newCustCity}
+                    onChange={(e) => setNewCustCity(e.target.value)}
+                    placeholder="e.g. Mumbai"
+                    className="w-full text-xs bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-white"
+                  />
+                </div>
+
+                <div>
+                  <label className="text-[11px] font-bold text-slate-300 block mb-1 uppercase">State</label>
+                  <input
+                    type="text"
+                    value={newCustState}
+                    onChange={(e) => setNewCustState(e.target.value)}
+                    placeholder="e.g. MAHARASHTRA"
+                    className="w-full text-xs bg-slate-950 border border-slate-700 rounded-xl p-2.5 text-white"
+                  />
+                </div>
+              </div>
+
+              <div className="flex gap-2 pt-3">
+                <Button type="button" variant="outline" onClick={() => setShowAddCustomerModal(false)} className="flex-1 py-2 text-xs border-slate-700 text-slate-300">
+                  Cancel
+                </Button>
+                <Button type="submit" variant="primary" className="flex-1 py-2 text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold">
+                  Register Customer Profile
                 </Button>
               </div>
             </form>
