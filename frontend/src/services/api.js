@@ -1889,6 +1889,22 @@ export const handleLocalFallback = (endpoint, options = {}) => {
     return { success: true, accountApplicationId: app.accountApplicationId, accountId: generatedAccId };
   }
 
+  // Ops: Account Application Reject (requires accounts.review or accounts.approve)
+  const opsRejectAccountMatch = endpoint.match(/\/ops\/api\/v1\/accounts\/applications\/([^/]+)\/reject/);
+  if (opsRejectAccountMatch && method === 'POST') {
+    const staff = verifyStaffPermission(db, 'accounts.review', options);
+    const app = db.accountApplications.find(a => a.accountApplicationId === opsRejectAccountMatch[1]);
+    if (!app) {
+      throw { status: 404, code: 'APPLICATION_NOT_FOUND', detail: 'Account application not found.' };
+    }
+    app.status = 'REJECTED';
+    app.rejectedAt = new Date().toISOString();
+    app.rejectionReason = body.remarks || 'Application requirements not met';
+    saveDb(db);
+    appendAuditLog(staff.email, staff.role, 'ACCOUNT_APPLICATION_REJECTED', app.accountApplicationId, 'SUCCESS', `Rejected with reason: ${app.rejectionReason}`);
+    return { success: true, accountApplicationId: app.accountApplicationId, status: 'REJECTED' };
+  }
+
   // Ops: Card Applications List (requires cards.read or cards.review)
   if (endpoint === '/ops/api/v1/cards/applications' && method === 'GET') {
     verifyStaffPermission(db, 'cards.read', options);
@@ -1939,6 +1955,22 @@ export const handleLocalFallback = (endpoint, options = {}) => {
     saveDb(db);
     appendAuditLog(staff.email, staff.role, 'CARD_APPLICATION_APPROVED', cardApp.cardApplicationId, 'SUCCESS', `Issued new card ${newCardId} for ${cardApp.customerId}`);
     return { success: true, cardApplicationId: cardApp.cardApplicationId, cardId: newCardId };
+  }
+
+  // Ops: Card Application Reject (requires cards.review or cards.approve)
+  const opsRejectCardMatch = endpoint.match(/\/ops\/api\/v1\/cards\/applications\/([^/]+)\/reject/);
+  if (opsRejectCardMatch && method === 'POST') {
+    const staff = verifyStaffPermission(db, 'cards.review', options);
+    const cardApp = db.cardApplications.find(c => c.cardApplicationId === opsRejectCardMatch[1]);
+    if (!cardApp) {
+      throw { status: 404, code: 'APPLICATION_NOT_FOUND', detail: 'Card application not found.' };
+    }
+    cardApp.status = 'REJECTED';
+    cardApp.rejectedAt = new Date().toISOString();
+    cardApp.rejectionReason = body.remarks || 'Credit assessment criteria not satisfied';
+    saveDb(db);
+    appendAuditLog(staff.email, staff.role, 'CARD_APPLICATION_REJECTED', cardApp.cardApplicationId, 'SUCCESS', `Rejected with reason: ${cardApp.rejectionReason}`);
+    return { success: true, cardApplicationId: cardApp.cardApplicationId, status: 'REJECTED' };
   }
 
   // Manager: Customer Directory (requires customers.read)

@@ -61,6 +61,14 @@ export const managerService = {
     });
   },
 
+  async rejectAccountApplication(accountApplicationId, { remarks = 'Application requirements not met' } = {}) {
+    return apiRequest(`/ops/api/v1/accounts/applications/${accountApplicationId}/reject`, {
+      method: 'POST',
+      isManager: true,
+      body: JSON.stringify({ remarks })
+    });
+  },
+
   // Card Applications Review
   async getCardApplications() {
     return apiRequest('/ops/api/v1/cards/applications', { isManager: true });
@@ -70,6 +78,14 @@ export const managerService = {
     return apiRequest(`/ops/api/v1/cards/applications/${cardApplicationId}/approve`, {
       method: 'POST',
       isManager: true
+    });
+  },
+
+  async rejectCardApplication(cardApplicationId, { remarks = 'Credit criteria not met' } = {}) {
+    return apiRequest(`/ops/api/v1/cards/applications/${cardApplicationId}/reject`, {
+      method: 'POST',
+      isManager: true,
+      body: JSON.stringify({ remarks })
     });
   },
 

@@ -59,10 +59,16 @@ export const Card = ({ children, className = '', hoverEffect = false, ...props }
 export const Badge = ({ children, variant = 'crimson', className = '' }) => {
   const variants = {
     crimson: 'bg-[#9D1D27]/10 text-[#9D1D27] border-[#9D1D27]/20',
-    green: 'bg-green-100 text-green-800 border-green-200',
-    blue: 'bg-blue-100 text-blue-800 border-blue-200',
-    gold: 'bg-amber-100 text-amber-800 border-amber-200',
-    dark: 'bg-gray-100 text-gray-800 border-gray-200'
+    green: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    success: 'bg-emerald-50 text-emerald-800 border-emerald-200',
+    blue: 'bg-blue-50 text-blue-800 border-blue-200',
+    info: 'bg-sky-50 text-sky-800 border-sky-200',
+    gold: 'bg-amber-50 text-amber-800 border-amber-200',
+    warning: 'bg-amber-50 text-amber-800 border-amber-200',
+    danger: 'bg-rose-50 text-rose-800 border-rose-200',
+    rose: 'bg-rose-50 text-rose-800 border-rose-200',
+    dark: 'bg-slate-100 text-slate-800 border-slate-200',
+    neutral: 'bg-slate-100 text-slate-700 border-slate-200'
   };
 
   return (
