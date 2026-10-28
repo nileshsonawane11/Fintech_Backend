@@ -261,34 +261,34 @@ export const HomePage = () => {
 
             </div>
 
-            {/* Right 45%: Large Lifestyle Photography with Floating Status Cards */}
-            <div className="lg:col-span-5 relative flex justify-center">
+            {/* Right 45%: Large Lifestyle Photography with Floating Status Cards on Perimeter */}
+            <div className="lg:col-span-5 relative flex justify-center py-4">
               
               {/* Outer Glow Halo */}
               <div className="absolute -inset-4 bg-gradient-to-tr from-[#9D1D27]/10 via-amber-500/5 to-transparent rounded-[2.5rem] blur-2xl pointer-events-none" />
 
-              <div className="relative w-full max-w-lg aspect-[4/5] sm:aspect-[4/4.6] rounded-[2rem] overflow-hidden shadow-2xl border border-white/60 bg-gray-100 group">
+              <div className="relative w-full max-w-md lg:max-w-lg">
                 
-                {/* Main Hero Photograph with Smooth Fade Transition */}
-                <img
-                  key={currentSlide.imageUrl}
-                  src={currentSlide.imageUrl}
-                  alt={`FinEdge Bank Customer — ${currentSlide.title}`}
-                  className="w-full h-full object-cover object-center transition-transform duration-700 ease-out group-hover:scale-105"
-                  loading="eager"
-                  onError={(e) => {
-                    // Graceful fallback to rich editorial gradient if offline
-                    e.currentTarget.style.display = 'none';
-                    e.currentTarget.parentElement.classList.add('bg-gradient-to-br', 'from-[#0B132B]', 'via-[#1C2541]', 'to-[#3A506B]');
-                  }}
-                />
+                {/* Main Hero Photograph Frame - Clean, Unobstructed Image */}
+                <div className="relative aspect-[4/4.8] sm:aspect-[4/4.5] rounded-[2rem] overflow-hidden shadow-2xl border border-gray-100 bg-gray-100 group">
+                  <img
+                    key={currentSlide.imageUrl}
+                    src={currentSlide.imageUrl}
+                    alt={`FinEdge Bank Customer — ${currentSlide.title}`}
+                    className="w-full h-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-105"
+                    loading="eager"
+                    onError={(e) => {
+                      e.currentTarget.style.display = 'none';
+                      e.currentTarget.parentElement.classList.add('bg-gradient-to-br', 'from-[#0B132B]', 'via-[#1C2541]', 'to-[#3A506B]');
+                    }}
+                  />
+                  {/* Subtle edge vignette at the very bottom border only */}
+                  <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
+                </div>
 
-                {/* Soft Gradient Scrim on Image Bottom for Legibility */}
-                <div className="absolute inset-0 bg-gradient-to-t from-black/60 via-transparent to-black/10 pointer-events-none" />
-
-                {/* Floating Card 1: Top Right Financial Metric Overlay */}
-                <div className="absolute top-5 right-5 max-w-[240px] bg-white/95 backdrop-blur-md rounded-2xl p-4 shadow-xl border border-white/80 animate-fade-in">
-                  <div className="flex items-center gap-2 mb-1.5">
+                {/* Floating Metric Card: Positioned at bottom-left corner outside the photo subject */}
+                <div className="absolute -bottom-5 -left-3 sm:-left-6 max-w-[220px] sm:max-w-[240px] bg-white rounded-2xl p-4 shadow-xl border border-gray-100 z-20 animate-fade-in">
+                  <div className="flex items-center gap-1.5 mb-1">
                     <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
                     <span className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">
                       {currentSlide.highlightBadge.title}
@@ -297,34 +297,24 @@ export const HomePage = () => {
                   <div className="text-xl font-black text-[#1C1B1F] tracking-tight">
                     {currentSlide.highlightBadge.value}
                   </div>
-                  <p className="text-[10px] text-gray-500 mt-1 leading-tight font-medium">
+                  <p className="text-[10px] text-gray-500 mt-0.5 leading-tight font-medium">
                     {currentSlide.highlightBadge.subtitle}
                   </p>
                 </div>
 
-                {/* Floating Card 2: Bottom Card Banner */}
-                <div className="absolute bottom-5 left-5 right-5 bg-slate-950/85 backdrop-blur-md rounded-2xl p-4 border border-white/20 text-white flex items-center justify-between">
-                  <div className="flex items-center gap-3">
-                    <div className="w-9 h-9 rounded-xl bg-[#9D1D27] flex items-center justify-center font-black text-sm text-white shadow-md">
-                      FE
-                    </div>
-                    <div>
-                      <div className="text-xs font-bold text-white tracking-wide">
-                        {currentSlide.badgeText}
-                      </div>
-                      <div className="text-[10px] text-gray-300 flex items-center gap-1">
-                        <ShieldCheck className="w-3 h-3 text-emerald-400" />
-                        <span>100% Paperless Digital Onboarding</span>
-                      </div>
-                    </div>
+                {/* Floating Product Badge: Positioned at top-right corner on perimeter */}
+                <div className="absolute -top-3 -right-2 sm:-right-4 bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-xl shadow-lg border border-gray-100 flex items-center gap-2.5 z-20">
+                  <div className="w-6 h-6 rounded-lg bg-[#9D1D27] text-white flex items-center justify-center font-black text-xs shadow-xs">
+                    FE
                   </div>
-
-                  <button
-                    onClick={() => handleApplyClick(currentSlide.productRef)}
-                    className="px-3 py-1.5 rounded-lg bg-white text-[#1C1B1F] text-xs font-black hover:bg-gray-100 transition-colors shadow-xs"
-                  >
-                    Apply →
-                  </button>
+                  <div>
+                    <span className="text-xs font-bold text-slate-900 block leading-tight">
+                      {currentSlide.badgeText}
+                    </span>
+                    <span className="text-[9px] text-emerald-600 font-bold flex items-center gap-1">
+                      <ShieldCheck className="w-3 h-3 inline" /> 100% Paperless KYC
+                    </span>
+                  </div>
                 </div>
 
               </div>
