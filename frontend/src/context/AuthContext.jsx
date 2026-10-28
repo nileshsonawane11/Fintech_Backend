@@ -1,103 +1,261 @@
-import React, { createContext, useContext, useState, useEffect } from 'react';
+import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
+import { authService } from '../services/authService';
+import { customerService } from '../services/customerService';
+import { accountService } from '../services/accountService';
+import { cardService } from '../services/cardService';
+import { getAccessToken, getManagerToken, getDb } from '../services/api';
 
 const AuthContext = createContext();
 
 export const AuthProvider = ({ children }) => {
+  // Customer Session
   const [user, setUser] = useState(() => {
     const saved = localStorage.getItem('finedge_demo_user');
-    return saved ? JSON.parse(saved) : null;
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return null;
   });
 
-  const [applications, setApplications] = useState(() => {
-    const saved = localStorage.getItem('finedge_applications');
-    return saved ? JSON.parse(saved) : [
-      {
-        id: 'APP-98241',
-        productType: 'Savings Account',
-        productName: 'FIRST High Yield Savings Account',
-        applicantName: 'Vikramaditya Sharma',
-        status: 'Under Verification',
-        date: '2026-10-12',
-        steps: [
-          { name: 'Application Submitted', completed: true, date: '2026-10-12' },
-          { name: 'Document Verification', completed: true, date: '2026-10-13' },
-          { name: 'Video KYC Scheduled', completed: false, date: 'Pending' },
-          { name: 'Account Activation', completed: false, date: 'Pending' }
-        ]
-      },
-      {
-        id: 'APP-84192',
-        productType: 'Loan',
-        productName: 'Instant Personal Loan',
-        applicantName: 'Vikramaditya Sharma',
-        amount: '₹ 5,00,000',
-        status: 'Approved',
-        date: '2026-10-08',
-        steps: [
-          { name: 'Application Submitted', completed: true, date: '2026-10-08' },
-          { name: 'Credit Assessment', completed: true, date: '2026-10-09' },
-          { name: 'Agreement Signed', completed: true, date: '2026-10-10' },
-          { name: 'Disbursal Ready', completed: true, date: '2026-10-11' }
-        ]
+  // Manager / Staff Session
+  const [managerUser, setManagerUser] = useState(() => {
+    const saved = localStorage.getItem('finedge_manager_user');
+    if (saved) {
+      try { return JSON.parse(saved); } catch (e) {}
+    }
+    return null;
+  });
+
+  // Financial Data State
+  const [accounts, setAccounts] = useState([]);
+  const [cards, setCards] = useState([]);
+  const [applications, setApplications] = useState([]);
+  const [profile, setProfile] = useState(null);
+  const [loading, setLoading] = useState(false);
+
+  // Sync Customer Financial Data
+  const refreshCustomerData = useCallback(async () => {
+    if (!user && !getAccessToken()) return;
+    try {
+      const [profData, accsData, cardsData] = await Promise.all([
+        customerService.getProfile().catch(() => null),
+        accountService.getAccounts().catch(() => ({ data: [] })),
+        cardService.getCards().catch(() => ({ data: [] }))
+      ]);
+
+      if (profData) {
+        setProfile(profData);
+        setUser(prev => ({
+          ...prev,
+          name: profData.fullName || prev?.name || 'Vikramaditya Sharma',
+          email: profData.email || prev?.email,
+          mobile: profData.mobileNumber || prev?.mobile,
+          customerId: profData.customerId || prev?.customerId,
+          kycStatus: profData.kycStatus || 'APPROVED'
+        }));
       }
-    ];
-  });
 
-  useEffect(() => {
-    if (user) {
-      localStorage.setItem('finedge_demo_user', JSON.stringify(user));
-    } else {
-      localStorage.removeItem('finedge_demo_user');
+      const accList = accsData?.data || accsData || [];
+      setAccounts(accList);
+      const cardList = cardsData?.data || cardsData || [];
+      setCards(cardList);
+
+      // Load persistent applications
+      const db = getDb();
+      const combinedApps = [
+        ...(db.accountApplications || []).map(a => ({
+          id: a.accountApplicationId,
+          productType: 'Account',
+          productName: a.productName,
+          applicantName: a.customerName,
+          status: a.status,
+          date: a.submittedAt?.split('T')[0] || '2026-10-12',
+          steps: [
+            { name: 'Application Submitted', completed: true, date: a.submittedAt?.split('T')[0] || '2026-10-12' },
+            { name: 'Document Verification', completed: a.status !== 'REJECTED', date: a.status === 'APPROVED' ? 'Verified' : 'In Review' },
+            { name: 'Underwriting Review', completed: a.status === 'APPROVED', date: a.status === 'APPROVED' ? 'Approved' : 'Pending' },
+            { name: 'Account Activation', completed: a.status === 'APPROVED', date: a.status === 'APPROVED' ? 'Active' : 'Pending' }
+          ]
+        })),
+        ...(db.cardApplications || []).map(c => ({
+          id: c.cardApplicationId,
+          productType: 'Card',
+          productName: c.cardName,
+          applicantName: c.customerName,
+          status: c.status,
+          date: c.submittedAt?.split('T')[0] || '2026-10-11',
+          steps: [
+            { name: 'Application Submitted', completed: true, date: c.submittedAt?.split('T')[0] || '2026-10-11' },
+            { name: 'Eligibility Assessment', completed: true, date: 'Completed' },
+            { name: 'Card Approval', completed: c.status === 'APPROVED', date: c.status === 'APPROVED' ? 'Approved' : 'Pending' },
+            { name: 'Card Dispatch & Delivery', completed: c.status === 'APPROVED', date: c.status === 'APPROVED' ? 'Dispatched' : 'Pending' }
+          ]
+        }))
+      ];
+      setApplications(combinedApps);
+    } catch (e) {
+      console.error('Error refreshing customer data', e);
     }
   }, [user]);
 
   useEffect(() => {
-    localStorage.setItem('finedge_applications', JSON.stringify(applications));
-  }, [applications]);
+    if (user) {
+      localStorage.setItem('finedge_demo_user', JSON.stringify(user));
+      refreshCustomerData();
+    } else {
+      localStorage.removeItem('finedge_demo_user');
+      setAccounts([]);
+      setCards([]);
+      setProfile(null);
+    }
+  }, [user, refreshCustomerData]);
 
-  const login = (mobileOrEmail) => {
-    const mockUser = {
-      name: 'Vikramaditya Sharma',
-      email: mobileOrEmail.includes('@') ? mobileOrEmail : 'vikram.sharma@example.com',
-      mobile: mobileOrEmail.includes('@') ? '+91 98765 43210' : mobileOrEmail,
-      customerId: 'CUST-8491029',
-      primaryAccount: '10049281920',
-      balance: 148290.50,
-      activeCards: 2,
-      lastLogin: new Date().toLocaleString('en-IN')
-    };
-    setUser(mockUser);
-    return mockUser;
+  useEffect(() => {
+    if (managerUser) {
+      localStorage.setItem('finedge_manager_user', JSON.stringify(managerUser));
+    } else {
+      localStorage.removeItem('finedge_manager_user');
+    }
+  }, [managerUser]);
+
+  // Customer Login with Two-Factor / MFA support
+  const login = async (identifier, password) => {
+    setLoading(true);
+    try {
+      const res = await authService.login({ identifier, password: password || 'Str0ngPassw0rd!' });
+      if (res.mfaRequired) {
+        return { mfaRequired: true, mfaReferenceId: res.mfaReferenceId };
+      }
+      const initialUser = {
+        name: 'Vikramaditya Sharma',
+        email: identifier.includes('@') ? identifier : 'vikram@example.com',
+        mobile: identifier.includes('@') ? '9876543210' : identifier,
+        customerId: res.customerId || 'CUS-100234',
+        kycStatus: 'APPROVED',
+        lastLogin: new Date().toLocaleString('en-IN')
+      };
+      setUser(initialUser);
+      return { success: true, user: initialUser };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Complete MFA
+  const verifyMfa = async (mfaReferenceId, otp) => {
+    setLoading(true);
+    try {
+      const res = await authService.verifyMfa({ mfaReferenceId, otp });
+      const initialUser = {
+        name: 'Vikramaditya Sharma',
+        email: 'vikram@example.com',
+        mobile: '9876543210',
+        customerId: res.customerId || 'CUS-100234',
+        kycStatus: 'APPROVED',
+        lastLogin: new Date().toLocaleString('en-IN')
+      };
+      setUser(initialUser);
+      return { success: true, user: initialUser };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Customer Registration
+  const register = async (regData) => {
+    setLoading(true);
+    try {
+      return await authService.register(regData);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // Verify Registration OTP
+  const verifyOtp = async (otpData) => {
+    setLoading(true);
+    try {
+      return await authService.verifyOtp(otpData);
+    } finally {
+      setLoading(false);
+    }
   };
 
   const logout = () => {
+    authService.logout();
     setUser(null);
   };
 
-  const submitApplication = (applicationData) => {
-    const newApp = {
-      id: `APP-${Math.floor(10000 + Math.random() * 90000)}`,
-      status: 'Submitted',
-      date: new Date().toISOString().split('T')[0],
-      steps: [
-        { name: 'Application Submitted', completed: true, date: new Date().toISOString().split('T')[0] },
-        { name: 'Initial Verification', completed: false, date: 'In Progress' },
-        { name: 'Video KYC / Inspection', completed: false, date: 'Pending' },
-        { name: 'Final Approval', completed: false, date: 'Pending' }
-      ],
-      ...applicationData
-    };
-    setApplications(prev => [newApp, ...prev]);
-    return newApp;
+  // Manager Login
+  const managerLogin = async (identifier, password) => {
+    setLoading(true);
+    try {
+      const res = await authService.managerLogin({ identifier, password });
+      const mgr = {
+        staffId: res.staffId || 'STF-001',
+        name: res.fullName || 'Devendra Singhania',
+        email: res.email || identifier,
+        role: res.role || 'BANK_MANAGER',
+        lastLogin: new Date().toLocaleString('en-IN')
+      };
+      setManagerUser(mgr);
+      return { success: true, managerUser: mgr };
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  const managerLogout = () => {
+    authService.managerLogout();
+    setManagerUser(null);
+  };
+
+  // Submit Application (Account or Card)
+  const submitApplication = async (applicationData) => {
+    if (applicationData.productType === 'Savings Account' || applicationData.productType === 'Current Account' || applicationData.category === 'Accounts') {
+      const res = await accountService.applyForAccount({
+        productCode: applicationData.productCode || (applicationData.title?.includes('Current') ? 'CURRENT_BUSINESS' : 'SAVINGS_REGULAR'),
+        initialFundingAmount: applicationData.initialFundingAmount || 10000,
+        nominee: applicationData.nominee || {
+          fullName: 'Nominee Name',
+          relationship: 'SPOUSE',
+          dateOfBirth: '1998-01-01',
+          mobileNumber: '9876543210'
+        }
+      });
+      refreshCustomerData();
+      return res;
+    } else {
+      const res = await cardService.applyForCard({
+        cardType: applicationData.cardType || 'METAL_CREDIT',
+        cardName: applicationData.title || applicationData.productName || 'FinEdge Ashva Metal Card',
+        linkedAccountId: accounts[0]?.accountId || 'ACC-1001'
+      });
+      refreshCustomerData();
+      return res;
+    }
   };
 
   return (
     <AuthContext.Provider value={{
       user,
-      login,
-      logout,
+      managerUser,
+      profile,
+      accounts,
+      cards,
       applications,
-      submitApplication
+      loading,
+      login,
+      verifyMfa,
+      register,
+      verifyOtp,
+      logout,
+      managerLogin,
+      managerLogout,
+      submitApplication,
+      refreshCustomerData,
+      isAuthenticated: Boolean(user),
+      isManagerAuthenticated: Boolean(managerUser || getManagerToken())
     }}>
       {children}
     </AuthContext.Provider>

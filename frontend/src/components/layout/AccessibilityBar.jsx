@@ -2,16 +2,22 @@ import React from 'react';
 import { useAccessibility } from '../../context/AccessibilityContext';
 import { ZoomIn, ZoomOut, Type } from 'lucide-react';
 
+import { Link } from 'react-router-dom';
+
 export const AccessibilityBar = () => {
   const { textSize, setTextSize, letterSpacing, cycleLetterSpacing } = useAccessibility();
 
   return (
     <div className="bg-[#F5F5F5] border-b border-[#E2E5EA] py-1 text-xs text-gray-600 transition-standard">
       <div className="max-w-7xl mx-auto px-4 flex items-center justify-between">
-        <div className="hidden sm:flex items-center gap-4 text-[11px] text-gray-500">
+        <div className="hidden sm:flex items-center gap-3 text-[11px] text-gray-500">
           <span>RBI Licensed Scheduled Commercial Bank</span>
           <span>•</span>
           <span className="text-green-700 font-medium">DICGC Insured up to ₹5 Lakhs</span>
+          <span>•</span>
+          <Link to="/manager/login" className="text-amber-700 hover:text-amber-900 font-extrabold flex items-center gap-1">
+            Staff Portal ↗
+          </Link>
         </div>
 
         <div className="flex items-center gap-5 ml-auto">
