@@ -23,7 +23,7 @@
         <module>service-discovery</module>
         <module>identity-access-service</module>
         <module>customer-service</module>
-        <module>payment-service</module>
+        <module>frontend</module>
     </modules>
 
     <properties>
