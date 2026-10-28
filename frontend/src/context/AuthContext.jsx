@@ -280,4 +280,24 @@ export const AuthProvider = ({ children }) => {
   );
 };
 
-export const useAuth = () => useContext(AuthContext);
+export const useAuth = () => {
+  const context = useContext(AuthContext);
+  if (!context) {
+    return {
+      user: null,
+      managerUser: null,
+      isManagerAuthenticated: false,
+      isAuthenticated: false,
+      accounts: [],
+      cards: [],
+      applications: [],
+      loading: false,
+      login: async () => {},
+      logout: () => {},
+      managerLogin: async () => {},
+      managerLogout: () => {},
+      refreshCustomerData: async () => {}
+    };
+  }
+  return context;
+};
