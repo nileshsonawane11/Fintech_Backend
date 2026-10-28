@@ -88,6 +88,10 @@ public class KycDocument {
         this.uploadedAt = Instant.now();
     }
 
+    public void markValidated() {
+        this.status = "VALIDATED";
+    }
+
     public void markRejected() {
         this.status = "REJECTED";
     }

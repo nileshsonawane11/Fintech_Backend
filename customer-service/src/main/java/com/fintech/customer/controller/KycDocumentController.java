@@ -4,7 +4,14 @@ import com.fintech.customer.service.KycDocumentService;
 import com.fintech.customer.dto.request.DocumentUploadRequest;
 import com.fintech.customer.dto.response.DocumentResponse;
 import com.fintech.customer.dto.response.DocumentUploadResponse;
+import org.springframework.core.io.FileSystemResource;
+import org.springframework.core.io.Resource;
+import org.springframework.http.ContentDisposition;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.MediaType;
 
+import java.nio.charset.StandardCharsets;
+import java.nio.file.Path;
 import jakarta.validation.Valid;
 
 import org.springframework.http.HttpStatus;
@@ -40,7 +47,7 @@ public class KycDocumentController {
     @PostMapping("/{documentReferenceId}/complete")
     public DocumentResponse completeUpload(
             @AuthenticationPrincipal Jwt jwt,
-            @PathVariable String documentReferenceId
+            @PathVariable("documentReferenceId") String documentReferenceId
     ) {
         return documentService.completeUpload(
                 jwt.getSubject(), documentReferenceId
@@ -57,7 +64,7 @@ public class KycDocumentController {
     @GetMapping("/{documentReferenceId}")
     public DocumentResponse getDocument(
             @AuthenticationPrincipal Jwt jwt,
-            @PathVariable String documentReferenceId
+            @PathVariable("documentReferenceId") String documentReferenceId
     ) {
         return documentService.getDocument(
                 jwt.getSubject(), documentReferenceId
@@ -67,7 +74,7 @@ public class KycDocumentController {
     @PostMapping("/{documentReferenceId}/download-url")
     public Map<String, String> createDownloadUrl(
             @AuthenticationPrincipal Jwt jwt,
-            @PathVariable String documentReferenceId
+            @PathVariable("documentReferenceId") String documentReferenceId
     ) {
         return Map.of(
                 "downloadUrl",
@@ -80,12 +87,62 @@ public class KycDocumentController {
     @DeleteMapping("/{documentReferenceId}")
     public ResponseEntity<Void> deleteDocument(
             @AuthenticationPrincipal Jwt jwt,
-            @PathVariable String documentReferenceId
+            @PathVariable("documentReferenceId") String documentReferenceId
     ) {
         documentService.deleteDocument(
                 jwt.getSubject(), documentReferenceId
         );
 
         return ResponseEntity.noContent().build();
+    }
+
+    @PutMapping("/{documentReferenceId}/content")
+    public ResponseEntity<Void> uploadContent(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable("documentReferenceId") String documentReferenceId,
+            @RequestHeader(HttpHeaders.CONTENT_TYPE) String contentType,
+            @RequestBody byte[] content) {
+
+        documentService.uploadContent(
+                jwt.getSubject(),
+                documentReferenceId,
+                contentType,
+                content
+        );
+
+        return ResponseEntity.noContent().build();
+    }
+
+    @GetMapping("/{documentReferenceId}/content")
+    public ResponseEntity<Resource> downloadContent(
+            @AuthenticationPrincipal Jwt jwt,
+            @PathVariable("documentReferenceId") String documentReferenceId) {
+
+        Path path = documentService.getValidatedDocumentPath(
+                jwt.getSubject(),
+                documentReferenceId
+        );
+
+        DocumentResponse document = documentService.getDocument(
+                jwt.getSubject(),
+                documentReferenceId
+        );
+
+        Resource resource = new FileSystemResource(path);
+
+        return ResponseEntity.ok()
+                .contentType(MediaType.parseMediaType(
+                        document.contentType()))
+                .header(
+                        HttpHeaders.CONTENT_DISPOSITION,
+                        ContentDisposition.attachment()
+                                .filename(
+                                        document.fileName(),
+                                        StandardCharsets.UTF_8)
+                                .build()
+                                .toString()
+                )
+                .header(HttpHeaders.CACHE_CONTROL, "no-store")
+                .body(resource);
     }
 }
