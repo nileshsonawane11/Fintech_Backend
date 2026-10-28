@@ -211,12 +211,18 @@ export const AuthProvider = ({ children }) => {
       const res = await authService.managerLogin({ identifier, password });
       const mgr = {
         staffId: res.staffId || 'STF-001',
-        name: res.fullName || 'Devendra Singhania',
+        name: res.fullName || 'Staff Member',
         email: res.email || identifier,
         role: res.role || 'BANK_MANAGER',
+        roleTitle: res.roleTitle || (res.role === 'BANK_MANAGER' ? 'Chief Branch Manager' : res.role === 'KYC_OFFICER' ? 'Senior KYC Verification Officer' : 'Account & Card Operations Specialist'),
+        department: res.department || 'Operations',
+        permissions: res.permissions || [],
         lastLogin: new Date().toLocaleString('en-IN')
       };
       setManagerUser(mgr);
+      if (typeof localStorage !== 'undefined') {
+        localStorage.setItem('finedge_manager_user', JSON.stringify(mgr));
+      }
       return { success: true, managerUser: mgr };
     } finally {
       setLoading(false);
@@ -225,6 +231,9 @@ export const AuthProvider = ({ children }) => {
 
   const managerLogout = () => {
     authService.managerLogout();
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('finedge_manager_user');
+    }
     setManagerUser(null);
   };
 
