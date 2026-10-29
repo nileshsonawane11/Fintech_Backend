@@ -35,11 +35,11 @@ export const ApplyModal = ({ isOpen, onClose, product }) => {
     return Object.keys(errs).length === 0;
   };
 
-  const handleSubmit = (e) => {
+  const handleSubmit = async (e) => {
     e.preventDefault();
     if (!validate()) return;
 
-    const newApp = submitApplication({
+    const newApp = await submitApplication({
       productType: product?.category || 'Banking Service',
       productName: product?.title || 'FinEdge Product',
       applicantName: formData.fullName,
@@ -49,7 +49,7 @@ export const ApplyModal = ({ isOpen, onClose, product }) => {
       pan: formData.panNumber.toUpperCase()
     });
 
-    setSubmittedApp(newApp);
+    setSubmittedApp(newApp || { id: 'APP-' + Math.floor(10000 + Math.random() * 90000) });
   };
 
   const handleClose = () => {

@@ -1,0 +1,11 @@
+{
+  "name": "fintech-backend-monorepo",
+  "version": "1.0.0",
+  "private": true,
+  "description": "FinEdge Bank Enterprise Web Monorepo",
+  "scripts": {
+    "build": "cd frontend && npm install && npm run build",
+    "test": "cd frontend && npm test",
+    "lint": "cd frontend && npm run lint"
+  }
+}
