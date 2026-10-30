@@ -35,4 +35,8 @@ public interface KycCaseRepository extends JpaRepository<KycCase, UUID> {
             UUID customerProfileId,
             Collection<KycStatus> statuses
     );
+
+    Optional<KycCase> findByKycCaseId(String kycCaseId);
+
+    List<KycCase> findAllByOrderByCreatedAtDesc();
 }

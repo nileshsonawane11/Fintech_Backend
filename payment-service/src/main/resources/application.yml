@@ -1,0 +1,53 @@
+
+server:
+  port: 8085
+
+spring:
+  application:
+    name: payment-service
+
+  datasource:
+    url: ${PAYMENT_DB_URL:jdbc:postgresql://localhost:5432/fintech_payment}
+    username: ${PAYMENT_DB_USERNAME}
+    password: ${PAYMENT_DB_PASSWORD}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+
+payment:
+  jwt:
+    public-key-location: ${PAYMENT_JWT_PUBLIC_KEY:classpath:keys/public.pem}
+    issuer: ${JWT_ISSUER:fintech-identity-service}
+  pii:
+    encryption-key: ${PAYMENT_PII_ENCRYPTION_KEY:}
+  webhook:
+    secret: ${PAYMENT_WEBHOOK_SECRET:}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info
+  endpoint:
+    health:
+      probes:
+        enabled: true

@@ -221,29 +221,40 @@ export const Header = () => {
             </div>
 
             {/* Portal / Login Action */}
-            {user ? (
-              <div className="flex items-center gap-2">
+            <div className="flex items-center gap-2">
+              {user ? (
+                <>
+                  <Link
+                    to="/portal"
+                    className="px-3 py-1.5 rounded-lg bg-[#9D1D27] text-white text-xs font-bold hover:bg-[#7A1620] flex items-center gap-1.5 transition-colors shadow-xs"
+                  >
+                    <Lock className="w-3.5 h-3.5" /> Portal ({user.name.split(' ')[0]})
+                  </Link>
+                  <button
+                    onClick={logout}
+                    className="text-xs text-gray-500 hover:text-gray-800 px-2 py-1"
+                  >
+                    Sign Out
+                  </button>
+                </>
+              ) : (
                 <Link
-                  to="/portal"
-                  className="px-3 py-1.5 rounded-lg bg-[#9D1D27] text-white text-xs font-bold hover:bg-[#7A1620] flex items-center gap-1.5 transition-colors shadow-xs"
+                  to="/portal/login"
+                  className="px-3.5 py-2 rounded-md bg-[#9D1D27] text-white text-xs font-bold hover:bg-[#7A1620] flex items-center gap-1.5 transition-colors shadow-xs"
                 >
-                  <Lock className="w-3.5 h-3.5" /> Portal ({user.name.split(' ')[0]})
+                  <Lock className="w-3.5 h-3.5" /> NetBanking Login
                 </Link>
-                <button
-                  onClick={logout}
-                  className="text-xs text-gray-500 hover:text-gray-800 px-2 py-1"
-                >
-                  Sign Out
-                </button>
-              </div>
-            ) : (
+              )}
+
+              {/* Staff Portal - Always visible */}
               <Link
-                to="/portal/login"
-                className="px-4 py-2 rounded-md bg-[#9D1D27] text-white text-xs font-bold hover:bg-[#7A1620] flex items-center gap-1.5 transition-colors shadow-xs"
+                to="/manager/login"
+                className="px-3 py-1.5 rounded-md bg-[#0B132B] hover:bg-[#1C2541] text-cyan-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-colors border border-cyan-500/40 shadow-xs"
+                title="Internal Bank Staff & Manager Operations Terminal"
               >
-                <Lock className="w-3.5 h-3.5" /> NetBanking Login
+                <ShieldAlert className="w-3.5 h-3.5 text-cyan-400" /> Staff Portal
               </Link>
-            )}
+            </div>
 
             {/* Mobile Menu Button */}
             <button
@@ -327,13 +338,22 @@ export const Header = () => {
                 </button>
               </div>
             ) : (
-              <Link
-                to="/portal/login"
-                onClick={() => setMobileMenuOpen(false)}
-                className="w-full text-center py-2.5 rounded-lg bg-[#9D1D27] text-white font-bold block"
-              >
-                Log In to NetBanking
-              </Link>
+              <div className="space-y-2">
+                <Link
+                  to="/portal/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full text-center py-2.5 rounded-lg bg-[#9D1D27] text-white font-bold block"
+                >
+                  Log In to NetBanking
+                </Link>
+                <Link
+                  to="/manager/login"
+                  onClick={() => setMobileMenuOpen(false)}
+                  className="w-full text-center py-2.5 rounded-lg bg-[#1C2541] hover:bg-[#0B132B] text-cyan-300 font-bold block border border-[#3A506B]/50 flex items-center justify-center gap-2"
+                >
+                  <ShieldAlert className="w-4 h-4 text-cyan-400" /> Bank Staff & Manager Portal
+                </Link>
+              </div>
             )}
           </div>
         </div>
