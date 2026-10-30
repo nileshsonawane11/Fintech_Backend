@@ -1,0 +1,16 @@
+{
+  "name": "finbank-development",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "gateway": "cd api-gateway && mvn spring-boot:run",
+    "identity": "cd identity-access-service && mvn spring-boot:run",
+    "customer": "cd customer-service && mvn spring-boot:run",
+    "service-directory": "cd service-discovery && mvn spring-boot:run",
+    "frontend": "cd frontend && npm run dev",
+    "dev": "concurrently -n SERVICE-DIRECTORY,GATEWAY,IDENTITY,CUSTOMER,FRONTEND -c red,blue,magenta,green,cyan \"npm:service-directory\" \"npm:gateway\" \"npm:identity\" \"npm:customer\" \"npm:frontend\""
+  },
+  "devDependencies": {
+    "concurrently": "^9.2.1"
+  }
+}
