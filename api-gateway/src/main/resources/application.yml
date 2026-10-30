@@ -26,7 +26,6 @@ spring:
                     name: identityServiceCircuitBreaker
                     fallbackUri: forward:/fallback/identity
                     statusCodes:
-                      - 500
                       - 502
                       - 503
                       - 504
@@ -42,7 +41,6 @@ spring:
                     name: customerServiceCircuitBreaker
                     fallbackUri: forward:/fallback/customer
                     statusCodes:
-                      - 500
                       - 502
                       - 503
                       - 504
@@ -119,18 +117,18 @@ resilience4j:
     instances:
       identityServiceCircuitBreaker:
         slidingWindowType: COUNT_BASED
-        slidingWindowSize: 5
-        minimumNumberOfCalls: 3
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
         failureRateThreshold: 50
-        waitDurationInOpenState: 10s
+        waitDurationInOpenState: 5s
         permittedNumberOfCallsInHalfOpenState: 2
         automaticTransitionFromOpenToHalfOpenEnabled: true
 
       customerServiceCircuitBreaker:
         slidingWindowType: COUNT_BASED
-        slidingWindowSize: 5
-        minimumNumberOfCalls: 3
+        slidingWindowSize: 20
+        minimumNumberOfCalls: 10
         failureRateThreshold: 50
-        waitDurationInOpenState: 10s
+        waitDurationInOpenState: 5s
         permittedNumberOfCallsInHalfOpenState: 2
         automaticTransitionFromOpenToHalfOpenEnabled: true
