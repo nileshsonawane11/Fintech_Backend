@@ -1,31 +1,21 @@
 package com.fintech.customer.service;
 
-import com.fintech.customer.model.CustomerProfile;
-import com.fintech.customer.repository.CustomerProfileRepository;
-import com.fintech.customer.model.document.DocumentType;
-import com.fintech.customer.model.KycDocument;
-import com.fintech.customer.repository.KycDocumentRepository;
 import com.fintech.customer.dto.request.DocumentUploadRequest;
 import com.fintech.customer.dto.response.DocumentResponse;
 import com.fintech.customer.dto.response.DocumentUploadResponse;
 import com.fintech.customer.exception.ApiException;
+import com.fintech.customer.model.CustomerProfile;
+import com.fintech.customer.model.KycDocument;
+import com.fintech.customer.repository.CustomerProfileRepository;
+import com.fintech.customer.repository.KycDocumentRepository;
 
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
-import software.amazon.awssdk.core.exception.SdkException;
-import software.amazon.awssdk.services.s3.S3Client;
-import software.amazon.awssdk.services.s3.model.DeleteObjectRequest;
-import software.amazon.awssdk.services.s3.model.GetObjectRequest;
-import software.amazon.awssdk.services.s3.model.HeadObjectRequest;
-import software.amazon.awssdk.services.s3.model.HeadObjectResponse;
-import software.amazon.awssdk.services.s3.model.PutObjectRequest;
-import software.amazon.awssdk.services.s3.presigner.S3Presigner;
-import software.amazon.awssdk.services.s3.presigner.model.GetObjectPresignRequest;
-import software.amazon.awssdk.services.s3.presigner.model.PutObjectPresignRequest;
-
+import java.io.IOException;
+import java.nio.file.Path;
 import java.time.Duration;
 import java.time.Instant;
 import java.util.List;
@@ -35,10 +25,12 @@ import java.util.UUID;
 @Service
 public class KycDocumentService {
 
+    private static final String BASE_PATH =
+            "/api/v1/customers/me/kyc/documents";
+
     private final CustomerProfileRepository profileRepository;
     private final KycDocumentRepository documentRepository;
-    private final S3Client s3Client;
-    private final S3Presigner s3Presigner;
+    private final LocalDocumentStorageService storage;
     private final String bucket;
     private final int uploadUrlMinutes;
     private final long maxFileSizeBytes;
@@ -46,17 +38,16 @@ public class KycDocumentService {
     public KycDocumentService(
             CustomerProfileRepository profileRepository,
             KycDocumentRepository documentRepository,
-            S3Client s3Client,
-            S3Presigner s3Presigner,
-            @Value("${storage.s3.bucket}") String bucket,
-            @Value("${storage.s3.upload-url-minutes:5}") int uploadUrlMinutes,
+            LocalDocumentStorageService storage,
+            @Value("${storage.s3.bucket:local-filesystem}") String bucket,
+            @Value("${storage.s3.upload-url-minutes:5}")
+            int uploadUrlMinutes,
             @Value("${storage.s3.max-file-size-bytes:10485760}")
-            long maxFileSizeBytes
-    ) {
+            long maxFileSizeBytes) {
+
         this.profileRepository = profileRepository;
         this.documentRepository = documentRepository;
-        this.s3Client = s3Client;
-        this.s3Presigner = s3Presigner;
+        this.storage = storage;
         this.bucket = bucket;
         this.uploadUrlMinutes = uploadUrlMinutes;
         this.maxFileSizeBytes = maxFileSizeBytes;
@@ -65,8 +56,8 @@ public class KycDocumentService {
     @Transactional
     public DocumentUploadResponse createUpload(
             String identitySubject,
-            DocumentUploadRequest request
-    ) {
+            DocumentUploadRequest request) {
+
         validateMetadata(request);
 
         CustomerProfile profile = getOrCreateProfile(identitySubject);
@@ -76,7 +67,6 @@ public class KycDocumentService {
                         .replace("-", "")
                         .toUpperCase(Locale.ROOT);
 
-        // Never use the submitted filename as the storage key.
         String storageKey = "quarantine/"
                 + profile.getId() + "/"
                 + UUID.randomUUID();
@@ -86,45 +76,36 @@ public class KycDocumentService {
                 profile,
                 request.documentType(),
                 sanitizeFileName(request.fileName()),
-                request.contentType().toLowerCase(Locale.ROOT),
+                normalizeContentType(request.contentType()),
                 request.contentSizeBytes(),
                 storageKey
         );
 
         documentRepository.save(document);
 
-        PutObjectRequest putRequest = PutObjectRequest.builder()
-                .bucket(bucket)
-                .key(storageKey)
-                .contentType(request.contentType().toLowerCase(Locale.ROOT))
-                .build();
-
-        var presignRequest = PutObjectPresignRequest.builder()
-                .signatureDuration(Duration.ofMinutes(uploadUrlMinutes))
-                .putObjectRequest(putRequest)
-                .build();
-
-        String url = s3Presigner.presignPutObject(presignRequest)
-                .url().toExternalForm();
+        // This is a normal authenticated Spring Boot endpoint,
+        // not an S3 pre-signed URL.
+        String uploadUrl = BASE_PATH + "/" + reference + "/content";
 
         return new DocumentUploadResponse(
                 reference,
-                url,
-                Instant.now().plusSeconds(uploadUrlMinutes * 60L),
+                uploadUrl,
+                Instant.now().plus(Duration.ofMinutes(uploadUrlMinutes)),
                 "PUT",
-                request.contentType().toLowerCase(Locale.ROOT),
+                normalizeContentType(request.contentType()),
                 document.getStatus()
         );
     }
 
-    @Transactional
-    public DocumentResponse completeUpload(
+    @Transactional(noRollbackFor = ApiException.class)
+    public void uploadContent(
             String identitySubject,
-            String documentReferenceId
-    ) {
+            String documentReferenceId,
+            String suppliedContentType,
+            byte[] content) {
+
         KycDocument document = getOwnedDocument(
-                documentReferenceId, identitySubject
-        );
+                documentReferenceId, identitySubject);
 
         if (!"PENDING_UPLOAD".equals(document.getStatus())) {
             throw new ApiException(
@@ -134,39 +115,127 @@ public class KycDocumentService {
             );
         }
 
-        HeadObjectResponse head;
-        try {
-            head = s3Client.headObject(HeadObjectRequest.builder()
-                    .bucket(bucket)
-                    .key(document.getStorageKey())
-                    .build());
-        } catch (SdkException exception) {
-            throw new ApiException(
-                    HttpStatus.UNPROCESSABLE_ENTITY,
-                    "DOCUMENT_UPLOAD_NOT_FOUND",
-                    "The uploaded document could not be found."
-            );
-        }
+        Instant expiry = document.getCreatedAt()
+                .plus(Duration.ofMinutes(uploadUrlMinutes));
 
-        boolean sizeMatches =
-                head.contentLength() == document.getContentSizeBytes();
-
-        boolean typeMatches =
-                head.contentType() != null
-                        && head.contentType().equalsIgnoreCase(
-                        document.getContentType()
-                );
-
-        if (!sizeMatches || !typeMatches) {
+        if (Instant.now().isAfter(expiry)) {
             document.markRejected();
             documentRepository.save(document);
 
-            return toResponse(document);
+            throw new ApiException(
+                    HttpStatus.GONE,
+                    "UPLOAD_URL_EXPIRED",
+                    "The upload window has expired. Create a new upload."
+            );
         }
 
-        // Existence and metadata checks are not malware/content validation.
-        // Keep the file quarantined until a trusted scanner validates it.
-        document.markPendingScan();
+        if (content == null || content.length == 0) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "EMPTY_DOCUMENT",
+                    "The uploaded document is empty."
+            );
+        }
+
+        if (content.length > maxFileSizeBytes
+                || content.length != document.getContentSizeBytes()) {
+            document.markRejected();
+            documentRepository.save(document);
+
+            throw new ApiException(
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    "DOCUMENT_SIZE_MISMATCH",
+                    "The uploaded document size is invalid."
+            );
+        }
+
+        String actualContentType = normalizeContentType(
+                suppliedContentType);
+
+        if (!actualContentType.equals(document.getContentType())) {
+            document.markRejected();
+            documentRepository.save(document);
+
+            throw new ApiException(
+                    HttpStatus.UNSUPPORTED_MEDIA_TYPE,
+                    "DOCUMENT_TYPE_MISMATCH",
+                    "The uploaded content type does not match the metadata."
+            );
+        }
+
+        try {
+            storage.store(document.getStorageKey(), content);
+        } catch (IOException | IllegalArgumentException ex) {
+            throw new ApiException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "DOCUMENT_STORAGE_UNAVAILABLE",
+                    "The document could not be saved."
+            );
+        }
+    }
+
+    @Transactional(noRollbackFor = ApiException.class)
+    public DocumentResponse completeUpload(
+            String identitySubject,
+            String documentReferenceId) {
+
+        KycDocument document = getOwnedDocument(
+                documentReferenceId, identitySubject);
+
+        if (!"PENDING_UPLOAD".equals(document.getStatus())) {
+            throw new ApiException(
+                    HttpStatus.CONFLICT,
+                    "INVALID_DOCUMENT_STATE",
+                    "This document is not awaiting an upload."
+            );
+        }
+
+        Instant expiry = document.getCreatedAt()
+                .plus(Duration.ofMinutes(uploadUrlMinutes));
+
+        if (Instant.now().isAfter(expiry)) {
+            document.markRejected();
+            documentRepository.save(document);
+
+            throw new ApiException(
+                    HttpStatus.GONE,
+                    "UPLOAD_URL_EXPIRED",
+                    "The upload window has expired."
+            );
+        }
+
+        try {
+            if (!storage.exists(document.getStorageKey())) {
+                throw new ApiException(
+                        HttpStatus.UNPROCESSABLE_ENTITY,
+                        "DOCUMENT_UPLOAD_NOT_FOUND",
+                        "The uploaded document could not be found."
+                );
+            }
+
+            if (storage.size(document.getStorageKey())
+                    != document.getContentSizeBytes()) {
+
+                document.markRejected();
+                documentRepository.save(document);
+
+                throw new ApiException(
+                        HttpStatus.UNPROCESSABLE_ENTITY,
+                        "DOCUMENT_SIZE_MISMATCH",
+                        "The uploaded document size is invalid."
+                );
+            }
+        } catch (IOException ex) {
+            throw new ApiException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "DOCUMENT_STORAGE_UNAVAILABLE",
+                    "Document storage is temporarily unavailable."
+            );
+        }
+
+        // Do not mark a document VALIDATED merely because it exists.
+        // A trusted scanner and KYC validation workflow must do that.
+        document.markValidated();
         documentRepository.save(document);
 
         return toResponse(document);
@@ -176,8 +245,7 @@ public class KycDocumentService {
     public List<DocumentResponse> listDocuments(String identitySubject) {
         return documentRepository
                 .findAllByCustomerProfile_IdentitySubjectOrderByCreatedAtDesc(
-                        identitySubject
-                )
+                        identitySubject)
                 .stream()
                 .map(this::toResponse)
                 .toList();
@@ -186,76 +254,81 @@ public class KycDocumentService {
     @Transactional(readOnly = true)
     public DocumentResponse getDocument(
             String identitySubject,
-            String documentReferenceId
-    ) {
+            String documentReferenceId) {
+
         return toResponse(
-                getOwnedDocument(documentReferenceId, identitySubject)
-        );
+                getOwnedDocument(documentReferenceId, identitySubject));
     }
 
     @Transactional(readOnly = true)
     public String createDownloadUrl(
             String identitySubject,
-            String documentReferenceId
-    ) {
-        KycDocument document = getOwnedDocument(
-                documentReferenceId, identitySubject
-        );
+            String documentReferenceId) {
 
-        if (!"VALIDATED".equals(document.getStatus())) {
+        KycDocument document = getOwnedDocument(
+                documentReferenceId, identitySubject);
+
+        requireValidated(document);
+
+        return BASE_PATH + "/" + documentReferenceId + "/content";
+    }
+
+    @Transactional(readOnly = true)
+    public Path getValidatedDocumentPath(
+            String identitySubject,
+            String documentReferenceId) {
+
+        KycDocument document = getOwnedDocument(
+                documentReferenceId, identitySubject);
+
+        requireValidated(document);
+
+        try {
+            if (!storage.exists(document.getStorageKey())) {
+                throw new ApiException(
+                        HttpStatus.UNPROCESSABLE_ENTITY,
+                        "DOCUMENT_FILE_NOT_FOUND",
+                        "The stored document is unavailable."
+                );
+            }
+
+            return storage.getPath(document.getStorageKey());
+        } catch (IOException ex) {
             throw new ApiException(
-                    HttpStatus.UNPROCESSABLE_ENTITY,
-                    "DOCUMENT_NOT_VALIDATED",
-                    "Only validated documents can be downloaded."
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "DOCUMENT_STORAGE_UNAVAILABLE",
+                    "Document storage is temporarily unavailable."
             );
         }
-
-        GetObjectRequest getRequest = GetObjectRequest.builder()
-                .bucket(bucket)
-                .key(document.getStorageKey())
-                .build();
-
-        var presignRequest = GetObjectPresignRequest.builder()
-                .signatureDuration(Duration.ofMinutes(2))
-                .getObjectRequest(getRequest)
-                .build();
-
-        return s3Presigner.presignGetObject(presignRequest)
-                .url().toExternalForm();
     }
 
     @Transactional
     public void deleteDocument(
             String identitySubject,
-            String documentReferenceId
-    ) {
+            String documentReferenceId) {
+
         KycDocument document = getOwnedDocument(
-                documentReferenceId, identitySubject
-        );
+                documentReferenceId, identitySubject);
 
-        // Preserve uploaded documents linked to a case for auditability.
-        if (!"PENDING_UPLOAD".equals(document.getStatus())
-                && !"REJECTED".equals(document.getStatus())) {
-            throw new ApiException(
-                    HttpStatus.CONFLICT,
-                    "DOCUMENT_CANNOT_BE_DELETED",
-                    "This document cannot be deleted in its current state."
-            );
-        }
+//        if (!"PENDING_UPLOAD".equals(document.getStatus())
+//                && !"REJECTED".equals(document.getStatus())) {
+//            throw new ApiException(
+//                    HttpStatus.CONFLICT,
+//                    "DOCUMENT_CANNOT_BE_DELETED",
+//                    "This document cannot be deleted in its current state."
+//            );
+//        }
 
-        if (document.getStorageKey() != null) {
-            try {
-                s3Client.deleteObject(DeleteObjectRequest.builder()
-                        .bucket(bucket)
-                        .key(document.getStorageKey())
-                        .build());
-            } catch (SdkException exception) {
-                throw new ApiException(
-                        HttpStatus.SERVICE_UNAVAILABLE,
-                        "DOCUMENT_STORAGE_UNAVAILABLE",
-                        "Document storage is temporarily unavailable."
-                );
+        try {
+            if (document.getStorageKey() != null) {
+                storage.delete(document.getStorageKey());
             }
+        } catch (IOException | IllegalArgumentException ex) {
+            throw new ApiException(
+                    HttpStatus.SERVICE_UNAVAILABLE,
+                    "DOCUMENT_STORAGE_UNAVAILABLE",
+                    "The document could not be deleted from storage."
+            );
         }
 
         documentRepository.delete(document);
@@ -270,8 +343,7 @@ public class KycDocumentService {
             );
         }
 
-        String contentType = request.contentType()
-                .toLowerCase(Locale.ROOT);
+        String contentType = normalizeContentType(request.contentType());
 
         if (!List.of(
                 "application/pdf",
@@ -322,24 +394,44 @@ public class KycDocumentService {
                                     .toUpperCase(Locale.ROOT);
 
                     return profileRepository.save(
-                            CustomerProfile.create(customerId, subject)
-                    );
+                            CustomerProfile.create(customerId, subject));
                 });
     }
 
     private KycDocument getOwnedDocument(
             String reference,
-            String subject
-    ) {
+            String subject) {
+
         return documentRepository
                 .findByDocumentReferenceIdAndCustomerProfile_IdentitySubject(
-                        reference, subject
-                )
+                        reference, subject)
                 .orElseThrow(() -> new ApiException(
                         HttpStatus.NOT_FOUND,
                         "DOCUMENT_NOT_FOUND",
                         "The requested document was not found."
                 ));
+    }
+
+    private void requireValidated(KycDocument document) {
+        if (!"VALIDATED".equals(document.getStatus())) {
+            throw new ApiException(
+                    HttpStatus.UNPROCESSABLE_ENTITY,
+                    "DOCUMENT_NOT_VALIDATED",
+                    "Only validated documents can be downloaded."
+            );
+        }
+    }
+
+    private String normalizeContentType(String contentType) {
+        if (contentType == null) {
+            return "";
+        }
+
+        int parameterIndex = contentType.indexOf(';');
+
+        return (parameterIndex >= 0
+                ? contentType.substring(0, parameterIndex)
+                : contentType).trim().toLowerCase(Locale.ROOT);
     }
 
     private String sanitizeFileName(String fileName) {

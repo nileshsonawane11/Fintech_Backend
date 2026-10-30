@@ -20,12 +20,32 @@ spring:
               uri: lb://IDENTITY-SERVICE
               predicates:
                 - Path=/api/v1/auth/**,/api/v1/consents/**,/admin/api/v1/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: identityServiceCircuitBreaker
+                    fallbackUri: forward:/fallback/identity
+                    statusCodes:
+                      - 500
+                      - 502
+                      - 503
+                      - 504
 
             # Customer and KYC Service
             - id: customer-service
               uri: lb://CUSTOMER-SERVICE
               predicates:
                 - Path=/api/v1/customers/**,/ops/api/v1/kyc/**
+              filters:
+                - name: CircuitBreaker
+                  args:
+                    name: customerServiceCircuitBreaker
+                    fallbackUri: forward:/fallback/customer
+                    statusCodes:
+                      - 500
+                      - 502
+                      - 503
+                      - 504
 
             # Account Service
             - id: account-service
@@ -93,3 +113,24 @@ logging:
 jwt:
   public-key-path: ${JWT_PUBLIC_KEY_PATH:./keys/public.pem}
   issuer: ${JWT_ISSUER:identity-service}
+
+resilience4j:
+  circuitbreaker:
+    instances:
+      identityServiceCircuitBreaker:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 5
+        minimumNumberOfCalls: 3
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 2
+        automaticTransitionFromOpenToHalfOpenEnabled: true
+
+      customerServiceCircuitBreaker:
+        slidingWindowType: COUNT_BASED
+        slidingWindowSize: 5
+        minimumNumberOfCalls: 3
+        failureRateThreshold: 50
+        waitDurationInOpenState: 10s
+        permittedNumberOfCallsInHalfOpenState: 2
+        automaticTransitionFromOpenToHalfOpenEnabled: true

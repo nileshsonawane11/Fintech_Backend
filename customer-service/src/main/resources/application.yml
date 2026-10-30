@@ -68,6 +68,8 @@ security:
   data-encryption-key: "A6zUYKLUu7Q98OeKx77T7AxCZ+yxJKR40JgJNyEaZg4="
 
 storage:
+  local:
+    root: ${FINBANK_KYC_STORAGE_PATH:./data/kyc-documents}
   s3:
     bucket: ${CUSTOMER_DOCUMENT_BUCKET:fintech-customer-documents}
     region: ${AWS_REGION:ap-south-1}
