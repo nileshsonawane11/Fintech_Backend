@@ -1,6 +1,7 @@
 package com.fintech.identity.security;
 
 import com.fintech.identity.model.Customer;
+import com.fintech.identity.service.AuthorizationService;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
 import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
@@ -22,6 +23,7 @@ import java.security.spec.X509EncodedKeySpec;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.List;
+import java.util.Optional;
 
 @Service
 public class JwtService {
@@ -45,6 +47,10 @@ public class JwtService {
     private RSAPublicKey publicKey;
     private JwtEncoder encoder;
     private JwtDecoder decoder;
+
+    @org.springframework.context.annotation.Lazy
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    private AuthorizationService authorizationService;
 
     @jakarta.annotation.PostConstruct
     public void initialize() {
@@ -100,6 +106,35 @@ public class JwtService {
     }
 
     public String createAccessToken(Customer customer) {
+        List<String> roles = null;
+        List<String> permissions = null;
+
+        if (authorizationService != null) {
+            try {
+                roles = authorizationService.getAssignedRoleNames(customer.getId());
+                permissions = authorizationService.getEffectivePermissions(customer.getId());
+            } catch (Exception ignored) {
+            }
+        }
+
+        if (roles == null || roles.isEmpty()) {
+            roles = customer.getRole() != null
+                    ? List.of(customer.getRole().name())
+                    : List.of("CUSTOMER");
+        }
+
+        if (permissions == null) {
+            permissions = List.of();
+        }
+
+        return createAccessToken(customer, roles, permissions);
+    }
+
+    public String createAccessToken(
+            Customer customer,
+            java.util.Collection<String> roles,
+            java.util.Collection<String> permissions
+    ) {
         Instant now = Instant.now();
 
         JwtClaimsSet claims = JwtClaimsSet.builder()
@@ -108,8 +143,11 @@ public class JwtService {
                 .issuedAt(now)
                 .expiresAt(now.plusSeconds(accessTokenMinutes * 60))
                 .claim("token_use", "ACCESS")
-                .claim("roles", List.of(customer.getRole().name()))
+                .claim("roles", roles != null ? List.copyOf(roles) : List.of())
+                .claim("permissions", permissions != null ? List.copyOf(permissions) : List.of())
                 .build();
+
+        System.out.println(Optional.ofNullable(claims.getClaim("roles")));
 
         return encode(claims);
     }

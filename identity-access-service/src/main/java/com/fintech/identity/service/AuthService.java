@@ -1,13 +1,13 @@
-
 package com.fintech.identity.service;
 
 import com.fintech.identity.dto.request.*;
 import com.fintech.identity.dto.response.*;
 import com.fintech.events.CustomerRegisteredEvent;
 import com.fintech.identity.exception.ApiException;
-import com.fintech.identity.model.Customer;
-import com.fintech.identity.model.OtpChallenge;
-import com.fintech.identity.model.RefreshToken;
+import com.fintech.identity.model.*;
+import com.fintech.identity.repository.CustomerProfileRepository;
+import com.fintech.identity.repository.RoleRepository;
+import com.fintech.identity.repository.UserRoleRepository;
 import com.fintech.identity.model.enums.CustomerStatus;
 import com.fintech.identity.model.enums.OtpPurpose;
 import com.fintech.identity.repository.CustomerRepository;
@@ -36,14 +36,23 @@ public class AuthService {
     private final PasswordEncoder passwordEncoder;
     private final OtpService otpService;
     private final JwtService jwtService;
+
+    private final CustomerProfileRepository customerProfileRepository;
+    private final RoleRepository roleRepository;
+    private final UserRoleRepository userRoleRepository;
+
     private final SecureRandom secureRandom = new SecureRandom();
 
     public AuthService(
             CustomerRepository customerRepository,
-            RefreshTokenRepository refreshTokenRepository, ApplicationEventPublisher applicationEventPublisher,
+            RefreshTokenRepository refreshTokenRepository,
+            ApplicationEventPublisher applicationEventPublisher,
             PasswordEncoder passwordEncoder,
             OtpService otpService,
-            JwtService jwtService
+            JwtService jwtService,
+            CustomerProfileRepository customerProfileRepository,
+            RoleRepository roleRepository,
+            UserRoleRepository userRoleRepository
     ) {
         this.customerRepository = customerRepository;
         this.refreshTokenRepository = refreshTokenRepository;
@@ -51,6 +60,9 @@ public class AuthService {
         this.passwordEncoder = passwordEncoder;
         this.otpService = otpService;
         this.jwtService = jwtService;
+        this.customerProfileRepository = customerProfileRepository;
+        this.roleRepository = roleRepository;
+        this.userRoleRepository = userRoleRepository;
     }
 
     @Transactional
@@ -84,6 +96,16 @@ public class AuthService {
 
         customer.activate();
         Customer saved = customerRepository.saveAndFlush(customer);
+
+        if (customerProfileRepository != null) {
+            customerProfileRepository.save(new CustomerProfile(saved.getId()));
+        }
+
+        if (roleRepository != null && userRoleRepository != null) {
+            RoleEntity role = roleRepository.findByName("CUSTOMER")
+                    .orElseGet(() -> roleRepository.save(new RoleEntity("CUSTOMER", "Bank customer")));
+            userRoleRepository.save(new UserRole(saved.getId(), role.getId(), null));
+        }
 
 //        OtpChallenge challenge = otpService.create(
 ////                saved,
@@ -139,6 +161,18 @@ public class AuthService {
 
         customer.activate();
         customerRepository.save(customer);
+
+        if (customerProfileRepository != null && !customerProfileRepository.existsById(customer.getId())) {
+            customerProfileRepository.save(new CustomerProfile(customer.getId()));
+        }
+
+        if (roleRepository != null && userRoleRepository != null) {
+            RoleEntity role = roleRepository.findByName("CUSTOMER")
+                    .orElseGet(() -> roleRepository.save(new RoleEntity("CUSTOMER", "Bank customer")));
+            if (!userRoleRepository.existsByIdUserIdAndIdRoleId(customer.getId(), role.getId())) {
+                userRoleRepository.save(new UserRole(customer.getId(), role.getId(), null));
+            }
+        }
 
         return new OtpVerificationResponse(
                 true,

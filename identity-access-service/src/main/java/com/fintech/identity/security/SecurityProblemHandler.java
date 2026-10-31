@@ -47,13 +47,30 @@ public class SecurityProblemHandler
             HttpServletResponse response,
             AccessDeniedException exception
     ) throws IOException {
-        writeProblem(
-                request,
-                response,
-                HttpStatus.FORBIDDEN,
-                "ACCESS_DENIED",
-                "You are not authorized to access this resource."
-        );
+        String uri = request.getRequestURI();
+        boolean isProtectedRoleRoute = uri.startsWith("/api/v1/admin")
+                || uri.startsWith("/api/v1/manager")
+                || uri.startsWith("/api/v1/operations")
+                || uri.startsWith("/api/v1/customer")
+                || uri.startsWith("/admin");
+
+        if (isProtectedRoleRoute) {
+            writeProblem(
+                    request,
+                    response,
+                    HttpStatus.NOT_FOUND,
+                    "RESOURCE_NOT_FOUND",
+                    "The requested endpoint was not found."
+            );
+        } else {
+            writeProblem(
+                    request,
+                    response,
+                    HttpStatus.FORBIDDEN,
+                    "ACCESS_DENIED",
+                    "You are not authorized to access this resource."
+            );
+        }
     }
 
     private void writeProblem(

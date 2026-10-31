@@ -81,6 +81,22 @@ public class Customer {
         this.role = Role.CUSTOMER;
     }
 
+    public Customer(
+            String mobileNumber,
+            String email,
+            String passwordHash,
+            String acceptedTermsVersion,
+            boolean marketingConsent,
+            Role role
+    ) {
+        this(mobileNumber, email, passwordHash, acceptedTermsVersion, marketingConsent);
+        this.role = role != null ? role : Role.CUSTOMER;
+    }
+
+    public void setRole(Role role) {
+        this.role = role;
+    }
+
     @PrePersist
     void onCreate() {
         Instant now = Instant.now();

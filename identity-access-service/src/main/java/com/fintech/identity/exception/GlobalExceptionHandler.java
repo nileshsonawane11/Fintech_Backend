@@ -6,6 +6,8 @@ import jakarta.validation.ConstraintViolationException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 
+import org.springframework.security.access.AccessDeniedException;
+
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.MediaType;
@@ -237,6 +239,39 @@ public class GlobalExceptionHandler {
                 "The requested endpoint was not found.",
                 "RESOURCE_NOT_FOUND",
                 BASE_ERROR_TYPE + "resource-not-found",
+                request,
+                List.of()
+        );
+
+        return response(problem, request);
+    }
+
+    // 8a. Access denied handler for method security and protected route authorization
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ProblemDetail> handleAccessDenied(
+            AccessDeniedException ex,
+            HttpServletRequest request
+    ) {
+        String uri = request.getRequestURI();
+        boolean isProtectedRoleRoute = uri.startsWith("/api/v1/admin")
+                || uri.startsWith("/api/v1/manager")
+                || uri.startsWith("/api/v1/operations")
+                || uri.startsWith("/api/v1/customer")
+                || uri.startsWith("/admin");
+
+        HttpStatus status = isProtectedRoleRoute ? HttpStatus.NOT_FOUND : HttpStatus.FORBIDDEN;
+        String code = isProtectedRoleRoute ? "RESOURCE_NOT_FOUND" : "ACCESS_DENIED";
+        String title = isProtectedRoleRoute ? "Resource not found" : "Access denied";
+        String detail = isProtectedRoleRoute
+                ? "The requested endpoint was not found."
+                : "You are not authorized to access this resource.";
+
+        ProblemDetail problem = buildProblem(
+                status,
+                title,
+                detail,
+                code,
+                BASE_ERROR_TYPE + code.toLowerCase().replace('_', '-'),
                 request,
                 List.of()
         );
