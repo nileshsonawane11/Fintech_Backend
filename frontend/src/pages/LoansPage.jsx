@@ -1,111 +1,138 @@
 import React, { useState } from 'react';
-import { Card, Badge, Button } from '../components/common/UIComponents';
-import { ApplyModal } from '../components/common/ApplyModal';
-import { LOANS_DATA } from '../data/bankingData';
-import { CheckCircle2, ShieldCheck, Calculator } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { ArrowRight, Landmark } from 'lucide-react';
+import { Badge, Button, Card, SectionHeader } from '../components/ui.jsx';
+import { LOANS, RATE_DISCLAIMER } from '../data/products.js';
+import { formatINRWhole, shortProductName } from '../lib/format.js';
+import { ApplyModal } from '../components/common/ApplyModal.jsx';
 
-export const LoansPage = () => {
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+/** Tenures are stored in months; show years when they divide cleanly. */
+function tenureLabel(minMonths, maxMonths) {
+  if (minMonths === null || minMonths === undefined || maxMonths === null || maxMonths === undefined) return '—';
+  if (minMonths % 12 === 0 && maxMonths % 12 === 0) {
+    const lo = minMonths / 12;
+    const hi = maxMonths / 12;
+    return lo === hi ? `${lo} year${lo === 1 ? '' : 's'}` : `${lo} – ${hi} years`;
+  }
+  return minMonths === maxMonths ? `${minMonths} months` : `${minMonths} – ${maxMonths} months`;
+}
 
-  const handleApply = (product) => {
-    setSelectedProduct(product);
-    setIsApplyModalOpen(true);
-  };
+function processingFeeLabel(fee) {
+  if (!fee || typeof fee !== 'object') return '—';
+  const parts = [`${fee.pct}% of the loan amount`];
+  const bounds = [];
+  if (fee.min !== null && fee.min !== undefined) bounds.push(`min ${fee.min === 0 ? 'Nil' : formatINRWhole(fee.min)}`);
+  if (fee.max !== null && fee.max !== undefined) bounds.push(`max ${formatINRWhole(fee.max)}`);
+  if (bounds.length) parts.push(`(${bounds.join(', ')})`);
+  return parts.join(' ');
+}
+
+export default function LoansPage() {
+  const [selectedProductForApply, setSelectedProductForApply] = useState(null);
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] py-12">
-      <div className="max-w-7xl mx-auto px-4">
-        {/* Header */}
-        <div className="mb-10 text-center max-w-3xl mx-auto">
-          <Badge variant="blue" className="mb-3">Retail & Business Finance</Badge>
-          <h1 className="text-3xl md:text-5xl font-extrabold text-[#1C1B1F] tracking-tight">
-            Comprehensive Financing with Transparent Pricing
-          </h1>
-          <p className="text-sm md:text-base text-gray-600 mt-3">
-            Choose from Home Loans, MSME Business Credit, Kisan Agri Loans, Vehicle, Instant Gold Loans, Loan Against Property (LAP), and Global Education Loans.
-          </p>
-          <div className="mt-4">
-            <Link to="/calculators">
-              <Button variant="outline" size="sm" icon={Calculator}>
-                Estimate your monthly EMI with our live calculator
-              </Button>
-            </Link>
-          </div>
-        </div>
+    <div className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 lg:py-20">
+      <SectionHeader
+        titleAs="h1"
+        eyebrow="Loans"
+        title="Borrow with the full price on the table"
+        description="Every FinEdge loan lists its rate range, maximum amount, tenure and processing fee up front. Your sanctioned rate depends on your profile and is confirmed before you sign — use the calculators page to model EMIs before you apply."
+        action={
+          <Link to="/calculators">
+            <Button variant="secondary">
+              Open the EMI calculator <ArrowRight className="h-4 w-4" aria-hidden />
+            </Button>
+          </Link>
+        }
+      />
 
-        {/* Loan Stack */}
-        <div className="space-y-8">
-          {LOANS_DATA.map((loan) => (
-            <div 
-              key={loan.id} 
-              id={loan.id} 
-              className="scroll-mt-24"
-            >
-              <Card className="p-6 md:p-8 hover:shadow-md transition-shadow border-l-4 border-l-[#0288D1]">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                  {/* Left Column: Details & Features */}
-                  <div className="lg:col-span-8 space-y-4">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <h2 className="text-2xl font-bold text-[#1C1B1F]">{loan.title}</h2>
-                      <Badge variant="blue">{loan.interestRate}</Badge>
-                    </div>
-
-                    <p className="text-sm text-gray-700 font-medium">{loan.tagline}</p>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                      {loan.features.map((feature, idx) => (
-                        <div key={idx} className="flex items-start gap-2 text-xs text-gray-600">
-                          <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
-                          <span>{feature}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="pt-3 border-t border-gray-100 flex flex-wrap gap-6 text-xs text-gray-500">
-                      <div>
-                        <strong className="text-gray-700">Max Sanction:</strong> {loan.maxAmount}
-                      </div>
-                      <div>
-                        <strong className="text-gray-700">Tenure:</strong> {loan.tenure}
-                      </div>
-                      <div>
-                        <strong className="text-gray-700">Eligibility:</strong> {loan.eligibility}
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Right Column: CTA Box */}
-                  <div className="lg:col-span-4 bg-blue-50/40 rounded-xl p-6 border border-blue-100 text-center space-y-4">
-                    <div className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Interest Rate</div>
-                    <div className="text-3xl font-black text-blue-900">{loan.interestRate}</div>
-                    <p className="text-xs text-gray-600">Sanctioned digitally with transparent processing fee.</p>
-
-                    <Button
-                      onClick={() => handleApply(loan)}
-                      variant="primary"
-                      className="w-full shadow-sm"
-                    >
-                      Apply for Loan
-                    </Button>
-                    <div className="text-[11px] text-gray-400 flex items-center justify-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
-                      <span>Zero foreclosure penalty on floating rate</span>
-                    </div>
-                  </div>
-                </div>
-              </Card>
+      <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {LOANS.map((loan) => (
+          <Card key={loan.slug} id={loan.slug} className="flex flex-col p-6 scroll-mt-24 shadow-none transition-shadow hover:shadow-card">
+            <div className="flex items-start justify-between gap-3">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-midnight-50 text-midnight-700">
+                <Landmark className="h-5 w-5" aria-hidden />
+              </span>
+              {loan.maxLtvPct ? <Badge tone="info">Up to {loan.maxLtvPct}% of value</Badge> : null}
             </div>
-          ))}
-        </div>
+
+            <h3 className="mt-4 font-display text-xl font-semibold leading-snug text-midnight-950">{shortProductName(loan.name)}</h3>
+            <p className="mt-1.5 text-sm leading-relaxed text-ink-600">{loan.tagline}</p>
+
+            <p className="mt-4 text-sm font-medium text-ink-900 tnum">
+              {loan.rateMin !== null && loan.rateMin !== undefined ? loan.rateMin.toFixed(2) : '—'}
+              {' – '}
+              {loan.rateMax !== null && loan.rateMax !== undefined ? loan.rateMax.toFixed(2) : '—'}
+              <span className="ml-1">% p.a.</span>
+            </p>
+            <p className="text-xs text-ink-500">Interest rate range, reducing balance</p>
+
+            <dl className="mt-4 space-y-2 border-t border-ink-100 pt-4 text-sm">
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-ink-500">Maximum amount</dt>
+                <dd className="font-semibold text-ink-900">
+                  {loan.maxAmount ? `Up to ${formatINRWhole(loan.maxAmount)}` : '—'}
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-ink-500">Tenure</dt>
+                <dd className="font-semibold text-ink-900">{tenureLabel(loan.tenureMinMonths, loan.tenureMaxMonths)}</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-ink-500">Processing fee</dt>
+                <dd className="text-right font-semibold text-ink-900">{processingFeeLabel(loan.processingFee)}</dd>
+              </div>
+            </dl>
+
+            {loan.processingFee?.note && (
+              <p className="mt-2 text-[13px] leading-snug text-ink-500">{loan.processingFee.note}.</p>
+            )}
+
+            {Array.isArray(loan.features) && loan.features.length > 0 && (
+              <ul className="mt-3 space-y-1.5">
+                {loan.features.slice(0, 2).map((f) => (
+                  <li key={f} className="flex gap-2 text-[13px] leading-snug text-ink-600">
+                    <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-midnight-300" aria-hidden />
+                    {f}
+                  </li>
+                ))}
+              </ul>
+            )}
+
+            <div className="mt-auto flex flex-wrap gap-2 pt-5">
+              <Link to={`/loans/${loan.slug}`} className="flex-1">
+                <Button variant="secondary" className="w-full">
+                  View details <ArrowRight className="h-4 w-4" aria-hidden />
+                </Button>
+              </Link>
+              <Button
+                variant="primary"
+                className="flex-1"
+                onClick={() => setSelectedProductForApply(loan)}
+              >
+                Apply now
+              </Button>
+            </div>
+          </Card>
+        ))}
       </div>
 
-      <ApplyModal
-        isOpen={isApplyModalOpen}
-        onClose={() => setIsApplyModalOpen(false)}
-        product={selectedProduct}
-      />
+      <p className="mt-10 max-w-3xl text-sm leading-relaxed text-ink-600">
+        All loans are subject to eligibility, document verification and credit assessment. On this demonstration
+        platform, applications move through a staff review queue so you can watch each stage — nothing here is a real
+        credit offer.
+      </p>
+      <p className="mt-3 text-xs leading-relaxed text-ink-500">{RATE_DISCLAIMER}</p>
+
+      {selectedProductForApply && (
+        <ApplyModal
+          open={Boolean(selectedProductForApply)}
+          product={selectedProductForApply}
+          onClose={() => setSelectedProductForApply(null)}
+        />
+      )}
     </div>
   );
-};
+}
+
+export { LoansPage };
