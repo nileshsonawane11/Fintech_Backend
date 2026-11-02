@@ -1,108 +1,75 @@
 import React from 'react';
+import {
+  Button as UiButton,
+  Card,
+  Badge,
+  StatusChip,
+  Modal as UiModal,
+  ToastProvider,
+  useToast,
+  EmptyState,
+  OtpInput,
+  ResendOtp,
+  Spinner,
+  PageLoading,
+  Field,
+  Input,
+  Textarea,
+  Select,
+  Checkbox,
+  FormError,
+  SectionHeader,
+  statusTone,
+  Table,
+  Tabs,
+  Stepper
+} from '../ui.jsx';
+import { Search, X } from 'lucide-react';
 
-export const Button = ({
-  children,
-  variant = 'primary', // 'primary', 'secondary', 'outline', 'ghost', 'white'
-  size = 'md', // 'sm', 'md', 'lg'
-  className = '',
-  disabled = false,
-  onClick,
-  type = 'button',
-  icon: Icon,
-  ...props
+export const Button = (props) => <UiButton {...props} />;
+export { Card, Badge, StatusChip, ToastProvider, useToast, EmptyState, OtpInput, ResendOtp, Spinner, PageLoading, Field, Input, Textarea, Select, Checkbox, FormError, SectionHeader, statusTone, Table, Tabs, Stepper };
+
+export const Modal = ({ isOpen, open, ...props }) => (
+  <UiModal open={open ?? isOpen} {...props} />
+);
+
+export const QueueSearch = ({
+  value,
+  onChange,
+  onClear,
+  placeholder = 'Search by identifier, name, or reference...',
+  resultsCount,
+  totalCount,
+  className = ''
 }) => {
-  const baseClasses = 'inline-flex items-center justify-center font-medium rounded-md transition-all duration-200 focus:outline-none focus:ring-2 focus:ring-offset-2 disabled:opacity-50 disabled:cursor-not-allowed';
-  
-  const variants = {
-    primary: 'bg-[#9D1D27] text-white hover:bg-[#7A1620] focus:ring-[#9D1D27] shadow-sm',
-    secondary: 'bg-[#1C1B1F] text-white hover:bg-black focus:ring-gray-800 shadow-sm',
-    outline: 'border border-[#9D1D27] text-[#9D1D27] hover:bg-[#9D1D27] hover:text-white focus:ring-[#9D1D27]',
-    outlineWhite: 'border border-white/70 text-white hover:bg-white/10 hover:border-white focus:ring-white',
-    ghost: 'text-[#25243B] hover:bg-gray-100 focus:ring-gray-300',
-    white: 'bg-white text-[#9D1D27] hover:bg-gray-50 focus:ring-white shadow-md',
-    whiteDark: 'bg-white text-slate-900 hover:bg-gray-100 focus:ring-white shadow-md'
-  };
-
-  const sizes = {
-    sm: 'text-xs px-3 py-1.5 gap-1.5',
-    md: 'text-sm px-4 py-2 gap-2',
-    lg: 'text-base px-6 py-3 gap-2.5'
-  };
-
   return (
-    <button
-      type={type}
-      disabled={disabled}
-      onClick={onClick}
-      className={`${baseClasses} ${variants[variant] || variants.primary} ${sizes[size]} ${className}`}
-      {...props}
-    >
-      {Icon && <Icon className="w-4 h-4 shrink-0" />}
-      {children}
-    </button>
-  );
-};
-
-export const Card = ({ children, className = '', hoverEffect = false, ...props }) => {
-  return (
-    <div
-      className={`bg-white rounded-xl border border-[#E2E5EA] overflow-hidden ${
-        hoverEffect ? 'transition-all duration-200 hover:-translate-y-1 hover:shadow-lg' : 'shadow-sm'
-      } ${className}`}
-      {...props}
-    >
-      {children}
-    </div>
-  );
-};
-
-export const Badge = ({ children, variant = 'crimson', className = '' }) => {
-  const variants = {
-    crimson: 'bg-[#9D1D27]/10 text-[#9D1D27] border-[#9D1D27]/20',
-    green: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-    success: 'bg-emerald-50 text-emerald-800 border-emerald-200',
-    blue: 'bg-blue-50 text-blue-800 border-blue-200',
-    info: 'bg-sky-50 text-sky-800 border-sky-200',
-    gold: 'bg-amber-50 text-amber-800 border-amber-200',
-    warning: 'bg-amber-50 text-amber-800 border-amber-200',
-    danger: 'bg-rose-50 text-rose-800 border-rose-200',
-    rose: 'bg-rose-50 text-rose-800 border-rose-200',
-    dark: 'bg-slate-100 text-slate-800 border-slate-200',
-    neutral: 'bg-slate-100 text-slate-700 border-slate-200'
-  };
-
-  return (
-    <span className={`inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-semibold border ${variants[variant] || variants.crimson} ${className}`}>
-      {children}
-    </span>
-  );
-};
-
-export const Modal = ({ isOpen, onClose, title, children }) => {
-  if (!isOpen) return null;
-
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/50 backdrop-blur-xs animate-in fade-in duration-200">
-      <div 
-        className="bg-white rounded-2xl max-w-lg w-full max-h-[90vh] overflow-y-auto shadow-2xl border border-gray-100"
-        role="dialog"
-        aria-modal="true"
-        aria-labelledby="modal-title"
-      >
-        <div className="flex items-center justify-between p-5 border-b border-gray-100 sticky top-0 bg-white z-10">
-          <h3 id="modal-title" className="text-lg font-bold text-[#1C1B1F]">{title}</h3>
+    <div className={`space-y-1.5 ${className}`}>
+      <div className="relative">
+        <Search className="w-4 h-4 text-ink-400 absolute left-3 top-1/2 -translate-y-1/2 pointer-events-none" />
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          placeholder={placeholder}
+          className="w-full pl-9 pr-9 py-2 text-xs border border-ink-200 rounded-lg focus:outline-none focus:ring-2 focus:ring-midnight-700/20 focus:border-midnight-700 bg-white transition-all text-ink-800"
+        />
+        {value && (
           <button
-            onClick={onClose}
-            className="p-1 rounded-full text-gray-400 hover:text-gray-700 hover:bg-gray-100 transition-colors"
-            aria-label="Close dialog"
+            type="button"
+            onClick={onClear || (() => onChange(''))}
+            className="absolute right-2.5 top-1/2 -translate-y-1/2 p-1 text-ink-400 hover:text-ink-600 rounded-md"
+            aria-label="Clear search"
           >
-            ✕
+            <X className="w-3.5 h-3.5" />
           </button>
-        </div>
-        <div className="p-6">
-          {children}
-        </div>
+        )}
       </div>
+      {typeof resultsCount === 'number' && (
+        <p className="text-xs text-ink-500 font-medium px-1">
+          Showing <span className="font-semibold text-ink-700">{resultsCount}</span> {resultsCount === 1 ? 'record' : 'records'}
+          {typeof totalCount === 'number' && totalCount !== resultsCount ? ` (filtered from ${totalCount})` : ''}
+        </p>
+      )}
     </div>
   );
 };
