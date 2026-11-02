@@ -1,1134 +1,1287 @@
-import React, { useState, useEffect, useRef } from 'react';
+import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { Link } from 'react-router-dom';
-import { Button, Card, Badge } from '../components/common/UIComponents';
-import { ApplyModal } from '../components/common/ApplyModal';
-import { 
-  ChevronLeft, 
-  ChevronRight, 
-  ShieldCheck, 
-  Percent, 
-  CreditCard, 
-  Home, 
-  Briefcase, 
-  TrendingUp, 
-  ArrowRight, 
-  Clock, 
-  Award, 
-  Sparkles, 
-  HelpCircle, 
-  Smartphone, 
-  ChevronDown, 
+import {
+  ArrowRight,
+  ChevronDown,
+  ChevronUp,
+  CreditCard,
+  HandCoins,
+  Landmark,
+  PiggyBank,
+  ShieldCheck,
+  TrendingUp,
+  Wallet,
+  Calendar,
   CheckCircle2,
-  Lock,
-  Zap,
-  Star,
-  UserCheck,
+  FileText,
   PhoneCall,
-  Check,
-  ExternalLink,
-  SlidersHorizontal,
-  Building2,
-  FileCheck2,
-  Compass,
-  Headphones
+  AlertTriangle,
 } from 'lucide-react';
-import { ACCOUNTS_DATA, LOANS_DATA, CARDS_DATA, INVESTMENTS_DATA, FAQS_DATA } from '../data/bankingData';
+import { Card, SectionHeader, Modal, Button } from '../components/ui.jsx';
+import Reveal from '../components/Reveal.jsx';
+import { TiltCard } from '../components/TiltCard.jsx';
+import { CardVisual } from '../components/common/CardVisual.jsx';
+import { ApplyModal } from '../components/common/ApplyModal.jsx';
+import { HeroEdgeGoldCard } from '../components/HeroEdgeGoldCard.jsx';
+import { formatINRWhole, formatDate, shortProductName } from '../lib/format.js';
+import {
+  BRAND,
+  RATE_DISCLAIMER,
+  RATES_AT_A_GLANCE,
+  getProductBySlug,
+  getProductsByCategory,
+} from '../data/products.js';
+import { OFFERS, GENERAL_FAQS } from '../data/content.js';
+import { ACCOUNT_ICONS, LOAN_ICONS, INVESTMENT_ICONS } from '../data/productIcons.js';
 
-export const HomePage = () => {
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
-  const [carouselIndex, setCarouselIndex] = useState(0);
-  const [activeTab, setActiveTab] = useState('popular');
-  const [openFaqIndex, setOpenFaqIndex] = useState(null);
-  const [isAutoPlayPaused, setIsAutoPlayPaused] = useState(false);
+const CATEGORY_PATH = {
+  account: '/accounts',
+  loan: '/loans',
+  card: '/cards',
+  investment: '/investments',
+};
 
-  // Interactive Loan Calculator state
-  const [loanAmount, setLoanAmount] = useState(5000000);
-  const [loanTenure, setLoanTenure] = useState(20);
-  const loanRate = 8.45; // 8.45% p.a.
+function productPath(product) {
+  const base = CATEGORY_PATH[product.category] || '/accounts';
+  return `${base}/${product.slug}`;
+}
 
-  // Calculate EMI
-  const monthlyRate = loanRate / (12 * 100);
-  const totalMonths = loanTenure * 12;
-  const calculatedEmi = Math.round(
-    (loanAmount * monthlyRate * Math.pow(1 + monthlyRate, totalMonths)) /
-    (Math.pow(1 + monthlyRate, totalMonths) - 1)
-  );
-  const totalRepayable = calculatedEmi * totalMonths;
-  const totalInterest = totalRepayable - loanAmount;
+function explorePath(product) {
+  const base = CATEGORY_PATH[product.category] || '/accounts';
+  return `${base}#${product.slug}`;
+}
 
-  // 3-Slide Campaign Carousel Data (Grounded in Verified FinEdge Products)
-  const heroSlides = [
-    {
-      id: 'everyday-banking',
-      eyebrow: 'BANKING THAT MOVES WITH YOU',
-      title: 'Your Money. Your Goals. Your Future.',
-      description: 'Experience a simpler, smarter way to manage everyday banking with zero charges on 28+ daily services and monthly interest compounding.',
-      primaryCta: 'Open an Account',
-      secondaryCta: 'Explore Banking',
-      secondaryLink: '/accounts',
-      productRef: ACCOUNTS_DATA[0],
-      imageUrl: 'https://images.unsplash.com/photo-1573496359142-b8d87734a5a2?auto=format&fit=crop&w=1200&q=80',
-      badgeText: 'Flagship Savings',
-      highlightBadge: {
-        title: 'Monthly Interest Credited',
-        value: '+₹ 1,658.00',
-        subtitle: 'Credited directly on the 1st of every month'
-      },
-      pills: ['Zero Paperwork Video KYC', 'High-Yield up to 7.00% p.a.', 'RBI Licensed Bank']
-    },
-    {
-      id: 'savings-goals',
-      eyebrow: 'WEALTH & COMPOUNDING',
-      title: 'Make Room for What Matters.',
-      description: 'Explore high-yield savings and guaranteed fixed deposits designed around your family milestones with monthly interest credited directly to your ledger.',
-      primaryCta: 'Explore Savings',
-      secondaryCta: 'View Interest Rates',
-      secondaryLink: '/accounts#savings',
-      productRef: ACCOUNTS_DATA[0],
-      imageUrl: 'https://images.unsplash.com/photo-1600880292203-757bb62b4baf?auto=format&fit=crop&w=1200&q=80',
-      badgeText: 'Wealth Architecture',
-      highlightBadge: {
-        title: 'Annual Compounding Yield',
-        value: '7.00% p.a.',
-        subtitle: 'Senior Citizen FD up to 7.75% p.a.'
-      },
-      pills: ['Quarterly Compounding FDs', 'Instant Digital Booking', 'DICGC Insured up to ₹5L']
-    },
-    {
-      id: 'cards-convenience',
-      eyebrow: 'BESPOKE LUXURY & REWARDS',
-      title: 'Your Banking, Always Within Reach.',
-      description: 'Discover Ashva Stainless-Steel Metal Cards with 0% forex markup worldwide, instant biometric app controls, and unlimited airport lounge privileges.',
-      primaryCta: 'Explore Cards',
-      secondaryCta: 'Compare Benefits',
-      secondaryLink: '/cards',
-      productRef: CARDS_DATA[0],
-      imageUrl: 'https://images.unsplash.com/photo-1556742049-0a67c5574f73?auto=format&fit=crop&w=1200&q=80',
-      badgeText: 'Ashva Metal Credit',
-      highlightBadge: {
-        title: 'Zero Forex Markup Worldwide',
-        value: '0% Forex',
-        subtitle: 'Unlimited domestic lounge access'
-      },
-      pills: ['Precision Stainless Steel', 'Instant Virtual Card', 'One-Tap Lock & Limits']
+/** Headline figure for a product card — derived from product data without staff jargon. */
+function headlineFor(product) {
+  if (product.category === 'account') {
+    if (product.rateSlabs && product.rateSlabs.length > 0) {
+      const top = Math.max(...product.rateSlabs.map((s) => s.rate));
+      return `Up to ${top.toFixed(2)}% p.a. interest`;
     }
-  ];
+    if (product.overdraftRate) return `Overdraft at ${product.overdraftRate.toFixed(2)}% p.a.`;
+    return product.amb?.label || 'Zero balance';
+  }
+  if (product.category === 'loan') {
+    if (product.rateMin != null && product.rateMax != null) {
+      return product.rateMin === product.rateMax
+        ? `${product.rateMin.toFixed(2)}% p.a.`
+        : `From ${product.rateMin.toFixed(2)}% p.a.`;
+    }
+    return 'Fixed APR pricing';
+  }
+  if (product.category === 'card') {
+    if (product.annualFee === 0) return 'No annual fee';
+    if (product.annualFee != null) return `${formatINRWhole(product.annualFee)} annual fee`;
+    return 'Lifetime free';
+  }
+  if (product.category === 'investment') {
+    if (product.rateGrid) {
+      const top = Math.max(...product.rateGrid.map((r) => r.general));
+      return `Up to ${top.toFixed(2)}% p.a.`;
+    }
+    if (product.rateBands) {
+      const top = Math.max(...product.rateBands.map((b) => b.rate));
+      return `Up to ${top.toFixed(2)}% p.a.`;
+    }
+    if (product.rate != null) return `${product.rate.toFixed(2)}% p.a.`;
+    if (product.minMonthly != null) return `Start with ${formatINRWhole(product.minMonthly)}/month`;
+    return 'Market linked';
+  }
+  return '—';
+}
 
-  // Auto-slide effect (gentle 8-second interval, pauses on hover or interaction)
+const CATEGORY_TABS = [
+  { key: 'account', label: 'Accounts', icon: Wallet, to: '/accounts' },
+  { key: 'card', label: 'Cards', icon: CreditCard, to: '/cards' },
+  { key: 'loan', label: 'Loans', icon: HandCoins, to: '/loans' },
+  { key: 'investment', label: 'Investments', icon: TrendingUp, to: '/investments' },
+];
+
+/** Customer-facing trust cards for Why FinEdge (Fix 4). */
+const TRUST_POINTS = [
+  {
+    icon: FileText,
+    title: 'One published schedule',
+    body: 'Every rate and fee comes from a single published schedule; product pages and the Schedule of Charges can never disagree.',
+    linkText: 'Schedule of Charges',
+    linkTo: '/schedule-of-charges',
+  },
+  {
+    icon: ShieldCheck,
+    title: 'Charges before you apply',
+    body: 'The full fee table is published on every product page before any form. No surprise maintenance fees or unannounced processing deductions.',
+    linkText: 'Explore our accounts',
+    linkTo: '/accounts',
+  },
+  {
+    icon: PhoneCall,
+    title: 'A human when you need one',
+    body: 'Direct phone support at 1800 267 4100 (Mon–Sat 9:00 AM–7:00 PM IST), along with a transparent multi-level Grievance Redressal framework.',
+    linkText: 'Grievance Redressal',
+    linkTo: '/grievance-redressal',
+    extraLinkText: 'Call 1800 267 4100',
+    extraHref: 'tel:18002674100',
+  },
+];
+
+/** 5 Customer-facing FAQs kept on homepage per Fix 1 */
+const HOMEPAGE_FAQ_QUESTIONS = [
+  'Is FinEdge Bank a real bank?',
+  'How do I open an account?',
+  'What documents do I need for KYC?',
+  'Is my data safe on this platform?',
+  'How do I raise a complaint or a service request?',
+];
+
+function HomeHero({ savingsRow, homeLoanRow, edgeGoldDebit }) {
+  const heroRef = useRef(null);
+  const heroRectRef = useRef(null);
+  const bgPhotoRef = useRef(null);
+  const cardTiltRef = useRef(null);
+  const cardFaceRef = useRef(null);
+  const glareRef = useRef(null);
+  const hologramRef = useRef(null);
+  const shimmerRef = useRef(null);
+  const cardFloatWrapperRef = useRef(null);
+
+  const isHoveredRef = useRef(false);
+  const isIntersectingRef = useRef(true);
+  const rafId = useRef(null);
+  const parallaxRafId = useRef(null);
+
+  const targetRef = useRef({
+    rotateX: 0,
+    rotateY: 0,
+    transX: 0,
+    transY: 0,
+    scale: 1,
+    glareX: 50,
+    glareY: 50,
+    glareOpacity: 0,
+    shimmerX: 50,
+    edgeLightX: 0,
+    edgeLightY: 0,
+    hologramHue: 0,
+  });
+  const currentRef = useRef({
+    rotateX: 0,
+    rotateY: 0,
+    transX: 0,
+    transY: 0,
+    scale: 1,
+    glareX: 50,
+    glareY: 50,
+    glareOpacity: 0,
+    shimmerX: 50,
+    edgeLightX: 0,
+    edgeLightY: 0,
+    hologramHue: 0,
+  });
+
+  // Background photo scroll parallax (max 24px translate, passive listener, zero React state)
   useEffect(() => {
-    if (isAutoPlayPaused) return;
-    const interval = setInterval(() => {
-      setCarouselIndex((prev) => (prev === heroSlides.length - 1 ? 0 : prev + 1));
-    }, 8000);
-    return () => clearInterval(interval);
-  }, [isAutoPlayPaused, heroSlides.length]);
+    const isTouch = typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches;
+    const isReduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (isTouch || isReduced) return undefined;
 
-  const handleApplyClick = (product) => {
-    setSelectedProduct(product || ACCOUNTS_DATA[0]);
-    setIsApplyModalOpen(true);
+    const onScroll = () => {
+      if (parallaxRafId.current || !bgPhotoRef.current || !isIntersectingRef.current) return;
+      parallaxRafId.current = requestAnimationFrame(() => {
+        parallaxRafId.current = null;
+        if (!bgPhotoRef.current) return;
+        const scrollY = window.scrollY || 0;
+        const transY = Math.min(24, Math.max(0, scrollY * 0.08));
+        bgPhotoRef.current.style.transform = `translate3d(0, ${transY.toFixed(1)}px, 0)`;
+      });
+    };
+
+    window.addEventListener('scroll', onScroll, { passive: true });
+    return () => {
+      window.removeEventListener('scroll', onScroll);
+      if (parallaxRafId.current) cancelAnimationFrame(parallaxRafId.current);
+    };
+  }, []);
+
+  // 3D card LERP animation loop (~0.12 factor) — runs ONLY while active or settling (0 idle rAF)
+  const animate = useCallback(() => {
+    if (!isIntersectingRef.current) {
+      if (rafId.current) {
+        cancelAnimationFrame(rafId.current);
+        rafId.current = null;
+      }
+      return;
+    }
+
+    const LERP_FACTOR = 0.12;
+    const cur = currentRef.current;
+    const tgt = targetRef.current;
+
+    cur.rotateX += (tgt.rotateX - cur.rotateX) * LERP_FACTOR;
+    cur.rotateY += (tgt.rotateY - cur.rotateY) * LERP_FACTOR;
+    cur.transX += (tgt.transX - cur.transX) * LERP_FACTOR;
+    cur.transY += (tgt.transY - cur.transY) * LERP_FACTOR;
+    cur.scale += (tgt.scale - cur.scale) * LERP_FACTOR;
+    cur.glareX += (tgt.glareX - cur.glareX) * LERP_FACTOR;
+    cur.glareY += (tgt.glareY - cur.glareY) * LERP_FACTOR;
+    cur.glareOpacity += (tgt.glareOpacity - cur.glareOpacity) * LERP_FACTOR;
+    cur.shimmerX += (tgt.shimmerX - cur.shimmerX) * LERP_FACTOR;
+    cur.edgeLightX += (tgt.edgeLightX - cur.edgeLightX) * LERP_FACTOR;
+    cur.edgeLightY += (tgt.edgeLightY - cur.edgeLightY) * LERP_FACTOR;
+    cur.hologramHue += (tgt.hologramHue - cur.hologramHue) * LERP_FACTOR;
+
+    const isSettled =
+      !isHoveredRef.current &&
+      Math.abs(cur.rotateX) < 0.05 &&
+      Math.abs(cur.rotateY) < 0.05 &&
+      Math.abs(cur.transX) < 0.05 &&
+      Math.abs(cur.transY) < 0.05 &&
+      Math.abs(cur.scale - 1) < 0.001 &&
+      cur.glareOpacity < 0.008;
+
+    if (isSettled) {
+      cur.rotateX = 0;
+      cur.rotateY = 0;
+      cur.transX = 0;
+      cur.transY = 0;
+      cur.scale = 1;
+      cur.glareOpacity = 0;
+      cur.shimmerX = 50;
+      cur.edgeLightX = 0;
+      cur.edgeLightY = 0;
+      cur.hologramHue = 0;
+
+      if (cardTiltRef.current) {
+        cardTiltRef.current.style.transform = 'translate3d(0, 0, 0) scale(1) rotateX(0deg) rotateY(0deg)';
+        cardTiltRef.current.style.willChange = 'auto';
+      }
+      if (cardFaceRef.current) {
+        cardFaceRef.current.style.boxShadow = '0 20px 45px -10px rgba(10, 30, 53, 0.45)';
+      }
+      if (glareRef.current) {
+        glareRef.current.style.opacity = '0';
+      }
+      if (hologramRef.current) {
+        hologramRef.current.style.filter = 'none';
+      }
+      if (shimmerRef.current) {
+        shimmerRef.current.style.transform = 'translate3d(0, 0, 0)';
+      }
+      if (cardFloatWrapperRef.current) {
+        cardFloatWrapperRef.current.classList.add('animate-card-float');
+      }
+
+      rafId.current = null;
+      return; // Terminate loop: 0 overhead while resting
+    }
+
+    // Direct DOM write for 60fps tilt + magnetic translation + hover lift
+    if (cardTiltRef.current) {
+      cardTiltRef.current.style.transform = `translate3d(${cur.transX.toFixed(2)}px, ${cur.transY.toFixed(2)}px, 0) scale(${cur.scale.toFixed(4)}) rotateX(${cur.rotateX.toFixed(2)}deg) rotateY(${cur.rotateY.toFixed(2)}deg)`;
+      cardTiltRef.current.style.willChange = 'transform';
+    }
+    if (cardFaceRef.current) {
+      const shadowX = -cur.rotateY * 2.2;
+      const shadowY = 25 + cur.rotateX * 2.2;
+      const edgeAlpha = Math.min(0.65, 0.35 + Math.abs(cur.rotateY) * 0.025);
+      cardFaceRef.current.style.boxShadow = `${shadowX.toFixed(1)}px ${shadowY.toFixed(1)}px 50px rgba(5,15,29,0.75), inset ${cur.edgeLightX.toFixed(2)}px ${cur.edgeLightY.toFixed(2)}px 0 1px rgba(212, 175, 55, ${edgeAlpha.toFixed(2)})`;
+    }
+    if (glareRef.current) {
+      glareRef.current.style.opacity = cur.glareOpacity > 0.005 ? (cur.glareOpacity * 0.65).toFixed(3) : '0';
+      glareRef.current.style.background = `radial-gradient(circle 320px at ${cur.glareX.toFixed(1)}% ${cur.glareY.toFixed(1)}%, rgba(255,255,255,0.4), transparent 70%)`;
+    }
+    if (hologramRef.current) {
+      hologramRef.current.style.filter = `hue-rotate(${cur.hologramHue.toFixed(1)}deg)`;
+    }
+    if (shimmerRef.current) {
+      shimmerRef.current.style.transform = `translate3d(${(cur.shimmerX - 50) * 1.5}%, 0, 0)`;
+    }
+
+    rafId.current = requestAnimationFrame(animate);
+  }, []);
+
+  const startLoop = useCallback(() => {
+    if (!rafId.current && isIntersectingRef.current) {
+      rafId.current = requestAnimationFrame(animate);
+    }
+  }, [animate]);
+
+  // Pause when offscreen
+  useEffect(() => {
+    const el = heroRef.current;
+    if (!el || typeof IntersectionObserver === 'undefined') return undefined;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        entries.forEach((entry) => {
+          isIntersectingRef.current = entry.isIntersecting;
+          if (!entry.isIntersecting && rafId.current) {
+            cancelAnimationFrame(rafId.current);
+            rafId.current = null;
+          }
+        });
+      },
+      { threshold: 0.05 }
+    );
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Cleanup on unmount
+  useEffect(() => {
+    return () => {
+      if (rafId.current) cancelAnimationFrame(rafId.current);
+      if (parallaxRafId.current) cancelAnimationFrame(parallaxRafId.current);
+    };
+  }, []);
+
+  const handleMouseEnter = () => {
+    if (typeof window !== 'undefined') {
+      if (window.innerWidth < 1024) return;
+      if (window.matchMedia('(hover: none)').matches) return;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    }
+    if (heroRef.current) {
+      heroRectRef.current = heroRef.current.getBoundingClientRect();
+    }
   };
 
-  const handlePrevSlide = () => {
-    setCarouselIndex((prev) => (prev === 0 ? heroSlides.length - 1 : prev - 1));
+  const handleMouseMove = (e) => {
+    if (typeof window !== 'undefined') {
+      if (window.innerWidth < 1024) return;
+      if (window.matchMedia('(hover: none)').matches) return;
+      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
+    }
+    if (!heroRef.current) return;
+    if (!heroRectRef.current) {
+      heroRectRef.current = heroRef.current.getBoundingClientRect();
+    }
+
+    const rect = heroRectRef.current;
+    const heroMidX = rect.left + rect.width * 0.5;
+
+    // Cursor in left zone: ease card flat and resume gentle idle float
+    if (e.clientX < heroMidX) {
+      if (isHoveredRef.current) {
+        targetRef.current = {
+          rotateX: 0,
+          rotateY: 0,
+          transX: 0,
+          transY: 0,
+          scale: 1,
+          glareX: 50,
+          glareY: 50,
+          glareOpacity: 0,
+          shimmerX: 50,
+          edgeLightX: 0,
+          edgeLightY: 0,
+          hologramHue: 0,
+        };
+        isHoveredRef.current = false;
+        startLoop();
+      }
+      return;
+    }
+
+    // Cursor in right zone: tilt card toward cursor (max ±12°)
+    const rightZoneWidth = rect.width * 0.5;
+    const xInRight = e.clientX - heroMidX;
+    const yInHero = e.clientY - rect.top;
+    const centerX = rightZoneWidth / 2;
+    const centerY = rect.height / 2;
+
+    const rY = Math.max(-12, Math.min(12, ((xInRight - centerX) / centerX) * 12));
+    const rX = Math.max(-12, Math.min(12, -((yInHero - centerY) / centerY) * 12));
+
+    // Magnetic ease: card translates maximum 6px toward cursor
+    const tX = Math.max(-6, Math.min(6, ((xInRight - centerX) / centerX) * 6));
+    const tY = Math.max(-6, Math.min(6, ((yInHero - centerY) / centerY) * 6));
+
+    // Hover lift: scale 1.015
+    const scale = 1.015;
+
+    const gX = Math.max(0, Math.min(100, (xInRight / rightZoneWidth) * 100));
+    const gY = Math.max(0, Math.min(100, (yInHero / rect.height) * 100));
+
+    const sX = gX;
+    const edgeX = -rY * 0.12;
+    const edgeY = rX * 0.12;
+    const holoHue = rY * 2.5;
+
+    targetRef.current = {
+      rotateX: rX,
+      rotateY: rY,
+      transX: tX,
+      transY: tY,
+      scale,
+      glareX: gX,
+      glareY: gY,
+      glareOpacity: 0.35,
+      shimmerX: sX,
+      edgeLightX: edgeX,
+      edgeLightY: edgeY,
+      hologramHue: holoHue,
+    };
+
+    if (!isHoveredRef.current) {
+      isHoveredRef.current = true;
+      if (cardFloatWrapperRef.current) {
+        cardFloatWrapperRef.current.classList.remove('animate-card-float');
+      }
+    }
+
+    startLoop();
   };
 
-  const handleNextSlide = () => {
-    setCarouselIndex((prev) => (prev === heroSlides.length - 1 ? 0 : prev + 1));
+  const handleMouseLeave = () => {
+    targetRef.current = {
+      rotateX: 0,
+      rotateY: 0,
+      transX: 0,
+      transY: 0,
+      scale: 1,
+      glareX: 50,
+      glareY: 50,
+      glareOpacity: 0,
+      shimmerX: 50,
+      edgeLightX: 0,
+      edgeLightY: 0,
+      hologramHue: 0,
+    };
+    isHoveredRef.current = false;
+    heroRectRef.current = null;
+    startLoop();
   };
-
-  const currentSlide = heroSlides[carouselIndex];
 
   return (
-    <div className="min-h-screen bg-[#FBFBFC] text-[#1C1B1F] font-sans selection:bg-[#9D1D27]/10 selection:text-[#9D1D27]">
-      
-      {/* ========================================================================= */}
-      {/* 1. HERO SECTION — PREMIUM IMAGE-LED SPLIT CAROUSEL */}
-      {/* ========================================================================= */}
-      <section 
-        className="relative bg-gradient-to-b from-[#F7F8FA] to-white border-b border-[#E8ECF2] overflow-hidden"
-        onMouseEnter={() => setIsAutoPlayPaused(true)}
-        onMouseLeave={() => setIsAutoPlayPaused(false)}
-        aria-label="FinEdge Bank Featured Campaigns"
+    <section
+      ref={heroRef}
+      onMouseEnter={handleMouseEnter}
+      onMouseMove={handleMouseMove}
+      onMouseLeave={handleMouseLeave}
+      data-testid="hero-section"
+      className="relative overflow-hidden bg-midnight-950 text-porcelain-50 min-h-[680px] py-20 sm:py-24 lg:py-28 flex flex-col justify-center"
+      aria-label="Welcome to FinEdge Bank"
+    >
+      {/* 1. Full-background landscape photograph with responsive WebP + scroll parallax */}
+      <div
+        ref={bgPhotoRef}
+        className="absolute -top-6 -bottom-6 inset-x-0 pointer-events-none overflow-hidden"
+        style={{
+          transform: 'none',
+          willChange: 'transform',
+        }}
       >
-        {/* Subtle Architectural Grid Pattern */}
-        <div 
-          className="absolute inset-0 opacity-[0.03] pointer-events-none" 
-          style={{ backgroundImage: 'radial-gradient(#1C1B1F 1px, transparent 1px)', backgroundSize: '24px 24px' }} 
-        />
+        <picture className="h-full w-full block">
+          <source
+            type="image/webp"
+            srcSet="/images/hero-bg-768.webp 768w, /images/hero-bg-1280.webp 1280w, /images/hero-bg-1920.webp 1920w"
+            sizes="100vw"
+          />
+          <img
+            src="/images/hero-bg.jpg"
+            alt=""
+            aria-hidden="true"
+            fetchpriority="high"
+            loading="eager"
+            decoding="async"
+            width="1920"
+            height="1281"
+            className="h-full w-full object-cover object-[right_center] hero-bg-enter"
+            style={{
+              filter: 'saturate(0.6) contrast(1.05)',
+            }}
+          />
+        </picture>
+      </div>
 
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-12 md:py-20 lg:py-24 relative z-10">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 lg:gap-14 items-center">
-            
-            {/* Left 55%: Editorial Copy & Action Deck */}
-            <div className="lg:col-span-7 space-y-6">
-              
-              {/* Eyebrow Badge */}
-              <div className="flex items-center gap-2.5">
-                <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-extrabold uppercase tracking-wider bg-[#9D1D27]/10 text-[#9D1D27] border border-[#9D1D27]/20">
-                  <span className="w-1.5 h-1.5 rounded-full bg-[#9D1D27] animate-pulse" />
-                  {currentSlide.eyebrow}
-                </span>
-                <span className="text-[11px] font-bold text-gray-500 uppercase tracking-widest hidden sm:inline">
-                  Scheduled Commercial Bank
-                </span>
-              </div>
+      {/* 2. Readability Overlays */}
+      {/* Desktop Left-to-Right Midnight Wash */}
+      <div
+        className="absolute inset-0 pointer-events-none hidden lg:block"
+        style={{
+          background:
+            'linear-gradient(90deg, rgba(5,15,29,0.96) 0%, rgba(5,15,29,0.88) 45%, rgba(5,15,29,0.45) 70%, rgba(5,15,29,0.22) 100%)',
+        }}
+      />
+      {/* Mobile Top-to-Bottom Strengthened Gradient */}
+      <div
+        className="absolute inset-0 pointer-events-none lg:hidden"
+        style={{
+          background:
+            'linear-gradient(180deg, rgba(5,15,29,0.96) 0%, rgba(5,15,29,0.88) 50%, rgba(5,15,29,0.96) 100%)',
+        }}
+      />
+      {/* Bottom Grounding Gradient (All viewports) */}
+      <div
+        className="absolute inset-0 pointer-events-none"
+        style={{
+          background:
+            'linear-gradient(to top, rgba(5,15,29,0.65) 0%, rgba(5,15,29,0.55) 15%, transparent 35%)',
+        }}
+      />
+      {/* Subtle Top Radial Gold Wash */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(184,147,63,0.08),transparent)] pointer-events-none" />
 
-              {/* Editorial Headline */}
-              <h1 className="text-4xl sm:text-5xl lg:text-6xl font-black text-[#1C1B1F] tracking-tight leading-[1.08] transition-all duration-500">
-                {currentSlide.title}
-              </h1>
-
-              {/* Reassuring Subtitle */}
-              <p className="text-base sm:text-lg text-gray-600 max-w-xl leading-relaxed font-normal">
-                {currentSlide.description}
-              </p>
-
-              {/* Action Buttons */}
-              <div className="flex flex-wrap items-center gap-3.5 pt-2">
-                <Button
-                  onClick={() => handleApplyClick(currentSlide.productRef)}
-                  variant="primary"
-                  size="lg"
-                  className="bg-[#9D1D27] hover:bg-[#80141D] text-white font-bold px-7 py-3.5 text-sm shadow-md hover:shadow-lg transition-all rounded-xl"
-                >
-                  {currentSlide.primaryCta}
-                  <ArrowRight className="w-4 h-4 ml-2 inline-block" />
-                </Button>
-
-                <Link to={currentSlide.secondaryLink}>
-                  <Button 
-                    variant="outline" 
-                    size="lg"
-                    className="border-gray-300 text-gray-800 hover:bg-gray-100 hover:text-black font-bold px-6 py-3.5 text-sm rounded-xl"
-                  >
-                    {currentSlide.secondaryCta}
-                  </Button>
-                </Link>
-              </div>
-
-              {/* Trust Indicators Strip */}
-              <div className="pt-4 flex flex-wrap items-center gap-y-2 gap-x-5 text-xs text-gray-500 font-semibold border-t border-gray-200/80">
-                {currentSlide.pills.map((pill, idx) => (
-                  <div key={idx} className="flex items-center gap-1.5">
-                    <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0" />
-                    <span>{pill}</span>
-                  </div>
-                ))}
-              </div>
-
-              {/* Accessible Slide Controllers & Progress Bars */}
-              <div className="flex items-center gap-6 pt-4">
-                <div className="flex items-center gap-2">
-                  {heroSlides.map((slide, idx) => {
-                    const isActive = carouselIndex === idx;
-                    return (
-                      <button
-                        key={slide.id}
-                        onClick={() => setCarouselIndex(idx)}
-                        className={`h-2 rounded-full transition-all duration-300 ${
-                          isActive 
-                            ? 'w-10 bg-[#9D1D27]' 
-                            : 'w-2.5 bg-gray-300 hover:bg-gray-400'
-                        }`}
-                        aria-label={`Switch to slide ${idx + 1}: ${slide.badgeText}`}
-                        aria-current={isActive ? 'true' : 'false'}
-                      />
-                    );
-                  })}
-                </div>
-
-                <div className="flex items-center gap-2">
-                  <button 
-                    onClick={handlePrevSlide}
-                    className="w-8 h-8 rounded-full border border-gray-300 hover:border-gray-500 hover:bg-white text-gray-700 flex items-center justify-center transition-colors shadow-xs"
-                    aria-label="Previous Campaign Slide"
-                  >
-                    <ChevronLeft className="w-4 h-4" />
-                  </button>
-                  <button 
-                    onClick={handleNextSlide}
-                    className="w-8 h-8 rounded-full border border-gray-300 hover:border-gray-500 hover:bg-white text-gray-700 flex items-center justify-center transition-colors shadow-xs"
-                    aria-label="Next Campaign Slide"
-                  >
-                    <ChevronRight className="w-4 h-4" />
-                  </button>
-                  <span className="text-[11px] font-mono font-bold text-gray-400 ml-1">
-                    0{carouselIndex + 1} / 0{heroSlides.length}
-                  </span>
-                </div>
-              </div>
-
-            </div>
-
-            {/* Right 45%: Large Lifestyle Photography with Floating Status Cards on Perimeter */}
-            <div className="lg:col-span-5 relative flex justify-center py-4">
-              
-              {/* Outer Glow Halo */}
-              <div className="absolute -inset-4 bg-gradient-to-tr from-[#9D1D27]/10 via-amber-500/5 to-transparent rounded-[2.5rem] blur-2xl pointer-events-none" />
-
-              <div className="relative w-full max-w-md lg:max-w-lg">
-                
-                {/* Main Hero Photograph Frame - Clean, Unobstructed Image */}
-                <div className="relative aspect-[4/4.8] sm:aspect-[4/4.5] rounded-[2rem] overflow-hidden shadow-2xl border border-gray-100 bg-gray-100 group">
-                  <img
-                    key={currentSlide.imageUrl}
-                    src={currentSlide.imageUrl}
-                    alt={`FinEdge Bank Customer — ${currentSlide.title}`}
-                    className="w-full h-full object-cover object-top transition-transform duration-700 ease-out group-hover:scale-105"
-                    loading="eager"
-                    onError={(e) => {
-                      e.currentTarget.style.display = 'none';
-                      e.currentTarget.parentElement.classList.add('bg-gradient-to-br', 'from-[#0B132B]', 'via-[#1C2541]', 'to-[#3A506B]');
-                    }}
-                  />
-                  {/* Subtle edge vignette at the very bottom border only */}
-                  <div className="absolute inset-x-0 bottom-0 h-12 bg-gradient-to-t from-black/20 to-transparent pointer-events-none" />
-                </div>
-
-                {/* Floating Metric Card: Positioned at bottom-left corner outside the photo subject */}
-                <div className="absolute -bottom-5 -left-3 sm:-left-6 max-w-[220px] sm:max-w-[240px] bg-white rounded-2xl p-4 shadow-xl border border-gray-100 z-20 animate-fade-in">
-                  <div className="flex items-center gap-1.5 mb-1">
-                    <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                    <span className="text-[10px] font-extrabold uppercase tracking-wider text-gray-500">
-                      {currentSlide.highlightBadge.title}
-                    </span>
-                  </div>
-                  <div className="text-xl font-black text-[#1C1B1F] tracking-tight">
-                    {currentSlide.highlightBadge.value}
-                  </div>
-                  <p className="text-[10px] text-gray-500 mt-0.5 leading-tight font-medium">
-                    {currentSlide.highlightBadge.subtitle}
-                  </p>
-                </div>
-
-                {/* Floating Product Badge: Positioned at top-right corner on perimeter */}
-                <div className="absolute -top-3 -right-2 sm:-right-4 bg-white/95 backdrop-blur-md px-3.5 py-2 rounded-xl shadow-lg border border-gray-100 flex items-center gap-2.5 z-20">
-                  <div className="w-6 h-6 rounded-lg bg-[#9D1D27] text-white flex items-center justify-center font-black text-xs shadow-xs">
-                    FE
-                  </div>
-                  <div>
-                    <span className="text-xs font-bold text-slate-900 block leading-tight">
-                      {currentSlide.badgeText}
-                    </span>
-                    <span className="text-[9px] text-emerald-600 font-bold flex items-center gap-1">
-                      <ShieldCheck className="w-3 h-3 inline" /> 100% Paperless KYC
-                    </span>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 2. CATEGORY QUICK SWITCHER STRIP */}
-      {/* ========================================================================= */}
-      <nav className="bg-white border-b border-[#E2E5EA] sticky top-16 z-30 shadow-xs" aria-label="Product Categories">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="flex items-center gap-2 overflow-x-auto py-3.5 scrollbar-none" role="tablist">
-            {[
-              { id: 'popular', label: 'Curated Highlights', icon: Sparkles },
-              { id: 'accounts', label: 'Savings & Current Accounts', icon: Percent },
-              { id: 'loans', label: 'Home & Personal Loans', icon: Home },
-              { id: 'cards', label: 'Credit & Debit Cards', icon: CreditCard },
-              { id: 'investments', label: 'Fixed Deposits & Wealth', icon: TrendingUp }
-            ].map((tab) => {
-              const Icon = tab.icon;
-              const isActive = activeTab === tab.id;
-              return (
-                <button
-                  key={tab.id}
-                  onClick={() => setActiveTab(tab.id)}
-                  role="tab"
-                  aria-selected={isActive}
-                  className={`flex items-center gap-2 px-4 py-2 rounded-full text-xs sm:text-sm font-bold whitespace-nowrap transition-all ${
-                    isActive
-                      ? 'bg-[#9D1D27] text-white shadow-sm'
-                      : 'bg-gray-100 text-gray-700 hover:bg-gray-200 hover:text-black'
-                  }`}
-                >
-                  <Icon className="w-4 h-4 shrink-0" />
-                  {tab.label}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-      </nav>
-
-      {/* ========================================================================= */}
-      {/* 3. BENCHMARK PRODUCT SHOWCASE (WITH PHOTOGRAPHY THUMBNAILS) */}
-      {/* ========================================================================= */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
-        
-        {/* Section Header */}
-        <div className="flex flex-col md:flex-row md:items-end justify-between mb-10 gap-4">
-          <div>
-            <div className="flex items-center gap-2 text-xs font-black text-[#9D1D27] uppercase tracking-wider">
-              <Award className="w-3.5 h-3.5" />
-              <span>Benchmark Financial Suite</span>
-            </div>
-            <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-[#1C1B1F] tracking-tight mt-1">
-              Thoughtfully Engineered Banking Products
-            </h2>
-            <p className="text-sm text-gray-500 mt-1 max-w-xl">
-              Transparent terms, zero surprise fees, and industry-leading compounding rates built for Indian households and enterprises.
-            </p>
-          </div>
-
-          <Link 
-            to={activeTab === 'popular' ? '/accounts' : `/${activeTab}`} 
-            className="text-xs sm:text-sm font-bold text-[#9D1D27] hover:underline inline-flex items-center gap-1 group self-start md:self-end"
+      {/* 3. Foreground Content Container */}
+      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 w-full">
+        <div className="relative">
+          {/* Left Zone: Copy, CTAs & Stats (never overlapped by card) */}
+          <div
+            data-testid="hero-left-zone"
+            className="max-w-xl lg:max-w-[48%] xl:max-w-[50%]"
           >
-            <span>View All {activeTab.toUpperCase()}</span>
-            <ArrowRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-          </Link>
-        </div>
-
-        {/* --- TAB 1: CURATED HIGHLIGHTS --- */}
-        {activeTab === 'popular' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            
-            {/* Card 1: FIRST High-Yield Savings */}
-            <div className="bg-white rounded-3xl border border-gray-200/90 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between group">
-              <div>
-                <div className="relative h-48 overflow-hidden bg-gray-100">
-                  <img 
-                    src="https://images.unsplash.com/photo-1554224155-8d04cb21cd6c?auto=format&fit=crop&w=600&q=80" 
-                    alt="Family Financial Planning with FIRST Savings"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-                  <div className="absolute top-4 left-4">
-                    <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/95 text-[#9D1D27] shadow-sm">
-                      High Yield Compounding
-                    </span>
-                  </div>
-                  <div className="absolute bottom-3 left-4 text-white text-xs font-bold">
-                    Savings Account
-                  </div>
-                </div>
-
-                <div className="p-6 space-y-3">
-                  <div className="flex justify-between items-baseline">
-                    <h3 className="text-xl font-bold text-[#1C1B1F]">FIRST Savings Account</h3>
-                    <span className="text-sm font-extrabold text-[#9D1D27]">Up to 7.00%</span>
-                  </div>
-                  <p className="text-xs text-gray-600 leading-relaxed">
-                    Monthly compounding interest credited directly to your balance. Enjoy zero fees across 28+ daily retail services.
-                  </p>
-                  
-                  <div className="bg-red-50/70 border border-red-100 rounded-xl p-3 text-xs text-[#9D1D27] font-semibold space-y-1">
-                    <div className="flex items-center gap-1.5">
-                      <Check className="w-3.5 h-3.5 shrink-0" />
-                      <span>Monthly Interest Credit Cycle</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Check className="w-3.5 h-3.5 shrink-0" />
-                      <span>Unlimited Free Domestic ATM Withdrawals</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div className="p-6 pt-0 flex items-center gap-3 border-t border-gray-100 mt-4">
-                <Button onClick={() => handleApplyClick(ACCOUNTS_DATA[0])} variant="primary" size="sm" className="w-full bg-[#9D1D27] hover:bg-[#80141D] text-white font-bold py-2.5 rounded-xl">
-                  Open Account
-                </Button>
-                <Link to="/accounts#savings" className="w-full">
-                  <Button variant="outline" size="sm" className="w-full font-bold py-2.5 rounded-xl border-gray-300">
-                    Know More
-                  </Button>
-                </Link>
-              </div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-gold-400/30 bg-midnight-900/80 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-gold-300 backdrop-blur-sm">
+              <Landmark className="h-3.5 w-3.5 text-gold-400" />
+              <span>Banking with a finer edge</span>
             </div>
 
-            {/* Card 2: Dream Home Loan */}
-            <div className="bg-white rounded-3xl border border-gray-200/90 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between group">
-              <div>
-                <div className="relative h-48 overflow-hidden bg-gray-100">
-                  <img 
-                    src="https://images.unsplash.com/photo-1600585154340-be6161a56a0c?auto=format&fit=crop&w=600&q=80" 
-                    alt="Couple enjoying contemporary dream home"
-                    className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent to-transparent" />
-                  <div className="absolute top-4 left-4">
-                    <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-white/95 text-[#0288D1] shadow-sm">
-                      Zero Foreclosure
-                    </span>
-                  </div>
-                  <div className="absolute bottom-3 left-4 text-white text-xs font-bold">
-                    Home Loans
-                  </div>
-                </div>
+            <h1 className="hero-enter-headline mt-4 font-display text-4xl font-semibold leading-tight text-porcelain-50 sm:text-5xl">
+              Banking that grows with you — accounts, cards, loans and investments in one place.
+            </h1>
 
-                <div className="p-6 space-y-3">
-                  <div className="flex justify-between items-baseline">
-                    <h3 className="text-xl font-bold text-[#1C1B1F]">Dream Home Loan</h3>
-                    <span className="text-sm font-extrabold text-[#0288D1]">From 8.45%</span>
-                  </div>
-                  <p className="text-xs text-gray-600 leading-relaxed">
-                    Digital in-principle sanction in 48 hours, tenure up to 30 years, and zero prepayment penalties on floating rates.
-                  </p>
-                  
-                  <div className="bg-blue-50/70 border border-blue-100 rounded-xl p-3 text-xs text-[#0288D1] font-semibold space-y-1">
-                    <div className="flex items-center gap-1.5">
-                      <Check className="w-3.5 h-3.5 shrink-0" />
-                      <span>Sanction up to ₹10 Crores</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Check className="w-3.5 h-3.5 shrink-0" />
-                      <span>Pradhan Mantri Awas Yojana (PMAY) Eligible</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
+            <p className="hero-enter-subtext mt-5 text-base leading-relaxed text-porcelain-200/90 sm:text-lg">
+              Open an account in minutes, borrow with the rate shown before you apply, and grow your savings with
+              deposits and investments whose charges are stated up front. {BRAND.name} is a demonstration platform —
+              every workflow works end to end, with simulations labelled honestly.
+            </p>
 
-              <div className="p-6 pt-0 flex items-center gap-3 border-t border-gray-100 mt-4">
-                <Button onClick={() => handleApplyClick(LOANS_DATA[0])} variant="primary" size="sm" className="w-full bg-[#0288D1] hover:bg-[#0277BD] text-white font-bold py-2.5 rounded-xl">
-                  Check Eligibility
-                </Button>
-                <Link to="/loans#home-loan" className="w-full">
-                  <Button variant="outline" size="sm" className="w-full font-bold py-2.5 rounded-xl border-gray-300">
-                    Know More
-                  </Button>
-                </Link>
-              </div>
+            {/* CTAs: Porcelain primary button on midnight band */}
+            <div className="hero-enter-cta mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
+              <Link
+                to="/accounts"
+                className="inline-flex select-none items-center justify-center gap-2 rounded-lg font-semibold transition-[color,background-color,border-color,transform] duration-150 ease-out active:translate-y-px min-h-11 px-5 text-sm bg-porcelain-50 text-midnight-950 border border-transparent shadow-sm hover:bg-porcelain-200"
+              >
+                Open an account <ArrowRight className="h-4 w-4 text-midnight-900" aria-hidden />
+              </Link>
+              <Link
+                to="/calculators"
+                className="text-sm font-medium text-porcelain-50 underline decoration-porcelain-50/50 underline-offset-4 transition-colors hover:decoration-porcelain-50"
+              >
+                Try the calculators
+              </Link>
             </div>
 
-            {/* Card 3: Ashva Metal Credit Card */}
-            <div className="bg-white rounded-3xl border border-gray-200/90 overflow-hidden shadow-sm hover:shadow-xl transition-all duration-300 flex flex-col justify-between group">
-              <div>
-                <div className="relative h-48 overflow-hidden bg-gray-900">
-                  <img 
-                    src="https://images.unsplash.com/photo-1559526324-4b87b5e36e44?auto=format&fit=crop&w=600&q=80" 
-                    alt="Ashva Metal Credit Card Luxury"
-                    className="w-full h-full object-cover opacity-90 group-hover:scale-105 transition-transform duration-500"
-                    loading="lazy"
-                  />
-                  <div className="absolute inset-0 bg-gradient-to-t from-black/70 via-transparent to-transparent" />
-                  <div className="absolute top-4 left-4">
-                    <span className="px-3 py-1 rounded-full text-[10px] font-black uppercase tracking-wider bg-amber-400 text-slate-950 shadow-sm">
-                      Stainless Steel Metal
-                    </span>
-                  </div>
-                  <div className="absolute bottom-3 left-4 text-white text-xs font-bold">
-                    Credit Cards
-                  </div>
-                </div>
-
-                <div className="p-6 space-y-3">
-                  <div className="flex justify-between items-baseline">
-                    <h3 className="text-xl font-bold text-[#1C1B1F]">Ashva Metal Card</h3>
-                    <span className="text-sm font-extrabold text-amber-600">0% Forex</span>
-                  </div>
-                  <p className="text-xs text-gray-600 leading-relaxed">
-                    Forged in aerospace-grade stainless steel with zero foreign currency transaction fees and unlimited airport lounge access.
-                  </p>
-                  
-                  <div className="bg-gray-100 border border-gray-200 rounded-xl p-3 text-xs text-gray-800 font-semibold space-y-1">
-                    <div className="flex items-center gap-1.5">
-                      <Check className="w-3.5 h-3.5 shrink-0" />
-                      <span>Zero Markup on Global Currencies</span>
-                    </div>
-                    <div className="flex items-center gap-1.5">
-                      <Check className="w-3.5 h-3.5 shrink-0" />
-                      <span>5X to 10X Accelerated Reward Points</span>
-                    </div>
-                  </div>
-                </div>
+            {/* Stats Row: Derived from single rates source */}
+            <div className="mt-10 grid grid-cols-2 gap-4 border-t border-porcelain-50/10 pt-6 sm:grid-cols-3">
+              <div className="hero-stat-e" style={{ '--stat-delay': '550ms' }}>
+                <p className="text-xs text-porcelain-300">Savings account</p>
+                <p className="font-display text-lg font-semibold text-gold-300 sm:text-xl">
+                  {savingsRow?.display || 'Up to 6.75% p.a.'}
+                </p>
+                <p className="mt-1 text-[13px] text-porcelain-300">Interest credited quarterly</p>
               </div>
-
-              <div className="p-6 pt-0 flex items-center gap-3 border-t border-gray-100 mt-4">
-                <Button onClick={() => handleApplyClick(CARDS_DATA[0])} variant="primary" size="sm" className="w-full bg-slate-950 hover:bg-slate-800 text-white font-bold py-2.5 rounded-xl">
-                  Apply for Card
-                </Button>
-                <Link to="/cards#ashva-metal" className="w-full">
-                  <Button variant="outline" size="sm" className="w-full font-bold py-2.5 rounded-xl border-gray-300">
-                    Know More
-                  </Button>
-                </Link>
-              </div>
-            </div>
-
-          </div>
-        )}
-
-        {/* --- TAB 2: ACCOUNTS --- */}
-        {activeTab === 'accounts' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {ACCOUNTS_DATA.slice(0, 3).map((item) => (
-              <div key={item.id} className="bg-white rounded-3xl border border-gray-200 p-6 flex flex-col justify-between hover:shadow-xl transition-all">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-mono font-bold text-[#9D1D27] bg-red-50 px-2.5 py-1 rounded-md">
-                      {item.interestRate}
-                    </span>
-                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">{item.category}</span>
-                  </div>
-                  <h3 className="text-xl font-bold text-[#1C1B1F]">{item.title}</h3>
-                  <p className="text-xs text-gray-600 leading-relaxed">{item.tagline}</p>
-                  
-                  <ul className="text-xs text-gray-600 space-y-2 pt-2 border-t border-gray-100">
-                    {item.features.slice(0, 3).map((f, i) => (
-                      <li key={i} className="flex items-start gap-2">
-                        <CheckCircle2 className="w-4 h-4 text-emerald-600 shrink-0 mt-0.5" />
-                        <span>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-                </div>
-
-                <div className="pt-6 border-t border-gray-100 flex gap-2">
-                  <Button onClick={() => handleApplyClick(item)} variant="primary" size="sm" className="w-full bg-[#9D1D27] hover:bg-[#80141D] text-white font-bold rounded-xl py-2.5">
-                    Open Account
-                  </Button>
-                  <Link to={`/accounts#${item.id}`} className="w-full">
-                    <Button variant="outline" size="sm" className="w-full font-bold rounded-xl py-2.5 border-gray-300">
-                      Details
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* --- TAB 3: LOANS --- */}
-        {activeTab === 'loans' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {LOANS_DATA.slice(0, 3).map((item) => (
-              <div key={item.id} className="bg-white rounded-3xl border border-gray-200 p-6 flex flex-col justify-between hover:shadow-xl transition-all">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-mono font-bold text-[#0288D1] bg-blue-50 px-2.5 py-1 rounded-md">
-                      {item.interestRate}
-                    </span>
-                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">{item.category}</span>
-                  </div>
-                  <h3 className="text-xl font-bold text-[#1C1B1F]">{item.title}</h3>
-                  <p className="text-xs text-gray-600 leading-relaxed">{item.tagline}</p>
-                  
-                  <div className="bg-blue-50/60 p-3 rounded-xl text-xs text-blue-950 font-semibold space-y-1">
-                    <div>Cap: {item.maxAmount}</div>
-                    <div className="text-gray-500 font-normal">Tenure: {item.tenure}</div>
-                  </div>
-                </div>
-
-                <div className="pt-6 border-t border-gray-100 flex gap-2">
-                  <Button onClick={() => handleApplyClick(item)} variant="primary" size="sm" className="w-full bg-[#0288D1] hover:bg-[#0277BD] text-white font-bold rounded-xl py-2.5">
-                    Apply Now
-                  </Button>
-                  <Link to={`/loans#${item.id}`} className="w-full">
-                    <Button variant="outline" size="sm" className="w-full font-bold rounded-xl py-2.5 border-gray-300">
-                      Details
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* --- TAB 4: CARDS --- */}
-        {activeTab === 'cards' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {CARDS_DATA.slice(0, 3).map((item) => (
-              <div key={item.id} className="bg-white rounded-3xl border border-gray-200 p-6 flex flex-col justify-between hover:shadow-xl transition-all">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-mono font-bold text-amber-700 bg-amber-50 px-2.5 py-1 rounded-md">
-                      {item.tier}
-                    </span>
-                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">{item.category}</span>
-                  </div>
-                  <h3 className="text-xl font-bold text-[#1C1B1F]">{item.title}</h3>
-                  <p className="text-xs text-gray-600 leading-relaxed">{item.tagline}</p>
-                  
-                  <div className="bg-gray-100 p-3 rounded-xl text-xs text-gray-900 font-semibold">
-                    Annual Fee: {item.annualFee}
-                  </div>
-                </div>
-
-                <div className="pt-6 border-t border-gray-100 flex gap-2">
-                  <Button onClick={() => handleApplyClick(item)} variant="primary" size="sm" className="w-full bg-slate-950 hover:bg-slate-800 text-white font-bold rounded-xl py-2.5">
-                    Apply for Card
-                  </Button>
-                  <Link to={`/cards#${item.id}`} className="w-full">
-                    <Button variant="outline" size="sm" className="w-full font-bold rounded-xl py-2.5 border-gray-300">
-                      Details
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-        {/* --- TAB 5: INVESTMENTS --- */}
-        {activeTab === 'investments' && (
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-            {INVESTMENTS_DATA.slice(0, 3).map((item) => (
-              <div key={item.id} className="bg-white rounded-3xl border border-gray-200 p-6 flex flex-col justify-between hover:shadow-xl transition-all">
-                <div className="space-y-3">
-                  <div className="flex justify-between items-center">
-                    <span className="text-xs font-mono font-bold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-md">
-                      {item.rate}
-                    </span>
-                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider">{item.category}</span>
-                  </div>
-                  <h3 className="text-xl font-bold text-[#1C1B1F]">{item.title}</h3>
-                  <p className="text-xs text-gray-600 leading-relaxed">{item.tagline}</p>
-                  
-                  <div className="bg-emerald-50/60 p-3 rounded-xl text-xs text-emerald-950 font-semibold">
-                    Term: {item.tenure}
-                  </div>
-                </div>
-
-                <div className="pt-6 border-t border-gray-100 flex gap-2">
-                  <Button onClick={() => handleApplyClick(item)} variant="primary" size="sm" className="w-full bg-[#2E7D32] hover:bg-[#1B5E20] text-white font-bold rounded-xl py-2.5">
-                    Book Deposit
-                  </Button>
-                  <Link to={`/investments#${item.id}`} className="w-full">
-                    <Button variant="outline" size="sm" className="w-full font-bold rounded-xl py-2.5 border-gray-300">
-                      Details
-                    </Button>
-                  </Link>
-                </div>
-              </div>
-            ))}
-          </div>
-        )}
-
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 4. THE FINEDGE DIGITAL BANKING & MOBILE APP SHOWCASE */}
-      {/* ========================================================================= */}
-      <section className="bg-white border-y border-[#E2E5EA] py-16 md:py-24 overflow-hidden">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 lg:gap-16 items-center">
-            
-            {/* Left 6 Columns: Digital Banking Value Pillars */}
-            <div className="lg:col-span-6 space-y-6">
-              <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-[11px] font-black uppercase tracking-wider bg-slate-900 text-white">
-                <Smartphone className="w-3.5 h-3.5 text-cyan-400" />
-                <span>Next-Gen Indian Digital Banking</span>
-              </div>
-
-              <h2 className="text-3xl sm:text-4xl font-black text-[#1C1B1F] tracking-tight leading-tight">
-                High-Performance Banking, Crafted for Seamless Daily Flow.
-              </h2>
-
-              <p className="text-sm sm:text-base text-gray-600 leading-relaxed">
-                Experience full-spectrum banking engineered for instantaneous response. From paperless video onboarding to biometric instant card locking, manage your complete financial footprint without visiting a branch.
-              </p>
-
-              {/* 4 Key Digital Features */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 pt-2">
-                
-                <div className="p-4 bg-[#F7F8FA] rounded-2xl border border-gray-200/80 space-y-1.5">
-                  <div className="w-8 h-8 rounded-lg bg-[#9D1D27]/10 text-[#9D1D27] flex items-center justify-center font-bold">
-                    <Zap className="w-4 h-4" />
-                  </div>
-                  <h4 className="text-sm font-bold text-[#1C1B1F]">3-Min Paperless Video KYC</h4>
-                  <p className="text-xs text-gray-500">Live Aadhaar OTP and facial liveness verification from home.</p>
-                </div>
-
-                <div className="p-4 bg-[#F7F8FA] rounded-2xl border border-gray-200/80 space-y-1.5">
-                  <div className="w-8 h-8 rounded-lg bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-bold">
-                    <ShieldCheck className="w-4 h-4" />
-                  </div>
-                  <h4 className="text-sm font-bold text-[#1C1B1F]">One-Tap Card Freeze</h4>
-                  <p className="text-xs text-gray-500">Toggle ATM limits, international usage, and instant hotlisting.</p>
-                </div>
-
-                <div className="p-4 bg-[#F7F8FA] rounded-2xl border border-gray-200/80 space-y-1.5">
-                  <div className="w-8 h-8 rounded-lg bg-blue-500/10 text-blue-600 flex items-center justify-center font-bold">
-                    <TrendingUp className="w-4 h-4" />
-                  </div>
-                  <h4 className="text-sm font-bold text-[#1C1B1F]">Monthly Compounding</h4>
-                  <p className="text-xs text-gray-500">Interest computed daily and credited monthly for rapid growth.</p>
-                </div>
-
-                <div className="p-4 bg-[#F7F8FA] rounded-2xl border border-gray-200/80 space-y-1.5">
-                  <div className="w-8 h-8 rounded-lg bg-amber-500/10 text-amber-600 flex items-center justify-center font-bold">
-                    <Lock className="w-4 h-4" />
-                  </div>
-                  <h4 className="text-sm font-bold text-[#1C1B1F]">ISO 27001 Security</h4>
-                  <p className="text-xs text-gray-500">256-bit bank encryption and multi-factor hardware security modules.</p>
-                </div>
-
-              </div>
-
-              <div className="pt-2 flex items-center gap-4">
-                <Link to="/portal/login">
-                  <Button variant="primary" size="md" className="bg-[#9D1D27] text-white font-bold px-6 py-3 rounded-xl">
-                    Launch NetBanking Terminal
-                  </Button>
-                </Link>
-                <Link to="/accounts" className="text-xs font-bold text-gray-600 hover:text-black flex items-center gap-1">
-                  View Digital Schedule of Charges →
-                </Link>
-              </div>
-            </div>
-
-            {/* Right 6 Columns: Interactive Mobile Banking Mockup Preview */}
-            <div className="lg:col-span-6 flex justify-center">
-              <div className="w-full max-w-sm bg-gradient-to-br from-slate-950 via-slate-900 to-slate-950 text-white rounded-[2.5rem] p-6 shadow-2xl border-4 border-slate-800 relative">
-                
-                {/* Phone Notch */}
-                <div className="w-32 h-4 bg-slate-800 rounded-full mx-auto mb-6 flex items-center justify-center">
-                  <div className="w-3 h-3 rounded-full bg-slate-900" />
-                </div>
-
-                {/* Account Summary Header */}
-                <div className="flex justify-between items-center mb-6">
-                  <div>
-                    <span className="text-[10px] text-slate-400 font-bold uppercase tracking-wider">Primary Savings</span>
-                    <div className="text-2xl font-black text-white">₹ 2,84,500.00</div>
-                  </div>
-                  <div className="w-9 h-9 rounded-xl bg-amber-500 text-slate-950 flex items-center justify-center font-black text-xs">
-                    FE
-                  </div>
-                </div>
-
-                {/* Digital Card Preview */}
-                <div className="bg-gradient-to-r from-[#9D1D27] to-[#5C0D13] rounded-2xl p-4 shadow-lg mb-6 relative overflow-hidden">
-                  <div className="flex justify-between items-start mb-6">
-                    <span className="text-xs font-bold tracking-widest uppercase text-white/90">Ashva Metal</span>
-                    <span className="text-xs font-mono font-bold text-amber-300">0% FOREX</span>
-                  </div>
-                  <div className="font-mono text-sm tracking-wider text-white mb-2">•••• •••• •••• 1234</div>
-                  <div className="flex justify-between items-end text-[10px] text-white/80">
-                    <span>VIKRAMADITYA SHARMA</span>
-                    <span>EXP 12/30</span>
-                  </div>
-                </div>
-
-                {/* Quick Action Badges */}
-                <div className="grid grid-cols-3 gap-2 text-center text-[10px] font-bold mb-6">
-                  <div className="p-2.5 bg-slate-800/80 rounded-xl hover:bg-slate-700 transition-colors">
-                    <ArrowRight className="w-3.5 h-3.5 mx-auto mb-1 text-emerald-400" />
-                    <span>Send Money</span>
-                  </div>
-                  <div className="p-2.5 bg-slate-800/80 rounded-xl hover:bg-slate-700 transition-colors">
-                    <Percent className="w-3.5 h-3.5 mx-auto mb-1 text-amber-400" />
-                    <span>Fixed Deposit</span>
-                  </div>
-                  <div className="p-2.5 bg-slate-800/80 rounded-xl hover:bg-slate-700 transition-colors">
-                    <Lock className="w-3.5 h-3.5 mx-auto mb-1 text-cyan-400" />
-                    <span>Card Freeze</span>
-                  </div>
-                </div>
-
-                {/* Live Monthly Compounding Feed */}
-                <div className="bg-slate-900/90 border border-slate-800 rounded-xl p-3 text-xs space-y-1">
-                  <div className="flex justify-between items-center text-slate-400 text-[10px]">
-                    <span>Monthly Interest Ledger</span>
-                    <span className="text-emerald-400 font-bold">+7.00% p.a.</span>
-                  </div>
-                  <div className="text-xs font-bold text-white flex justify-between">
-                    <span>Interest Credited (Oct)</span>
-                    <span className="text-emerald-400">+₹ 1,658.00</span>
-                  </div>
-                </div>
-
-              </div>
-            </div>
-
-          </div>
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 5. INTERACTIVE HOME LOAN EMI & FINANCIAL PLANNING STRIP */}
-      {/* ========================================================================= */}
-      <section className="bg-gradient-to-br from-[#1C1B1F] via-[#2A181B] to-[#1C1B1F] text-white py-16 md:py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
-          <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-            
-            {/* Left 6 Columns: Loan Calculator Sliders */}
-            <div className="lg:col-span-7 space-y-6">
-              <div>
-                <span className="text-xs font-extrabold uppercase tracking-widest text-amber-400">
-                  Instant Eligibility & EMI Estimator
-                </span>
-                <h2 className="text-2xl sm:text-3xl lg:text-4xl font-black text-white mt-1">
-                  Plan Your Dream Home with Total Transparency
-                </h2>
-                <p className="text-xs sm:text-sm text-gray-300 mt-1 max-w-xl">
-                  Benchmark rates starting at 8.45% p.a. with zero prepayment penalty for floating rate borrowers.
+              <div className="hero-stat-e" style={{ '--stat-delay': '620ms' }}>
+                <p className="text-xs text-porcelain-300">Home loan (from)</p>
+                <p className="font-display text-lg font-semibold text-gold-300 sm:text-xl">
+                  {homeLoanRow?.display || 'From 8.35% p.a.'}
                 </p>
               </div>
-
-              {/* Slider 1: Loan Amount */}
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs font-bold">
-                  <span className="text-gray-300">Desired Loan Amount</span>
-                  <span className="text-amber-400 text-sm font-mono font-black">
-                    ₹ {(loanAmount / 100000).toFixed(1)} Lakhs
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="500000"
-                  max="50000000"
-                  step="500000"
-                  value={loanAmount}
-                  onChange={(e) => setLoanAmount(Number(e.target.value))}
-                  className="w-full accent-amber-500 h-2 bg-slate-800 rounded-lg cursor-pointer"
-                />
-                <div className="flex justify-between text-[10px] text-gray-500 font-mono">
-                  <span>₹ 5 Lakhs</span>
-                  <span>₹ 2.5 Crores</span>
-                  <span>₹ 5 Crores</span>
-                </div>
-              </div>
-
-              {/* Slider 2: Loan Tenure */}
-              <div className="space-y-2">
-                <div className="flex justify-between text-xs font-bold">
-                  <span className="text-gray-300">Loan Tenure</span>
-                  <span className="text-amber-400 text-sm font-mono font-black">
-                    {loanTenure} Years
-                  </span>
-                </div>
-                <input
-                  type="range"
-                  min="5"
-                  max="30"
-                  step="1"
-                  value={loanTenure}
-                  onChange={(e) => setLoanTenure(Number(e.target.value))}
-                  className="w-full accent-amber-500 h-2 bg-slate-800 rounded-lg cursor-pointer"
-                />
-                <div className="flex justify-between text-[10px] text-gray-500 font-mono">
-                  <span>5 Years</span>
-                  <span>15 Years</span>
-                  <span>30 Years</span>
-                </div>
-              </div>
-
-              <div className="flex items-center gap-4 pt-2">
-                <Link to="/calculators">
-                  <Button variant="outlineWhite" className="border-gray-500 font-bold text-xs py-2.5 px-4 rounded-xl hover:bg-white hover:text-black">
-                    <SlidersHorizontal className="w-3.5 h-3.5 mr-1.5 inline-block" />
-                    Open Detailed Multi-Product Calculator Suite →
-                  </Button>
-                </Link>
-              </div>
-            </div>
-
-            {/* Right 5 Columns: Output Summary Card */}
-            <div className="lg:col-span-5 bg-white/10 backdrop-blur-md rounded-3xl p-6 sm:p-8 border border-white/20 text-center space-y-5">
-              <span className="text-[11px] font-extrabold uppercase tracking-widest text-gray-300 block">
-                Estimated Monthly Repayment (EMI)
-              </span>
-
-              <div className="text-3xl sm:text-4xl lg:text-5xl font-black text-amber-400 font-mono tracking-tight">
-                ₹ {calculatedEmi.toLocaleString('en-IN')}
-                <span className="text-xs text-gray-300 font-normal"> / month</span>
-              </div>
-
-              <div className="grid grid-cols-2 gap-3 text-left pt-3 border-t border-white/10 text-xs">
-                <div className="p-3 bg-black/30 rounded-xl">
-                  <span className="text-[10px] text-gray-400 block uppercase font-bold">Principal Amount</span>
-                  <span className="text-white font-bold font-mono">₹ {loanAmount.toLocaleString('en-IN')}</span>
-                </div>
-                <div className="p-3 bg-black/30 rounded-xl">
-                  <span className="text-[10px] text-gray-400 block uppercase font-bold">Interest Rate</span>
-                  <span className="text-emerald-400 font-bold font-mono">8.45% p.a.</span>
-                </div>
-              </div>
-
-              <Button
-                onClick={() => handleApplyClick(LOANS_DATA[0])}
-                variant="primary"
-                size="lg"
-                className="w-full bg-[#9D1D27] hover:bg-[#80141D] text-white font-bold text-sm py-3.5 rounded-xl shadow-lg"
-              >
-                Apply for Home Loan with this EMI
-              </Button>
-
-              <p className="text-[10px] text-gray-400">
-                Final rate subject to CIBIL evaluation and property valuation.
-              </p>
-            </div>
-
-          </div>
-
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 6. TRUST, SECURITY & REGULATORY PILLARS */}
-      {/* ========================================================================= */}
-      <section className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
-        
-        <div className="text-center max-w-2xl mx-auto mb-12 space-y-2">
-          <span className="text-xs font-black uppercase tracking-widest text-[#9D1D27]">
-            Institutional Assurance
-          </span>
-          <h2 className="text-2xl sm:text-3xl font-black text-[#1C1B1F] tracking-tight">
-            Security and Protection Backed by Sovereign Frameworks
-          </h2>
-          <p className="text-xs sm:text-sm text-gray-500">
-            Every transaction, rupee, and data record is guarded under rigorous regulatory standards.
-          </p>
-        </div>
-
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-6">
-          
-          <div className="bg-white rounded-3xl p-6 border border-gray-200/90 space-y-3 hover:shadow-lg transition-all">
-            <div className="w-12 h-12 rounded-2xl bg-[#9D1D27]/10 text-[#9D1D27] flex items-center justify-center font-black">
-              <Building2 className="w-6 h-6" />
-            </div>
-            <h3 className="text-base font-bold text-[#1C1B1F]">RBI Licensed Commercial Bank</h3>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              Regulated by the Reserve Bank of India under the Banking Regulation Act, 1949 with strict capital adequacy ratios (CRAR &gt; 16%).
-            </p>
-          </div>
-
-          <div className="bg-white rounded-3xl p-6 border border-gray-200/90 space-y-3 hover:shadow-lg transition-all">
-            <div className="w-12 h-12 rounded-2xl bg-emerald-500/10 text-emerald-600 flex items-center justify-center font-black">
-              <ShieldCheck className="w-6 h-6" />
-            </div>
-            <h3 className="text-base font-bold text-[#1C1B1F]">DICGC Insured up to ₹5 Lakhs</h3>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              Every depositor&apos;s principal and accrued interest is covered under statutory DICGC deposit insurance scheme.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-3xl p-6 border border-gray-200/90 space-y-3 hover:shadow-lg transition-all">
-            <div className="w-12 h-12 rounded-2xl bg-blue-500/10 text-blue-600 flex items-center justify-center font-black">
-              <Lock className="w-6 h-6" />
-            </div>
-            <h3 className="text-base font-bold text-[#1C1B1F]">256-Bit Bank Grade Encryption</h3>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              Certified ISO 27001 data center infrastructure with end-to-end TLS 1.3 tokenization and hardware security modules.
-            </p>
-          </div>
-
-          <div className="bg-white rounded-3xl p-6 border border-gray-200/90 space-y-3 hover:shadow-lg transition-all">
-            <div className="w-12 h-12 rounded-2xl bg-amber-500/10 text-amber-600 flex items-center justify-center font-black">
-              <Headphones className="w-6 h-6" />
-            </div>
-            <h3 className="text-base font-bold text-[#1C1B1F]">24/7 Fraud & Hotlisting Desk</h3>
-            <p className="text-xs text-gray-600 leading-relaxed">
-              Continuous transaction anomaly monitoring and immediate one-tap card freeze available on web and mobile.
-            </p>
-          </div>
-
-        </div>
-
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 7. CUSTOMER SUPPORT & DEDICATED ADVISORY DESK */}
-      {/* ========================================================================= */}
-      <section className="bg-white border-t border-gray-200/80 py-16 md:py-20">
-        <div className="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
-          
-          <div className="bg-gradient-to-r from-slate-950 via-[#1C2541] to-slate-950 rounded-3xl p-8 sm:p-12 text-white relative overflow-hidden">
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center relative z-10">
-              
-              <div className="lg:col-span-8 space-y-4">
-                <span className="text-xs font-mono font-bold uppercase tracking-widest text-cyan-400">
-                  Priority Relationship Support
-                </span>
-                <h2 className="text-2xl sm:text-3xl font-black text-white">
-                  Have Questions? Our Dedicated Advisory Team is Ready to Assist.
-                </h2>
-                <p className="text-xs sm:text-sm text-gray-300 max-w-xl leading-relaxed">
-                  Connect directly with our banking officers for doorstep account services, home loan guidance, and corporate treasury management.
+              <div className="hero-stat-e col-span-2 sm:col-span-1" style={{ '--stat-delay': '690ms' }}>
+                <p className="text-xs text-porcelain-300">{shortProductName(edgeGoldDebit?.name || 'Edge Gold Debit')}</p>
+                <p className="font-display text-lg font-semibold text-gold-300 sm:text-xl">
+                  {edgeGoldDebit ? `${formatINRWhole(edgeGoldDebit.annualFee)}/yr` : '₹599/yr'}
                 </p>
-
-                <div className="flex flex-wrap items-center gap-4 pt-2">
-                  <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-xl border border-white/15 text-xs font-bold text-white">
-                    <PhoneCall className="w-4 h-4 text-emerald-400" />
-                    <span>Toll Free: 1800 10 888</span>
-                  </div>
-                  <div className="flex items-center gap-2 bg-white/10 px-4 py-2 rounded-xl border border-white/15 text-xs font-bold text-white">
-                    <Clock className="w-4 h-4 text-cyan-400" />
-                    <span>24/7 Immediate Card Hotlisting</span>
-                  </div>
-                </div>
               </div>
-
-              <div className="lg:col-span-4 flex justify-start lg:justify-end">
-                <Link to="/portal/login">
-                  <Button 
-                    variant="white" 
-                    size="lg" 
-                    className="font-extrabold text-sm px-7 py-3.5 rounded-xl shadow-xl hover:bg-white text-[#9D1D27] hover:text-[#7A1620] hover:shadow-2xl transition-all transform hover:-translate-y-0.5 group"
-                  >
-                    <span>Access Support Desk</span>
-                    <ArrowRight className="w-4 h-4 ml-2 inline-block text-[#9D1D27] group-hover:translate-x-1 transition-transform" />
-                  </Button>
-                </Link>
-              </div>
-
             </div>
           </div>
 
-        </div>
-      </section>
-
-      {/* ========================================================================= */}
-      {/* 8. FREQUENTLY ASKED QUESTIONS (FAQS ACCORDION) */}
-      {/* ========================================================================= */}
-      <section className="max-w-4xl mx-auto px-4 sm:px-6 lg:px-8 py-16 md:py-20">
-        
-        <div className="text-center mb-10 space-y-1">
-          <span className="text-xs font-black uppercase tracking-wider text-[#9D1D27]">Help & Guidance</span>
-          <h2 className="text-2xl sm:text-3xl font-black text-[#1C1B1F]">Frequently Asked Questions</h2>
-          <p className="text-xs text-gray-500">Transparent answers to daily banking, interest compounding, and onboarding queries.</p>
-        </div>
-
-        <div className="space-y-3">
-          {FAQS_DATA.map((faq, index) => {
-            const isOpen = openFaqIndex === index;
-            return (
-              <div 
-                key={index} 
-                className="bg-white rounded-2xl border border-gray-200 overflow-hidden shadow-xs transition-colors"
-              >
-                <button
-                  onClick={() => setOpenFaqIndex(isOpen ? null : index)}
-                  className="w-full text-left p-5 font-bold text-sm text-[#1C1B1F] flex items-center justify-between hover:text-[#9D1D27] transition-colors"
-                  aria-expanded={isOpen}
+          {/* Right Zone: 3D Flagship Card */}
+          {/* On mobile: normal flow below stats. On desktop: absolute lower-right foreground. */}
+          <div
+            data-testid="hero-right-zone"
+            className="mt-10 lg:mt-0 mx-auto lg:mx-0 w-full max-w-[380px] sm:max-w-[420px] lg:max-w-none lg:w-[clamp(380px,34vw,500px)] lg:absolute lg:right-4 xl:right-8 lg:bottom-6 xl:bottom-8 z-20"
+            style={{ perspective: '1000px' }}
+          >
+            <div className="hero-card-entrance">
+              <div ref={cardFloatWrapperRef} className="animate-card-float">
+                <div
+                  ref={cardTiltRef}
+                  data-testid="hero-card-tilt"
+                  style={{
+                    transform: 'translate3d(0, 0, 0) scale(1) rotateX(0deg) rotateY(0deg)',
+                    transformStyle: 'preserve-3d',
+                    transition: 'transform 0.4s ease-out',
+                  }}
+                  className="relative"
                 >
-                  <span className="pr-4">{faq.q}</span>
-                  <ChevronDown className={`w-4 h-4 text-gray-400 transition-transform duration-200 shrink-0 ${isOpen ? 'rotate-180 text-[#9D1D27]' : ''}`} />
-                </button>
-                {isOpen && (
-                  <div className="px-5 pb-5 pt-1 text-xs text-gray-600 leading-relaxed border-t border-gray-100 bg-[#FBFBFC]">
-                    {faq.a}
-                  </div>
-                )}
+                  {/* Radial gold glow behind card */}
+                  <div className="absolute -inset-8 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(184,147,63,0.22),transparent_70%)] pointer-events-none -z-10" />
+
+                  {/* Flagship Edge Gold Debit Card Face */}
+                  <HeroEdgeGoldCard
+                    cardFaceRef={cardFaceRef}
+                    glareRef={glareRef}
+                    hologramRef={hologramRef}
+                    shimmerRef={shimmerRef}
+                  />
+                </div>
               </div>
-            );
-          })}
+            </div>
+          </div>
         </div>
+      </div>
+    </section>
+  );
+}
 
-      </section>
+export default function HomePage() {
+  const [openFaq, setOpenFaq] = useState(0);
+  const [activeTab, setActiveTab] = useState('account');
+  const [tabTransitioning, setTabTransitioning] = useState(false);
+  const [expandedRates, setExpandedRates] = useState(false);
+  const [expandedOffers, setExpandedOffers] = useState(false);
+  const [detailModalAccount, setDetailModalAccount] = useState(null);
+  const [applyModalProduct, setApplyModalProduct] = useState(null);
 
-      {/* Working Apply Modal Integration */}
-      <ApplyModal
-        isOpen={isApplyModalOpen}
-        onClose={() => setIsApplyModalOpen(false)}
-        product={selectedProduct}
+  // Single rates source from data files
+  const savingsRow = RATES_AT_A_GLANCE.find((r) => r.productSlug === 'everyday-savings');
+  const homeLoanRow = RATES_AT_A_GLANCE.find((r) => r.productSlug === 'home-loan');
+  const edgeGoldDebit = getProductBySlug('edge-gold-debit');
+
+  // Rates split into two clean categories (Fix 5: Savings & Deposits | Borrowing)
+  const depositRates = RATES_AT_A_GLANCE.filter(
+    (r) =>
+      r.label.toLowerCase().includes('savings') ||
+      r.label.toLowerCase().includes('deposit') ||
+      r.label.toLowerCase().includes('sukanya')
+  );
+  const borrowingRates = RATES_AT_A_GLANCE.filter((r) => r.label.toLowerCase().includes('loan'));
+
+  const visibleDepositRates = expandedRates ? depositRates : depositRates.slice(0, 2);
+  const visibleBorrowingRates = expandedRates ? borrowingRates : borrowingRates.slice(0, 2);
+
+  // Offers: 6 -> 3 by nearest validity date (Fix 1)
+  const sortedOffers = [...OFFERS].sort((a, b) => new Date(a.validTill) - new Date(b.validTill));
+  const visibleOffers = expandedOffers ? sortedOffers : sortedOffers.slice(0, 3);
+
+  // 5 FAQs for the homepage
+  const homepageFaqs = GENERAL_FAQS.filter((f) => HOMEPAGE_FAQ_QUESTIONS.includes(f.q));
+
+  // Products for active category tab (one row of 3)
+  const activeProducts = getProductsByCategory(activeTab);
+  const featuredProducts = activeProducts.slice(0, 3);
+  const currentTabMeta = CATEGORY_TABS.find((t) => t.key === activeTab) || CATEGORY_TABS[0];
+
+  const handleTabChange = (key) => {
+    if (key === activeTab) return;
+    setTabTransitioning(true);
+    setTimeout(() => {
+      setActiveTab(key);
+      setTabTransitioning(false);
+    }, 160);
+  };
+
+  return (
+    <div>
+      {/* ====================================================================== */}
+      {/* (a) HERO SECTION (Full-background banner with Option A layout & 3D card) */}
+      {/* ====================================================================== */}
+      <HomeHero
+        savingsRow={savingsRow}
+        homeLoanRow={homeLoanRow}
+        edgeGoldDebit={edgeGoldDebit}
       />
 
+      {/* ====================================================================== */}
+      {/* (b) PRODUCT DIRECTORY (White background - Fix 1 & 2) */}
+      {/* ====================================================================== */}
+      <section id="discovery" className="py-20 sm:py-24 bg-white border-b border-ink-100" aria-label="Explore products">
+        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+          {/* Header — Treatment A */}
+          <Reveal treatment="A">
+            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
+              <div>
+                <p className="reveal-eyebrow-line text-xs font-semibold uppercase tracking-[0.14em] text-gold-600">Product Directory</p>
+                <h2 className="reveal-title mt-1 font-display text-2xl sm:text-3xl font-semibold text-midnight-950">
+                  Engineered for every milestone
+                </h2>
+                <p className="reveal-description mt-1.5 text-sm text-ink-600 max-w-xl">
+                  Choose a category to preview popular solutions with transparent rates, upfront fee schedules, and direct application pathways.
+                </p>
+              </div>
+
+              {/* Fix 3: Category Tabs with animated sliding gold underline */}
+              <div className="relative flex items-center border-b border-ink-200 overflow-x-auto scrollbar-none" role="tablist">
+                {CATEGORY_TABS.map((tab) => {
+                  const Icon = tab.icon;
+                  const isActive = activeTab === tab.key;
+                  return (
+                    <button
+                      key={tab.key}
+                      id={`home-dir-tab-${tab.key}`}
+                      role="tab"
+                      type="button"
+                      aria-selected={isActive}
+                      aria-controls={`home-dir-panel-${tab.key}`}
+                      onClick={() => handleTabChange(tab.key)}
+                      className={`relative pb-3 pt-2 px-4 text-sm font-semibold transition-colors duration-150 flex items-center gap-2 shrink-0 ${
+                        isActive ? 'text-midnight-950 font-bold' : 'text-ink-600 hover:text-midnight-900'
+                      }`}
+                    >
+                      <Icon className={`h-4 w-4 ${isActive ? 'text-gold-600' : 'text-ink-400'}`} />
+                      <span>{tab.label}</span>
+                      {isActive && (
+                        <span
+                          className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold-500 rounded-full transition-all duration-200"
+                          style={{
+                            boxShadow: '0 1px 3px rgba(184, 147, 63, 0.4)',
+                          }}
+                        />
+                      )}
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+          </Reveal>
+
+            {/* Curated 3 Cards for Active Category (Fix 2: Shared directory card component) */}
+            <div
+              id={`home-dir-panel-${activeTab}`}
+              role="tabpanel"
+              aria-labelledby={`home-dir-tab-${activeTab}`}
+              className={`grid gap-6 sm:grid-cols-2 lg:grid-cols-3 transition-opacity duration-160 ${
+                tabTransitioning ? 'opacity-0' : 'opacity-100'
+              }`}
+            >
+              {featuredProducts.map((product, idx) => {
+                const isCardTab = activeTab === 'card';
+                const isAccountTab = activeTab === 'account';
+                const isLoanTab = activeTab === 'loan';
+                const isInvestmentTab = activeTab === 'investment';
+
+                const ProductIcon =
+                  (isAccountTab && ACCOUNT_ICONS[product.slug]) ||
+                  (isLoanTab && LOAN_ICONS[product.slug]) ||
+                  (isInvestmentTab && INVESTMENT_ICONS[product.slug]) ||
+                  Wallet;
+
+                return (
+                  <Reveal key={idx} treatment="B" staggerIndex={idx}>
+                    <div className="group flex h-full flex-col rounded-xl border border-ink-100 bg-white p-6 shadow-xs transition-all duration-180 hover:-translate-y-0.5 hover:shadow-card hover:border-midnight-300">
+                      {/* Visual slot per tab (Fix 2) */}
+                      {isCardTab ? (
+                        <div className="w-full flex justify-center py-2 h-[130px] items-center mb-2">
+                          <TiltCard maxTilt={6} glare={true} shadow={true} className="w-[190px]">
+                            <CardVisual card={product} shadow={false} />
+                          </TiltCard>
+                        </div>
+                      ) : (
+                        <div className="flex items-center justify-between gap-2 mb-4">
+                          <div className="flex items-center gap-3">
+                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50 shadow-xs transition-colors group-hover:bg-midnight-800">
+                              <ProductIcon className="h-5 w-5 transition-colors group-hover:text-gold-300" />
+                            </div>
+                            <span className="rounded-full bg-midnight-50 px-2.5 py-0.5 text-xs font-semibold text-midnight-900">
+                              {product.category.toUpperCase()}
+                            </span>
+                          </div>
+
+                          {/* Investments chip (Guaranteed vs Market-linked) */}
+                          {isInvestmentTab && product.riskClass && (
+                            product.riskClass === 'guaranteed' ? (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 text-xs font-semibold">
+                                <ShieldCheck className="h-3.5 w-3.5" /> Guaranteed
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-0.5 text-xs font-semibold">
+                                <AlertTriangle className="h-3.5 w-3.5" /> Market-linked
+                              </span>
+                            )
+                          )}
+                        </div>
+                      )}
+
+                      <h3 className="text-base font-semibold text-midnight-950">
+                        {shortProductName(product.name)}
+                      </h3>
+                      <p className="mt-1 flex-1 text-xs leading-relaxed text-ink-600">
+                        {product.tagline}
+                      </p>
+
+                      {/* Metric box (Fix 0: Label removed entirely, fact speaks) */}
+                      <div className="mt-4 rounded-lg bg-porcelain-50 p-3 border border-ink-100">
+                        <p className="font-display text-sm font-semibold text-midnight-950">{headlineFor(product)}</p>
+                      </div>
+
+                      {/* Truthful actions (Fix 2) */}
+                      <div className="mt-5 flex items-center justify-between gap-3 border-t border-ink-100 pt-3.5">
+                        {isAccountTab ? (
+                          <button
+                            type="button"
+                            onClick={() => setDetailModalAccount(product)}
+                            className="text-xs font-semibold text-midnight-800 underline decoration-midnight-300 hover:text-midnight-600 transition-colors"
+                          >
+                            View details
+                          </button>
+                        ) : (
+                          <Link
+                            to={productPath(product)}
+                            className="text-xs font-semibold text-midnight-800 underline decoration-midnight-300 hover:text-midnight-600 transition-colors"
+                          >
+                            View details
+                          </Link>
+                        )}
+                        <Link
+                          to={explorePath(product)}
+                          className="group/btn inline-flex items-center gap-1 rounded-lg bg-midnight-900 px-3 py-1.5 text-xs font-semibold text-porcelain-50 transition-colors hover:bg-midnight-800"
+                        >
+                          Explore <ArrowRight className="h-3 w-3 transition-transform duration-150 group-hover/btn:translate-x-0.5" />
+                        </Link>
+                      </div>
+                    </div>
+                  </Reveal>
+                );
+              })}
+            </div>
+
+            {/* Category Expansion Footer */}
+            <div className="mt-10 text-center">
+              <Link
+                to={currentTabMeta.to}
+                className="inline-flex items-center gap-2 rounded-lg border border-ink-200 bg-porcelain-50 px-5 py-2.5 text-sm font-semibold text-midnight-900 shadow-xs transition-colors hover:bg-porcelain-100 hover:border-midnight-400"
+              >
+                View all {currentTabMeta.label} ({activeProducts.length} products) <ArrowRight className="h-4 w-4" />
+              </Link>
+            </div>
+          </div>
+        </section>
+
+      {/* ====================================================================== */}
+      {/* (c) RATES AT A GLANCE (Porcelain background - Fix 1 & Fix 5) */}
+      {/* ====================================================================== */}
+      <section className="bg-porcelain-50 py-20 sm:py-24 border-b border-ink-100" aria-label="Rates at a glance">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            {/* Header — Treatment A */}
+            <Reveal treatment="A">
+              <div className="mb-8">
+                <p className="reveal-eyebrow-line text-xs font-semibold uppercase tracking-[0.14em] text-gold-600">Interest Rates</p>
+                <h2 className="reveal-title mt-1 font-display text-2xl sm:text-3xl font-semibold text-midnight-950">
+                  Rates at a glance
+                </h2>
+                <p className="reveal-description mt-1.5 text-sm text-ink-600">
+                  Single published rates updated daily across deposit tiers and lending product schedules.
+                </p>
+              </div>
+            </Reveal>
+
+            {/* Fix 5: Full container width on desktop as two group columns */}
+            {/* Treatment C: rate rows cascade in with top-border scaleX */}
+            <div className="grid gap-6 lg:grid-cols-2">
+              {/* Column 1: Savings & Deposits */}
+              <Reveal treatment="C" as="div" className="overflow-hidden rounded-xl border border-ink-100 bg-white shadow-xs">
+                <div className="border-b border-ink-100 bg-porcelain-100/60 px-5 py-3">
+                  <h3 className="text-sm font-semibold text-midnight-900">
+                    Savings &amp; Deposits
+                  </h3>
+                </div>
+                <ul className="divide-y divide-ink-100">
+                  {visibleDepositRates.map((row, idx) => (
+                    <li key={`${row.label}-${row.productSlug}`} className="reveal-row" style={{'--stagger-index': idx}}>
+                      <Link
+                        to={productPath(getProductBySlug(row.productSlug) || { category: 'investment', slug: row.productSlug })}
+                        className="group flex items-center justify-between gap-4 px-5 py-3.5 transition-colors hover:bg-midnight-50/50"
+                      >
+                        <span className="text-sm font-medium text-ink-800 group-hover:text-midnight-900">{row.label}</span>
+                        <span className="tnum shrink-0 text-sm font-semibold text-midnight-950 group-hover:text-gold-600">{row.display}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </Reveal>
+
+              {/* Column 2: Borrowing (Fix 4: starts 150ms after first column) */}
+              <Reveal treatment="C" as="div" style={{ '--column-delay': '150ms' }} className="overflow-hidden rounded-xl border border-ink-100 bg-white shadow-xs">
+                <div className="border-b border-ink-100 bg-porcelain-100/60 px-5 py-3">
+                  <h3 className="text-sm font-semibold text-midnight-900">
+                    Borrowing
+                  </h3>
+                </div>
+                <ul className="divide-y divide-ink-100">
+                  {visibleBorrowingRates.map((row, idx) => (
+                    <li key={`${row.label}-${row.productSlug}`} className="reveal-row" style={{'--stagger-index': idx}}>
+                      <Link
+                        to={productPath(getProductBySlug(row.productSlug) || { category: 'loan', slug: row.productSlug })}
+                        className="group flex items-center justify-between gap-4 px-5 py-3.5 transition-colors hover:bg-midnight-50/50"
+                      >
+                        <span className="text-sm font-medium text-ink-800 group-hover:text-midnight-900">{row.label}</span>
+                        <span className="tnum shrink-0 text-sm font-semibold text-midnight-950 group-hover:text-gold-600">{row.display}</span>
+                      </Link>
+                    </li>
+                  ))}
+                </ul>
+              </Reveal>
+            </div>
+
+            {/* Expander toggle (Fix 0: "View all rates", zero jargon; Fix 4: fades in last) */}
+            <Reveal treatment="B" style={{ transitionDelay: '800ms' }} className="mt-6 text-center">
+              <button
+                type="button"
+                onClick={() => setExpandedRates((v) => !v)}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-midnight-800 hover:text-midnight-600 transition-colors py-1 px-3 rounded-md hover:bg-porcelain-200"
+              >
+                {expandedRates ? (
+                  <>
+                    <span>Show fewer rates</span>
+                    <ChevronUp className="h-4 w-4" />
+                  </>
+                ) : (
+                  <>
+                    <span>View all rates</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </>
+                )}
+              </button>
+            </Reveal>
+
+            <p className="mt-4 text-xs leading-relaxed text-ink-500">{RATE_DISCLAIMER}</p>
+          </div>
+        </section>
+
+      {/* ====================================================================== */}
+      {/* (d) CURRENT OFFERS (White background - Fix 1) */}
+      {/* ====================================================================== */}
+      <section className="bg-white py-20 sm:py-24 border-b border-ink-100" aria-label="Current seasonal offers">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            {/* Header — Treatment A */}
+            <Reveal treatment="A">
+              <div className="mb-10">
+                <p className="reveal-eyebrow-line text-xs font-semibold uppercase tracking-[0.14em] text-gold-600">Special Privileges</p>
+                <h2 className="reveal-title mt-1 font-display text-2xl sm:text-3xl font-semibold text-midnight-950">Current seasonal offers</h2>
+                <p className="reveal-description mt-1.5 text-sm text-ink-600 max-w-2xl">Promotions running on FinEdge products right now. Validity periods and eligibility terms are stated clearly on each offer.</p>
+              </div>
+            </Reveal>
+            {/* Fix 1: 3 offers visible by default, expander reveals the remaining 3 */}
+            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {visibleOffers.map((offer, idx) => {
+                const product = getProductBySlug(offer.productSlug);
+                return (
+                  <Reveal key={offer.id} treatment="B" staggerIndex={idx}>
+                    <Card className="flex h-full flex-col p-5 shadow-xs transition-all duration-180 hover:-translate-y-0.5 hover:shadow-card">
+                      <div className="reveal-icon-tile flex items-center justify-between gap-2">
+                        <span className="rounded-full bg-gold-400/15 px-2.5 py-0.5 text-xs font-semibold text-gold-700">
+                          Active Promotion
+                        </span>
+                        <div className="flex items-center gap-1 text-xs text-ink-500">
+                          <Calendar className="h-3.5 w-3.5" />
+                          <span>Till {formatDate(offer.validTill)}</span>
+                        </div>
+                      </div>
+
+                      <h3 className="mt-3 text-sm font-semibold leading-snug text-midnight-950">{offer.title}</h3>
+                      <p className="mt-1.5 flex-1 text-[13px] leading-relaxed text-ink-600">{offer.summary}</p>
+
+                      <div className="mt-3 rounded-lg bg-porcelain-50 px-3 py-2 border border-ink-100">
+                        <p className="text-[11px] font-medium text-ink-500 uppercase tracking-wide">Privilege</p>
+                        <p className="text-xs font-semibold text-midnight-900">{offer.highlight}</p>
+                      </div>
+
+                      {product && (
+                        <Link
+                          to={productPath(product)}
+                          className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-midnight-800 underline decoration-midnight-300 hover:text-midnight-600 transition-colors"
+                        >
+                          View {shortProductName(product.name)} <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                        </Link>
+                      )}
+                    </Card>
+                  </Reveal>
+                );
+              })}
+            </div>
+
+            {/* Fix 1: View all offers expander */}
+            <div className="mt-8 text-center">
+              <button
+                type="button"
+                onClick={() => setExpandedOffers((v) => !v)}
+                className="inline-flex items-center gap-1.5 text-xs font-semibold text-midnight-800 hover:text-midnight-600 transition-colors py-1.5 px-4 rounded-md border border-ink-200 hover:bg-porcelain-100"
+              >
+                {expandedOffers ? (
+                  <>
+                    <span>Show fewer offers</span>
+                    <ChevronUp className="h-4 w-4" />
+                  </>
+                ) : (
+                  <>
+                    <span>View all offers ({OFFERS.length})</span>
+                    <ChevronDown className="h-4 w-4" />
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </section>
+
+      {/* ====================================================================== */}
+      {/* (e) WHY FINEDGE (Porcelain background - Fix 4) */}
+      {/* ====================================================================== */}
+      <section className="bg-porcelain-50 py-20 sm:py-24 border-b border-ink-100" aria-label="Why FinEdge">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            {/* Header — Treatment A */}
+            <Reveal treatment="A">
+              <div className="mb-10">
+                <p className="reveal-eyebrow-line text-xs font-semibold uppercase tracking-[0.14em] text-gold-600">Why FinEdge</p>
+                <h2 className="reveal-title mt-1 font-display text-2xl sm:text-3xl font-semibold text-midnight-950">Banking built on clear terms and upfront truth</h2>
+                <p className="reveal-description mt-1.5 text-sm text-ink-600 max-w-2xl">No hidden schedules, no fine-print traps — just transparent banking where every fee and rate is verified before you sign.</p>
+              </div>
+            </Reveal>
+            {/* Fix 4: Three customer-facing trust cards with signature desktop horizontal hairline */}
+            <div className="relative">
+              <Reveal
+                treatment="B"
+                as="div"
+                aria-hidden="true"
+                className="reveal-trust-line hidden md:block absolute top-[44px] inset-x-8 h-px bg-gold-400/40 pointer-events-none z-0"
+              />
+              <div className="grid gap-6 md:grid-cols-3 relative z-10">
+                {TRUST_POINTS.map((point, idx) => {
+                  const Icon = point.icon;
+                  return (
+                    <Reveal key={point.title} treatment="B" staggerIndex={idx}>
+                      <Card className="flex h-full flex-col p-6 shadow-xs border-ink-200 bg-white transition-all duration-180 hover:-translate-y-0.5 hover:shadow-card">
+                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50 shadow-xs">
+                          <Icon className="h-5 w-5 text-gold-300" aria-hidden />
+                        </div>
+                        <h3 className="mt-4 text-base font-semibold text-midnight-950">{point.title}</h3>
+                        <p className="mt-2 flex-1 text-[13px] leading-relaxed text-ink-600">{point.body}</p>
+
+                        <div className="mt-5 pt-3 border-t border-ink-100 flex items-center gap-3 text-xs font-semibold">
+                          <Link
+                            to={point.linkTo}
+                            className="inline-flex items-center gap-1 text-midnight-800 underline decoration-midnight-300 hover:text-midnight-600"
+                          >
+                            {point.linkText} <ArrowRight className="h-3 w-3" />
+                          </Link>
+                          {point.extraHref && (
+                            <a
+                              href={point.extraHref}
+                              className="text-midnight-800 underline decoration-midnight-300 hover:text-midnight-600"
+                            >
+                              {point.extraLinkText}
+                            </a>
+                          )}
+                        </div>
+                      </Card>
+                    </Reveal>
+                  );
+                })}
+              </div>
+            </div>
+          </div>
+        </section>
+
+      {/* ====================================================================== */}
+      {/* (f) FREQUENTLY ASKED QUESTIONS (White background - Fix 1 & Fix 5) */}
+      {/* ====================================================================== */}
+      <section id="faq" className="bg-white py-20 sm:py-24 border-b border-ink-100" aria-label="Frequently asked questions">
+          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
+            {/* Header — Treatment A */}
+            <Reveal treatment="A">
+              <div className="mb-10">
+                <p className="reveal-eyebrow-line text-xs font-semibold uppercase tracking-[0.14em] text-gold-600">Help &amp; Answers</p>
+                <h2 className="reveal-title mt-1 font-display text-2xl sm:text-3xl font-semibold text-midnight-950">Frequently asked questions</h2>
+                <p className="reveal-description mt-1.5 text-sm text-ink-600 max-w-2xl">The essential questions every new customer asks. Product-specific terms are detailed on each dedicated product page.</p>
+              </div>
+            </Reveal>
+            {/* Fix 1: 5 Questions, Fix 5: One open at a time */}
+            {/* FAQ rows — Treatment C divider cascade */}
+            <Reveal treatment="C" as="div" className="overflow-hidden rounded-xl border border-ink-100 bg-white shadow-xs divide-y divide-ink-100">
+              {homepageFaqs.map((faq, i) => {
+                const open = openFaq === i;
+                const panelId = `home-faq-panel-${i}`;
+                const buttonId = `home-faq-button-${i}`;
+                return (
+                  <div key={faq.q} className="reveal-row" style={{'--stagger-index': i}}>
+                    <h3>
+                      <button
+                        id={buttonId}
+                        type="button"
+                        aria-expanded={open}
+                        aria-controls={panelId}
+                        onClick={() => setOpenFaq(open ? -1 : i)}
+                        className="flex w-full items-center justify-between gap-4 px-6 py-4 text-left text-sm font-semibold text-midnight-950 transition-colors hover:bg-porcelain-100/70"
+                      >
+                        <span>{faq.q}</span>
+                        <ChevronDown
+                          className={`h-4 w-4 shrink-0 text-midnight-700 transition-transform duration-200 ${
+                            open ? 'rotate-180' : ''
+                          }`}
+                          aria-hidden
+                        />
+                      </button>
+                    </h3>
+                    {open && (
+                      <div id={panelId} role="region" aria-labelledby={buttonId} className="px-6 pb-5 pt-1">
+                        <p className="text-sm leading-relaxed text-ink-600">{faq.a}</p>
+                      </div>
+                    )}
+                  </div>
+                );
+              })}
+            </Reveal>
+
+            <p className="mt-6 text-[13px] text-ink-500">
+              Still have questions? Visit the{' '}
+              <Link to="/portal/login" className="font-semibold text-midnight-800 underline decoration-midnight-300 hover:text-midnight-600">
+                Customer Portal
+              </Link>{' '}
+              or review our{' '}
+              <Link to="/grievance-redressal" className="font-semibold text-midnight-800 underline decoration-midnight-300 hover:text-midnight-600">
+                Grievance Redressal
+              </Link>{' '}
+              procedure.
+            </p>
+          </div>
+        </section>
+
+      {/* ====================================================================== */}
+      {/* (g) CALL TO ACTION STRIP & RELOCATED DEMO DISCLOSURE (Midnight - Fix 0 & Fix 4) */}
+      {/* ====================================================================== */}
+      <Reveal treatment="B" as="div">
+        <section className="bg-midnight-950 py-16 relative overflow-hidden" aria-label="Open an account">
+          {/* Fix 4: Band top gold hairline border draws across full width 900ms */}
+          <div className="reveal-cta-line absolute top-0 inset-x-0" aria-hidden="true" />
+
+          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6 px-4 sm:px-6 lg:px-8 relative z-10">
+            <div className="max-w-xl reveal-cta-heading">
+              <h2 className="font-display text-2xl font-semibold text-porcelain-50 sm:text-3xl">Start banking with FinEdge today</h2>
+              <p className="mt-2 text-sm leading-relaxed text-porcelain-200/85">
+                Create your account, complete simulated KYC, and track every application from one unified dashboard.
+              </p>
+            </div>
+            {/* Fix 0: Porcelain button on midnight background (NO gold button fill; Fix 4: fades in last) */}
+            <div className="reveal-cta-btn">
+              <Link
+                to="/portal/login"
+                className="inline-flex items-center justify-center gap-2 rounded-lg bg-porcelain-50 px-6 py-3 text-sm font-semibold text-midnight-950 transition-colors hover:bg-porcelain-200 shadow-sm"
+              >
+                Create your account <ArrowRight className="h-4 w-4 text-midnight-900" aria-hidden />
+              </Link>
+            </div>
+          </div>
+        </section>
+
+        {/* Fix 4: Relocated slim demonstration disclosure line under closing CTA (fades in with band) */}
+        <div className="bg-midnight-950 border-t border-porcelain-50/10 py-3.5 px-4 text-center reveal-cta-smallprint">
+          <p className="text-xs leading-relaxed text-porcelain-300/80">
+            FinEdge Bank is a demonstration platform — balances and journeys are simulated and labelled as such.
+          </p>
+        </div>
+      </Reveal>
+
+      {/* ====================================================================== */}
+      {/* TRUTHFUL DETAIL MODAL FOR ACCOUNTS (Fix 2) */}
+      {/* ====================================================================== */}
+      {detailModalAccount && (
+        <Modal
+          open={Boolean(detailModalAccount)}
+          onClose={() => setDetailModalAccount(null)}
+          title={shortProductName(detailModalAccount.name)}
+          wide
+          footer={
+            <div className="flex w-full items-center justify-between gap-3">
+              <Button variant="secondary" onClick={() => setDetailModalAccount(null)}>
+                Close
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  const target = detailModalAccount;
+                  setDetailModalAccount(null);
+                  setApplyModalProduct(target);
+                }}
+              >
+                Apply for this account <ArrowRight className="h-4 w-4 ml-1 inline" />
+              </Button>
+            </div>
+          }
+        >
+          <div className="space-y-6">
+            <div>
+              <p className="text-sm font-semibold text-gold-600">{detailModalAccount.tagline}</p>
+              <p className="mt-1 text-sm text-ink-700 leading-relaxed">{detailModalAccount.overview}</p>
+            </div>
+
+            {/* Interest slabs */}
+            {Array.isArray(detailModalAccount.rateSlabs) && detailModalAccount.rateSlabs.length > 0 && (
+              <div>
+                <h4 className="font-semibold text-midnight-950 mb-2 text-[13px]">Interest Rate Slabs</h4>
+                <div className="rounded-xl border border-ink-100 overflow-hidden">
+                  <table className="w-full text-left text-xs sm:text-sm">
+                    <thead className="bg-porcelain-100 border-b border-ink-100 font-semibold text-ink-700">
+                      <tr>
+                        <th className="p-3">Daily Balance Slab</th>
+                        <th className="p-3 text-right">Interest Rate (% p.a.)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-ink-100">
+                      {detailModalAccount.rateSlabs.map((s, idx) => (
+                        <tr key={idx} className="hover:bg-porcelain-50">
+                          <td className="p-3 text-ink-800">{s.label}</td>
+                          <td className="p-3 text-right font-semibold text-midnight-950 font-mono">{s.rate.toFixed(2)}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Eligibility */}
+            {Array.isArray(detailModalAccount.eligibility) && detailModalAccount.eligibility.length > 0 && (
+              <div>
+                <h4 className="font-semibold text-midnight-950 mb-2 text-[13px]">Eligibility Criteria</h4>
+                <ul className="space-y-2">
+                  {detailModalAccount.eligibility.map((item, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-ink-700">
+                      <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            )}
+
+            {/* Charges */}
+            {Array.isArray(detailModalAccount.charges) && detailModalAccount.charges.length > 0 && (
+              <div>
+                <h4 className="font-semibold text-midnight-950 mb-2 text-[13px]">Schedule of Charges</h4>
+                <div className="rounded-xl border border-ink-100 overflow-hidden">
+                  <table className="w-full text-left text-xs sm:text-sm">
+                    <thead className="bg-porcelain-100 border-b border-ink-100 font-semibold text-ink-700">
+                      <tr>
+                        <th className="p-3">Service</th>
+                        <th className="p-3 text-right">Charge</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-ink-100">
+                      {detailModalAccount.charges.map((c, idx) => (
+                        <tr key={idx} className="hover:bg-porcelain-50">
+                          <td className="p-3 text-ink-800">{c.service}</td>
+                          <td className="p-3 text-right font-semibold text-midnight-950">{c.fee}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* Apply Modal */}
+      {applyModalProduct && (
+        <ApplyModal
+          open={Boolean(applyModalProduct)}
+          product={applyModalProduct}
+          onClose={() => setApplyModalProduct(null)}
+        />
+      )}
     </div>
   );
-};
+}
+
+export { HomePage };
