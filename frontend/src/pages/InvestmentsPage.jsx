@@ -1,107 +1,308 @@
 import React, { useState } from 'react';
-import { Card, Badge, Button } from '../components/common/UIComponents';
-import { ApplyModal } from '../components/common/ApplyModal';
-import { INVESTMENTS_DATA } from '../data/bankingData';
-import { CheckCircle2, ShieldCheck, TrendingUp, Calculator } from 'lucide-react';
 import { Link } from 'react-router-dom';
+import { AlertTriangle, ArrowRight, Landmark, PiggyBank, ShieldCheck, Sprout, TrendingUp } from 'lucide-react';
+import { Badge, Button, Card, SectionHeader } from '../components/ui.jsx';
+import { FD, INVESTMENTS, RD, RATE_DISCLAIMER, SIP, SSY } from '../data/products.js';
+import { formatINRWhole, shortProductName } from '../lib/format.js';
+import { ApplyModal } from '../components/common/ApplyModal.jsx';
 
-export const InvestmentsPage = () => {
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+const bySlug = (slug) => INVESTMENTS.find((i) => i.slug === slug) || {};
+const fd = bySlug(FD.slug);
+const rd = bySlug(RD.slug);
+const sip = bySlug(SIP.slug);
+const ssy = bySlug(SSY.slug);
 
-  const handleApply = (product) => {
-    setSelectedProduct(product);
-    setIsApplyModalOpen(true);
-  };
+function topOf(rows, key) {
+  if (!Array.isArray(rows) || rows.length === 0) return null;
+  return Math.max(...rows.map((r) => r[key]));
+}
+
+function Actions({ slug, onApply, product }) {
+  return (
+    <div className="mt-auto flex flex-wrap gap-2 pt-5">
+      <Link to={`/investments/${slug}`} className="flex-1">
+        <Button variant="secondary" className="w-full">
+          View details <ArrowRight className="h-4 w-4" aria-hidden />
+        </Button>
+      </Link>
+      <Button
+        variant="primary"
+        className="flex-1"
+        onClick={() => onApply(product)}
+      >
+        Apply now
+      </Button>
+    </div>
+  );
+}
+
+export default function InvestmentsPage() {
+  const [selectedProductForApply, setSelectedProductForApply] = useState(null);
+  const fdTop = topOf(fd.rateGrid, 'general');
+  const fdTopSenior = topOf(fd.rateGrid, 'senior');
+  const rdTop = topOf(rd.rateBands, 'rate');
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] py-12">
-      <div className="max-w-7xl mx-auto px-4">
-        {/* Header */}
-        <div className="mb-10 text-center max-w-3xl mx-auto">
-          <Badge variant="gold" className="mb-3">Wealth & High Returns</Badge>
-          <h1 className="text-3xl md:text-5xl font-extrabold text-[#1C1B1F] tracking-tight">
-            Grow & Protect Your Capital with Certainty
-          </h1>
-          <p className="text-sm md:text-base text-gray-600 mt-3">
-            Explore guaranteed Fixed & Recurring Deposits, tax-free Sukanya Samriddhi Yojana (SSY), and long-term wealth compounding via Direct Mutual Fund SIPs.
-          </p>
-          <div className="mt-4">
-            <Link to="/calculators">
-              <Button variant="outline" size="sm" icon={Calculator}>
-                Calculate your maturity returns with our live calculator
-              </Button>
-            </Link>
+    <div className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 lg:py-20">
+      <SectionHeader
+        titleAs="h1"
+        eyebrow="Investments & deposits"
+        title="Grow money two honest ways"
+        description="Guaranteed deposits, where the rate is fixed in a contract before you invest — and market-linked investing, where returns are never guaranteed and the risk warning sits next to every figure. They are kept in separate sections on purpose."
+      />
+
+      {/* ---------------- Guaranteed deposits ---------------- */}
+      <section aria-labelledby="guaranteed-heading">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-midnight-50 text-midnight-700">
+            <ShieldCheck className="h-5 w-5" aria-hidden />
+          </span>
+          <div>
+            <h3 id="guaranteed-heading" className="font-display text-2xl font-semibold text-midnight-950">
+              Guaranteed deposits
+            </h3>
+            <p className="text-sm text-ink-600">Fixed Deposit and Recurring Deposit — the rate is locked when you book.</p>
           </div>
         </div>
 
-        {/* Investment Stack */}
-        <div className="space-y-8">
-          {INVESTMENTS_DATA.map((inv) => (
-            <div 
-              key={inv.id} 
-              id={inv.id} 
-              className="scroll-mt-24"
-            >
-              <Card className="p-6 md:p-8 hover:shadow-md transition-shadow border-l-4 border-l-[#C9A227]">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                  {/* Left Column: Details & Features */}
-                  <div className="lg:col-span-8 space-y-4">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <h2 className="text-2xl font-bold text-[#1C1B1F]">{inv.title}</h2>
-                      <Badge variant="gold">{inv.rate}</Badge>
-                    </div>
-
-                    <p className="text-sm text-gray-700 font-medium">{inv.tagline}</p>
-
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                      {inv.features.map((feature, idx) => (
-                        <div key={idx} className="flex items-start gap-2 text-xs text-gray-600">
-                          <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
-                          <span>{feature}</span>
-                        </div>
-                      ))}
-                    </div>
-
-                    <div className="pt-3 border-t border-gray-100 flex flex-wrap gap-4 text-xs">
-                      {inv.benefits.map((b, i) => (
-                        <span key={i} className="px-2.5 py-1 rounded-md bg-amber-50 text-amber-900 border border-amber-200/60 font-semibold">
-                          ★ {b}
-                        </span>
-                      ))}
-                    </div>
-                  </div>
-
-                  {/* Right Column: CTA Box */}
-                  <div className="lg:col-span-4 bg-amber-50/40 rounded-xl p-6 border border-amber-200 text-center space-y-4">
-                    <div className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Estimated Return</div>
-                    <div className="text-3xl font-black text-amber-900">{inv.rate}</div>
-                    <p className="text-xs text-gray-600">Tenure: {inv.tenure}</p>
-
-                    <Button
-                      onClick={() => handleApply(inv)}
-                      variant="primary"
-                      className="w-full shadow-sm"
-                    >
-                      Invest Online
-                    </Button>
-                    <div className="text-[11px] text-gray-400 flex items-center justify-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5 text-amber-700" />
-                      <span>DICGC Insured / Govt Guaranteed</span>
-                    </div>
-                  </div>
-                </div>
-              </Card>
-            </div>
-          ))}
+        <div className="mt-5 rounded-lg border border-midnight-200 bg-midnight-50 px-4 py-3 text-sm leading-relaxed text-midnight-900">
+          <strong className="font-semibold">Deposit insurance (DICGC):</strong> deposits with scheduled banks in India
+          are insured by the DICGC up to ₹5,00,000 per depositor per bank, and these products are modelled on those
+          norms. On this demonstration platform all deposits are simulated records, not real money.
         </div>
-      </div>
 
-      <ApplyModal
-        isOpen={isApplyModalOpen}
-        onClose={() => setIsApplyModalOpen(false)}
-        product={selectedProduct}
-      />
+        <div className="mt-6 grid gap-5 lg:grid-cols-2">
+          <Card id={fd.slug} className="flex flex-col scroll-mt-24 p-6 shadow-none transition-shadow hover:shadow-card">
+            <div className="flex items-start justify-between gap-3">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-midnight-50 text-midnight-700">
+                <PiggyBank className="h-5 w-5" aria-hidden />
+              </span>
+              <Badge tone="success">Guaranteed</Badge>
+            </div>
+            <h4 className="mt-4 font-display text-xl font-semibold text-midnight-950">{shortProductName(fd.name)}</h4>
+            <p className="mt-1.5 text-sm leading-relaxed text-ink-600">{fd.tagline}</p>
+            <p className="mt-4 font-display text-2xl font-semibold text-midnight-800">
+              {fdTop !== null ? `Up to ${fdTop.toFixed(2)}` : '—'}
+              <span className="ml-1 text-sm font-medium text-ink-500">% p.a.</span>
+            </p>
+            <p className="text-xs text-ink-500">
+              {fdTopSenior !== null ? `Senior citizens up to ${fdTopSenior.toFixed(2)}% p.a. (+${(fd.seniorDelta ?? 0).toFixed(2)}%)` : '—'}
+              {' · '}Minimum {fd.minAmount ? formatINRWhole(fd.minAmount) : '—'}
+            </p>
+            {Array.isArray(fd.rateGrid) && (
+              <div className="mt-4 overflow-hidden rounded-lg border border-ink-100">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="bg-porcelain-100/70 text-xs uppercase tracking-wide text-ink-500">
+                      <th className="px-3 py-2 font-semibold">Tenure</th>
+                      <th className="px-3 py-2 text-right font-semibold">General</th>
+                      <th className="px-3 py-2 text-right font-semibold">Senior</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {fd.rateGrid.slice(0, 4).map((row) => (
+                      <tr key={row.tenure} className="border-t border-ink-50">
+                        <td className="px-3 py-2 text-ink-700">{row.tenure}</td>
+                        <td className="px-3 py-2 text-right font-semibold text-ink-900">{row.general.toFixed(2)}%</td>
+                        <td className="px-3 py-2 text-right font-semibold text-ink-900">{row.senior.toFixed(2)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <p className="mt-2 text-xs text-ink-500">First four tenure bands shown — the detail page carries the full grid.</p>
+            <Actions
+              slug={fd.slug}
+              product={fd}
+              onApply={(p) => setSelectedProductForApply(p)}
+            />
+          </Card>
+
+          <Card id={rd.slug} className="flex flex-col scroll-mt-24 p-6 shadow-none transition-shadow hover:shadow-card">
+            <div className="flex items-start justify-between gap-3">
+              <span className="flex h-11 w-11 items-center justify-center rounded-full bg-midnight-50 text-midnight-700">
+                <Landmark className="h-5 w-5" aria-hidden />
+              </span>
+              <Badge tone="success">Guaranteed</Badge>
+            </div>
+            <h4 className="mt-4 font-display text-xl font-semibold text-midnight-950">{shortProductName(rd.name)}</h4>
+            <p className="mt-1.5 text-sm leading-relaxed text-ink-600">{rd.tagline}</p>
+            <p className="mt-4 font-display text-2xl font-semibold text-midnight-800">
+              {rdTop !== null ? `Up to ${rdTop.toFixed(2)}` : '—'}
+              <span className="ml-1 text-sm font-medium text-ink-500">% p.a.</span>
+            </p>
+            <p className="text-xs text-ink-500">
+              Start with {rd.minMonthly ? formatINRWhole(rd.minMonthly) : '—'} per month, in multiples of{' '}
+              {rd.monthlyStep ? formatINRWhole(rd.monthlyStep) : '—'} · Interest compounded quarterly
+            </p>
+            {Array.isArray(rd.rateBands) && (
+              <div className="mt-4 overflow-hidden rounded-lg border border-ink-100">
+                <table className="w-full text-left text-sm">
+                  <thead>
+                    <tr className="bg-porcelain-100/70 text-xs uppercase tracking-wide text-ink-500">
+                      <th className="px-3 py-2 font-semibold">Tenure</th>
+                      <th className="px-3 py-2 text-right font-semibold">Rate</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {rd.rateBands.map((band) => (
+                      <tr key={band.tenure} className="border-t border-ink-50">
+                        <td className="px-3 py-2 text-ink-700">{band.tenure}</td>
+                        <td className="px-3 py-2 text-right font-semibold text-ink-900">{band.rate.toFixed(2)}%</td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+            <Actions
+              slug={rd.slug}
+              product={rd}
+              onApply={(p) => setSelectedProductForApply(p)}
+            />
+          </Card>
+        </div>
+      </section>
+
+      {/* ---------------- Government scheme ---------------- */}
+      <section aria-labelledby="ssy-heading" className="mt-12">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-midnight-50 text-midnight-700">
+            <Sprout className="h-5 w-5" aria-hidden />
+          </span>
+          <div>
+            <h3 id="ssy-heading" className="font-display text-2xl font-semibold text-midnight-950">
+              Government-backed scheme
+            </h3>
+            <p className="text-sm text-ink-600">Offered through the bank channel; the scheme and its rate belong to the Government of India.</p>
+          </div>
+        </div>
+
+        <Card id={ssy.slug} className="mt-6 flex flex-col scroll-mt-24 p-6 shadow-none transition-shadow hover:shadow-card lg:flex-row lg:gap-8">
+          <div className="flex-1">
+            <div className="flex flex-wrap items-center gap-2">
+              <Badge tone="info">Government of India scheme</Badge>
+              <span className="text-sm font-medium text-ink-900 tnum">Guaranteed by scheme rules</span>
+            </div>
+            <h4 className="mt-3 font-display text-xl font-semibold text-midnight-950">{shortProductName(ssy.name)}</h4>
+            <p className="mt-1.5 text-sm leading-relaxed text-ink-600">{ssy.tagline}</p>
+            <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-600">{ssy.overview}</p>
+            {ssy.rateNote && <p className="mt-3 text-[13px] leading-snug text-ink-500">{ssy.rateNote}</p>}
+          </div>
+          <div className="mt-5 shrink-0 lg:mt-0 lg:w-64">
+            <p className="font-display text-2xl font-semibold text-midnight-800">
+              {typeof ssy.rate === 'number' ? ssy.rate.toFixed(2) : '—'}
+              <span className="ml-1 text-sm font-medium text-ink-500">% p.a.</span>
+            </p>
+            <dl className="mt-3 space-y-2 text-sm">
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-ink-500">Yearly deposit</dt>
+                <dd className="text-right font-semibold text-ink-900">
+                  {formatINRWhole(ssy.minDepositYearly)} – {formatINRWhole(ssy.maxDepositYearly)}
+                </dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-ink-500">Deposit period</dt>
+                <dd className="font-semibold text-ink-900">{ssy.depositYears ? `${ssy.depositYears} years` : '—'}</dd>
+              </div>
+              <div className="flex items-baseline justify-between gap-3">
+                <dt className="text-ink-500">Maturity</dt>
+                <dd className="font-semibold text-ink-900">{ssy.tenureYears ? `${ssy.tenureYears} years` : '—'}</dd>
+              </div>
+            </dl>
+            <div className="flex gap-2 pt-4">
+              <Link to={`/investments/${ssy.slug}`} className="flex-1">
+                <Button variant="secondary" className="w-full">
+                  Details <ArrowRight className="h-4 w-4" aria-hidden />
+                </Button>
+              </Link>
+              <Button
+                variant="primary"
+                className="flex-1"
+                onClick={() => setSelectedProductForApply(ssy)}
+              >
+                Apply
+              </Button>
+            </div>
+          </div>
+        </Card>
+      </section>
+
+      {/* ---------------- Market-linked ---------------- */}
+      <section aria-labelledby="sip-heading" className="mt-12">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="flex h-10 w-10 items-center justify-center rounded-full bg-warning-50 text-warning-600">
+            <TrendingUp className="h-5 w-5" aria-hidden />
+          </span>
+          <div>
+            <h3 id="sip-heading" className="font-display text-2xl font-semibold text-midnight-950">
+              Market-linked investing
+            </h3>
+            <p className="text-sm text-ink-600">Returns depend on the market. There is no fixed rate and no guarantee — read the risk note.</p>
+          </div>
+        </div>
+
+        <Card id={sip.slug} className="mt-6 flex flex-col scroll-mt-24 border-warning-600/30 p-6 shadow-none transition-shadow hover:shadow-card">
+          <div className="flex flex-wrap items-center gap-2">
+            <Badge tone="warning">Market-linked — returns not guaranteed</Badge>
+            <span className="text-sm font-medium text-ink-900 tnum">Not a bank deposit</span>
+          </div>
+          <h4 className="mt-3 font-display text-xl font-semibold text-midnight-950">{shortProductName(sip.name)}</h4>
+          <p className="mt-1.5 max-w-3xl text-sm leading-relaxed text-ink-600">{sip.tagline}</p>
+
+          {sip.disclosure && (
+            <div className="mt-4 flex items-start gap-2.5 rounded-lg border border-warning-600/30 bg-warning-50 px-4 py-3 text-sm leading-relaxed text-warning-600" role="note">
+              <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0" aria-hidden />
+              <span>{sip.disclosure}</span>
+            </div>
+          )}
+
+          <dl className="mt-4 space-y-2 text-sm">
+            <div className="flex items-baseline gap-3">
+              <dt className="shrink-0 text-ink-500">Minimum monthly investment</dt>
+              <dd className="font-semibold text-ink-900">{sip.minMonthly ? formatINRWhole(sip.minMonthly) : '—'}</dd>
+            </div>
+          </dl>
+
+          {Array.isArray(sip.fundCategories) && sip.fundCategories.length > 0 && (
+            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+              {sip.fundCategories.map((fund) => (
+                <div key={fund.name} className="rounded-lg border border-ink-100 bg-porcelain-50 px-4 py-3">
+                  <p className="text-sm font-semibold text-ink-900">{fund.name}</p>
+                  <p className="mt-0.5 text-xs font-semibold uppercase tracking-wide text-warning-600">
+                    Risk: {fund.riskLevel || '—'}
+                  </p>
+                  <p className="mt-1.5 text-[13px] leading-snug text-ink-600">{fund.note}</p>
+                </div>
+              ))}
+            </div>
+          )}
+
+          <p className="mt-4 text-sm leading-relaxed text-ink-600">
+            Any SIP calculator illustration on this site uses a growth rate you choose yourself — it is a hypothetical
+            example, not a promise, projection or guarantee of returns.
+          </p>
+
+          <Actions
+            slug={sip.slug}
+            product={sip}
+            onApply={(p) => setSelectedProductForApply(p)}
+          />
+        </Card>
+      </section>
+
+      <p className="mt-10 text-xs leading-relaxed text-ink-500">{RATE_DISCLAIMER}</p>
+
+      {selectedProductForApply && (
+        <ApplyModal
+          open={Boolean(selectedProductForApply)}
+          product={selectedProductForApply}
+          onClose={() => setSelectedProductForApply(null)}
+        />
+      )}
     </div>
   );
-};
+}
+
+export { InvestmentsPage };

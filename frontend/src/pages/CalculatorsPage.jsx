@@ -1,557 +1,505 @@
-import React, { useState, useMemo } from 'react';
-import { Card, Badge, Button } from '../components/common/UIComponents';
-import { Calculator, RotateCcw, AlertCircle, Info, TrendingUp, Landmark, Percent } from 'lucide-react';
+import React, { useEffect, useMemo, useState } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { AlertTriangle, ArrowRight, Calculator, Info } from 'lucide-react';
+import { Card, Field, Input, SectionHeader, Tabs } from '../components/ui.jsx';
+import { formatINR, formatINRWhole } from '../lib/format.js';
+import {
+  calculateEMI,
+  calculateFD,
+  calculateRD,
+  calculateSIP,
+  calculateSSY,
+} from '../lib/finance.js';
+import { FD, LOANS, RATE_DISCLAIMER, RD, SIP, SSY } from '../data/products.js';
 
-export const CalculatorsPage = () => {
-  const [activeTab, setActiveTab] = useState('emi'); // 'emi', 'fd', 'rd', 'savings', 'sip'
+// ---------------------------------------------------------------------------
+// Calculators — every figure on this page is an illustration produced by the
+// shared finance library (src/lib/finance.js), the same math the loan and
+// deposit engines use. Rates are illustrative; SIP returns are assumed, never
+// guaranteed, and are labelled as such beside the result.
+// ---------------------------------------------------------------------------
 
-  // 1. EMI Calculator States
-  const [loanAmount, setLoanAmount] = useState(2500000); // 25 Lakhs
-  const [interestRate, setInterestRate] = useState(8.75); // 8.75%
-  const [tenureYears, setTenureYears] = useState(20); // 20 years
+const TAB_IDS = ['emi', 'fd', 'rd', 'sip', 'ssy'];
 
-  // 2. Fixed Deposit States
-  const [fdAmount, setFdAmount] = useState(100000); // 1 Lakh
-  const [fdRate, setFdRate] = useState(7.10); // 7.10%
-  const [fdTenureMonths, setFdTenureMonths] = useState(36); // 36 months (3 years)
-  const [isSeniorCitizen, setIsSeniorCitizen] = useState(false);
+const TABS = [
+  { id: 'emi', label: 'Loan EMI' },
+  { id: 'fd', label: 'Fixed Deposit' },
+  { id: 'rd', label: 'Recurring Deposit' },
+  { id: 'sip', label: 'SIP' },
+  { id: 'ssy', label: 'SSY' },
+];
 
-  // 3. Recurring Deposit States
-  const [rdMonthly, setRdMonthly] = useState(5000); // 5000/month
-  const [rdRate, setRdRate] = useState(7.10); // 7.10%
-  const [rdTenureMonths, setRdTenureMonths] = useState(24); // 24 months
+const HOME_LOAN = LOANS.find((l) => l.slug === 'home-loan');
+const FD_DEFAULT_RATE = FD.rateGrid.find((r) => r.tenure === '1 – 2 years')?.general ?? FD.rateGrid[0].general;
+const RD_DEFAULT_RATE = RD.rateBands.find((b) => b.tenure === '25 – 60 months')?.rate ?? RD.rateBands[0].rate;
 
-  // 4. Savings Account Monthly Interest Compounding States
-  const [savingsBalance, setSavingsBalance] = useState(200000); // 2 Lakhs
-  const [savingsRate, setSavingsRate] = useState(7.00); // 7.00%
+const indianNumber = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 });
 
-  // 5. SIP Calculator States
-  const [sipMonthly, setSipMonthly] = useState(5000); // 5000/month
-  const [sipRate, setSipRate] = useState(12.0); // 12% expected annual return
-  const [sipYears, setSipYears] = useState(10); // 10 years
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
 
-  // --- Calculations ---
+function tryCalc(fn) {
+  try {
+    return fn();
+  } catch {
+    return null;
+  }
+}
 
-  // EMI Math: P * r * (1+r)^n / ((1+r)^n - 1)
-  const emiResults = useMemo(() => {
-    const P = loanAmount;
-    const r = interestRate / (12 * 100);
-    const n = tenureYears * 12;
-    if (r === 0) {
-      const emi = P / n;
-      return { emi: Math.round(emi), totalPayable: P, totalInterest: 0 };
-    }
-    const emi = (P * r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1);
-    const totalPayable = emi * n;
-    const totalInterest = totalPayable - P;
-    return {
-      emi: Math.round(emi),
-      totalPayable: Math.round(totalPayable),
-      totalInterest: Math.round(totalInterest)
-    };
-  }, [loanAmount, interestRate, tenureYears]);
+/**
+ * Slider ALWAYS paired with an editable numeric input.
+ * - Typing in the input clamps the value into range on change.
+ * - The input shows Indian digit grouping (and fixed decimals for rates)
+ *   when it loses focus.
+ */
+function SliderControl({ label, value, min, max, step = 1, decimals = 0, suffix, hint, onChange }) {
+  const formatText = (v) => {
+    if (v === null || v === undefined || Number.isNaN(Number(v))) return '';
+    return decimals > 0 ? Number(v).toFixed(decimals) : indianNumber.format(Math.round(Number(v)));
+  };
+  const [text, setText] = useState(() => formatText(value));
+  const [focused, setFocused] = useState(false);
 
-  // FD Math: A = P * (1 + r/400)^(4*t) (Quarterly compounding as per RBI)
-  const fdResults = useMemo(() => {
-    const effectiveRate = isSeniorCitizen ? fdRate + 0.50 : fdRate;
-    const t = fdTenureMonths / 12;
-    const P = fdAmount;
-    const A = P * Math.pow(1 + effectiveRate / 400, 4 * t);
-    const interestEarned = A - P;
-    return {
-      maturityAmount: Math.round(A),
-      interestEarned: Math.round(interestEarned),
-      effectiveRate
-    };
-  }, [fdAmount, fdRate, fdTenureMonths, isSeniorCitizen]);
-
-  // RD Math: Standard Indian Quarterly Compounded RD formula
-  const rdResults = useMemo(() => {
-    const P = rdMonthly;
-    const n = rdTenureMonths;
-    const r = rdRate / 100;
-    // Approximating compound interest on recurring installments
-    let totalMaturity = 0;
-    for (let i = 1; i <= n; i++) {
-      const t = (n - i + 1) / 12;
-      totalMaturity += P * Math.pow(1 + r / 4, 4 * t);
-    }
-    const totalDeposited = P * n;
-    const interestEarned = totalMaturity - totalDeposited;
-    return {
-      totalDeposited: Math.round(totalDeposited),
-      maturityAmount: Math.round(totalMaturity),
-      interestEarned: Math.round(interestEarned)
-    };
-  }, [rdMonthly, rdRate, rdTenureMonths]);
-
-  // Savings Account Monthly Compounding Math: A = P * (1 + r/1200)^12
-  const savingsResults = useMemo(() => {
-    const monthlyRate = savingsRate / 1200;
-    const oneMonthInterest = savingsBalance * monthlyRate;
-    const annualCompoundInterest = savingsBalance * (Math.pow(1 + monthlyRate, 12) - 1);
-    return {
-      monthlyCredit: Math.round(oneMonthInterest),
-      annualInterest: Math.round(annualCompoundInterest)
-    };
-  }, [savingsBalance, savingsRate]);
-
-  // SIP Math: M = P * ((1+i)^n - 1) / i * (1+i)
-  const sipResults = useMemo(() => {
-    const P = sipMonthly;
-    const i = sipRate / (12 * 100);
-    const n = sipYears * 12;
-    const totalInvestment = P * n;
-    const maturity = P * ((Math.pow(1 + i, n) - 1) / i) * (1 + i);
-    const wealthGain = maturity - totalInvestment;
-    return {
-      totalInvestment: Math.round(totalInvestment),
-      maturityAmount: Math.round(maturity),
-      wealthGain: Math.round(wealthGain)
-    };
-  }, [sipMonthly, sipRate, sipYears]);
+  useEffect(() => {
+    if (!focused) setText(formatText(value));
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [value, focused, decimals]);
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] py-12">
-      <div className="max-w-7xl mx-auto px-4">
-        {/* Header */}
-        <div className="text-center max-w-3xl mx-auto mb-10">
-          <Badge variant="crimson" className="mb-3">Live Mathematical Models</Badge>
-          <h1 className="text-3xl md:text-5xl font-extrabold text-[#1C1B1F] tracking-tight">
-            Interactive Financial Calculators
-          </h1>
-          <p className="text-sm md:text-base text-gray-600 mt-3">
-            Real-time recalculation with verifiable formula standards. Plan your EMIs, evaluate maturity returns, and project long-term wealth growth.
-          </p>
+    <Field label={label} hint={hint}>
+      <div className="flex items-center gap-3">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={Number.isFinite(Number(value)) ? value : min}
+          aria-label={label}
+          onChange={(e) => onChange(clamp(Number(e.target.value), min, max))}
+          className="min-w-0 flex-1 accent-midnight-800"
+        />
+        <div className="flex w-44 shrink-0 items-center gap-2">
+          <Input
+            value={text}
+            inputMode="decimal"
+            aria-label={`${label} value`}
+            onFocus={() => setFocused(true)}
+            onChange={(e) => {
+              const raw = e.target.value;
+              setText(raw);
+              const parsed = Number(String(raw).replace(/[₹,\s]/g, ''));
+              if (Number.isFinite(parsed)) onChange(clamp(parsed, min, max));
+            }}
+            onBlur={() => {
+              setFocused(false);
+              setText(formatText(value));
+            }}
+            className="text-right"
+          />
+          {suffix && <span className="whitespace-nowrap text-sm text-ink-500">{suffix}</span>}
         </div>
+      </div>
+      <span className="mt-1 flex justify-between text-xs text-ink-400">
+        <span>{decimals > 0 ? min.toFixed(decimals) : indianNumber.format(min)}</span>
+        <span>{decimals > 0 ? max.toFixed(decimals) : indianNumber.format(max)}</span>
+      </span>
+    </Field>
+  );
+}
 
-        {/* Calculator Category Navigation */}
-        <div className="flex items-center justify-center gap-2 overflow-x-auto pb-6 no-scrollbar">
-          {[
-            { id: 'emi', label: 'Loan EMI Calculator' },
-            { id: 'fd', label: 'Fixed Deposit (FD)' },
-            { id: 'rd', label: 'Recurring Deposit (RD)' },
-            { id: 'savings', label: 'Monthly Interest Savings' },
-            { id: 'sip', label: 'Mutual Fund SIP Growth' }
-          ].map((tab) => (
-            <button
-              key={tab.id}
-              onClick={() => setActiveTab(tab.id)}
-              className={`px-5 py-2.5 rounded-full text-xs md:text-sm font-bold whitespace-nowrap transition-standard ${
-                activeTab === tab.id
-                  ? 'bg-[#9D1D27] text-white shadow-md'
-                  : 'bg-white border border-gray-300 text-gray-700 hover:bg-gray-50'
-              }`}
-            >
-              {tab.label}
-            </button>
-          ))}
-        </div>
+function Toggle({ label, description, checked, onChange }) {
+  return (
+    <label className="flex cursor-pointer items-start gap-2.5 text-sm text-ink-700">
+      <input
+        type="checkbox"
+        checked={checked}
+        onChange={(e) => onChange(e.target.checked)}
+        className="mt-0.5 h-4 w-4 shrink-0 accent-midnight-800"
+      />
+      <span>
+        <span className="font-medium text-ink-800">{label}</span>
+        {description && <span className="block text-xs leading-relaxed text-ink-500">{description}</span>}
+      </span>
+    </label>
+  );
+}
 
-        {/* Calculator Display Cards */}
-        <div className="max-w-5xl mx-auto">
-          {/* 1. EMI CALCULATOR */}
-          {activeTab === 'emi' && (
-            <Card className="p-6 md:p-10 border-t-4 border-t-[#9D1D27]">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-                {/* Sliders Area */}
-                <div className="lg:col-span-7 space-y-6">
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Loan Amount</label>
-                      <span className="font-mono text-base font-bold text-[#9D1D27]">₹ {loanAmount.toLocaleString('en-IN')}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={50000}
-                      max={10000000}
-                      step={50000}
-                      value={loanAmount}
-                      onChange={(e) => setLoanAmount(Number(e.target.value))}
-                      className="w-full accent-[#9D1D27] cursor-pointer"
-                    />
-                    <div className="flex justify-between text-[11px] text-gray-400 mt-1">
-                      <span>₹50,000</span>
-                      <span>₹50 Lakhs</span>
-                      <span>₹1 Crore</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Interest Rate (% p.a.)</label>
-                      <span className="font-mono text-base font-bold text-[#9D1D27]">{interestRate}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={6.0}
-                      max={18.0}
-                      step={0.1}
-                      value={interestRate}
-                      onChange={(e) => setInterestRate(Number(e.target.value))}
-                      className="w-full accent-[#9D1D27] cursor-pointer"
-                    />
-                    <div className="flex justify-between text-[11px] text-gray-400 mt-1">
-                      <span>6.0%</span>
-                      <span>12.0%</span>
-                      <span>18.0%</span>
-                    </div>
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Tenure (Years)</label>
-                      <span className="font-mono text-base font-bold text-[#9D1D27]">{tenureYears} Years ({tenureYears * 12} Months)</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={1}
-                      max={30}
-                      step={1}
-                      value={tenureYears}
-                      onChange={(e) => setTenureYears(Number(e.target.value))}
-                      className="w-full accent-[#9D1D27] cursor-pointer"
-                    />
-                    <div className="flex justify-between text-[11px] text-gray-400 mt-1">
-                      <span>1 Year</span>
-                      <span>15 Years</span>
-                      <span>30 Years</span>
-                    </div>
-                  </div>
-
-                  <div className="pt-2 flex gap-3">
-                    <Button
-                      variant="outline"
-                      size="sm"
-                      onClick={() => { setLoanAmount(2500000); setInterestRate(8.75); setTenureYears(20); }}
-                      icon={RotateCcw}
-                    >
-                      Reset Defaults
-                    </Button>
-                  </div>
-                </div>
-
-                {/* Results Visual Box */}
-                <div className="lg:col-span-5 bg-gradient-to-br from-[#1C1B1F] to-[#2A1015] rounded-2xl p-6 md:p-8 text-white space-y-5 shadow-xl">
-                  <div className="text-center pb-4 border-b border-white/10">
-                    <span className="text-xs font-bold uppercase tracking-widest text-amber-300">Monthly EMI Payable</span>
-                    <div className="text-3xl md:text-4xl font-black text-white mt-1">
-                      ₹ {emiResults.emi.toLocaleString('en-IN')}
-                    </div>
-                    <span className="text-[11px] text-gray-400">per month for {tenureYears} years</span>
-                  </div>
-
-                  <div className="space-y-3 text-xs">
-                    <div className="flex justify-between items-center py-1">
-                      <span className="text-gray-400">Principal Amount:</span>
-                      <span className="font-bold font-mono">₹ {loanAmount.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-1">
-                      <span className="text-gray-400">Total Interest Amount:</span>
-                      <span className="font-bold font-mono text-amber-300">₹ {emiResults.totalInterest.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-1 border-t border-white/10 pt-2 font-bold text-sm">
-                      <span className="text-gray-200">Total Amount Payable:</span>
-                      <span className="font-mono text-white">₹ {emiResults.totalPayable.toLocaleString('en-IN')}</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-white/10 rounded-lg p-2.5 text-[10px] text-gray-300 flex items-start gap-1.5 leading-relaxed">
-                    <Info className="w-3.5 h-3.5 text-amber-300 shrink-0 mt-0.5" />
-                    <span>Calculated using standard reducing balance compounding formula: EMI = P × r × (1+r)ⁿ / ((1+r)ⁿ - 1).</span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* 2. FIXED DEPOSIT CALCULATOR */}
-          {activeTab === 'fd' && (
-            <Card className="p-6 md:p-10 border-t-4 border-t-[#C9A227]">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-                <div className="lg:col-span-7 space-y-6">
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Deposit Amount</label>
-                      <span className="font-mono text-base font-bold text-amber-800">₹ {fdAmount.toLocaleString('en-IN')}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={10000}
-                      max={5000000}
-                      step={10000}
-                      value={fdAmount}
-                      onChange={(e) => setFdAmount(Number(e.target.value))}
-                      className="w-full accent-amber-600 cursor-pointer"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Tenure in Months</label>
-                      <span className="font-mono text-base font-bold text-amber-800">{fdTenureMonths} Months ({(fdTenureMonths/12).toFixed(1)} Yrs)</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={6}
-                      max={120}
-                      step={6}
-                      value={fdTenureMonths}
-                      onChange={(e) => setFdTenureMonths(Number(e.target.value))}
-                      className="w-full accent-amber-600 cursor-pointer"
-                    />
-                  </div>
-
-                  <div className="p-3 bg-amber-50 rounded-xl border border-amber-200 flex items-center justify-between">
-                    <div>
-                      <span className="text-xs font-bold text-amber-900 block">Senior Citizen Advantage</span>
-                      <span className="text-[11px] text-amber-700">Add +0.50% p.a. additional interest bonus</span>
-                    </div>
-                    <label className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        type="checkbox"
-                        checked={isSeniorCitizen}
-                        onChange={(e) => setIsSeniorCitizen(e.target.checked)}
-                        className="sr-only peer"
-                      />
-                      <div className="w-11 h-6 bg-gray-200 peer-focus:outline-none rounded-full peer peer-checked:after:translate-x-full peer-checked:after:border-white after:content-[''] after:absolute after:top-[2px] after:left-[2px] after:bg-white after:border-gray-300 after:border after:rounded-full after:h-5 after:w-5 after:transition-all peer-checked:bg-amber-600"></div>
-                    </label>
-                  </div>
-                </div>
-
-                <div className="lg:col-span-5 bg-gradient-to-br from-[#1C1B1F] to-[#2B2312] rounded-2xl p-6 md:p-8 text-white space-y-5 shadow-xl">
-                  <div className="text-center pb-4 border-b border-white/10">
-                    <span className="text-xs font-bold uppercase tracking-widest text-amber-400">Total Maturity Value</span>
-                    <div className="text-3xl md:text-4xl font-black text-white mt-1">
-                      ₹ {fdResults.maturityAmount.toLocaleString('en-IN')}
-                    </div>
-                    <span className="text-[11px] text-gray-400">Effective Rate: {fdResults.effectiveRate}% p.a.</span>
-                  </div>
-
-                  <div className="space-y-3 text-xs">
-                    <div className="flex justify-between items-center py-1">
-                      <span className="text-gray-400">Invested Capital:</span>
-                      <span className="font-bold font-mono">₹ {fdAmount.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-1">
-                      <span className="text-gray-400">Total Interest Earned:</span>
-                      <span className="font-bold font-mono text-green-400">₹ {fdResults.interestEarned.toLocaleString('en-IN')}</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-white/10 rounded-lg p-2.5 text-[10px] text-gray-300 flex items-start gap-1.5 leading-relaxed">
-                    <Info className="w-3.5 h-3.5 text-amber-300 shrink-0 mt-0.5" />
-                    <span>Compounded quarterly as per standard RBI mandates: A = P × (1 + r/400)⁴ᵗ.</span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* 3. RECURRING DEPOSIT CALCULATOR */}
-          {activeTab === 'rd' && (
-            <Card className="p-6 md:p-10 border-t-4 border-t-[#0288D1]">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-                <div className="lg:col-span-7 space-y-6">
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Monthly Installment Amount</label>
-                      <span className="font-mono text-base font-bold text-blue-800">₹ {rdMonthly.toLocaleString('en-IN')}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={500}
-                      max={100000}
-                      step={500}
-                      value={rdMonthly}
-                      onChange={(e) => setRdMonthly(Number(e.target.value))}
-                      className="w-full accent-blue-600 cursor-pointer"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Tenure in Months</label>
-                      <span className="font-mono text-base font-bold text-blue-800">{rdTenureMonths} Months</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={6}
-                      max={60}
-                      step={6}
-                      value={rdTenureMonths}
-                      onChange={(e) => setRdTenureMonths(Number(e.target.value))}
-                      className="w-full accent-blue-600 cursor-pointer"
-                    />
-                  </div>
-                </div>
-
-                <div className="lg:col-span-5 bg-gradient-to-br from-[#1C1B1F] to-[#0F2236] rounded-2xl p-6 md:p-8 text-white space-y-5 shadow-xl">
-                  <div className="text-center pb-4 border-b border-white/10">
-                    <span className="text-xs font-bold uppercase tracking-widest text-blue-300">Maturity Corpus</span>
-                    <div className="text-3xl md:text-4xl font-black text-white mt-1">
-                      ₹ {rdResults.maturityAmount.toLocaleString('en-IN')}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 text-xs">
-                    <div className="flex justify-between items-center py-1">
-                      <span className="text-gray-400">Total Deposited Amount:</span>
-                      <span className="font-bold font-mono">₹ {rdResults.totalDeposited.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-1">
-                      <span className="text-gray-400">Total Interest Earned:</span>
-                      <span className="font-bold font-mono text-green-400">₹ {rdResults.interestEarned.toLocaleString('en-IN')}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* 4. SAVINGS MONTHLY INTEREST CALCULATOR */}
-          {activeTab === 'savings' && (
-            <Card className="p-6 md:p-10 border-t-4 border-t-[#2E7D32]">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-                <div className="lg:col-span-7 space-y-6">
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Average Daily Savings Balance</label>
-                      <span className="font-mono text-base font-bold text-green-800">₹ {savingsBalance.toLocaleString('en-IN')}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={10000}
-                      max={2500000}
-                      step={10000}
-                      value={savingsBalance}
-                      onChange={(e) => setSavingsBalance(Number(e.target.value))}
-                      className="w-full accent-green-600 cursor-pointer"
-                    />
-                  </div>
-
-                  <div className="bg-green-50 border border-green-200 rounded-xl p-4 text-xs text-green-900 space-y-1">
-                    <span className="font-bold text-green-950 block">Why Monthly Compounding Matters:</span>
-                    <p>
-                      Standard banks credit interest quarterly. FinEdge credits your interest monthly on the 30th/31st, allowing your interest to earn interest 12 times a year.
-                    </p>
-                  </div>
-                </div>
-
-                <div className="lg:col-span-5 bg-gradient-to-br from-[#1C1B1F] to-[#122A16] rounded-2xl p-6 md:p-8 text-white space-y-5 shadow-xl">
-                  <div className="text-center pb-4 border-b border-white/10">
-                    <span className="text-xs font-bold uppercase tracking-widest text-green-400">Monthly Interest Credit</span>
-                    <div className="text-3xl md:text-4xl font-black text-white mt-1">
-                      +₹ {savingsResults.monthlyCredit.toLocaleString('en-IN')}
-                    </div>
-                    <span className="text-[11px] text-gray-400">Credited to account every single month</span>
-                  </div>
-
-                  <div className="space-y-3 text-xs">
-                    <div className="flex justify-between items-center py-1">
-                      <span className="text-gray-400">Annual Compounded Return:</span>
-                      <span className="font-bold font-mono text-green-400">₹ {savingsResults.annualInterest.toLocaleString('en-IN')}</span>
-                    </div>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* 5. SIP CALCULATOR */}
-          {activeTab === 'sip' && (
-            <Card className="p-6 md:p-10 border-t-4 border-t-[#0288D1]">
-              <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
-                <div className="lg:col-span-7 space-y-6">
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Monthly SIP Investment</label>
-                      <span className="font-mono text-base font-bold text-blue-800">₹ {sipMonthly.toLocaleString('en-IN')}</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={500}
-                      max={100000}
-                      step={500}
-                      value={sipMonthly}
-                      onChange={(e) => setSipMonthly(Number(e.target.value))}
-                      className="w-full accent-blue-600 cursor-pointer"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Expected Return Rate (% p.a.)</label>
-                      <span className="font-mono text-base font-bold text-blue-800">{sipRate}%</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={6}
-                      max={20}
-                      step={0.5}
-                      value={sipRate}
-                      onChange={(e) => setSipRate(Number(e.target.value))}
-                      className="w-full accent-blue-600 cursor-pointer"
-                    />
-                  </div>
-
-                  <div>
-                    <div className="flex justify-between items-center mb-2">
-                      <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">Duration in Years</label>
-                      <span className="font-mono text-base font-bold text-blue-800">{sipYears} Years</span>
-                    </div>
-                    <input
-                      type="range"
-                      min={1}
-                      max={30}
-                      step={1}
-                      value={sipYears}
-                      onChange={(e) => setSipYears(Number(e.target.value))}
-                      className="w-full accent-blue-600 cursor-pointer"
-                    />
-                  </div>
-                </div>
-
-                <div className="lg:col-span-5 bg-gradient-to-br from-[#1C1B1F] to-[#0A1A2E] rounded-2xl p-6 md:p-8 text-white space-y-5 shadow-xl">
-                  <div className="text-center pb-4 border-b border-white/10">
-                    <span className="text-xs font-bold uppercase tracking-widest text-cyan-400">Projected Wealth Corpus</span>
-                    <div className="text-3xl md:text-4xl font-black text-white mt-1">
-                      ₹ {sipResults.maturityAmount.toLocaleString('en-IN')}
-                    </div>
-                  </div>
-
-                  <div className="space-y-3 text-xs">
-                    <div className="flex justify-between items-center py-1">
-                      <span className="text-gray-400">Total Invested Amount:</span>
-                      <span className="font-bold font-mono">₹ {sipResults.totalInvestment.toLocaleString('en-IN')}</span>
-                    </div>
-                    <div className="flex justify-between items-center py-1">
-                      <span className="text-gray-400">Estimated Capital Gains:</span>
-                      <span className="font-bold font-mono text-green-400">+₹ {sipResults.wealthGain.toLocaleString('en-IN')}</span>
-                    </div>
-                  </div>
-
-                  <div className="bg-white/10 rounded-lg p-2.5 text-[10px] text-gray-300 flex items-start gap-1.5 leading-relaxed">
-                    <Info className="w-3.5 h-3.5 text-cyan-300 shrink-0 mt-0.5" />
-                    <span>Mutual fund returns are market-linked and not guaranteed. Historical CAGR used for projection.</span>
-                  </div>
-                </div>
-              </div>
-            </Card>
-          )}
-
-          {/* Mandatory Disclaimers Strip */}
-          <div className="mt-8 p-4 bg-amber-50/70 border border-amber-200/80 rounded-xl text-xs text-amber-900 flex items-start gap-3">
-            <AlertCircle className="w-4 h-4 text-amber-700 shrink-0 mt-0.5" />
-            <div className="space-y-1">
-              <strong className="text-amber-950 block">Important Mathematical Disclaimer:</strong>
-              <p>
-                The outputs generated by these financial calculators are indicative and strictly for illustrative planning purposes. Final sanctioned EMI, loan interest rates, and deposit maturity values are subject to individual credit assessment, tenure verification, applicable statutory taxes, and prevailing RBI guidelines at the time of agreement execution.
-              </p>
-            </div>
-          </div>
-        </div>
+/** One flat result panel: headline figure, proportion bar, rows, CTA. */
+function ResultPanel({ headlineLabel, headlineValue, headlineNote, children, ctaTo, ctaLabel }) {
+  return (
+    <div className="rounded-xl border border-midnight-800 bg-midnight-900 p-6 text-porcelain-100 shadow-none">
+      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-300">{headlineLabel}</p>
+      <p className="mt-2 font-display text-4xl font-semibold text-porcelain-50">{headlineValue}</p>
+      {headlineNote && <p className="mt-1.5 text-sm leading-relaxed text-porcelain-200/80">{headlineNote}</p>}
+      {children}
+      <div className="mt-6 border-t border-porcelain-50/15 pt-5">
+        <Link
+          to={ctaTo}
+          className="inline-flex items-center justify-center gap-2 rounded-lg bg-porcelain-50 px-5 py-3 text-sm font-semibold text-midnight-950 transition-colors hover:bg-porcelain-200"
+        >
+          {ctaLabel} <ArrowRight className="h-4 w-4" aria-hidden />
+        </Link>
+        <p className="mt-4 flex items-start gap-1.5 text-xs leading-relaxed text-porcelain-200/70">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+          <span>Illustrative simulation. {RATE_DISCLAIMER}</span>
+        </p>
       </div>
     </div>
   );
-};
+}
+
+function ResultRow({ label, value, strong = false }) {
+  return (
+    <div className="flex items-baseline justify-between gap-4 border-b border-porcelain-50/10 py-2.5 last:border-0">
+      <span className="text-sm text-porcelain-200/80">{label}</span>
+      <span className={`text-right text-sm ${strong ? 'font-semibold text-porcelain-50' : 'text-porcelain-100'}`}>{value}</span>
+    </div>
+  );
+}
+
+function ProportionBar({ aLabel, aValue, bLabel, bValue }) {
+  const total = (aValue || 0) + (bValue || 0);
+  const aPct = total > 0 ? Math.round(((aValue || 0) / total) * 100) : 0;
+  return (
+    <div className="mt-5">
+      <div className="flex h-3 overflow-hidden rounded-full bg-porcelain-50/10" role="img" aria-label={`${aLabel} ${aPct}%, ${bLabel} ${100 - aPct}%`}>
+        <div className="bg-midnight-400" style={{ width: `${aPct}%` }} />
+        <div className="bg-midnight-300" style={{ width: `${100 - aPct}%` }} />
+      </div>
+      <div className="mt-2.5 space-y-1 text-xs text-porcelain-200/80">
+        <p className="flex items-center justify-between">
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-midnight-400" aria-hidden />{aLabel}</span>
+          <span>{formatINRWhole(aValue)} · {aPct}%</span>
+        </p>
+        <p className="flex items-center justify-between">
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-midnight-300" aria-hidden />{bLabel}</span>
+          <span>{formatINRWhole(bValue)} · {100 - aPct}%</span>
+        </p>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// EMI
+// ---------------------------------------------------------------------------
+
+function EmiCalculator() {
+  const [amount, setAmount] = useState(2500000);
+  const [rate, setRate] = useState(HOME_LOAN ? HOME_LOAN.rateMin : 8.35);
+  const [tenureMonths, setTenureMonths] = useState(240);
+  const [showAll, setShowAll] = useState(false);
+
+  const result = useMemo(
+    () => tryCalc(() => calculateEMI(amount, rate, Math.round(tenureMonths))),
+    [amount, rate, tenureMonths],
+  );
+  const visibleRows = result ? (showAll ? result.schedule : result.schedule.slice(0, 12)) : [];
+
+  return (
+    <div>
+      <div className="grid gap-6 lg:grid-cols-5">
+        <Card className="p-6 shadow-none lg:col-span-3">
+          <div className="space-y-6">
+            <SliderControl label="Loan amount" value={amount} min={100000} max={10000000} step={10000} suffix="₹" onChange={setAmount} />
+            <SliderControl label="Interest rate" value={rate} min={5} max={16} step={0.05} decimals={2} suffix="% p.a." onChange={setRate} hint={HOME_LOAN ? `Home loan on this platform starts at ${HOME_LOAN.rateMin.toFixed(2)}% p.a. — adjust to the rate you expect to be sanctioned.` : undefined} />
+            <SliderControl label="Tenure" value={tenureMonths} min={12} max={360} step={1} suffix="months" onChange={(v) => { setTenureMonths(v); setShowAll(false); }} hint={tenureMonths ? `${Math.floor(tenureMonths / 12)} year${Math.floor(tenureMonths / 12) === 1 ? '' : 's'}${tenureMonths % 12 ? ` ${tenureMonths % 12} month${tenureMonths % 12 === 1 ? '' : 's'}` : ''}` : undefined} />
+          </div>
+        </Card>
+        <div className="lg:col-span-2">
+          <ResultPanel
+            headlineLabel="Monthly EMI"
+            headlineValue={result ? formatINR(result.emi) : '—'}
+            headlineNote="Reducing-balance EMI at the rate above, for the full tenure."
+            ctaTo="/loans"
+            ctaLabel="Apply for a loan"
+          >
+            {result && (
+              <>
+                <ProportionBar aLabel="Principal" aValue={amount} bLabel="Total interest" bValue={result.totalInterest} />
+                <div className="mt-4">
+                  <ResultRow label="Loan amount" value={formatINR(amount)} />
+                  <ResultRow label="Total interest" value={formatINR(result.totalInterest)} />
+                  <ResultRow label="Total payable" value={formatINR(result.totalPayment)} strong />
+                </div>
+              </>
+            )}
+          </ResultPanel>
+        </div>
+      </div>
+
+      {result && (
+        <details className="mt-6 rounded-xl border border-ink-100 bg-white shadow-card" open>
+          <summary className="cursor-pointer px-6 py-4 text-sm font-semibold text-midnight-900">
+            Amortisation schedule — how each EMI splits between principal and interest
+          </summary>
+          <div className="border-t border-ink-100 px-6 py-4">
+            <div className={`overflow-x-auto ${showAll ? 'max-h-96 overflow-y-auto' : ''}`}>
+              <table className="w-full min-w-[560px] text-left text-sm">
+                <thead>
+                  <tr className="border-b border-ink-100 text-xs uppercase tracking-wide text-ink-500">
+                    <th className="py-2 pr-3 font-semibold">Month</th>
+                    <th className="py-2 pr-3 text-right font-semibold">EMI</th>
+                    <th className="py-2 pr-3 text-right font-semibold">Principal</th>
+                    <th className="py-2 pr-3 text-right font-semibold">Interest</th>
+                    <th className="py-2 text-right font-semibold">Balance after</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  {visibleRows.map((row) => (
+                    <tr key={row.month} className="border-b border-ink-50 last:border-0">
+                      <td className="py-2 pr-3 text-ink-700">{row.month}</td>
+                      <td className="py-2 pr-3 text-right text-ink-800">{formatINR(row.emi)}</td>
+                      <td className="py-2 pr-3 text-right text-ink-800">{formatINR(row.principal)}</td>
+                      <td className="py-2 pr-3 text-right text-ink-800">{formatINR(row.interest)}</td>
+                      <td className="py-2 text-right font-medium text-ink-900">{formatINR(row.balance)}</td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+            {result.schedule.length > 12 && (
+              <button
+                type="button"
+                onClick={() => setShowAll((v) => !v)}
+                className="mt-3 text-sm font-semibold text-midnight-800 underline decoration-gold-400 decoration-2 underline-offset-2 hover:text-midnight-600"
+              >
+                {showAll ? 'Show first 12 months only' : `Show all ${result.schedule.length} months`}
+              </button>
+            )}
+          </div>
+        </details>
+      )}
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// FD / RD / SIP / SSY
+// ---------------------------------------------------------------------------
+
+function FdCalculator() {
+  const [principal, setPrincipal] = useState(100000);
+  const [rate, setRate] = useState(FD_DEFAULT_RATE);
+  const [tenureMonths, setTenureMonths] = useState(12);
+  const [senior, setSenior] = useState(false);
+
+  const result = useMemo(
+    () => tryCalc(() => calculateFD({ principal, annualRatePct: rate, tenureMonths: Math.round(tenureMonths), seniorCitizen: senior })),
+    [principal, rate, tenureMonths, senior],
+  );
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-5">
+      <Card className="p-6 shadow-none lg:col-span-3">
+        <div className="space-y-6">
+          <SliderControl label="Deposit amount" value={principal} min={FD.minAmount} max={5000000} step={1000} suffix="₹" onChange={setPrincipal} hint={`Minimum booking amount on this platform is ${formatINRWhole(FD.minAmount)}.`} />
+          <SliderControl label="Interest rate" value={rate} min={3} max={9} step={0.05} decimals={2} suffix="% p.a." onChange={setRate} hint="Quarterly compounding, the Indian bank standard. Compare with the FD rate grid on the Fixed Deposit page." />
+          <SliderControl label="Tenure" value={tenureMonths} min={6} max={120} step={1} suffix="months" onChange={setTenureMonths} />
+          <Toggle
+            label="Senior citizen (age 60+)"
+            description={`Adds ${FD.seniorDelta.toFixed(2)}% p.a. to the rate, as in the FD rate grid.`}
+            checked={senior}
+            onChange={setSenior}
+          />
+        </div>
+      </Card>
+      <div className="lg:col-span-2">
+        <ResultPanel
+          headlineLabel="Maturity value"
+          headlineValue={result ? formatINR(result.maturityValue) : '—'}
+          headlineNote="Cumulative deposit — interest stays invested until maturity."
+          ctaTo="/investments/fixed-deposit"
+          ctaLabel="Open a Fixed Deposit"
+        >
+          {result && (
+            <div className="mt-4">
+              <ResultRow label="Amount deposited" value={formatINR(result.principal)} />
+              <ResultRow label="Rate applied" value={`${result.rateAppliedPct.toFixed(2)}% p.a.${senior ? ' (incl. senior premium)' : ''}`} />
+              <ResultRow label="Interest earned" value={formatINR(result.interestEarned)} />
+              <ResultRow label="Maturity value" value={formatINR(result.maturityValue)} strong />
+            </div>
+          )}
+        </ResultPanel>
+      </div>
+    </div>
+  );
+}
+
+function RdCalculator() {
+  const [monthly, setMonthly] = useState(5000);
+  const [rate, setRate] = useState(RD_DEFAULT_RATE);
+  const [tenureMonths, setTenureMonths] = useState(36);
+
+  const result = useMemo(
+    () => tryCalc(() => calculateRD({ monthlyDeposit: monthly, annualRatePct: rate, tenureMonths: Math.round(tenureMonths) })),
+    [monthly, rate, tenureMonths],
+  );
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-5">
+      <Card className="p-6 shadow-none lg:col-span-3">
+        <div className="space-y-6">
+          <SliderControl label="Monthly deposit" value={monthly} min={RD.minMonthly} max={100000} step={RD.monthlyStep} suffix="₹" onChange={setMonthly} hint={`Starts at ${formatINRWhole(RD.minMonthly)} a month, in multiples of ₹${RD.monthlyStep}.`} />
+          <SliderControl label="Interest rate" value={rate} min={3} max={9} step={0.05} decimals={2} suffix="% p.a." onChange={setRate} hint="Compounded quarterly; the rate is fixed when the RD is opened." />
+          <SliderControl label="Tenure" value={tenureMonths} min={6} max={120} step={1} suffix="months" onChange={setTenureMonths} />
+        </div>
+      </Card>
+      <div className="lg:col-span-2">
+        <ResultPanel
+          headlineLabel="Maturity value"
+          headlineValue={result ? formatINR(result.maturityValue) : '—'}
+          headlineNote="A fixed monthly deposit, compounded quarter by quarter."
+          ctaTo="/investments/recurring-deposit"
+          ctaLabel="Open a Recurring Deposit"
+        >
+          {result && (
+            <div className="mt-4">
+              <ResultRow label="Total deposited" value={formatINR(result.totalDeposited)} />
+              <ResultRow label="Interest earned" value={formatINR(result.interestEarned)} />
+              <ResultRow label="Maturity value" value={formatINR(result.maturityValue)} strong />
+            </div>
+          )}
+        </ResultPanel>
+      </div>
+    </div>
+  );
+}
+
+function SipCalculator() {
+  const [monthly, setMonthly] = useState(10000);
+  const [returnPct, setReturnPct] = useState(12);
+  const [years, setYears] = useState(10);
+
+  const result = useMemo(
+    () => tryCalc(() => calculateSIP({ monthlyInvestment: monthly, expectedReturnPct: returnPct, tenureMonths: Math.round(years) * 12 })),
+    [monthly, returnPct, years],
+  );
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-5">
+      <Card className="p-6 shadow-none lg:col-span-3">
+        <div className="space-y-6">
+          <SliderControl label="Monthly investment" value={monthly} min={SIP.minMonthly} max={100000} step={500} suffix="₹" onChange={setMonthly} hint={`SIP on this platform starts at ${formatINRWhole(SIP.minMonthly)} a month.`} />
+          <SliderControl label="Assumed annual return" value={returnPct} min={1} max={20} step={0.5} decimals={1} suffix="% p.a." onChange={setReturnPct} hint="An assumption you choose for this illustration — not a rate the bank offers or expects." />
+          <SliderControl label="Investment period" value={years} min={1} max={30} step={1} suffix="years" onChange={setYears} />
+        </div>
+      </Card>
+      <div className="lg:col-span-2">
+        <ResultPanel
+          headlineLabel="Projected value (illustration only)"
+          headlineValue={result ? formatINR(result.maturityValue) : '—'}
+          headlineNote="What the deposits above would grow to IF markets returned exactly the assumed rate every year. They will not."
+          ctaTo="/investments/systematic-investment-plan"
+          ctaLabel="Start a SIP"
+        >
+          <div className="mt-5 flex items-start gap-2 rounded-lg border border-porcelain-50/20 bg-white/5 px-3 py-2.5 text-sm leading-relaxed text-porcelain-200">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-gold-300" aria-hidden />
+            <span>
+              <strong className="font-semibold text-porcelain-50">Market-linked — returns not guaranteed.</strong>{' '}
+              Mutual fund investments are subject to market risks; the value can fall as well as rise and past performance does not predict future returns.
+            </span>
+          </div>
+          {result && (
+            <>
+              <ProportionBar aLabel="You invest" aValue={result.totalInvested} bLabel="Estimated gain (assumed)" bValue={result.estimatedGain} />
+              <div className="mt-4">
+                <ResultRow label="Total invested" value={formatINR(result.totalInvested)} />
+                <ResultRow label="Estimated gain" value={formatINR(result.estimatedGain)} />
+                <ResultRow label="Projected value" value={formatINR(result.maturityValue)} strong />
+              </div>
+            </>
+          )}
+        </ResultPanel>
+      </div>
+    </div>
+  );
+}
+
+function SsyCalculator() {
+  const [yearly, setYearly] = useState(100000);
+
+  const result = useMemo(
+    () => tryCalc(() => calculateSSY({ annualDeposit: yearly, annualRatePct: SSY.rate, depositYears: SSY.depositYears, maturityYears: SSY.tenureYears, maxDepositPerYear: SSY.maxDepositYearly })),
+    [yearly],
+  );
+
+  return (
+    <div className="grid gap-6 lg:grid-cols-5">
+      <Card className="p-6 shadow-none lg:col-span-3">
+        <div className="space-y-6">
+          <SliderControl
+            label="Deposit per year"
+            value={yearly}
+            min={SSY.minDepositYearly}
+            max={SSY.maxDepositYearly}
+            step={250}
+            suffix="₹"
+            onChange={setYearly}
+            hint={`Scheme limits: ${formatINRWhole(SSY.minDepositYearly)} to ${formatINRWhole(SSY.maxDepositYearly)} per financial year. Deposits are made for ${SSY.depositYears} years; the account matures after ${SSY.tenureYears} years.`}
+          />
+          <div className="rounded-lg border border-ink-100 bg-porcelain-50 px-4 py-3">
+            <p className="text-sm text-ink-700">
+              Interest rate used: <strong className="font-semibold text-midnight-900">{SSY.rate.toFixed(2)}% p.a.</strong>
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-ink-500">{SSY.rateNote}</p>
+          </div>
+        </div>
+      </Card>
+      <div className="lg:col-span-2">
+        <ResultPanel
+          headlineLabel={`Maturity value at ${SSY.tenureYears} years (projection)`}
+          headlineValue={result ? formatINR(result.maturityValue) : '—'}
+          headlineNote="Projection at the rate above, held unchanged for the full term. The government revises the SSY rate from time to time, so the actual maturity value will differ."
+          ctaTo="/investments/sukanya-samriddhi"
+          ctaLabel="Open an SSY account"
+        >
+          {result && (
+            <div className="mt-4">
+              <ResultRow label="Deposit applied per year" value={formatINR(result.appliedAnnualDeposit)} />
+              <ResultRow label={`Total deposited (${SSY.depositYears} years)`} value={formatINR(result.totalDeposited)} />
+              <ResultRow label="Interest earned (projected)" value={formatINR(result.interestEarned)} />
+              <ResultRow label="Maturity value" value={formatINR(result.maturityValue)} strong />
+            </div>
+          )}
+        </ResultPanel>
+      </div>
+    </div>
+  );
+}
+
+// ---------------------------------------------------------------------------
+// Page
+// ---------------------------------------------------------------------------
+
+export default function CalculatorsPage() {
+  const [searchParams, setSearchParams] = useSearchParams();
+  const requested = searchParams.get('tab');
+  const active = TAB_IDS.includes(requested) ? requested : 'emi';
+
+  return (
+    <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:py-20">
+      <SectionHeader titleAs="h1"
+        eyebrow="Calculators"
+        title="Plan the numbers before you apply"
+        description="The same finance library the bank's loan and deposit engines use — no rounded-off marketing maths. Every result is an illustration based on the figures you enter."
+        action={<Calculator className="hidden h-8 w-8 text-gold-500 sm:block" aria-hidden />}
+      />
+      <Tabs
+        tabs={TABS}
+        active={active}
+        onChange={(id) => setSearchParams({ tab: id }, { replace: true })}
+      />
+      <div className="mt-6">
+        {active === 'emi' && <EmiCalculator />}
+        {active === 'fd' && <FdCalculator />}
+        {active === 'rd' && <RdCalculator />}
+        {active === 'sip' && <SipCalculator />}
+        {active === 'ssy' && <SsyCalculator />}
+      </div>
+    </div>
+  );
+}
+
+export { CalculatorsPage };

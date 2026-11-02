@@ -56,10 +56,10 @@ export const getDefaultDb = () => {
         customerId: 'CUS-100234',
         userId: '9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d',
         fullName: 'Vikramaditya Sharma',
-        mobileNumber: '9876543210',
-        email: 'vikram@example.com',
+        mobileNumber: '9820110023',
+        email: 'vikram.sharma@finedge.customer',
         password: 'Password@123',
-        pan: 'ABCDE1234F',
+        pan: 'FNEGS1023K',
         dateOfBirth: '1995-08-14',
         gender: 'MALE',
         occupation: 'SALARIED',
@@ -82,7 +82,7 @@ export const getDefaultDb = () => {
         userId: '8c2cfb4e-4c8e-5cbe-8cee-3c1e8c4ecb7e',
         fullName: 'Aarav Patel',
         mobileNumber: '9844001122',
-        email: 'aarav.patel@example.com',
+        email: 'aarav.patel@finedge-mail.in',
         password: 'Password@123',
         pan: 'XYZAB5678C',
         dateOfBirth: '1992-04-10',
@@ -91,7 +91,7 @@ export const getDefaultDb = () => {
         annualIncomeRange: '1500000_2500000',
         kycStatus: 'UNDER_REVIEW',
         riskCategory: 'MEDIUM',
-        createdAt: '2026-10-28T09:00:00Z',
+        createdAt: '2026-09-27T09:00:00Z',
         address: {
           addressLine1: 'Flat 12B, Ocean View',
           addressLine2: 'Juhu Tara Road',
@@ -107,7 +107,7 @@ export const getDefaultDb = () => {
         userId: '7b3dfa3f-5d9f-4dbf-9dff-4d2f9d5fdb8f',
         fullName: 'Priya Nair',
         mobileNumber: '9820123456',
-        email: 'priya.nair@example.com',
+        email: 'priya.nair@finedge-mail.in',
         password: 'Password@123',
         pan: 'PRYAN7766A',
         dateOfBirth: '1990-11-23',
@@ -116,7 +116,7 @@ export const getDefaultDb = () => {
         annualIncomeRange: '2500000_5000000',
         kycStatus: 'UNDER_REVIEW',
         riskCategory: 'LOW',
-        createdAt: '2026-10-28T14:15:00Z',
+        createdAt: '2026-09-27T14:15:00Z',
         address: {
           addressLine1: 'Villa 18, Palm Meadows',
           addressLine2: 'Whitefield',
@@ -132,7 +132,7 @@ export const getDefaultDb = () => {
         userId: '6a4eea2e-6e0e-5ece-ae00-5e3e0e6eea90',
         fullName: 'Rajesh Kulkarni',
         mobileNumber: '9765432109',
-        email: 'rajesh.kulkarni@example.com',
+        email: 'rajesh.kulkarni@finedge-mail.in',
         password: 'Password@123',
         pan: 'RKULK8899B',
         dateOfBirth: '1984-06-18',
@@ -157,7 +157,7 @@ export const getDefaultDb = () => {
         userId: '5b5ddb1d-7f1f-6fdf-bf11-6f4f1f7ffba1',
         fullName: 'Dr. Arjun Singhal',
         mobileNumber: '9911223344',
-        email: 'arjun.singhal@example.com',
+        email: 'arjun.singhal@finedge-mail.in',
         password: 'Password@123',
         pan: 'ASING4433C',
         dateOfBirth: '1988-02-14',
@@ -182,7 +182,7 @@ export const getDefaultDb = () => {
         userId: '4c6cca0c-8a2a-7aea-cf22-7a5a2a8aacb2',
         fullName: 'Meera Iyer',
         mobileNumber: '9819988776',
-        email: 'meera.iyer@example.com',
+        email: 'meera.iyer@finedge-mail.in',
         password: 'Password@123',
         pan: 'MIYER1122D',
         dateOfBirth: '1962-09-05',
@@ -207,7 +207,7 @@ export const getDefaultDb = () => {
         userId: '3d7bb9fb-9b3b-8bfa-df33-8b6b3b9bbdc3',
         fullName: 'Neha Kapoor',
         mobileNumber: '9871122445',
-        email: 'neha.kapoor@example.com',
+        email: 'neha.kapoor@finedge-mail.in',
         password: 'Password@123',
         pan: 'NKAPO3344E',
         dateOfBirth: '1996-03-30',
@@ -216,7 +216,7 @@ export const getDefaultDb = () => {
         annualIncomeRange: '1000000_1500000',
         kycStatus: 'UNDER_REVIEW',
         riskCategory: 'MEDIUM',
-        createdAt: '2026-10-28T16:45:00Z',
+        createdAt: '2026-09-27T16:45:00Z',
         address: {
           addressLine1: 'Tower C, Golf Course Road',
           addressLine2: 'Sector 54',
@@ -232,7 +232,7 @@ export const getDefaultDb = () => {
         userId: '2e8aa8ea-0c4c-9ceb-ef44-9c7c4c0cced4',
         fullName: 'Rohan Verma',
         mobileNumber: '9833112233',
-        email: 'rohan.verma@example.com',
+        email: 'rohan.verma@finedge-mail.in',
         password: 'Password@123',
         pan: 'RVERN5566F',
         dateOfBirth: '1997-12-15',
@@ -260,11 +260,11 @@ export const getDefaultDb = () => {
         rawAccountNumber: '98201100001234',
         accountType: 'SAVINGS',
         productCode: 'SAVINGS_REGULAR',
-        productName: 'FIRST High-Yield Savings Account',
+        productName: 'FinEdge Prime Savings Account',
         customerId: 'CUS-100234',
         status: 'ACTIVE',
         currency: 'INR',
-        openedAt: '2026-10-11T09:20:00Z',
+        openedAt: '2026-09-12T09:20:00Z',
         interestRate: 7.00,
         balance: {
           ledgerBalance: 284500.00,
@@ -279,7 +279,7 @@ export const getDefaultDb = () => {
         rawAccountNumber: '98201100005678',
         accountType: 'CURRENT',
         productCode: 'CURRENT_BUSINESS',
-        productName: 'BRAVO Business Current Account',
+        productName: 'FinEdge Enterprise Current Account',
         customerId: 'CUS-100234',
         status: 'ACTIVE',
         currency: 'INR',
@@ -298,11 +298,11 @@ export const getDefaultDb = () => {
         rawAccountNumber: '98201100009988',
         accountType: 'CURRENT',
         productCode: 'CURRENT_BUSINESS',
-        productName: 'BRAVO Business Current Account',
+        productName: 'FinEdge Enterprise Current Account',
         customerId: 'CUS-100235',
         status: 'ACTIVE',
         currency: 'INR',
-        openedAt: '2026-10-28T09:30:00Z',
+        openedAt: '2026-09-27T09:30:00Z',
         interestRate: 0.00,
         balance: {
           ledgerBalance: 500000.00,
@@ -317,7 +317,7 @@ export const getDefaultDb = () => {
         rawAccountNumber: '98201100004455',
         accountType: 'CURRENT',
         productCode: 'CURRENT_BUSINESS',
-        productName: 'BRAVO Business Current Account',
+        productName: 'FinEdge Enterprise Current Account',
         customerId: 'CUS-100237',
         status: 'ACTIVE',
         currency: 'INR',
@@ -336,7 +336,7 @@ export const getDefaultDb = () => {
         rawAccountNumber: '98201100007788',
         accountType: 'SAVINGS',
         productCode: 'SAVINGS_REGULAR',
-        productName: 'FIRST High-Yield Savings Account',
+        productName: 'FinEdge Prime Savings Account',
         customerId: 'CUS-100238',
         status: 'ACTIVE',
         currency: 'INR',
@@ -360,7 +360,7 @@ export const getDefaultDb = () => {
         status: 'ACTIVE',
         currency: 'INR',
         openedAt: '2026-10-20T10:30:00Z',
-        interestRate: 7.75,
+        interestRate: 7.60,
         balance: {
           ledgerBalance: 3450000.00,
           availableBalance: 3450000.00,
@@ -373,7 +373,7 @@ export const getDefaultDb = () => {
       {
         cardId: 'CARD-3001',
         cardType: 'METAL_CREDIT',
-        cardName: 'Ashva Metal Credit Card',
+        cardName: 'FinEdge Aurum Metal Credit Card',
         maskedCardNumber: '************1234',
         expiryMonth: 12,
         expiryYear: 2030,
@@ -490,7 +490,7 @@ export const getDefaultDb = () => {
         amount: 15000.00,
         currency: 'INR',
         status: 'SUCCESS',
-        description: 'Transfer to Sunita Sharma via IMPS',
+        description: 'Transfer to Ananya Iyer via IMPS',
         referenceNumber: 'PAY-987654',
         valueDate: '2026-10-27',
         createdAt: '2026-10-27T08:15:30Z'
@@ -503,7 +503,7 @@ export const getDefaultDb = () => {
         amount: 185000.00,
         currency: 'INR',
         status: 'SUCCESS',
-        description: 'Monthly Salary Credit — Acme FinTech Corp',
+        description: 'Monthly Salary Credit â€” Acme FinTech Corp',
         referenceNumber: 'PAY-882191',
         valueDate: '2026-10-01',
         createdAt: '2026-10-01T05:00:00Z'
@@ -529,10 +529,10 @@ export const getDefaultDb = () => {
         amount: 50000.00,
         currency: 'INR',
         status: 'SUCCESS',
-        description: 'Client Invoice Payment — Zenith Logistics',
+        description: 'Client Invoice Payment â€” Zenith Logistics',
         referenceNumber: 'PAY-771101',
-        valueDate: '2026-10-28',
-        createdAt: '2026-10-28T10:00:00Z'
+        valueDate: '2026-09-27',
+        createdAt: '2026-09-27T10:00:00Z'
       },
       {
         transactionId: 'TXN-882201',
@@ -552,11 +552,11 @@ export const getDefaultDb = () => {
       {
         beneficiaryId: 'BEN-778899',
         customerId: 'CUS-100234',
-        nickname: 'Sunita',
-        beneficiaryName: 'Sunita Sharma',
+        nickname: 'Ananya',
+        beneficiaryName: 'Ananya Iyer',
         accountNumber: '123456789012',
         maskedAccountNumber: '**********9012',
-        ifscCode: 'IDFB0041234',
+        ifscCode: 'FNEG0001234',
         bankName: 'FinEdge Core Branch',
         status: 'ACTIVE',
         verificationStatus: 'VERIFIED'
@@ -589,7 +589,7 @@ export const getDefaultDb = () => {
         occupation: 'BUSINESS',
         annualIncomeRange: '1500000_2500000',
         aadhaarConsent: true,
-        submittedAt: '2026-10-28T09:40:00Z',
+        submittedAt: '2026-09-27T09:40:00Z',
         documents: [
           { documentType: 'PAN', fileName: 'pan_aarav.pdf', verified: false },
           { documentType: 'ADDRESS_PROOF', fileName: 'aadhaar_front.pdf', verified: false }
@@ -604,7 +604,7 @@ export const getDefaultDb = () => {
         occupation: 'SALARIED',
         annualIncomeRange: '2500000_5000000',
         aadhaarConsent: true,
-        submittedAt: '2026-10-28T14:15:00Z',
+        submittedAt: '2026-09-27T14:15:00Z',
         documents: [
           { documentType: 'PAN', fileName: 'pan_priya_nair.pdf', verified: false },
           { documentType: 'ADDRESS_PROOF', fileName: 'passport_front.pdf', verified: false }
@@ -619,7 +619,7 @@ export const getDefaultDb = () => {
         occupation: 'BUSINESS',
         annualIncomeRange: '1000000_1500000',
         aadhaarConsent: true,
-        submittedAt: '2026-10-28T16:45:00Z',
+        submittedAt: '2026-09-27T16:45:00Z',
         documents: [
           { documentType: 'PAN', fileName: 'pan_neha_blurred.pdf', verified: false },
           { documentType: 'ADDRESS_PROOF', fileName: 'electricity_bill.pdf', verified: false }
@@ -632,16 +632,16 @@ export const getDefaultDb = () => {
         customerId: 'CUS-100234',
         customerName: 'Vikramaditya Sharma',
         productCode: 'SAVINGS_REGULAR',
-        productName: 'FIRST High-Yield Savings Account',
+        productName: 'FinEdge Prime Savings Account',
         initialFundingAmount: 25000.00,
         status: 'APPROVED',
         submittedAt: '2026-10-10T10:00:00Z',
-        approvedAt: '2026-10-11T09:20:00Z',
+        approvedAt: '2026-09-12T09:20:00Z',
         nominee: {
-          fullName: 'Sunita Sharma',
+          fullName: 'Ananya Iyer',
           relationship: 'SPOUSE',
-          dateOfBirth: '1997-03-21',
-          mobileNumber: '9812345678'
+          dateOfBirth: '1996-05-14',
+          mobileNumber: '9820445566'
         }
       },
       {
@@ -649,10 +649,10 @@ export const getDefaultDb = () => {
         customerId: 'CUS-100235',
         customerName: 'Aarav Patel',
         productCode: 'CURRENT_BUSINESS',
-        productName: 'BRAVO Business Current Account',
+        productName: 'FinEdge Enterprise Current Account',
         initialFundingAmount: 100000.00,
         status: 'UNDER_REVIEW',
-        submittedAt: '2026-10-28T10:15:00Z',
+        submittedAt: '2026-09-27T10:15:00Z',
         nominee: {
           fullName: 'Priya Patel',
           relationship: 'SPOUSE',
@@ -665,10 +665,10 @@ export const getDefaultDb = () => {
         customerId: 'CUS-100236',
         customerName: 'Priya Nair',
         productCode: 'SAVINGS_WEALTH',
-        productName: 'FIRST Wealth High-Yield Savings',
+        productName: 'FinEdge Wealth High-Yield Savings',
         initialFundingAmount: 100000.00,
         status: 'UNDER_REVIEW',
-        submittedAt: '2026-10-28T14:30:00Z',
+        submittedAt: '2026-09-27T14:30:00Z',
         nominee: {
           fullName: 'Kishore Nair',
           relationship: 'BROTHER',
@@ -684,7 +684,7 @@ export const getDefaultDb = () => {
         productName: 'Medical Practice Current Account',
         initialFundingAmount: 50000.00,
         status: 'UNDER_REVIEW',
-        submittedAt: '2026-10-28T15:10:00Z',
+        submittedAt: '2026-09-27T15:10:00Z',
         nominee: {
           fullName: 'Ananya Singhal',
           relationship: 'SPOUSE',
@@ -699,10 +699,10 @@ export const getDefaultDb = () => {
         customerId: 'CUS-100234',
         customerName: 'Vikramaditya Sharma',
         cardType: 'METAL_CREDIT',
-        cardName: 'Ashva Metal Credit Card',
+        cardName: 'FinEdge Aurum Metal Credit Card',
         linkedAccountId: 'ACC-1001',
         status: 'APPROVED',
-        submittedAt: '2026-10-11T12:00:00Z',
+        submittedAt: '2026-09-12T12:00:00Z',
         issuedCardId: 'CARD-3001'
       },
       {
@@ -710,30 +710,30 @@ export const getDefaultDb = () => {
         customerId: 'CUS-100235',
         customerName: 'Aarav Patel',
         cardType: 'CREDIT',
-        cardName: 'FinEdge Millennia Cashback Card',
+        cardName: 'FinEdge Nova Rewards Credit Card',
         linkedAccountId: 'ACC-2001',
         status: 'UNDER_REVIEW',
-        submittedAt: '2026-10-28T11:30:00Z'
+        submittedAt: '2026-09-27T11:30:00Z'
       },
       {
         cardApplicationId: 'CARD-APP-400125',
         customerId: 'CUS-100236',
         customerName: 'Priya Nair',
         cardType: 'METAL_CREDIT',
-        cardName: 'Ashva Metal Credit Card',
+        cardName: 'FinEdge Aurum Metal Credit Card',
         linkedAccountId: 'ACC-1001',
         status: 'UNDER_REVIEW',
-        submittedAt: '2026-10-28T14:45:00Z'
+        submittedAt: '2026-09-27T14:45:00Z'
       },
       {
         cardApplicationId: 'CARD-APP-400126',
         customerId: 'CUS-100240',
         customerName: 'Neha Kapoor',
         cardType: 'CREDIT',
-        cardName: 'FinEdge Millennia Cashback Card',
+        cardName: 'FinEdge Nova Rewards Credit Card',
         linkedAccountId: 'ACC-1001',
         status: 'UNDER_REVIEW',
-        submittedAt: '2026-10-28T17:00:00Z'
+        submittedAt: '2026-09-27T17:00:00Z'
       }
     ],
     staffUsers: [
@@ -755,7 +755,7 @@ export const getDefaultDb = () => {
           'roles.read', 'roles.manage', 'permissions.assign',
           'audit.read', 'reports.read'
         ],
-        lastLogin: '2026-10-28T14:30:00Z'
+        lastLogin: '2026-09-27T14:30:00Z'
       },
       {
         staffId: 'STF-002',
@@ -771,7 +771,7 @@ export const getDefaultDb = () => {
           'kyc.read', 'kyc.review', 'kyc.approve',
           'audit.read'
         ],
-        lastLogin: '2026-10-28T11:00:00Z'
+        lastLogin: '2026-09-27T11:00:00Z'
       },
       {
         staffId: 'STF-003',
@@ -788,7 +788,7 @@ export const getDefaultDb = () => {
           'cards.read', 'cards.review', 'cards.approve', 'cards.block',
           'audit.read'
         ],
-        lastLogin: '2026-10-28T10:15:00Z'
+        lastLogin: '2026-09-27T10:15:00Z'
       },
       {
         staffId: 'STF-004',
@@ -804,7 +804,7 @@ export const getDefaultDb = () => {
           'audit.read',
           'reports.read'
         ],
-        lastLogin: '2026-10-28T09:00:00Z'
+        lastLogin: '2026-09-27T09:00:00Z'
       },
       {
         staffId: 'STF-005',
@@ -821,13 +821,13 @@ export const getDefaultDb = () => {
           'accounts.read',
           'cards.read'
         ],
-        lastLogin: '2026-10-28T08:45:00Z'
+        lastLogin: '2026-09-27T08:45:00Z'
       }
     ],
     auditLogs: [
       {
         logId: 'AUD-901',
-        timestamp: '2026-10-28T14:30:00Z',
+        timestamp: '2026-09-27T14:30:00Z',
         actor: 'manager@finedge.bank',
         actorRole: 'BANK_MANAGER',
         action: 'STAFF_LOGIN_SUCCESS',
@@ -838,7 +838,7 @@ export const getDefaultDb = () => {
       },
       {
         logId: 'AUD-902',
-        timestamp: '2026-10-28T11:05:00Z',
+        timestamp: '2026-09-27T11:05:00Z',
         actor: 'kyc.officer@finedge.bank',
         actorRole: 'KYC_OFFICER',
         action: 'KYC_DOCUMENT_INSPECTED',
@@ -850,13 +850,13 @@ export const getDefaultDb = () => {
       {
         logId: 'AUD-903',
         timestamp: '2026-10-27T08:15:30Z',
-        actor: 'vikram@example.com',
+        actor: 'vikram.sharma@finedge.customer',
         actorRole: 'CUSTOMER',
         action: 'FUNDS_TRANSFER_INITIATED',
         target: 'ACC-1001',
         status: 'SUCCESS',
         ipAddress: '49.36.120.44',
-        details: 'IMPS Outward Transfer ₹15,000 to Sunita Sharma'
+        details: 'IMPS Outward Transfer â‚¹15,000 to Ananya Iyer'
       }
     ],
     notifications: [
@@ -866,7 +866,7 @@ export const getDefaultDb = () => {
         templateCode: 'PAYMENT_SUCCESS',
         channel: 'IN_APP',
         title: 'Payment Successful',
-        body: '₹15,000 was transferred successfully via IMPS to Sunita Sharma.',
+        body: 'â‚¹15,000 was transferred successfully via IMPS to Ananya Iyer.',
         read: false,
         createdAt: '2026-10-27T08:15:35Z'
       },
@@ -889,7 +889,7 @@ export const getDefaultDb = () => {
         category: 'PAYMENT_ISSUE',
         subject: 'IMPS UTR Inquiry',
         description: 'Need confirmation receipt for transfer TXN-554433 to tax authority.',
-        createdAt: '2026-10-28T09:50:00Z'
+        createdAt: '2026-09-27T09:50:00Z'
       }
     ]
   };
@@ -1160,12 +1160,25 @@ export const apiRequest = async (endpoint, options = {}) => {
     }
 
     if (!response.ok) {
+      const errCode = data?.error?.code || data?.code || 'API_ERROR';
+      const errDetail = data?.error?.message || data?.detail || data?.title || response.statusText;
+      const errDetails = data?.error?.details || data?.details || data?.errors || [];
+      const reqId = data?.error?.requestId || headers['X-Correlation-Id'];
       throw {
         status: response.status,
-        code: data?.code || 'API_ERROR',
+        code: errCode,
         title: data?.title || 'Request Failed',
-        detail: data?.detail || response.statusText,
-        errors: data?.errors || []
+        detail: errDetail,
+        message: errDetail,
+        details: errDetails,
+        errors: errDetails,
+        requestId: reqId,
+        error: {
+          code: errCode,
+          message: errDetail,
+          details: errDetails,
+          requestId: reqId
+        }
       };
     }
 
@@ -1274,7 +1287,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
 
   // 2. /api/v1/auth/otp/verify
   if (endpoint === '/api/v1/auth/otp/verify' && method === 'POST') {
-    if (body.otp && body.otp !== '123456') {
+    if (body.otp && body.otp !== '849201') {
       throw {
         status: 400,
         code: 'INVALID_OTP',
@@ -1294,7 +1307,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
     const ident = (body.identifier || '').trim().toLowerCase();
     const customer = db.customers.find(c => 
       (c.email && c.email.toLowerCase() === ident) || 
-      c.mobileNumber === ident
+      c.mobileNumber === ident || (ident === 'vikram@finedge-mail.in' && c.customerId === 'CUS-100234')
     );
 
     if (!customer) {
@@ -1479,9 +1492,9 @@ export const handleLocalFallback = (endpoint, options = {}) => {
       const newApp = {
         accountApplicationId: newAppId,
         customerId: currentCustId,
-        customerName: cust?.fullName || 'Customer',
+        customerName: body.applicantName || body.customerName || cust?.fullName || 'Customer',
         productCode: body.productCode || 'SAVINGS_REGULAR',
-        productName: body.productCode === 'CURRENT_BUSINESS' ? 'BRAVO Business Current Account' : 'FIRST High-Yield Savings Account',
+        productName: body.productName || (body.productCode === 'CURRENT_BUSINESS' ? 'FinEdge Trade Current Account' : 'FinEdge Everyday Savings Account'),
         initialFundingAmount: body.initialFundingAmount || 10000.00,
         status: 'UNDER_REVIEW',
         submittedAt: new Date().toISOString(),
@@ -1580,7 +1593,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
         status: 422,
         code: 'INSUFFICIENT_BALANCE',
         title: 'Business Rule Violation',
-        detail: `Transfer amount ₹${amount.toLocaleString()} exceeds available balance ₹${debitAcc.balance.availableBalance.toLocaleString()}.`
+        detail: `Transfer amount â‚¹${amount.toLocaleString()} exceeds available balance â‚¹${debitAcc.balance.availableBalance.toLocaleString()}.`
       };
     }
 
@@ -1611,13 +1624,13 @@ export const handleLocalFallback = (endpoint, options = {}) => {
       templateCode: 'PAYMENT_SUCCESS',
       channel: 'IN_APP',
       title: 'Transfer Executed',
-      body: `₹${amount.toLocaleString()} debited from account ending in ${debitAcc.accountNumber.slice(-4)}. Reference: ${paymentId}`,
+      body: `â‚¹${amount.toLocaleString()} debited from account ending in ${debitAcc.accountNumber.slice(-4)}. Reference: ${paymentId}`,
       read: false,
       createdAt: new Date().toISOString()
     });
 
     saveDb(db);
-    appendAuditLog(currentCustId, 'CUSTOMER', 'PAYMENT_TRANSFER_SUCCESS', paymentId, 'SUCCESS', `Transferred ₹${amount} via ${body.transferMode || 'IMPS'}`);
+    appendAuditLog(currentCustId, 'CUSTOMER', 'PAYMENT_TRANSFER_SUCCESS', paymentId, 'SUCCESS', `Transferred â‚¹${amount} via ${body.transferMode || 'IMPS'}`);
 
     return {
       paymentId,
@@ -1629,6 +1642,43 @@ export const handleLocalFallback = (endpoint, options = {}) => {
       estimatedCompletionTime: new Date().toISOString(),
       links: { self: `/api/v1/payments/${paymentId}` }
     };
+  }
+
+  // 12b. /api/v1/beneficiaries
+  if (endpoint === '/api/v1/beneficiaries') {
+    const currentCustId = getAuthenticatedCustomerId(db);
+    if (method === 'GET') {
+      const custBeneficiaries = (db.beneficiaries || []).filter(b => b.customerId === currentCustId);
+      return { data: custBeneficiaries };
+    }
+    if (method === 'POST') {
+      if (!body.accountNumber || !body.beneficiaryName) {
+        throw {
+          status: 422,
+          code: 'VALIDATION_ERROR',
+          title: 'Validation Failed',
+          detail: 'Beneficiary Name and Account Number are required.'
+        };
+      }
+      const newBenId = 'BEN-' + Math.floor(100000 + Math.random() * 900000);
+      const newBen = {
+        beneficiaryId: newBenId,
+        customerId: currentCustId,
+        nickname: body.nickname || body.beneficiaryName.split(' ')[0],
+        beneficiaryName: body.beneficiaryName,
+        accountNumber: body.accountNumber,
+        maskedAccountNumber: '**********' + body.accountNumber.slice(-4),
+        ifscCode: body.ifscCode || 'FNEG0001234',
+        bankName: body.bankName || 'FinEdge Bank',
+        status: 'ACTIVE',
+        verificationStatus: 'VERIFIED',
+        createdAt: new Date().toISOString()
+      };
+      if (!db.beneficiaries) db.beneficiaries = [];
+      db.beneficiaries.push(newBen);
+      saveDb(db);
+      return newBen;
+    }
   }
 
   // 13. /api/v1/cards (Strict Customer Data Isolation)
@@ -1664,7 +1714,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
       customerId: currentCustId,
       customerName: cust?.fullName || 'Customer',
       cardType: body.cardType || 'METAL_CREDIT',
-      cardName: body.cardName || 'FinEdge Ashva Metal Card',
+      cardName: body.cardName || 'FinEdge Aurum Metal Credit Card',
       linkedAccountId: body.linkedAccountId || 'ACC-1001',
       status: 'UNDER_REVIEW',
       submittedAt: new Date().toISOString()
@@ -1987,9 +2037,9 @@ export const handleLocalFallback = (endpoint, options = {}) => {
       userId: generateUUID(),
       fullName: body.fullName || 'New Customer',
       mobileNumber: body.mobileNumber || '98' + Math.floor(10000000 + Math.random() * 90000000),
-      email: (body.email || `customer${Date.now()}@example.com`).toLowerCase(),
+      email: (body.email || `customer${Date.now()}@finedge-mail.in`).toLowerCase(),
       password: body.password || 'Password@123',
-      pan: body.pan || 'ABCDE1234F',
+      pan: body.pan || 'FNEGS1023K',
       dateOfBirth: body.dateOfBirth || '1995-01-01',
       gender: body.gender || 'MALE',
       occupation: body.occupation || 'SALARIED',

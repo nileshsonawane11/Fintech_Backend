@@ -58,7 +58,7 @@ async function runTestSuite() {
       method: 'POST',
       body: JSON.stringify({
         fullName: 'Sneha Kulkarni',
-        email: 'sneha.k@example.com',
+        email: 'sneha.k@finedge-mail.in',
         mobileNumber: '9822334455',
         password: 'Password@2026'
       })
@@ -74,7 +74,7 @@ async function runTestSuite() {
       method: 'POST',
       body: JSON.stringify({
         fullName: 'Duplicate Sneha',
-        email: 'sneha.k@example.com',
+        email: 'sneha.k@finedge-mail.in',
         mobileNumber: '9822334455',
         password: 'Password@2026'
       })
@@ -90,7 +90,7 @@ async function runTestSuite() {
       method: 'POST',
       body: JSON.stringify({
         fullName: 'Short Pass',
-        email: 'short@example.com',
+        email: 'short@finedge-mail.in',
         mobileNumber: '9811111111',
         password: 'short'
       })
@@ -110,7 +110,7 @@ async function runTestSuite() {
     const loginRes = handleLocalFallback('/api/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify({
-        identifier: 'vikram@example.com',
+        identifier: 'vikram.sharma@finedge.customer',
         password: 'Password@123'
       })
     });
@@ -124,7 +124,7 @@ async function runTestSuite() {
     handleLocalFallback('/api/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify({
-        identifier: 'vikram@example.com',
+        identifier: 'vikram.sharma@finedge.customer',
         password: 'WrongPassword'
       })
     });
@@ -138,7 +138,7 @@ async function runTestSuite() {
     handleLocalFallback('/api/v1/auth/login', {
       method: 'POST',
       body: JSON.stringify({
-        identifier: 'nobody@example.com',
+        identifier: 'nobody@finedge-mail.in',
         password: 'Password@123'
       })
     });
@@ -153,7 +153,7 @@ async function runTestSuite() {
       method: 'POST',
       body: JSON.stringify({
         mfaReferenceId: 'mfa-test',
-        otp: '123456'
+        otp: '849201'
       })
     });
     assert(mfaRes.accessToken && mfaRes.customerId === 'CUS-100234', 'MFA verified and full access token issued');
