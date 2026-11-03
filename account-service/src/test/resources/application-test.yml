@@ -1,0 +1,56 @@
+server:
+  port: 0
+
+spring:
+  application:
+    name: ACCOUNT-SERVICE
+
+  datasource:
+    url: jdbc:h2:mem:fintech_account;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERINGS=HIGH;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: false
+
+  flyway:
+    enabled: false
+
+  kafka:
+    bootstrap-servers: localhost:9092
+
+  jackson:
+    time-zone: UTC
+    serialization:
+      write-dates-as-timestamps: false
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
+security:
+  jwt:
+    public-key-location: classpath:keys/public.pem
+    issuer: identity-service
+  data-encryption-key: A6zUYKLUu7Q98OeKx77T7AxCZ+yxJKR40JgJNyEaZg4=
+
+app:
+  kafka:
+    topics:
+      application-events: account.application-events.v1
+      lifecycle-events: account.lifecycle-events.v1
+      hold-events: account.hold-events.v1
+      nominee-events: account.nominee-events.v1
+  services:
+    customer-service:
+      url: http://localhost:8084
+    ledger-service:
+      url: http://localhost:8083

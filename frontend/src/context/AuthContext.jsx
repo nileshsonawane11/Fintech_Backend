@@ -3,7 +3,7 @@ import { authService } from '../services/authService';
 import { customerService } from '../services/customerService';
 import { accountService } from '../services/accountService';
 import { cardService } from '../services/cardService';
-import { getAccessToken, getManagerToken, getDb } from '../services/api';
+import { getAccessToken, getManagerToken, getDb, saveDb } from '../services/api';
 
 const AuthContext = createContext();
 
@@ -65,17 +65,32 @@ export const AuthProvider = ({ children }) => {
       const currentCustId = user?.customerId;
       const filteredAccApps = (db.accountApplications || []).filter(a => !currentCustId || a.customerId === currentCustId);
       const filteredCardApps = (db.cardApplications || []).filter(c => !currentCustId || c.customerId === currentCustId);
+      const filteredLoanApps = (db.loanApplications || []).filter(l => !currentCustId || l.customerId === currentCustId);
 
       const combinedApps = [
+        ...filteredLoanApps.map(l => ({
+          id: l.applicationId || l.id,
+          productType: 'Loan',
+          productName: l.productName,
+          applicantName: l.customer?.fullName || l.applicantName,
+          status: l.status,
+          date: l.submittedAt?.split('T')[0] || new Date().toISOString().split('T')[0],
+          steps: [
+            { name: 'Application Submitted', completed: true, date: l.submittedAt?.split('T')[0] || new Date().toISOString().split('T')[0] },
+            { name: 'Document Verification', completed: l.status !== 'REJECTED', date: l.status === 'APPROVED' || l.status === 'SANCTIONED' ? 'Verified' : 'In Review' },
+            { name: 'Sanction & Underwriting', completed: l.status === 'APPROVED' || l.status === 'SANCTIONED' || l.status === 'DISBURSED', date: l.status === 'APPROVED' || l.status === 'SANCTIONED' ? 'Sanctioned' : 'Pending' },
+            { name: 'Disbursal', completed: l.status === 'DISBURSED', date: l.status === 'DISBURSED' ? 'Disbursed' : 'Pending' }
+          ]
+        })),
         ...filteredAccApps.map(a => ({
           id: a.accountApplicationId,
           productType: 'Account',
           productName: a.productName,
           applicantName: a.customerName,
           status: a.status,
-          date: a.submittedAt?.split('T')[0] || '2026-10-12',
+          date: a.submittedAt?.split('T')[0] || new Date().toISOString().split('T')[0],
           steps: [
-            { name: 'Application Submitted', completed: true, date: a.submittedAt?.split('T')[0] || '2026-10-12' },
+            { name: 'Application Submitted', completed: true, date: a.submittedAt?.split('T')[0] || new Date().toISOString().split('T')[0] },
             { name: 'Document Verification', completed: a.status !== 'REJECTED', date: a.status === 'APPROVED' ? 'Verified' : 'In Review' },
             { name: 'Underwriting Review', completed: a.status === 'APPROVED', date: a.status === 'APPROVED' ? 'Approved' : 'Pending' },
             { name: 'Account Activation', completed: a.status === 'APPROVED', date: a.status === 'APPROVED' ? 'Active' : 'Pending' }
@@ -87,9 +102,9 @@ export const AuthProvider = ({ children }) => {
           productName: c.cardName,
           applicantName: c.customerName,
           status: c.status,
-          date: c.submittedAt?.split('T')[0] || '2026-10-11',
+          date: c.submittedAt?.split('T')[0] || new Date().toISOString().split('T')[0],
           steps: [
-            { name: 'Application Submitted', completed: true, date: c.submittedAt?.split('T')[0] || '2026-10-11' },
+            { name: 'Application Submitted', completed: true, date: c.submittedAt?.split('T')[0] || new Date().toISOString().split('T')[0] },
             { name: 'Eligibility Assessment', completed: true, date: 'Completed' },
             { name: 'Card Approval', completed: c.status === 'APPROVED', date: c.status === 'APPROVED' ? 'Approved' : 'Pending' },
             { name: 'Card Dispatch & Delivery', completed: c.status === 'APPROVED', date: c.status === 'APPROVED' ? 'Dispatched' : 'Pending' }
@@ -98,7 +113,7 @@ export const AuthProvider = ({ children }) => {
       ];
       setApplications(combinedApps);
     } catch (e) {
-      console.error('Error refreshing customer data', e);
+      // Quiet fallback
     }
   }, [user]);
 
@@ -166,8 +181,8 @@ export const AuthProvider = ({ children }) => {
 
       const initialUser = {
         name: matched.fullName || 'FinEdge Customer',
-        email: matched.email || 'customer@example.com',
-        mobile: matched.mobileNumber || '9876543210',
+        email: matched.email || 'customer@finedge-mail.in',
+        mobile: matched.mobileNumber || '9820198402',
         customerId: matched.customerId || res.customerId,
         kycStatus: matched.kycStatus || 'APPROVED',
         lastLogin: new Date().toLocaleString('en-IN')
@@ -237,17 +252,77 @@ export const AuthProvider = ({ children }) => {
     setManagerUser(null);
   };
 
-  // Submit Application (Account or Card)
+  // Submit Application (Account, Card, or Loan)
   const submitApplication = async (applicationData) => {
-    if (applicationData.productType === 'Savings Account' || applicationData.productType === 'Current Account' || applicationData.category === 'Accounts') {
+    if (applicationData.category === 'loan' || applicationData.category === 'Loans' || applicationData.productType === 'loan' || applicationData.productType === 'Loan') {
+      const db = getDb();
+      if (!Array.isArray(db.loanApplications)) db.loanApplications = [];
+      const newId = `LN-APP-${Date.now().toString().slice(-6)}`;
+      const applicantName = applicationData.applicantName || applicationData.fullName || user?.fullName || user?.name || 'Applicant';
+      const newApp = {
+        id: newId,
+        applicationId: newId,
+        customerId: user?.customerId || 'CUS-GUEST',
+        customer: {
+          fullName: applicantName,
+          mobileNumber: applicationData.mobileNumber || applicationData.mobile || user?.mobileNumber || user?.phone || '',
+          email: applicationData.email || user?.email || '',
+        },
+        applicantName,
+        fullName: applicantName,
+        email: applicationData.email || user?.email || '',
+        mobileNumber: applicationData.mobileNumber || applicationData.mobile || user?.mobileNumber || user?.phone || '',
+        productSlug: applicationData.productSlug || applicationData.slug || '',
+        productName: applicationData.productName || applicationData.title || '',
+        amount: Number(applicationData.amount || applicationData.loanAmount || 0),
+        tenureMonths: Number(applicationData.tenureMonths || applicationData.tenure || 0),
+        emi: Number(applicationData.emi || 0),
+        rate: Number(applicationData.rate || 0),
+        monthlyIncome: applicationData.monthlyIncome ? Number(applicationData.monthlyIncome) : undefined,
+        employmentType: applicationData.employmentType || '',
+        employerName: applicationData.employerName || '',
+        purpose: applicationData.purpose || '',
+        accountId: applicationData.accountId || applicationData.linkedAccountId || (applicationData.noAccountYet ? 'PENDING_SANCTION' : 'ACC-OPERATIVE'),
+        status: 'SUBMITTED',
+        submittedAt: new Date().toISOString(),
+        timeline: [
+          {
+            stage: 'SUBMITTED',
+            at: new Date().toISOString(),
+            note: 'Application received via digital onboarding portal.'
+          }
+        ],
+        steps: [
+          { key: 'SUBMITTED', label: 'Application Submitted', state: 'COMPLETE', date: new Date().toISOString() },
+          { key: 'DOCUMENT_VERIFICATION', label: 'Document Verification', state: 'CURRENT' },
+          { key: 'UNDER_REVIEW', label: 'Under Review', state: 'UPCOMING' },
+          { key: 'APPROVED', label: 'Sanction & Disbursal', state: 'UPCOMING' }
+        ],
+        loanDetails: applicationData.loanDetails || {},
+        consents: applicationData.consents || {}
+      };
+      db.loanApplications.unshift(newApp);
+      saveDb(db);
+      refreshCustomerData();
+      return {
+        success: true,
+        data: newApp,
+        applicationId: newId,
+        id: newId,
+        referenceNumber: newId,
+        reference: newId
+      };
+    } else if (applicationData.productType === 'Savings Account' || applicationData.productType === 'Current Account' || applicationData.category === 'Accounts' || applicationData.category === 'account' || applicationData.productType === 'Account' || applicationData.productType === 'account') {
       const res = await accountService.applyForAccount({
-        productCode: applicationData.productCode || (applicationData.title?.includes('Current') ? 'CURRENT_BUSINESS' : 'SAVINGS_REGULAR'),
-        initialFundingAmount: applicationData.initialFundingAmount || 10000,
+        productCode: applicationData.productCode || (applicationData.title?.includes('Current') || applicationData.productName?.includes('Current') ? 'CURRENT_BUSINESS' : 'SAVINGS_REGULAR'),
+        productName: applicationData.productName || applicationData.title,
+        applicantName: applicationData.applicantName || applicationData.fullName,
+        initialFundingAmount: Number(applicationData.initialFundingAmount || 0),
         nominee: applicationData.nominee || {
           fullName: 'Nominee Name',
           relationship: 'SPOUSE',
           dateOfBirth: '1998-01-01',
-          mobileNumber: '9876543210'
+          mobileNumber: '9820198402'
         }
       });
       refreshCustomerData();
@@ -255,8 +330,8 @@ export const AuthProvider = ({ children }) => {
     } else {
       const res = await cardService.applyForCard({
         cardType: applicationData.cardType || 'METAL_CREDIT',
-        cardName: applicationData.title || applicationData.productName || 'FinEdge Ashva Metal Card',
-        linkedAccountId: accounts[0]?.accountId || 'ACC-1001'
+        cardName: applicationData.cardName || applicationData.productName || applicationData.title || 'FinEdge Aurum Metal Card',
+        linkedAccountId: applicationData.linkedAccountId || accounts[0]?.accountId || 'ACC-1001'
       });
       refreshCustomerData();
       return res;
@@ -310,3 +385,6 @@ export const useAuth = () => {
   }
   return context;
 };
+
+export const useDbTick = () => {};
+

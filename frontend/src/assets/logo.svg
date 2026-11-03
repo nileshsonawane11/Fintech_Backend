@@ -1,0 +1,14 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 300 64" role="img" aria-label="Bank logo">
+  <!-- Primary lockup: brand mark + wordmark.
+       COORDINATOR: the brand name is a PLACEHOLDER. Rename in ONE edit —
+       change the text content of #brand-name (and #brand-tagline if used). -->
+  <g>
+    <path fill="#B8933F" d="M32 4 L60 28 L49 28 L32 15 L15 28 L4 28 Z"/>
+    <rect fill="#0A1E35" x="13" y="36" width="7" height="14"/>
+    <rect fill="#0A1E35" x="28.5" y="32" width="7" height="18"/>
+    <rect fill="#0A1E35" x="44" y="36" width="7" height="14"/>
+    <rect fill="#0A1E35" x="10" y="54" width="44" height="3.5" rx="1.75"/>
+  </g>
+  <text id="brand-name" x="78" y="36" font-family="Georgia, 'Playfair Display', 'Times New Roman', serif" font-size="27" font-weight="700" letter-spacing="0.5" fill="#0A1E35">FinEdge Bank</text>
+  <text id="brand-tagline" x="79" y="54" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="10" letter-spacing="2.5" fill="#8C6D2F">BANKING WITH A FINER EDGE</text>
+</svg>

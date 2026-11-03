@@ -8,13 +8,14 @@ export const accountService = {
   },
 
   // Apply for New Account (Section 4.2)
-  async applyForAccount({ productCode, initialFundingAmount, nominee }) {
+  async applyForAccount({ productCode, initialFundingAmount, nominee, ...rest }) {
     return apiRequest('/api/v1/accounts', {
       method: 'POST',
       body: JSON.stringify({
         productCode,
         initialFundingAmount: Number(initialFundingAmount),
-        nominee
+        nominee,
+        ...rest
       })
     });
   },

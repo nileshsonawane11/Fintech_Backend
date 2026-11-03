@@ -102,6 +102,86 @@ public class KycCase {
     public RiskCategory getRiskCategory() { return riskCategory; }
     public Instant getSubmittedAt() { return submittedAt; }
 
+    public String getGender() {
+        return gender;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
+    }
+
+    public void setCustomerProfile(CustomerProfile customerProfile) {
+        this.customerProfile = customerProfile;
+    }
+
+    public String getOccupation() {
+        return occupation;
+    }
+
+    public void setOccupation(String occupation) {
+        this.occupation = occupation;
+    }
+
+    public String getAnnualIncomeRange() {
+        return annualIncomeRange;
+    }
+
+    public void setAnnualIncomeRange(String annualIncomeRange) {
+        this.annualIncomeRange = annualIncomeRange;
+    }
+
+    public String getCkycNumberEncrypted() {
+        return ckycNumberEncrypted;
+    }
+
+    public void setCkycNumberEncrypted(String ckycNumberEncrypted) {
+        this.ckycNumberEncrypted = ckycNumberEncrypted;
+    }
+
+    public boolean isAadhaarConsent() {
+        return aadhaarConsent;
+    }
+
+    public void setAadhaarConsent(boolean aadhaarConsent) {
+        this.aadhaarConsent = aadhaarConsent;
+    }
+
+    public Instant getConsentRecordedAt() {
+        return consentRecordedAt;
+    }
+
+    public void setConsentRecordedAt(Instant consentRecordedAt) {
+        this.consentRecordedAt = consentRecordedAt;
+    }
+
+    public void setSubmittedAt(Instant submittedAt) {
+        this.submittedAt = submittedAt;
+    }
+
+    public Instant getCreatedAt() {
+        return createdAt;
+    }
+
+    public void setCreatedAt(Instant createdAt) {
+        this.createdAt = createdAt;
+    }
+
+    public Instant getUpdatedAt() {
+        return updatedAt;
+    }
+
+    public void setUpdatedAt(Instant updatedAt) {
+        this.updatedAt = updatedAt;
+    }
+
+    public long getVersion() {
+        return version;
+    }
+
+    public void setVersion(long version) {
+        this.version = version;
+    }
+
     public void setStatus(KycStatus status) {
         this.status = status;
     }

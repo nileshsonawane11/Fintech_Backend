@@ -1,0 +1,90 @@
+server:
+  port: ${ACCOUNT_SERVICE_PORT:8082}
+
+spring:
+  application:
+    name: ACCOUNT-SERVICE
+
+  datasource:
+    url: ${ACCOUNT_DB_URL:jdbc:postgresql://localhost:5432/fintech_account}
+    username: ${ACCOUNT_DB_USERNAME:postgres}
+    password: ${ACCOUNT_DB_PASSWORD:root}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+      acks: all
+      properties:
+        "[spring.json.add.type.headers]": false
+
+  jackson:
+    time-zone: UTC
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
+security:
+  jwt:
+    public-key-location: ${JWT_PUBLIC_KEY_PATH:classpath:keys/public.pem}
+    issuer: ${JWT_ISSUER:identity-service}
+  data-encryption-key: ${DATA_ENCRYPTION_KEY:A6zUYKLUu7Q98OeKx77T7AxCZ+yxJKR40JgJNyEaZg4=}
+
+app:
+  kafka:
+    topics:
+      application-events: ${ACCOUNT_TOPIC_APPLICATION:account.application-events.v1}
+      lifecycle-events: ${ACCOUNT_TOPIC_LIFECYCLE:account.lifecycle-events.v1}
+      hold-events: ${ACCOUNT_TOPIC_HOLD:account.hold-events.v1}
+      nominee-events: ${ACCOUNT_TOPIC_NOMINEE:account.nominee-events.v1}
+  services:
+    customer-service:
+      url: ${CUSTOMER_SERVICE_URL:http://localhost:8084}
+    ledger-service:
+      url: ${LEDGER_SERVICE_URL:http://localhost:8083}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+
+logging:
+  level:
+    com.fintech.account: DEBUG
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO

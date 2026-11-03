@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 64 64" role="img" aria-label="Bank logo mark">
+  <!-- Brand mark, light-on-dark variant: use on midnight/dark backgrounds. Gold peak, porcelain pillars. -->
+  <path fill="#B8933F" d="M32 4 L60 28 L49 28 L32 15 L15 28 L4 28 Z"/>
+  <rect fill="#F7F3EA" x="13" y="36" width="7" height="14"/>
+  <rect fill="#F7F3EA" x="28.5" y="32" width="7" height="18"/>
+  <rect fill="#F7F3EA" x="44" y="36" width="7" height="14"/>
+  <rect fill="#F7F3EA" x="10" y="54" width="44" height="3.5" rx="1.75"/>
+</svg>
