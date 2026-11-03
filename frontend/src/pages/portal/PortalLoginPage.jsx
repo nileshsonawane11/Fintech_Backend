@@ -1,8 +1,46 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { Card, Button, Badge } from '../../components/common/UIComponents';
-import { Lock, ShieldCheck, AlertCircle, Eye, EyeOff, UserPlus, CheckCircle2, Building2 } from 'lucide-react';
+import {
+  Card,
+  Button,
+  Field,
+  Input,
+  FormError,
+  OtpInput,
+  ResendOtp
+} from '../../components/ui.jsx';
+import {
+  Lock,
+  Mail,
+  User,
+  ShieldCheck,
+  Eye,
+  EyeOff,
+  Landmark,
+  KeyRound,
+  ChevronDown,
+  Info,
+  CheckCircle2,
+  ArrowRight
+} from 'lucide-react';
+
+const DEMO_ACCOUNTS = [
+  { name: 'Vikramaditya Sharma', email: 'vikram.sharma@finedge.customer', password: 'Password@123', note: 'KYC Verified · Savings & Credit Cards' },
+  { name: 'Aarav Patel', email: 'aarav.patel@finedge-mail.in', password: 'Password@123', note: 'KYC Under Review · Active Accounts' }
+];
+
+function BrandMark() {
+  return (
+    <div className="flex flex-col items-center text-center">
+      <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-midnight-900 text-gold-300 shadow-sm">
+        <Landmark className="h-6 w-6" aria-hidden />
+      </span>
+      <h1 className="mt-3 font-display text-2xl font-semibold text-midnight-950">FinEdge Bank</h1>
+      <p className="mt-0.5 text-xs font-semibold uppercase tracking-[0.16em] text-gold-700">Customer NetBanking Portal</p>
+    </div>
+  );
+}
 
 export const PortalLoginPage = () => {
   const { login, verifyMfa, register, verifyOtp } = useAuth();
@@ -11,12 +49,12 @@ export const PortalLoginPage = () => {
   // Mode: 'login' | 'mfa' | 'register' | 'register_otp' | 'forgot'
   const [mode, setMode] = useState('login');
 
-  // Form states
-  const [identifier, setIdentifier] = useState('9876543210');
-  const [password, setPassword] = useState('Str0ngPassw0rd!');
+  // Form states - completely empty on open
+  const [identifier, setIdentifier] = useState('');
+  const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [mfaReferenceId, setMfaReferenceId] = useState('');
-  const [otpDigits, setOtpDigits] = useState(['6', '3', '8', '2', '9', '1']);
+  const [mfaOtp, setMfaOtp] = useState('');
 
   // Registration states
   const [regFullName, setRegFullName] = useState('');
@@ -24,105 +62,128 @@ export const PortalLoginPage = () => {
   const [regMobile, setRegMobile] = useState('');
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
-  const [acceptedTerms, setAcceptedTerms] = useState(true);
+  const [showRegPassword, setShowRegPassword] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [regOtp, setRegOtp] = useState('');
   const [otpReferenceId, setOtpReferenceId] = useState('');
 
-  // UI state
+  // Demo Expander
+  const [demoOpen, setDemoOpen] = useState(false);
+
+  // Status & Feedback
   const [error, setError] = useState('');
+  const [fieldErrors, setFieldErrors] = useState({});
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
 
-  // Handle Login Submit
+  // Masked target for OTP
+  const getMaskedTarget = (val) => {
+    if (!val) return '••••••';
+    if (val.includes('@')) {
+      const parts = val.split('@');
+      const name = parts[0];
+      const maskedName = name.length > 2 ? `${name[0]}••••${name.slice(-1)}` : '••••';
+      return `${maskedName}@${parts[1]}`;
+    }
+    return val.length >= 4 ? `••••••${val.slice(-4)}` : '••••••';
+  };
+
   const handleLoginSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setFieldErrors({});
     setSuccessMsg('');
-    if (!identifier.trim() || !password) {
-      setError('Please provide registered mobile/email and password.');
+
+    const trimmedId = identifier.trim();
+    if (!trimmedId) {
+      setFieldErrors({ identifier: 'Please enter your registered email, mobile, or Customer ID' });
+      return;
+    }
+    if (!password) {
+      setFieldErrors({ password: 'Password is required' });
       return;
     }
 
     setLoading(true);
     try {
-      const result = await login(identifier, password);
-      if (result.mfaRequired) {
+      const result = await login(trimmedId, password);
+      if (result?.mfaRequired) {
         setMfaReferenceId(result.mfaReferenceId);
+        setMfaOtp('');
         setMode('mfa');
-        setSuccessMsg('Two-Factor Authentication required. Security code generated.');
+        setSuccessMsg('Two-Factor Authentication required. Security code dispatched.');
       } else {
         navigate('/portal');
       }
     } catch (err) {
-      setError(err.detail || err.title || 'Invalid credentials. Please verify your mobile/email and password.');
+      const msg = err?.error?.message || err?.detail || err?.title || 'Invalid credentials. Please verify your details.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle MFA Submit
-  const handleMfaSubmit = async (e) => {
-    e.preventDefault();
+  const handleMfaSubmit = async (codeToSubmit) => {
+    const code = codeToSubmit || mfaOtp;
     setError('');
-    const fullOtp = otpDigits.join('');
-    if (fullOtp.length !== 6) {
-      setError('Please enter the full 6-digit verification code.');
+    if (code.length !== 6) {
+      setError('Please enter the complete 6-digit verification code.');
       return;
     }
 
     setLoading(true);
     try {
-      await verifyMfa(mfaReferenceId, fullOtp);
+      await verifyMfa(mfaReferenceId, code);
       navigate('/portal');
     } catch (err) {
-      setError(err.detail || 'Invalid or expired OTP code.');
+      const msg = err?.error?.message || err?.detail || 'Invalid or expired OTP code. Use demo code 849201 in simulated mode.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle Registration Submit
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setError('');
-    if (regPassword !== regConfirmPassword) {
-      setError('Passwords do not match.');
-      return;
-    }
-    if (regPassword.length < 8) {
-      setError('Password must be at least 8 characters long.');
-      return;
-    }
-    if (!acceptedTerms) {
-      setError('You must accept the FinEdge Banking Terms & Privacy Policy.');
+    const errs = {};
+
+    if (!regFullName.trim()) errs.regFullName = 'Full legal name is required';
+    if (!regMobile.trim() || !/^\d{10}$/.test(regMobile)) errs.regMobile = 'Enter a valid 10-digit mobile number';
+    if (!regEmail.trim() || !regEmail.includes('@')) errs.regEmail = 'Enter a valid email address';
+    if (!regPassword || regPassword.length < 8) errs.regPassword = 'Password must be at least 8 characters long';
+    if (regPassword !== regConfirmPassword) errs.regConfirmPassword = 'Passwords do not match';
+    if (!acceptedTerms) errs.acceptedTerms = 'Mandatory consent required for terms of service';
+
+    if (Object.keys(errs).length > 0) {
+      setFieldErrors(errs);
       return;
     }
 
     setLoading(true);
     try {
       const res = await register({
-        fullName: regFullName,
-        email: regEmail,
-        mobileNumber: regMobile,
-        password: regPassword,
-        acceptedTermsVersion: 'v2026-10-01'
+        fullName: regFullName.trim(),
+        mobileNumber: regMobile.trim(),
+        email: regEmail.trim(),
+        password: regPassword
       });
-      setOtpReferenceId('otp-ref-' + Math.floor(10000 + Math.random() * 90000));
+      setOtpReferenceId(res?.otpReferenceId || 'REF-' + Date.now());
       setMode('register_otp');
-      setSuccessMsg('Account created. Enter the 6-digit OTP to activate your credentials.');
+      setSuccessMsg(`Verification OTP sent to ${getMaskedTarget(regMobile)}.`);
     } catch (err) {
-      setError(err.detail || 'Registration failed. Mobile or email may already be in use.');
+      const msg = err?.error?.message || err?.detail || 'Registration failed. Please check your details.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
-  // Handle Registration OTP Verification
-  const handleRegisterOtpSubmit = async (e) => {
-    e.preventDefault();
+  const handleRegisterOtpSubmit = async (codeToSubmit) => {
+    const code = codeToSubmit || regOtp;
     setError('');
-    const fullOtp = otpDigits.join('');
-    if (fullOtp.length !== 6) {
-      setError('Please enter the full 6-digit verification code.');
+    if (code.length !== 6) {
+      setError('Please enter the complete 6-digit verification code.');
       return;
     }
 
@@ -130,371 +191,322 @@ export const PortalLoginPage = () => {
     try {
       await verifyOtp({
         referenceId: otpReferenceId,
-        otp: fullOtp,
-        purpose: 'REGISTRATION'
+        otp: code,
+        email: regEmail.trim(),
+        mobileNumber: regMobile.trim()
       });
-      // Direct auto login
-      await login(regEmail || regMobile, regPassword);
       navigate('/portal');
     } catch (err) {
-      setError(err.detail || 'OTP verification failed.');
+      const msg = err?.error?.message || err?.detail || 'Invalid OTP code. Use simulated code 849201 in demo mode.';
+      setError(msg);
     } finally {
       setLoading(false);
     }
   };
 
-  const fillQuickDemo = () => {
-    setIdentifier('9876543210');
-    setPassword('Str0ngPassw0rd!');
-    setOtpDigits(['6', '3', '8', '2', '9', '1']);
+  const populateDemo = (acc) => {
+    setIdentifier(acc.email);
+    setPassword(acc.password);
     setError('');
-    setSuccessMsg('');
+    setFieldErrors({});
   };
 
   return (
-    <div className="min-h-screen bg-[#F7F8FA] flex items-center justify-center p-4 py-16">
-      <div className="max-w-md w-full space-y-6">
-        {/* Brand Header */}
-        <div className="text-center space-y-2">
-          <div className="w-12 h-12 bg-[#9D1D27] text-white rounded-2xl flex items-center justify-center font-bold text-2xl mx-auto shadow-md">
-            FE
-          </div>
-          <h1 className="text-2xl font-extrabold text-[#1C1B1F]">FinEdge NetBanking</h1>
-          <p className="text-xs text-gray-500">Secure digital banking portal for retail & business clients.</p>
-        </div>
+    <div className="flex min-h-[calc(100vh-4rem)] flex-col justify-center bg-porcelain-100 px-4 py-12 sm:px-6 lg:px-8">
+      <div className="sm:mx-auto sm:w-full sm:max-w-md">
+        <BrandMark />
 
-        {/* Auth Mode Tabs */}
-        {mode !== 'mfa' && mode !== 'register_otp' && (
-          <div className="flex bg-gray-200/80 p-1 rounded-xl text-xs font-bold text-gray-600">
-            <button
-              type="button"
-              onClick={() => { setMode('login'); setError(''); setSuccessMsg(''); }}
-              className={`flex-1 py-2 rounded-lg transition-all ${mode === 'login' ? 'bg-white text-[#9D1D27] shadow-sm' : 'hover:text-gray-900'}`}
-            >
-              Sign In
-            </button>
-            <button
-              type="button"
-              onClick={() => { setMode('register'); setError(''); setSuccessMsg(''); }}
-              className={`flex-1 py-2 rounded-lg transition-all ${mode === 'register' ? 'bg-white text-[#9D1D27] shadow-sm' : 'hover:text-gray-900'}`}
-            >
-              Open Account / Register
-            </button>
-          </div>
-        )}
-
-        <Card className="p-8 shadow-lg border-t-4 border-t-[#9D1D27]">
-          {/* Notifications / Alerts */}
-          {error && (
-            <div className="mb-4 bg-red-50 border border-red-200 rounded-xl p-3 text-xs text-red-800 flex items-start gap-2">
-              <AlertCircle className="w-4 h-4 text-red-600 shrink-0 mt-0.5" />
-              <span>{error}</span>
-            </div>
-          )}
-
+        <Card className="mt-8 p-6 sm:p-8 shadow-card border border-ink-100 bg-white">
+          {error && <FormError message={error} />}
           {successMsg && (
-            <div className="mb-4 bg-green-50 border border-green-200 rounded-xl p-3 text-xs text-green-800 flex items-start gap-2">
-              <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
+            <div className="mb-4 flex items-start gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
+              <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 mt-0.5" />
               <span>{successMsg}</span>
             </div>
           )}
 
-          {/* MODE: LOGIN */}
+          {/* Mode 1: Standard Credentials Login */}
           {mode === 'login' && (
             <form onSubmit={handleLoginSubmit} className="space-y-4">
-              <div className="bg-blue-50 border border-blue-200 rounded-xl p-3 text-xs text-blue-900 flex items-start gap-2">
-                <ShieldCheck className="w-4 h-4 text-blue-700 shrink-0 mt-0.5" />
-                <span>
-                  <strong>2-Factor Protected Login:</strong> Pre-filled with demo credentials. Evaluates authentic 2FA challenge.
-                </span>
-              </div>
-
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">
-                  Mobile Number / Email / Customer ID
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={identifier}
-                  onChange={(e) => setIdentifier(e.target.value)}
-                  placeholder="e.g. 9876543210 or vikram@example.com"
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2.5 focus:outline-none focus:ring-2 focus:ring-[#9D1D27]/30 focus:border-[#9D1D27]"
-                />
-              </div>
-
-              <div>
-                <div className="flex justify-between items-center mb-1">
-                  <label className="text-xs font-bold text-gray-700 uppercase tracking-wider">
-                    Password
-                  </label>
-                  <button
-                    type="button"
-                    onClick={() => { setMode('forgot'); setError(''); }}
-                    className="text-[11px] text-[#9D1D27] hover:underline font-semibold"
-                  >
-                    Forgot Password?
-                  </button>
-                </div>
+              <Field label="User ID, Registered Email, or Mobile" error={fieldErrors.identifier} required>
                 <div className="relative">
-                  <input
+                  <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" aria-hidden />
+                  <Input
+                    type="text"
+                    value={identifier}
+                    onChange={(e) => setIdentifier(e.target.value)}
+                    placeholder="Enter email or mobile"
+                    className="pl-9"
+                    error={Boolean(fieldErrors.identifier)}
+                  />
+                </div>
+              </Field>
+
+              <Field label="Password" error={fieldErrors.password} required>
+                <div className="relative">
+                  <Lock className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" aria-hidden />
+                  <Input
                     type={showPassword ? 'text' : 'password'}
-                    required
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
-                    placeholder="Enter banking password"
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2.5 pr-10 focus:outline-none focus:ring-2 focus:ring-[#9D1D27]/30 focus:border-[#9D1D27]"
+                    placeholder="Enter account password"
+                    className="pl-9 pr-10"
+                    error={Boolean(fieldErrors.password)}
                   />
                   <button
                     type="button"
                     onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-3 text-gray-400 hover:text-gray-600"
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-600"
+                    aria-label={showPassword ? 'Hide password' : 'Show password'}
                   >
-                    {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
                   </button>
                 </div>
+              </Field>
+
+              <div className="flex items-center justify-between text-xs pt-1">
+                <span className="text-ink-500">256-bit TLS Encrypted Session</span>
+                <button
+                  type="button"
+                  onClick={() => { setMode('register'); setError(''); }}
+                  className="font-medium text-midnight-800 hover:underline"
+                >
+                  New to FinEdge? Register
+                </button>
               </div>
 
-              <Button type="submit" variant="primary" disabled={loading} className="w-full py-2.5 text-sm font-bold shadow-sm">
-                <Lock className="w-4 h-4 mr-1" /> {loading ? 'Authenticating...' : 'Sign In to NetBanking'}
-              </Button>
-
-              <button
-                type="button"
-                onClick={fillQuickDemo}
-                className="w-full text-center text-xs text-[#9D1D27] hover:underline font-semibold pt-1"
-              >
-                Reset to One-Click Demo Credentials
-              </button>
+              <div className="pt-2">
+                <Button variant="primary" type="submit" loading={loading} className="w-full">
+                  Sign in to NetBanking <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
             </form>
           )}
 
-          {/* MODE: TWO-FACTOR MFA */}
+          {/* Mode 2: MFA Second Step */}
           {mode === 'mfa' && (
-            <form onSubmit={handleMfaSubmit} className="space-y-5">
-              <div className="text-center space-y-1">
-                <Badge variant="warning" className="px-3 py-1 font-semibold">2FA Challenge Required</Badge>
-                <h3 className="text-sm font-bold text-gray-800">Enter One-Time Security Code</h3>
-                <p className="text-xs text-gray-500">
-                  A verification code has been dispatched to your linked mobile number <span className="font-semibold text-gray-700">******43210</span>.
+            <div className="space-y-5">
+              <div className="text-center">
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-midnight-50 text-midnight-800">
+                  <ShieldCheck className="h-5 w-5" />
+                </div>
+                <h3 className="mt-2 text-base font-semibold text-midnight-950">Two-Factor Security</h3>
+                <p className="mt-1 text-xs text-ink-600 leading-relaxed">
+                  Enter the 6-digit security passkey dispatched to your registered device.
                 </p>
               </div>
 
-              <div className="grid grid-cols-6 gap-2">
-                {otpDigits.map((digit, idx) => (
-                  <input
-                    key={idx}
-                    type="text"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => {
-                      const newOtp = [...otpDigits];
-                      newOtp[idx] = e.target.value;
-                      setOtpDigits(newOtp);
-                    }}
-                    className="h-12 text-center font-extrabold text-xl border border-gray-300 rounded-lg focus:outline-none focus:border-[#9D1D27] focus:ring-2 focus:ring-[#9D1D27]/20"
-                  />
-                ))}
-              </div>
-
-              <Button type="submit" variant="primary" disabled={loading} className="w-full py-2.5 text-sm font-bold shadow-sm">
-                <ShieldCheck className="w-4 h-4 mr-1" /> {loading ? 'Verifying...' : 'Complete Two-Factor Authentication'}
-              </Button>
-
-              <button
-                type="button"
-                onClick={() => setMode('login')}
-                className="w-full text-center text-xs text-gray-500 hover:text-gray-800"
-              >
-                Cancel and return to login
-              </button>
-            </form>
-          )}
-
-          {/* MODE: REGISTER */}
-          {mode === 'register' && (
-            <form onSubmit={handleRegisterSubmit} className="space-y-4">
-              <div>
-                <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">
-                  Full Legal Name (as per PAN / Aadhaar)
-                </label>
-                <input
-                  type="text"
-                  required
-                  value={regFullName}
-                  onChange={(e) => setRegFullName(e.target.value)}
-                  placeholder="e.g. Rahul Sharma"
-                  className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#9D1D27]/30 focus:border-[#9D1D27]"
+              <div className="py-2">
+                <OtpInput
+                  length={6}
+                  value={mfaOtp}
+                  onChange={(val) => setMfaOtp(val)}
+                  onComplete={(val) => handleMfaSubmit(val)}
                 />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">
-                    Mobile Number
-                  </label>
-                  <input
-                    type="tel"
-                    required
-                    maxLength={10}
-                    value={regMobile}
-                    onChange={(e) => setRegMobile(e.target.value)}
-                    placeholder="10-digit mobile"
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#9D1D27]/30 focus:border-[#9D1D27]"
-                  />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">
-                    Email Address
-                  </label>
-                  <input
-                    type="email"
-                    required
-                    value={regEmail}
-                    onChange={(e) => setRegEmail(e.target.value)}
-                    placeholder="name@example.com"
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#9D1D27]/30 focus:border-[#9D1D27]"
-                  />
-                </div>
+              <div className="flex justify-between items-center text-xs">
+                <button
+                  type="button"
+                  onClick={() => setMode('login')}
+                  className="text-ink-500 hover:text-midnight-900"
+                >
+                  ← Back to Login
+                </button>
+                <ResendOtp onResend={() => setSuccessMsg('New security code dispatched (Demo: 849201)')} />
               </div>
 
-              <div className="grid grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">
-                    Create Password
-                  </label>
-                  <input
+              <Button
+                variant="primary"
+                className="w-full"
+                loading={loading}
+                onClick={() => handleMfaSubmit()}
+              >
+                Verify &amp; Continue
+              </Button>
+            </div>
+          )}
+
+          {/* Mode 3: Self-Service Customer Registration */}
+          {mode === 'register' && (
+            <form onSubmit={handleRegisterSubmit} className="space-y-3.5">
+              <div className="border-b border-ink-100 pb-2">
+                <h3 className="text-sm font-semibold text-midnight-950">Create New Customer Account</h3>
+                <p className="text-xs text-ink-500">Instant digital onboarding in under 3 minutes.</p>
+              </div>
+
+              <Field label="Full Legal Name" error={fieldErrors.regFullName} required>
+                <Input
+                  value={regFullName}
+                  onChange={(e) => setRegFullName(e.target.value)}
+                  placeholder="e.g. Priya Sundaram"
+                  error={Boolean(fieldErrors.regFullName)}
+                />
+              </Field>
+
+              <Field label="Mobile Number" error={fieldErrors.regMobile} hint="10-digit Indian mobile" required>
+                <Input
+                  type="tel"
+                  maxLength={10}
+                  value={regMobile}
+                  onChange={(e) => setRegMobile(e.target.value)}
+                  placeholder="9820011223"
+                  error={Boolean(fieldErrors.regMobile)}
+                />
+              </Field>
+
+              <Field label="Email Address" error={fieldErrors.regEmail} required>
+                <Input
+                  type="email"
+                  value={regEmail}
+                  onChange={(e) => setRegEmail(e.target.value)}
+                  placeholder="priya@example.com"
+                  error={Boolean(fieldErrors.regEmail)}
+                />
+              </Field>
+
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="Password" error={fieldErrors.regPassword} required>
+                  <Input
                     type="password"
-                    required
                     value={regPassword}
                     onChange={(e) => setRegPassword(e.target.value)}
-                    placeholder="Min 8 chars"
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#9D1D27]/30 focus:border-[#9D1D27]"
+                    placeholder="Min. 8 characters"
+                    error={Boolean(fieldErrors.regPassword)}
                   />
-                </div>
-                <div>
-                  <label className="block text-xs font-bold text-gray-700 mb-1 uppercase tracking-wider">
-                    Confirm Password
-                  </label>
-                  <input
+                </Field>
+                <Field label="Confirm Password" error={fieldErrors.regConfirmPassword} required>
+                  <Input
                     type="password"
-                    required
                     value={regConfirmPassword}
                     onChange={(e) => setRegConfirmPassword(e.target.value)}
                     placeholder="Repeat password"
-                    className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[#9D1D27]/30 focus:border-[#9D1D27]"
+                    error={Boolean(fieldErrors.regConfirmPassword)}
                   />
-                </div>
+                </Field>
               </div>
 
-              <div className="flex items-start gap-2 pt-1">
-                <input
-                  type="checkbox"
-                  id="terms"
-                  checked={acceptedTerms}
-                  onChange={(e) => setAcceptedTerms(e.target.checked)}
-                  className="mt-1 h-4 w-4 text-[#9D1D27] rounded border-gray-300"
-                />
-                <label htmlFor="terms" className="text-[11px] text-gray-600 leading-tight">
-                  I accept the FinEdge Internet Banking Terms, DICGC Insurance Coverage terms, and consent to electronic identity verification.
+              <div className="pt-1">
+                <label className="flex items-start gap-2 cursor-pointer text-xs text-ink-700">
+                  <input
+                    type="checkbox"
+                    checked={acceptedTerms}
+                    onChange={(e) => setAcceptedTerms(e.target.checked)}
+                    className="mt-0.5 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                  />
+                  <span>I agree to FinEdge digital terms, KYC authorization, and privacy disclosure.</span>
                 </label>
+                {fieldErrors.acceptedTerms && <p className="mt-1 text-xs text-danger-600">{fieldErrors.acceptedTerms}</p>}
               </div>
 
-              <Button type="submit" variant="primary" disabled={loading} className="w-full py-2.5 text-sm font-bold shadow-sm">
-                <UserPlus className="w-4 h-4 mr-1" /> {loading ? 'Registering...' : 'Continue to Mobile Verification'}
-              </Button>
+              <div className="pt-2 flex items-center justify-between">
+                <button
+                  type="button"
+                  onClick={() => { setMode('login'); setError(''); }}
+                  className="text-xs font-medium text-ink-600 hover:text-midnight-900"
+                >
+                  ← Already registered? Sign In
+                </button>
+                <Button variant="primary" type="submit" loading={loading}>
+                  Continue to OTP
+                </Button>
+              </div>
             </form>
           )}
 
-          {/* MODE: REGISTER OTP */}
+          {/* Mode 4: Registration OTP Verification */}
           {mode === 'register_otp' && (
-            <form onSubmit={handleRegisterOtpSubmit} className="space-y-5">
-              <div className="text-center space-y-1">
-                <Badge variant="success" className="px-3 py-1 font-semibold">Verification Step</Badge>
-                <h3 className="text-sm font-bold text-gray-800">Verify Mobile OTP</h3>
-                <p className="text-xs text-gray-500">
-                  Enter the 6-digit activation code sent to {regMobile}.
+            <div className="space-y-5">
+              <div className="text-center">
+                <h3 className="text-base font-semibold text-midnight-950">Verify Your Mobile Number</h3>
+                <p className="mt-1 text-xs text-ink-600">
+                  Enter the 6-digit verification code dispatched to <span className="font-semibold">{getMaskedTarget(regMobile)}</span>.
                 </p>
               </div>
 
-              <div className="grid grid-cols-6 gap-2">
-                {otpDigits.map((digit, idx) => (
-                  <input
-                    key={idx}
-                    type="text"
-                    maxLength={1}
-                    value={digit}
-                    onChange={(e) => {
-                      const newOtp = [...otpDigits];
-                      newOtp[idx] = e.target.value;
-                      setOtpDigits(newOtp);
-                    }}
-                    className="h-12 text-center font-extrabold text-xl border border-gray-300 rounded-lg focus:outline-none focus:border-[#9D1D27] focus:ring-2 focus:ring-[#9D1D27]/20"
-                  />
-                ))}
+              <OtpInput
+                length={6}
+                value={regOtp}
+                onChange={(val) => setRegOtp(val)}
+                onComplete={(val) => handleRegisterOtpSubmit(val)}
+              />
+
+              <div className="flex justify-between items-center text-xs">
+                <button
+                  type="button"
+                  onClick={() => setMode('register')}
+                  className="text-ink-500 hover:text-midnight-900"
+                >
+                  ← Edit Information
+                </button>
+                <ResendOtp onResend={() => setSuccessMsg('New security code dispatched (Demo: 849201)')} />
               </div>
 
-              <Button type="submit" variant="primary" disabled={loading} className="w-full py-2.5 text-sm font-bold shadow-sm">
-                <CheckCircle2 className="w-4 h-4 mr-1" /> {loading ? 'Activating...' : 'Verify OTP & Access Portal'}
-              </Button>
-            </form>
-          )}
-
-          {/* MODE: FORGOT PASSWORD */}
-          {mode === 'forgot' && (
-            <div className="space-y-4">
-              <h3 className="text-sm font-bold text-gray-800">Reset Banking Password</h3>
-              <p className="text-xs text-gray-500">
-                Enter your registered mobile or email to receive password reset authorization.
-              </p>
-              <input
-                type="text"
-                placeholder="Mobile or Email"
-                className="w-full text-sm border border-gray-300 rounded-lg px-3 py-2.5"
-              />
               <Button
                 variant="primary"
-                onClick={() => { setSuccessMsg('Password reset link sent to registered email.'); setMode('login'); }}
-                className="w-full py-2.5 text-sm font-bold"
+                className="w-full"
+                loading={loading}
+                onClick={() => handleRegisterOtpSubmit()}
               >
-                Send Reset Link
+                Complete Registration
               </Button>
-              <button
-                type="button"
-                onClick={() => setMode('login')}
-                className="w-full text-center text-xs text-gray-500 hover:underline"
-              >
-                Back to Sign In
-              </button>
             </div>
           )}
         </Card>
 
-        {/* Dedicated Link to Staff & Manager Portal */}
-        <div className="bg-slate-900 text-white rounded-2xl p-4 shadow-md flex items-center justify-between border border-slate-700">
-          <div className="flex items-center gap-3">
-            <div className="w-9 h-9 bg-slate-800 rounded-xl flex items-center justify-center text-amber-400">
-              <Building2 className="w-5 h-5" />
-            </div>
-            <div>
-              <p className="text-xs font-bold text-white">Bank Staff & Manager Terminal</p>
-              <p className="text-[11px] text-slate-400">Authorized personnel & branch operations portal</p>
-            </div>
-          </div>
-          <Link
-            to="/manager/login"
-            className="text-xs bg-amber-500 hover:bg-amber-400 text-slate-950 font-extrabold px-3 py-1.5 rounded-lg transition-all shadow-sm"
+        {/* Demo Credentials Expander - Non-Negotiable Honesty Pattern */}
+        <div className="mt-6 rounded-xl border border-ink-200 bg-white/80 p-4">
+          <button
+            type="button"
+            onClick={() => setDemoOpen(!demoOpen)}
+            className="flex w-full items-center justify-between text-left text-xs font-semibold text-midnight-900"
           >
-            Staff Login →
-          </Link>
+            <span className="flex items-center gap-1.5">
+              <KeyRound className="h-4 w-4 text-gold-600" />
+              Demo access (Click to view test credentials)
+            </span>
+            <ChevronDown className={`h-4 w-4 transition-transform ${demoOpen ? 'rotate-180' : ''}`} />
+          </button>
+
+          {demoOpen && (
+            <div className="mt-3 space-y-2 border-t border-ink-100 pt-3 text-xs text-ink-700">
+              <p className="text-[11px] text-ink-500 leading-relaxed">
+                Click any profile below to populate standard credentials. Simulated OTP code is <span className="font-mono font-bold text-midnight-950">849201</span>.
+              </p>
+              <div className="space-y-1.5">
+                {DEMO_ACCOUNTS.map((acc) => (
+                  <button
+                    key={acc.email}
+                    type="button"
+                    onClick={() => {
+                      populateDemo(acc);
+                      setMode('login');
+                    }}
+                    className="flex w-full items-center justify-between rounded-lg border border-ink-100 bg-porcelain-50 p-2.5 text-left hover:border-midnight-300 hover:bg-midnight-50/50 transition-colors"
+                  >
+                    <div>
+                      <p className="font-semibold text-midnight-950">{acc.name}</p>
+                      <p className="text-[11px] font-mono text-ink-500">{acc.email}</p>
+                    </div>
+                    <span className="text-[11px] font-medium text-midnight-700 underline">
+                      Use account →
+                    </span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
         </div>
 
-        {/* Security Disclaimers */}
-        <div className="text-center text-[11px] text-gray-400 space-y-1">
-          <p>FinEdge will never solicit your card PIN, CVV, or one-time password over phone or email.</p>
-          <p>Protected by 256-bit TLS encryption with session auto-expiry after 15 minutes of inactivity.</p>
-        </div>
+        <p className="mt-6 text-center text-xs text-ink-500">
+          Bank staff member?{' '}
+          <Link to="/manager/login" className="font-medium text-midnight-800 underline hover:text-midnight-950">
+            Staff Operations Terminal →
+          </Link>
+        </p>
       </div>
     </div>
   );
 };
+
+export default PortalLoginPage;

@@ -1,100 +1,640 @@
-import React, { useState } from 'react';
-import { Card, Badge, Button } from '../components/common/UIComponents';
-import { ApplyModal } from '../components/common/ApplyModal';
-import { ACCOUNTS_DATA } from '../data/bankingData';
-import { CheckCircle2, ShieldCheck, Percent, ArrowRight } from 'lucide-react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { Link, useSearchParams } from 'react-router-dom';
+import { ArrowRight, CheckCircle2, Scale, Search, X } from 'lucide-react';
+import { Button, Card, Checkbox, EmptyState, Input, Modal, SectionHeader, Table, useToast } from '../components/ui.jsx';
+import {
+  ACCOUNTS,
+  RATE_DISCLAIMER,
+  accountRateFact,
+  accountAmbFact,
+  accountPenaltyFact,
+  accountCardFeeFact,
+} from '../data/products.js';
+import { ACCOUNT_ICONS } from '../data/productIcons.js';
+import { formatINRWhole, shortProductName } from '../lib/format.js';
+import { ApplyModal } from '../components/common/ApplyModal.jsx';
 
-export const AccountsPage = () => {
-  const [selectedProduct, setSelectedProduct] = useState(null);
-  const [isApplyModalOpen, setIsApplyModalOpen] = useState(false);
+const MAX_COMPARE = 3;
 
-  const handleApply = (product) => {
-    setSelectedProduct(product);
-    setIsApplyModalOpen(true);
+function moneyOrNil(value) {
+  if (value === null || value === undefined) return '—';
+  return value === 0 ? 'Nil' : formatINRWhole(value);
+}
+
+function feeOf(account, key) {
+  if (!account.fees || typeof account.fees !== 'object') return '—';
+  const v = account.fees[key];
+  if (v === null || v === undefined) return '—';
+  return typeof v === 'number' ? moneyOrNil(v) : String(v);
+}
+
+export default function AccountsPage() {
+  const [params, setParams] = useSearchParams();
+  const { toast } = useToast();
+  const qParam = params.get('q') || '';
+  const [inputValue, setInputValue] = useState(qParam);
+  const [q, setQ] = useState(qParam);
+  const [compare, setCompare] = useState([]);
+  const [selectedProductForApply, setSelectedProductForApply] = useState(null);
+  const [detailAccount, setDetailAccount] = useState(null);
+  const detailsTriggerRefs = useRef({});
+
+  // Sync external search params (back/forward navigation)
+  useEffect(() => {
+    setInputValue(qParam);
+    setQ(qParam);
+  }, [qParam]);
+
+  // Debounced search update (~150ms) to preserve INP and prevent render storms
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setQ(inputValue);
+      if (inputValue !== qParam) {
+        setParams(inputValue ? { q: inputValue } : {}, { replace: true });
+      }
+    }, 150);
+    return () => clearTimeout(timer);
+  }, [inputValue, qParam, setParams]);
+
+  // Auto-open ApplyModal if navigated with ?apply=1 or ?apply=<slug>, or detail modal if ?details=<slug>
+  useEffect(() => {
+    const applyParam = params.get('apply');
+    if (applyParam) {
+      if (applyParam === '1') {
+        setSelectedProductForApply(ACCOUNTS[0]);
+      } else {
+        const match = ACCOUNTS.find((a) => a.slug === applyParam);
+        if (match) setSelectedProductForApply(match);
+      }
+    }
+    const detailsSlug = params.get('details');
+    if (detailsSlug) {
+      const match = ACCOUNTS.find((a) => a.slug === detailsSlug);
+      if (match) setDetailAccount(match);
+    }
+  }, [params]);
+
+  // Live filter against name, tagline, accountType, overview, and features
+  const filtered = useMemo(() => {
+    const needle = q.trim().toLowerCase();
+    if (!needle) return ACCOUNTS;
+    return ACCOUNTS.filter((a) => {
+      const haystack = [
+        a.name,
+        a.tagline,
+        a.accountType,
+        a.overview,
+        ...(a.features || []),
+        ...(a.eligibility || []),
+      ]
+        .filter(Boolean)
+        .join(' ')
+        .toLowerCase();
+      return haystack.includes(needle);
+    });
+  }, [q]);
+
+  const selected = useMemo(() => ACCOUNTS.filter((a) => compare.includes(a.slug)), [compare]);
+
+  const toggleCompare = (slug) => {
+    setCompare((prev) => {
+      if (prev.includes(slug)) return prev.filter((s) => s !== slug);
+      if (prev.length >= MAX_COMPARE) {
+        toast({
+          tone: 'info',
+          title: 'Compare up to three accounts',
+          body: `You can compare up to ${MAX_COMPARE} accounts at a time. Remove one account from your comparison tray to select another.`,
+        });
+        return prev;
+      }
+      return [...prev, slug];
+    });
   };
 
+  const handleOpenDetail = (account) => {
+    setDetailAccount(account);
+  };
+
+  const handleCloseDetail = () => {
+    const slug = detailAccount?.slug;
+    setDetailAccount(null);
+    if (slug && detailsTriggerRefs.current[slug]) {
+      setTimeout(() => {
+        detailsTriggerRefs.current[slug]?.focus();
+      }, 50);
+    }
+  };
+
+  const handleClearSearch = () => {
+    setInputValue('');
+    setQ('');
+    setParams({}, { replace: true });
+  };
+
+  // 6-column balanced grid span calculator (Fix 3)
+  const getCardGridSpan = (index, totalCount) => {
+    if (totalCount === 5) {
+      // Row 1: 3 cards (2 cols each = 6); Row 2: 2 cards (3 cols each = 6). Zero dead slot!
+      return index >= 3 ? 'lg:col-span-3 sm:col-span-1' : 'lg:col-span-2 sm:col-span-1';
+    }
+    if (totalCount === 4) {
+      return 'lg:col-span-3 sm:col-span-1';
+    }
+    if (totalCount === 2) {
+      return 'lg:col-span-3 sm:col-span-1';
+    }
+    if (totalCount === 1) {
+      return 'lg:col-span-6 sm:col-span-2 max-w-xl mx-auto w-full';
+    }
+    return 'lg:col-span-2 sm:col-span-1';
+  };
+
+  // Side-by-side comparison matrix data (Fix 6)
+  const compareRows = [
+    {
+      key: 'rate',
+      label: 'Interest on balances',
+      values: Object.fromEntries(
+        selected.map((a) => [a.slug, a.rateSlabs?.length ? accountRateFact(a) : 'No interest'])
+      ),
+    },
+    {
+      key: 'overdraft',
+      label: 'Overdraft line',
+      values: Object.fromEntries(
+        selected.map((a) => [
+          a.slug,
+          a.overdraftRate ? `${a.overdraftRate.toFixed(2)}% p.a. (on utilisation)` : 'Not offered',
+        ])
+      ),
+    },
+    {
+      key: 'amb',
+      label: 'Average monthly balance',
+      values: Object.fromEntries(selected.map((a) => [a.slug, accountAmbFact(a)])),
+    },
+    {
+      key: 'penalty',
+      label: 'Non-maintenance charge',
+      values: Object.fromEntries(selected.map((a) => [a.slug, accountPenaltyFact(a)])),
+    },
+    {
+      key: 'cardFee',
+      label: 'Debit card annual fee',
+      values: Object.fromEntries(selected.map((a) => [a.slug, accountCardFeeFact(a)])),
+    },
+    {
+      key: 'opening',
+      label: 'Account opening fee',
+      values: Object.fromEntries(selected.map((a) => [a.slug, feeOf(a, 'accountOpening')])),
+    },
+    {
+      key: 'cheque',
+      label: 'Cheque book',
+      values: Object.fromEntries(
+        selected.map((a) => [
+          a.slug,
+          feeOf(a, 'chequeBook25Leaves') !== '—'
+            ? `${feeOf(a, 'chequeBook25Leaves')} (25 leaves)`
+            : feeOf(a, 'chequeBook50Leaves') !== '—'
+            ? `${feeOf(a, 'chequeBook50Leaves')} (50 leaves)`
+            : '—',
+        ]),
+      ),
+    },
+    {
+      key: 'features',
+      label: 'Key features',
+      values: Object.fromEntries(
+        selected.map((a) => [
+          a.slug,
+          Array.isArray(a.features) ? a.features.slice(0, 2).join(' • ') : '—',
+        ]),
+      ),
+    },
+  ];
+
+  const compareColumns = [
+    { key: 'label', label: 'Feature / Tariff' },
+    ...selected.map((a) => ({
+      key: a.slug,
+      label: shortProductName(a.name),
+      render: (row) => row.values[a.slug] ?? '—',
+    })),
+  ];
+
   return (
-    <div className="min-h-screen bg-[#F7F8FA] py-12">
-      <div className="max-w-7xl mx-auto px-4">
-        {/* Breadcrumb / Header */}
-        <div className="mb-10 text-center max-w-3xl mx-auto">
-          <Badge variant="crimson" className="mb-3">Savings & Current Accounts</Badge>
-          <h1 className="text-3xl md:text-5xl font-extrabold text-[#1C1B1F] tracking-tight">
-            Accounts Designed for Every Stage of Life
-          </h1>
-          <p className="text-sm md:text-base text-gray-600 mt-3">
-            From high-yield monthly compounding savings to feature-rich corporate salary accounts and MSME current accounts with auto-sweep capabilities.
-          </p>
-        </div>
+    <div className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 lg:py-20">
+      <SectionHeader
+        titleAs="h1"
+        eyebrow="Accounts"
+        title="Accounts for every stage of life"
+        description="Savings, current, salary, student and minor accounts — one illustrative rate and fee schedule, read straight from the product catalogue. Tick Compare on up to three accounts to see them side by side."
+      />
 
-        {/* Product Cards Stack */}
-        <div className="space-y-8">
-          {ACCOUNTS_DATA.map((acc) => (
-            <div 
-              key={acc.id} 
-              id={acc.id} 
-              className="scroll-mt-24"
+      {/* Search Bar with Result Count and Clear Control (Fix 7) */}
+      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
+        <div className="relative w-full max-w-md">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" aria-hidden />
+          <Input
+            type="search"
+            value={inputValue}
+            onChange={(e) => setInputValue(e.target.value)}
+            placeholder="Search accounts — try “student” or “salary”"
+            aria-label="Search accounts"
+            className="pl-9 pr-9"
+          />
+          {inputValue && (
+            <button
+              type="button"
+              onClick={handleClearSearch}
+              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
+              aria-label="Clear search"
             >
-              <Card className="p-6 md:p-8 hover:shadow-md transition-shadow border-l-4 border-l-[#9D1D27]">
-                <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-center">
-                  {/* Left Column: Details & Features */}
-                  <div className="lg:col-span-8 space-y-4">
-                    <div className="flex flex-wrap items-center gap-3">
-                      <h2 className="text-2xl font-bold text-[#1C1B1F]">{acc.title}</h2>
-                      <Badge variant="crimson">{acc.interestRate}</Badge>
-                    </div>
+              <X className="h-3.5 w-3.5" />
+            </button>
+          )}
+        </div>
+        <p className="text-sm font-medium text-ink-500">
+          Showing <span className="font-semibold text-midnight-950">{filtered.length}</span> {filtered.length === 1 ? 'account' : 'accounts'}
+        </p>
+      </div>
 
-                    <p className="text-sm text-gray-700 font-medium">{acc.tagline}</p>
+      {/* Empty State when no accounts match (Fix 7) */}
+      {filtered.length === 0 ? (
+        <EmptyState
+          icon={Search}
+          title={`No accounts match “${q}”`}
+          body={`Nothing in the accounts catalogue matches your query. Try searching for “student”, “salary”, or “savings”, or reset the search to view all ${ACCOUNTS.length} accounts.`}
+          action={
+            <Button variant="secondary" onClick={handleClearSearch}>
+              Clear search
+            </Button>
+          }
+        />
+      ) : (
+        /* Balanced Grid (Fix 3: 6-column layout with 3 cards row 1, 2 cards row 2) */
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-6">
+          {filtered.map((account, index) => {
+            const Icon = ACCOUNT_ICONS[account.slug] || PiggyBank;
+            const checked = compare.includes(account.slug);
+            const spanClass = getCardGridSpan(index, filtered.length);
 
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 pt-2">
-                      {acc.features.map((feature, idx) => (
-                        <div key={idx} className="flex items-start gap-2 text-xs text-gray-600">
-                          <CheckCircle2 className="w-4 h-4 text-green-600 shrink-0 mt-0.5" />
-                          <span>{feature}</span>
-                        </div>
-                      ))}
-                    </div>
+            return (
+              <Card
+                key={account.slug}
+                id={account.slug}
+                className={`flex flex-col p-6 scroll-mt-24 shadow-card transition-all duration-180 ease-out hover:-translate-y-0.5 hover:shadow-raised motion-reduce:hover:translate-y-0 ${spanClass}`}
+              >
+                {/* Product Header: 48x48 Dark Tile (Fix 2) */}
+                <div className="flex items-start justify-between gap-3">
+                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50 shadow-xs">
+                    <Icon className="h-6 w-6" aria-hidden />
+                  </span>
+                  <span className="text-xs font-semibold uppercase tracking-wider text-gold-700 bg-gold-50/80 px-2.5 py-1 rounded-md border border-gold-200">
+                    {account.accountType}
+                  </span>
+                </div>
 
-                    <div className="pt-3 border-t border-gray-100 flex flex-wrap gap-6 text-xs text-gray-500">
-                      <div>
-                        <strong className="text-gray-700">Minimum Balance:</strong> {acc.minBalance}
-                      </div>
-                      <div>
-                        <strong className="text-gray-700">Eligibility:</strong> {acc.eligibility}
-                      </div>
+                <h3 className="mt-4 font-display text-xl font-semibold leading-snug text-midnight-950">
+                  {shortProductName(account.name)}
+                </h3>
+                <p className="mt-1.5 text-sm leading-relaxed text-ink-600 line-clamp-2">
+                  {account.tagline}
+                </p>
+
+                {/* Facts Table: 100% Derived from products.js (Fix 1) */}
+                <dl className="mt-4 space-y-2 border-t border-ink-100 pt-4 text-sm">
+                  <div className="flex items-baseline justify-between gap-3">
+                    <dt className="text-ink-500">Interest</dt>
+                    <dd className="text-right text-sm font-semibold text-midnight-950 tnum">
+                      {account.rateSlabs?.length ? accountRateFact(account) : 'No interest'}
+                    </dd>
+                  </div>
+                  {account.overdraftRate && (
+                    <div className="flex items-baseline justify-between gap-3">
+                      <dt className="text-ink-500">Overdraft rate</dt>
+                      <dd className="text-right text-sm font-semibold text-midnight-950 tnum">
+                        {account.overdraftRate.toFixed(2)}% p.a. (on utilisation)
+                      </dd>
                     </div>
+                  )}
+                  <div className="flex items-baseline justify-between gap-3">
+                    <dt className="text-ink-500">Avg. monthly balance</dt>
+                    <dd className="text-right font-semibold text-ink-900">
+                      {accountAmbFact(account)}
+                    </dd>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <dt className="text-ink-500">Non-maintenance charge</dt>
+                    <dd className="text-right font-semibold text-ink-900">
+                      {accountPenaltyFact(account)}
+                    </dd>
+                  </div>
+                  <div className="flex items-baseline justify-between gap-3">
+                    <dt className="text-ink-500">Debit card annual fee</dt>
+                    <dd className="text-right font-semibold text-ink-900">
+                      {accountCardFeeFact(account)}
+                    </dd>
+                  </div>
+                </dl>
+
+                {/* Features List */}
+                {Array.isArray(account.features) && account.features.length > 0 && (
+                  <ul className="mt-4 space-y-1.5 flex-1">
+                    {account.features.slice(0, 3).map((f) => (
+                      <li key={f} className="flex gap-2 text-[13px] leading-snug text-ink-600">
+                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gold-500" aria-hidden />
+                        <span>{f}</span>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+
+                {/* Bottom Pinned Controls: Checkbox & Aligned Buttons (Fix 3) */}
+                <div className="mt-auto pt-5">
+                  <div className="border-t border-ink-100 pt-3.5 mb-3">
+                    <Checkbox
+                      label={`Compare ${shortProductName(account.name)}`}
+                      checked={checked}
+                      onChange={() => toggleCompare(account.slug)}
+                    />
                   </div>
 
-                  {/* Right Column: CTA & Action Box */}
-                  <div className="lg:col-span-4 bg-gray-50 rounded-xl p-6 border border-gray-200 text-center space-y-4">
-                    <div className="text-xs text-gray-500 font-semibold uppercase tracking-wider">Interest Proposition</div>
-                    <div className="text-3xl font-black text-[#9D1D27]">{acc.interestRate}</div>
-                    <p className="text-xs text-gray-600">Calculated on daily balance, credited monthly to your account.</p>
-
+                  <div className="flex flex-wrap gap-2">
                     <Button
-                      onClick={() => handleApply(acc)}
-                      variant="primary"
-                      className="w-full shadow-sm"
+                      ref={(el) => (detailsTriggerRefs.current[account.slug] = el)}
+                      variant="secondary"
+                      className="flex-1"
+                      onClick={() => handleOpenDetail(account)}
+                      aria-label={`View details for ${account.name}`}
                     >
-                      Open Account Online
+                      View details
                     </Button>
-                    <div className="text-[11px] text-gray-400 flex items-center justify-center gap-1">
-                      <ShieldCheck className="w-3.5 h-3.5 text-green-600" />
-                      <span>Instant paperless video KYC</span>
-                    </div>
+                    <Button
+                      variant="primary"
+                      className="flex-1"
+                      onClick={() => setSelectedProductForApply(account)}
+                      aria-label={`Apply now for ${account.name}`}
+                    >
+                      Apply now
+                    </Button>
                   </div>
                 </div>
               </Card>
-            </div>
-          ))}
+            );
+          })}
         </div>
-      </div>
+      )}
 
-      <ApplyModal
-        isOpen={isApplyModalOpen}
-        onClose={() => setIsApplyModalOpen(false)}
-        product={selectedProduct}
-      />
+      {/* Persistent / Responsive Comparison Tray (Fix 6) */}
+      {compare.length > 0 && (
+        <div
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-4xl rounded-2xl border border-midnight-800 bg-midnight-950/95 text-porcelain-50 p-3 sm:p-4 shadow-2xl backdrop-blur flex flex-wrap items-center justify-between gap-3 animate-fade-in"
+          role="region"
+          aria-label="Comparison Tray"
+        >
+          <div className="flex flex-wrap items-center gap-2 min-w-0">
+            <span className="text-xs sm:text-sm font-medium text-porcelain-200 shrink-0">
+              Comparing ({compare.length} of {MAX_COMPARE}):
+            </span>
+            {selected.map((acc) => (
+              <span
+                key={acc.slug}
+                className="inline-flex items-center gap-1.5 rounded-lg bg-midnight-800 px-2.5 py-1 text-xs font-semibold text-porcelain-50 border border-porcelain-50/15"
+              >
+                <span>{shortProductName(acc.name)}</span>
+                <button
+                  type="button"
+                  onClick={() => toggleCompare(acc.slug)}
+                  className="rounded hover:bg-midnight-700 text-porcelain-300 hover:text-white p-0.5"
+                  aria-label={`Remove ${shortProductName(acc.name)}`}
+                >
+                  <X className="h-3 w-3" />
+                </button>
+              </span>
+            ))}
+          </div>
+
+          <div className="flex items-center gap-2 ml-auto shrink-0">
+            <button
+              type="button"
+              onClick={() => setCompare([])}
+              className="text-xs font-medium text-porcelain-300 hover:text-white underline underline-offset-4 px-2 py-1"
+            >
+              Clear all
+            </button>
+            <Button
+              variant="brass"
+              size="sm"
+              onClick={() => {
+                const el = document.getElementById('compare-matrix');
+                if (el) el.scrollIntoView({ behavior: 'smooth' });
+              }}
+              disabled={compare.length < 2}
+              className="min-h-9 px-4 text-xs font-bold"
+            >
+              <Scale className="h-4 w-4" /> Compare side by side
+            </Button>
+          </div>
+        </div>
+      )}
+
+      {/* Side-by-Side Comparison Matrix (Fix 6) */}
+      {selected.length >= 2 && (
+        <section id="compare-matrix" aria-label="Account comparison" className="mt-14 scroll-mt-24 border-t border-ink-100 pt-10">
+          <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-wider text-gold-700">Side by Side Comparison</p>
+              <h3 className="mt-1 flex items-center gap-2 font-display text-2xl font-semibold text-midnight-950">
+                <Scale className="h-6 w-6 text-gold-600" aria-hidden /> Comparing {selected.length} accounts
+              </h3>
+            </div>
+            <Button variant="ghost" size="sm" onClick={() => setCompare([])}>
+              <X className="h-4 w-4" aria-hidden /> Clear comparison
+            </Button>
+          </div>
+
+          <div className="overflow-x-auto rounded-xl border border-ink-100 shadow-sm bg-white">
+            <Table
+              columns={compareColumns}
+              rows={compareRows}
+              rowKey={(r) => r.key}
+              minWidthClass="min-w-[620px]"
+            />
+          </div>
+
+          {/* Direct Apply Actions in Comparison Table */}
+          <div className="mt-4 flex flex-wrap items-center justify-end gap-3">
+            {selected.map((acc) => (
+              <Button
+                key={acc.slug}
+                variant="primary"
+                size="sm"
+                onClick={() => setSelectedProductForApply(acc)}
+              >
+                Apply for {shortProductName(acc.name)} <ArrowRight className="h-3.5 w-3.5" />
+              </Button>
+            ))}
+          </div>
+
+          <p className="mt-4 text-xs leading-relaxed text-ink-500">{RATE_DISCLAIMER}</p>
+        </section>
+      )}
+
+      <p className="mt-12 text-xs leading-relaxed text-ink-500">{RATE_DISCLAIMER}</p>
+
+      {/* View Details Modal with Slabs, Eligibility & Documents (Fix 4) */}
+      {detailAccount && (
+        <Modal
+          open={Boolean(detailAccount)}
+          onClose={handleCloseDetail}
+          title={shortProductName(detailAccount.name)}
+          wide
+          footer={
+            <div className="flex w-full items-center justify-between gap-3">
+              <Button variant="secondary" onClick={handleCloseDetail}>
+                Close
+              </Button>
+              <Button
+                variant="primary"
+                onClick={() => {
+                  const target = detailAccount;
+                  handleCloseDetail();
+                  setSelectedProductForApply(target);
+                }}
+              >
+                Apply for {shortProductName(detailAccount.name)} <ArrowRight className="h-4 w-4" />
+              </Button>
+            </div>
+          }
+        >
+          <div className="space-y-6 text-sm text-ink-800">
+            {/* Overview */}
+            <div>
+              <p className="text-base text-ink-600 leading-relaxed">{detailAccount.overview}</p>
+            </div>
+
+            {/* Fact Chips */}
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              <div className="rounded-xl border border-ink-100 bg-porcelain-50 p-3">
+                <p className="text-xs text-ink-500">Interest</p>
+                <p className="text-sm font-semibold text-midnight-950 mt-1">
+                  {detailAccount.rateSlabs?.length ? accountRateFact(detailAccount) : 'No interest'}
+                </p>
+              </div>
+              <div className="rounded-xl border border-ink-100 bg-porcelain-50 p-3">
+                <p className="text-xs text-ink-500">Avg. monthly balance</p>
+                <p className="text-sm font-semibold text-midnight-950 mt-1">{accountAmbFact(detailAccount)}</p>
+              </div>
+              <div className="rounded-xl border border-ink-100 bg-porcelain-50 p-3">
+                <p className="text-xs text-ink-500">Non-Maintenance</p>
+                <p className="text-sm font-semibold text-midnight-950 mt-1">{accountPenaltyFact(detailAccount)}</p>
+              </div>
+              <div className="rounded-xl border border-ink-100 bg-porcelain-50 p-3">
+                <p className="text-xs text-ink-500">Debit Card Fee</p>
+                <p className="text-sm font-semibold text-midnight-950 mt-1">{accountCardFeeFact(detailAccount)}</p>
+              </div>
+            </div>
+
+            {/* Slab-wise Interest Table or Overdraft note */}
+            {detailAccount.rateSlabs && detailAccount.rateSlabs.length > 0 ? (
+              <div>
+                <h4 className="font-semibold text-midnight-950 mb-2">Slab-Wise Daily Balance Interest Rates</h4>
+                <div className="rounded-xl border border-ink-100 overflow-hidden">
+                  <table className="w-full text-left text-xs sm:text-sm">
+                    <thead className="bg-porcelain-100 border-b border-ink-100 font-semibold text-ink-700">
+                      <tr>
+                        <th className="p-3">Daily Balance Slab</th>
+                        <th className="p-3 text-right">Interest Rate (p.a.)</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-ink-50">
+                      {detailAccount.rateSlabs.map((s, idx) => (
+                        <tr key={idx} className="hover:bg-porcelain-50">
+                          <td className="p-3 text-ink-800">{s.label}</td>
+                          <td className="p-3 text-right font-semibold text-midnight-950 tnum">{s.rate.toFixed(2)}%</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+                <p className="mt-1.5 text-xs text-ink-500">Interest is computed on daily end-of-day balances and credited quarterly.</p>
+              </div>
+            ) : detailAccount.overdraftRate ? (
+              <div className="rounded-xl border border-gold-300 bg-gold-50 p-4 text-xs sm:text-sm text-ink-800">
+                <p className="font-semibold text-midnight-950">Overdraft Facility</p>
+                <p className="mt-1">
+                  Overdraft interest is charged at {detailAccount.overdraftRate.toFixed(2)}% p.a. on the utilized balance. Current accounts earn zero interest on credit balances per RBI norms.
+                </p>
+              </div>
+            ) : null}
+
+            {/* Eligibility & Documents */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6 pt-2">
+              <div>
+                <h4 className="font-semibold text-midnight-950 mb-2.5">Eligibility Criteria</h4>
+                <ul className="space-y-2">
+                  {detailAccount.eligibility?.map((item, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-ink-700">
+                      <CheckCircle2 className="h-4 w-4 text-success-600 shrink-0 mt-0.5" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+
+              <div>
+                <h4 className="font-semibold text-midnight-950 mb-2.5">Documents Required</h4>
+                <ul className="space-y-2">
+                  {detailAccount.documents?.map((item, idx) => (
+                    <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-ink-700">
+                      <span className="h-1.5 w-1.5 rounded-full bg-gold-500 shrink-0 mt-2" />
+                      <span>{item}</span>
+                    </li>
+                  ))}
+                </ul>
+              </div>
+            </div>
+
+            {/* Complete Charges Schedule */}
+            {Array.isArray(detailAccount.charges) && detailAccount.charges.length > 0 && (
+              <div>
+                <h4 className="font-semibold text-midnight-950 mb-2">Service Charges &amp; Fees</h4>
+                <div className="rounded-xl border border-ink-100 overflow-hidden">
+                  <table className="w-full text-left text-xs sm:text-sm">
+                    <thead className="bg-porcelain-100 border-b border-ink-100 font-semibold text-ink-700">
+                      <tr>
+                        <th className="p-3">Service / Event</th>
+                        <th className="p-3 text-right">Fee / Tariff</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-ink-50">
+                      {detailAccount.charges.map((c, idx) => (
+                        <tr key={idx} className="hover:bg-porcelain-50">
+                          <td className="p-3 text-ink-800">{c.service}</td>
+                          <td className="p-3 text-right font-semibold text-midnight-950">{c.fee}</td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+          </div>
+        </Modal>
+      )}
+
+      {/* Direct Apply Modal (Fix 5: guarantees clicked product is preselected and recorded) */}
+      {selectedProductForApply && (
+        <ApplyModal
+          open={Boolean(selectedProductForApply)}
+          product={selectedProductForApply}
+          onClose={() => setSelectedProductForApply(null)}
+        />
+      )}
     </div>
   );
-};
+}
+
+export { AccountsPage };

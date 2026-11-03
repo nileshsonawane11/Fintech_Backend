@@ -1,37 +1,701 @@
 @import "tailwindcss";
 
-@layer base {
-  :root {
-    --finedge-red: #9D1D27;
-    --finedge-red-hover: #7A1620;
-    --finedge-gold: #C9A227;
-    --finedge-dark: #1C1B1F;
-    --finedge-navy: #25243B;
-    --finedge-slate: #4A4A6A;
-    --finedge-light-slate: #6C757D;
-    --finedge-bg: #F7F8FA;
-    --finedge-border: #E2E5EA;
-  }
+/* Inter Variable — self-hosted woff2 with font-display: swap (Latin & Latin-ext for ₹ currency) */
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/inter/files/inter-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: 'Inter Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/inter/files/inter-latin-ext-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
 
-  body {
-    font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
-    color: #25243B;
-    background-color: #F7F8FA;
-    margin: 0;
-    padding: 0;
-    -webkit-font-smoothing: antialiased;
+/* Fraunces Variable — self-hosted woff2 with font-display: swap (Latin & Latin-ext) */
+@font-face {
+  font-family: 'Fraunces Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/fraunces/files/fraunces-latin-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0000-00FF,U+0131,U+0152-0153,U+02BB-02BC,U+02C6,U+02DA,U+02DC,U+0304,U+0308,U+0329,U+2000-206F,U+20AC,U+2122,U+2191,U+2193,U+2212,U+2215,U+FEFF,U+FFFD;
+}
+@font-face {
+  font-family: 'Fraunces Variable';
+  font-style: normal;
+  font-display: swap;
+  font-weight: 100 900;
+  src: url('@fontsource-variable/fraunces/files/fraunces-latin-ext-wght-normal.woff2') format('woff2-variations');
+  unicode-range: U+0100-02BA,U+02BD-02C5,U+02C7-02CC,U+02CE-02D7,U+02DD-02FF,U+0304,U+0308,U+0329,U+1D00-1DBF,U+1E00-1E9F,U+1EF2-1EFF,U+2020,U+20A0-20AB,U+20AD-20C0,U+2113,U+2C60-2C7F,U+A720-A7FF;
+}
+
+@theme {
+  /* FinEdge Bank design tokens — midnight navy / porcelain / champagne gold / ink.
+     A private-banking palette: deep navy carries trust, gold is used sparingly
+     as a precious accent, porcelain keeps surfaces calm. Defined ONCE here;
+     components consume these scales only. */
+  --color-midnight-50: #eef3f8;
+  --color-midnight-100: #dce7f1;
+  --color-midnight-200: #b9cfe3;
+  --color-midnight-300: #8aabcc;
+  --color-midnight-400: #5b84ac;
+  --color-midnight-500: #38648f;
+  --color-midnight-600: #274e74;
+  --color-midnight-700: #1b3a5c;
+  --color-midnight-800: #122a46;
+  --color-midnight-900: #0a1e35;
+  --color-midnight-950: #050f1d;
+
+  --color-porcelain-50: #fdfcfa;
+  --color-porcelain-100: #faf8f4;
+  --color-porcelain-200: #f1eee6;
+  --color-porcelain-300: #e4dfd2;
+
+  --color-gold-50: #faf6ea;
+  --color-gold-100: #f3ead2;
+  --color-gold-200: #e7d5a4;
+  --color-gold-300: #d9bc74;
+  --color-gold-400: #cba94f;
+  --color-gold-500: #b8933f;
+  --color-gold-600: #9c7a30;
+  --color-gold-700: #7a5f26;
+
+  --color-ink-50: #f4f6f8;
+  --color-ink-100: #e7ebee;
+  --color-ink-200: #cbd3da;
+  --color-ink-300: #a5b1bc;
+  --color-ink-400: #75838f;
+  --color-ink-500: #57646e;
+  --color-ink-600: #43505a;
+  --color-ink-700: #333f47;
+  --color-ink-800: #1f282e;
+  --color-ink-900: #131a1f;
+  --color-ink-950: #0a0f13;
+
+  --color-muted: #75838f;
+  --color-line: #e7ebee;
+
+  --color-success-600: #1e7d46;
+  --color-success-50: #e9f6ee;
+  --color-warning-600: #a86a12;
+  --color-warning-50: #fbf3e2;
+  --color-danger-600: #b3372f;
+  --color-danger-50: #faecea;
+
+  --font-sans: "Inter Variable", "Inter", ui-sans-serif, system-ui, sans-serif;
+  --font-display: "Fraunces Variable", "Fraunces", ui-serif, Georgia, serif;
+
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.75rem;
+  --radius-2xl: 1rem;
+  --radius-full: 9999px;
+  --radius-card: 0.75rem;
+
+  --shadow-card: 0 1px 2px rgb(10 30 53 / 0.05), 0 8px 24px -12px rgb(10 30 53 / 0.16);
+  --shadow-raised: 0 2px 4px rgb(10 30 53 / 0.06), 0 16px 40px -16px rgb(10 30 53 / 0.26);
+  --shadow-modal: 0 24px 64px -16px rgb(5 15 29 / 0.45);
+}
+
+html {
+  font-family: var(--font-sans);
+  font-size: 16px;
+  color: var(--color-ink-900);
+  background: var(--color-porcelain-100);
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  min-height: 100vh;
+}
+
+/* Visible focus everywhere — keyboard users must never lose the ring. */
+:focus-visible {
+  outline: 2px solid var(--color-gold-500);
+  outline-offset: 2px;
+  border-radius: 2px;
+}
+
+/* Tabular numerals for every money figure. */
+.tnum,
+.tabular-nums {
+  font-variant-numeric: tabular-nums;
+}
+
+input[type="number"]::-webkit-outer-spin-button,
+input[type="number"]::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+input[type="number"] {
+  -moz-appearance: textfield;
+  appearance: textfield;
+}
+
+/* ---------------- Motion ----------------
+   Professional, restrained motion system — short fades and gentle rises.
+   No bounce, no elastic, nothing playful: this is a bank. */
+
+@keyframes fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes fade-up {
+  from { opacity: 0; transform: translateY(10px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes scale-in {
+  from { opacity: 0; transform: scale(0.96); }
+  to { opacity: 1; transform: scale(1); }
+}
+
+@keyframes slide-in-right {
+  from { opacity: 0; transform: translateX(16px); }
+  to { opacity: 1; transform: translateX(0); }
+}
+
+.animate-fade-in {
+  animation: fade-in 200ms ease-out both;
+}
+
+.animate-fade-up {
+  animation: fade-up 420ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+.animate-scale-in {
+  animation: scale-in 180ms ease-out both;
+}
+
+.animate-slide-in-right {
+  animation: slide-in-right 260ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
+}
+
+@keyframes card-float {
+  0%, 100% {
+    transform: translateY(0px);
+  }
+  50% {
+    transform: translateY(-6px);
   }
 }
 
-/* Accessibility settings */
+.animate-card-float {
+  animation: card-float 6s ease-in-out infinite;
+}
+
+@keyframes target-pulse {
+  0% {
+    background-color: rgba(243, 235, 214, 0.7);
+    box-shadow: 0 0 0 2px var(--color-gold-400, #B8933F);
+  }
+  100% {
+    background-color: transparent;
+    box-shadow: none;
+  }
+}
+
+.target-pulse-highlight {
+  animation: target-pulse 1.2s ease-out forwards;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-card-float {
+    animation: none !important;
+  }
+}
+
+/* ── Module 19: Scroll-reveal motion system ─────────────────────────────
+   Five treatments, armed-only hiding, zero scroll listeners, one shared IO.
+   Everything resolves to CSS transitions on [data-reveal][data-revealed].
+   ─────────────────────────────────────────────────────────────────────── */
+
+:root {
+  --reveal-rise-desktop: 20px;
+  --reveal-rise-mobile: 12px;
+  --reveal-duration-rise: 700ms;
+  --reveal-duration-draw: 900ms;
+  --reveal-ease: cubic-bezier(0.22, 1, 0.36, 1);
+  --reveal-stagger: 70ms;
+  --reveal-stagger-cap: 350ms;   /* 6th+ item shares this delay */
+}
+
+/* ── Armed-only hiding ── */
+/* Only when <html class="js-reveal-armed"> is present AND the element has not
+   yet been revealed. Fails gracefully: without JS the class is never added. */
+.js-reveal-armed [data-reveal]:not([data-revealed]) {
+  opacity: 0;
+  transform: translateY(var(--reveal-rise-desktop));
+  transition:
+    opacity  var(--reveal-duration-rise) var(--reveal-ease),
+    transform var(--reveal-duration-rise) var(--reveal-ease);
+}
+@media (max-width: 768px) {
+  .js-reveal-armed [data-reveal]:not([data-revealed]) {
+    transform: translateY(var(--reveal-rise-mobile));
+  }
+}
+
+/* ── Revealed state (all treatments) ── */
+[data-reveal][data-revealed] {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── Treatment A — Header sequence ──────────────────────────────────
+   Wrapper itself fades in as a block; inner eyebrow, H2, and description
+   each animate in sequence via sibling-offset delays. */
+.js-reveal-armed [data-reveal="A"]:not([data-revealed]) {
+  /* Parent block armed-hiding already applied above */
+}
+/* Eyebrow hairline: scaleX 0→1 at the bottom of the eyebrow */
+[data-reveal="A"] .reveal-eyebrow-line {
+  transform-origin: left;
+  transition:
+    transform var(--reveal-duration-draw) var(--reveal-ease),
+    opacity   var(--reveal-duration-draw) var(--reveal-ease);
+}
+.js-reveal-armed [data-reveal="A"]:not([data-revealed]) .reveal-eyebrow-line {
+  opacity: 0;
+  transform: scaleX(0);
+}
+[data-reveal="A"][data-revealed] .reveal-eyebrow-line {
+  opacity: 1;
+  transform: scaleX(1);
+}
+/* H2 rises 80ms after parent */
+[data-reveal="A"] .reveal-title {
+  transition:
+    opacity   var(--reveal-duration-rise) var(--reveal-ease) 80ms,
+    transform var(--reveal-duration-rise) var(--reveal-ease) 80ms;
+}
+.js-reveal-armed [data-reveal="A"]:not([data-revealed]) .reveal-title {
+  opacity: 0;
+  transform: translateY(var(--reveal-rise-desktop));
+}
+@media (max-width: 768px) {
+  .js-reveal-armed [data-reveal="A"]:not([data-revealed]) .reveal-title {
+    transform: translateY(var(--reveal-rise-mobile));
+  }
+}
+[data-reveal="A"][data-revealed] .reveal-title {
+  opacity: 1;
+  transform: none;
+}
+/* Description rises 160ms after parent */
+[data-reveal="A"] .reveal-description {
+  transition:
+    opacity   var(--reveal-duration-rise) var(--reveal-ease) 160ms,
+    transform var(--reveal-duration-rise) var(--reveal-ease) 160ms;
+}
+.js-reveal-armed [data-reveal="A"]:not([data-revealed]) .reveal-description {
+  opacity: 0;
+  transform: translateY(var(--reveal-rise-desktop));
+}
+@media (max-width: 768px) {
+  .js-reveal-armed [data-reveal="A"]:not([data-revealed]) .reveal-description {
+    transform: translateY(var(--reveal-rise-mobile));
+  }
+}
+[data-reveal="A"][data-revealed] .reveal-description {
+  opacity: 1;
+  transform: none;
+}
+
+/* ── Treatment B — Rise-stagger ─────────────────────────────────────
+   Individual items rise + fade; delay = min(--stagger-index × 70ms, 350ms). */
+.js-reveal-armed [data-reveal="B"]:not([data-revealed]) {
+  transition-delay: calc(
+    min(var(--stagger-index, 0) * var(--reveal-stagger), var(--reveal-stagger-cap))
+  );
+}
+/* Transition is already set by the base armed rule above */
+
+/* ── Treatment C — Divider cascade ─────────────────────────────────
+   Row fades in, its top border draws scaleX. Applied to the parent
+   container; individual rows carry data-reveal-row. */
+[data-reveal="C"] .reveal-row {
+  transition:
+    opacity   var(--reveal-duration-rise) var(--reveal-ease),
+    transform var(--reveal-duration-rise) var(--reveal-ease);
+  transition-delay: calc(
+    min(var(--stagger-index, 0) * 60ms, 280ms)
+  );
+}
+.js-reveal-armed [data-reveal="C"]:not([data-revealed]) .reveal-row {
+  opacity: 0;
+  transform: translateY(8px);
+}
+[data-reveal="C"][data-revealed] .reveal-row {
+  opacity: 1;
+  transform: none;
+}
+/* Top border line that draws scaleX */
+[data-reveal="C"] .reveal-row-line {
+  transform-origin: left;
+  transition:
+    transform var(--reveal-duration-draw) var(--reveal-ease),
+    opacity   var(--reveal-duration-draw) var(--reveal-ease);
+  transition-delay: calc(
+    min(var(--stagger-index, 0) * 60ms, 280ms)
+  );
+}
+.js-reveal-armed [data-reveal="C"]:not([data-revealed]) .reveal-row-line {
+  opacity: 0;
+  transform: scaleX(0);
+}
+[data-reveal="C"][data-revealed] .reveal-row-line {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+/* ── Treatment D — Curtain reveal ──────────────────────────────────
+   Wrapper is position:relative with overflow:hidden.
+   ::before = midnight curtain that slides up out of frame.
+   The image inside starts at scale(1.04) and settles to scale(1). */
+[data-reveal="D"] {
+  position: relative;
+  overflow: hidden;
+}
+[data-reveal="D"]::before {
+  content: '';
+  position: absolute;
+  inset: 0;
+  z-index: 2;
+  background: var(--color-midnight-950, #050f1d);
+  transform-origin: bottom;
+  transform: scaleY(0);
+  pointer-events: none;
+}
+.js-reveal-armed [data-reveal="D"]:not([data-revealed])::before {
+  transform: scaleY(1);
+  transition: transform var(--reveal-duration-draw) var(--reveal-ease);
+}
+.js-reveal-armed [data-reveal="D"]:not([data-revealed]) {
+  /* Don't hide the wrapper with the base rule; curtain handles it */
+  opacity: 1 !important;
+  transform: none !important;
+}
+[data-reveal="D"][data-revealed]::before {
+  transform: scaleY(0);
+  transition: transform var(--reveal-duration-draw) var(--reveal-ease);
+}
+/* Image inside scales from 1.04 → 1 as curtain lifts */
+[data-reveal="D"] .reveal-curtain-image {
+  transition: transform var(--reveal-duration-draw) var(--reveal-ease) 100ms;
+}
+.js-reveal-armed [data-reveal="D"]:not([data-revealed]) .reveal-curtain-image {
+  transform: scale(1.04);
+}
+[data-reveal="D"][data-revealed] .reveal-curtain-image {
+  transform: scale(1);
+}
+
+/* ── Treatment E — Underline sweep ─────────────────────────────────
+   Stat figure rises + fades. After it lands, a 2px gold underline
+   scaleX 0→1 underneath. */
+.js-reveal-armed [data-reveal="E"]:not([data-revealed]) {
+  /* base armed rule handles rise + fade */
+}
+[data-reveal="E"]::after {
+  content: '';
+  display: block;
+  height: 2px;
+  background: var(--color-gold-400, #c8a84b);
+  transform-origin: left;
+  transform: scaleX(0);
+  margin-top: 4px;
+  border-radius: 1px;
+  transition:
+    transform var(--reveal-duration-draw) var(--reveal-ease)
+    calc(var(--reveal-duration-rise) - 100ms);
+}
+.js-reveal-armed [data-reveal="E"]:not([data-revealed])::after {
+  transform: scaleX(0);
+}
+[data-reveal="E"][data-revealed]::after {
+  transform: scaleX(1);
+}
+
+/* ── Eyebrow hairline drawing (Treatment A) ── */
+.reveal-eyebrow-line {
+  position: relative;
+  display: inline-block;
+}
+.reveal-eyebrow-line::after {
+  content: '';
+  position: absolute;
+  left: 0;
+  bottom: -4px;
+  width: 100%;
+  height: 1px;
+  background: var(--color-gold-400, #c8a84b);
+  transform-origin: left;
+  transform: scaleX(0);
+  transition: transform var(--reveal-duration-draw) var(--reveal-ease);
+}
+.js-reveal-armed [data-reveal="A"]:not([data-revealed]) .reveal-eyebrow-line::after {
+  transform: scaleX(0);
+}
+[data-reveal="A"][data-revealed] .reveal-eyebrow-line::after {
+  transform: scaleX(1);
+}
+
+/* ── Hero Load Sequence (Fix 4: Load sequence, not scroll) ────────── */
+@keyframes hero-bg-enter {
+  0% {
+    opacity: 0;
+    transform: scale(1.03);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+.hero-bg-enter {
+  animation: hero-bg-enter 1200ms cubic-bezier(0.22, 1, 0.36, 1) both;
+}
+
+@keyframes hero-rise-20 {
+  from {
+    opacity: 0;
+    transform: translateY(20px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+@keyframes hero-rise-24 {
+  from {
+    opacity: 0;
+    transform: translateY(24px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.hero-enter-headline {
+  animation: hero-rise-20 700ms cubic-bezier(0.22, 1, 0.36, 1) 150ms both;
+}
+.hero-enter-subtext {
+  animation: hero-rise-20 700ms cubic-bezier(0.22, 1, 0.36, 1) 300ms both;
+}
+.hero-enter-cta {
+  animation: hero-rise-20 700ms cubic-bezier(0.22, 1, 0.36, 1) 450ms both;
+}
+.hero-card-entrance {
+  animation: hero-rise-24 700ms cubic-bezier(0.22, 1, 0.36, 1) 300ms both;
+}
+
+/* Hero Stats — Treatment E on load */
+@keyframes underline-sweep {
+  from { transform: scaleX(0); }
+  to { transform: scaleX(1); }
+}
+.hero-stat-e {
+  animation: hero-rise-20 700ms cubic-bezier(0.22, 1, 0.36, 1) var(--stat-delay, 550ms) both;
+}
+.hero-stat-e::after {
+  content: '';
+  display: block;
+  height: 2px;
+  background: var(--color-gold-400, #c8a84b);
+  transform-origin: left;
+  transform: scaleX(0);
+  margin-top: 4px;
+  border-radius: 1px;
+  animation: underline-sweep 600ms cubic-bezier(0.22, 1, 0.36, 1) calc(var(--stat-delay, 550ms) + 600ms) forwards;
+}
+
+/* ── Why FinEdge desktop gold signature line (Fix 4) ───────────────── */
+.reveal-trust-line {
+  transform-origin: left;
+  transition:
+    transform 1100ms var(--reveal-ease),
+    opacity 1100ms var(--reveal-ease);
+}
+.js-reveal-armed [data-reveal].reveal-trust-line:not([data-revealed]) {
+  opacity: 0;
+  transform: scaleX(0);
+}
+[data-reveal].reveal-trust-line[data-revealed] {
+  opacity: 1;
+  transform: scaleX(1);
+}
+
+/* ── Offers icon tile scale/fade (Fix 4) ───────────────────────────── */
+[data-reveal="B"] .reveal-icon-tile {
+  transition:
+    opacity var(--reveal-duration-rise) var(--reveal-ease),
+    transform var(--reveal-duration-rise) var(--reveal-ease);
+  transition-delay: calc(
+    min(var(--stagger-index, 0) * var(--reveal-stagger), var(--reveal-stagger-cap))
+  );
+}
+.js-reveal-armed [data-reveal="B"]:not([data-revealed]) .reveal-icon-tile {
+  opacity: 0;
+  transform: scale(0.92);
+}
+[data-reveal="B"][data-revealed] .reveal-icon-tile {
+  opacity: 1;
+  transform: scale(1);
+}
+
+/* ── Closing CTA Band choreography (Fix 4) ────────────────────────── */
+.reveal-cta-line {
+  height: 1px;
+  background: var(--color-gold-400, #c8a84b);
+  transform-origin: left;
+  transition: transform var(--reveal-duration-draw) var(--reveal-ease);
+}
+.js-reveal-armed [data-reveal]:not([data-revealed]) .reveal-cta-line {
+  transform: scaleX(0);
+}
+[data-reveal][data-revealed] .reveal-cta-line {
+  transform: scaleX(1);
+}
+
+.reveal-cta-heading {
+  transition:
+    opacity var(--reveal-duration-rise) var(--reveal-ease) 100ms,
+    transform var(--reveal-duration-rise) var(--reveal-ease) 100ms;
+}
+.js-reveal-armed [data-reveal]:not([data-revealed]) .reveal-cta-heading {
+  opacity: 0;
+  transform: translateY(var(--reveal-rise-desktop));
+}
+[data-reveal][data-revealed] .reveal-cta-heading {
+  opacity: 1;
+  transform: none;
+}
+
+.reveal-cta-btn {
+  transition: opacity var(--reveal-duration-rise) var(--reveal-ease) 350ms;
+}
+.js-reveal-armed [data-reveal]:not([data-revealed]) .reveal-cta-btn {
+  opacity: 0;
+}
+[data-reveal][data-revealed] .reveal-cta-btn {
+  opacity: 1;
+}
+
+.reveal-cta-smallprint {
+  transition: opacity var(--reveal-duration-rise) var(--reveal-ease) 200ms;
+}
+.js-reveal-armed [data-reveal]:not([data-revealed]) .reveal-cta-smallprint {
+  opacity: 0;
+}
+[data-reveal][data-revealed] .reveal-cta-smallprint {
+  opacity: 1;
+}
+
+/* ── Rates Column 2 offset & control delayed fade ─────────────────── */
+[data-reveal="C"] .reveal-row {
+  transition-delay: calc(
+    min(var(--stagger-index, 0) * 60ms, 280ms) + var(--column-delay, 0ms)
+  );
+}
+[data-reveal="C"] .reveal-row-line {
+  transition-delay: calc(
+    min(var(--stagger-index, 0) * 60ms, 280ms) + var(--column-delay, 0ms)
+  );
+}
+
+/* ── Reduced-motion and print overrides ───────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  [data-reveal],
+  [data-reveal]::before,
+  [data-reveal]::after,
+  [data-reveal] .reveal-eyebrow-line,
+  [data-reveal] .reveal-eyebrow-line::after,
+  [data-reveal] .reveal-title,
+  [data-reveal] .reveal-description,
+  [data-reveal] .reveal-row,
+  [data-reveal] .reveal-row-line,
+  [data-reveal] .reveal-curtain-image,
+  [data-reveal] .reveal-icon-tile,
+  .hero-bg-enter,
+  .hero-enter-headline,
+  .hero-enter-subtext,
+  .hero-enter-cta,
+  .hero-card-entrance,
+  .hero-stat-e,
+  .hero-stat-e::after,
+  .reveal-trust-line,
+  .reveal-cta-line,
+  .reveal-cta-heading,
+  .reveal-cta-btn,
+  .reveal-cta-smallprint {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}
+@media print {
+  [data-reveal],
+  [data-reveal]::before,
+  [data-reveal]::after,
+  [data-reveal] .reveal-eyebrow-line,
+  [data-reveal] .reveal-eyebrow-line::after,
+  [data-reveal] .reveal-title,
+  [data-reveal] .reveal-description,
+  [data-reveal] .reveal-row,
+  [data-reveal] .reveal-row-line,
+  [data-reveal] .reveal-curtain-image,
+  [data-reveal] .reveal-icon-tile,
+  .hero-bg-enter,
+  .hero-enter-headline,
+  .hero-enter-subtext,
+  .hero-enter-cta,
+  .hero-card-entrance,
+  .hero-stat-e,
+  .hero-stat-e::after,
+  .reveal-trust-line,
+  .reveal-cta-line,
+  .reveal-cta-heading,
+  .reveal-cta-btn,
+  .reveal-cta-smallprint {
+    opacity: 1 !important;
+    transform: none !important;
+    transition: none !important;
+    animation: none !important;
+  }
+}
+
+/* Pre-reveal state for the legacy Reveal component — kept for backward compat. */
+.reveal-init {
+  opacity: 0;
+  transform: translateY(10px);
+}
+
+/* Subtle lift for interactive cards. */
+.card-hover {
+  transition: box-shadow 200ms ease-out, border-color 200ms ease-out;
+}
+.card-hover:hover {
+  box-shadow: var(--shadow-raised);
+}
+
+/* Accessibility settings for AccessibilityContext */
 html.text-size-s {
-  font-size: 13px;
-}
-html.text-size-m {
   font-size: 14px;
 }
-html.text-size-l {
+html.text-size-m {
   font-size: 16px;
+}
+html.text-size-l {
+  font-size: 18px;
 }
 
 body.letter-spacing-tight {
@@ -47,17 +711,19 @@ body.letter-spacing-wider {
   letter-spacing: 1.5px;
 }
 
-/* Smooth transitions */
-.transition-standard {
-  transition: all 0.25s cubic-bezier(0.4, 0, 0.2, 1);
-}
-
-/* Reduced motion support */
+/* Respect users who ask for less motion: kill the animation system and
+   smooth transitions globally, and never leave revealed content hidden. */
 @media (prefers-reduced-motion: reduce) {
-  *, ::before, ::after {
+  *,
+  *::before,
+  *::after {
     animation-duration: 0.01ms !important;
     animation-iteration-count: 1 !important;
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
+  }
+  .reveal-init {
+    opacity: 1 !important;
+    transform: none !important;
   }
 }

@@ -1,363 +1,1049 @@
-import React, { useState, useEffect } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
-import { AccessibilityBar } from './AccessibilityBar';
-import { 
-  Search, 
-  Lock, 
-  Menu, 
-  X, 
-  ChevronDown, 
-  CreditCard, 
-  Landmark, 
-  ShieldAlert, 
-  Calculator, 
-  PhoneCall, 
-  ArrowUpRight,
+import React, { useState, useEffect, useRef } from 'react';
+import { Link, NavLink, useLocation } from 'react-router-dom';
+import {
+  ChevronDown,
+  Landmark,
+  Menu,
+  X,
+  ArrowRight,
+  Wallet,
+  Receipt,
+  GraduationCap,
+  Sprout,
+  PiggyBank,
+  Repeat,
   TrendingUp,
-  Percent,
-  UserCheck
+  ShieldCheck,
+  CreditCard,
+  Home,
+  Briefcase,
+  Car,
+  Coins,
+  Building2,
+  LifeBuoy,
+  FileText,
+  Scale,
+  Lock,
 } from 'lucide-react';
+import { useAuth } from '../../context/AuthContext';
+import { Button } from '../ui.jsx';
+import { AccessibilityBar } from './AccessibilityBar';
+import {
+  CARDS,
+  ACCOUNTS,
+  LOANS,
+  CREDIT_CARDS,
+  DEBIT_CARDS,
+  INVESTMENTS,
+  SAVINGS_TOP_RATE,
+  accountRateFact,
+} from '../../data/products.js';
+import { ACCOUNT_ICONS } from '../../data/productIcons.js';
+import { shortProductName } from '../../lib/format.js';
+import { CardVisual } from '../common/CardVisual.jsx';
+
+/* ---------------- Card Mini SVG Thumbnails (shared CardVisual) ---------------- */
+
+function MiniCardThumb({ card, slug }) {
+  const target = card || CARDS.find((c) => c.slug === slug);
+  if (!target) return null;
+  return <CardVisual card={target} className="w-full h-full shadow-none" />;
+}
+
+/* ---------------- Dynamic Product Mapping ---------------- */
+
+const LOAN_ICONS = {
+  'home-loan': Home,
+  'business-loan': Briefcase,
+  'agriculture-loan': Sprout,
+  'vehicle-loan': Car,
+  'gold-loan': Coins,
+  'loan-against-property': Building2,
+  'education-loan': GraduationCap,
+};
+
+function getAccountFact(acc) {
+  return accountRateFact(acc);
+}
+
+function getCardFact(card) {
+  if (card.annualFee === 0) return 'No annual fee';
+  if (card.annualFee != null) return `₹${card.annualFee}/yr`;
+  return 'Nil';
+}
+
+function getInvestmentMeta(inv) {
+  if (inv.kind === 'FD') {
+    const top = Math.max(...(inv.rateGrid?.map((r) => r.general) || [6.95]));
+    return { fact: `Up to ${top.toFixed(2)}% p.a.`, type: 'Guaranteed', icon: PiggyBank };
+  }
+  if (inv.kind === 'RD') {
+    const top = Math.max(...(inv.rateBands?.map((b) => b.rate) || [7.00]));
+    return { fact: `Up to ${top.toFixed(2)}% p.a.`, type: 'Guaranteed', icon: Repeat };
+  }
+  if (inv.kind === 'SIP') {
+    return { fact: 'Market-linked', type: 'Market-linked', icon: TrendingUp };
+  }
+  if (inv.kind === 'SSY') {
+    return { fact: `${inv.rate?.toFixed(2) || '8.20'}% p.a.`, type: 'Guaranteed', icon: ShieldCheck };
+  }
+  return { fact: '—', type: 'Guaranteed', icon: PiggyBank };
+}
+
+const SUPPORT_ITEMS = [
+  {
+    name: 'Customer Support & Grievances',
+    description: 'Statutory redressal officer & dispute escalations',
+    to: '/grievance-redressal',
+    icon: LifeBuoy,
+    fact: '24x7 Queue',
+  },
+  {
+    name: 'Schedule of Charges',
+    description: 'Honest tariff schedule across all accounts and loans',
+    to: '/schedule-of-charges',
+    icon: FileText,
+    fact: 'Transparent',
+  },
+  {
+    name: 'Fair Practice Code',
+    description: 'Lending commitments & grievance resolution charter',
+    to: '/fair-practice-code',
+    icon: Scale,
+    fact: 'Statutory',
+  },
+  {
+    name: 'Regulatory Disclosures',
+    description: 'Capital adequacy ratios, Basel III & liquidity records',
+    to: '/disclosures',
+    icon: ShieldCheck,
+    fact: 'RBI Norms',
+  },
+  {
+    name: 'Privacy Policy & Terms',
+    description: 'Digital data protection and cookie management',
+    to: '/privacy-policy',
+    icon: Lock,
+    fact: 'Encrypted',
+  },
+];
+
+export function Logo({ light = false }) {
+  return (
+    <Link to="/" className="flex items-center gap-2.5" aria-label="FinEdge Bank — home">
+      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-midnight-900 text-gold-300 shadow-sm">
+        <Landmark className="h-5 w-5" aria-hidden />
+      </span>
+      <span className={`font-display text-lg font-semibold leading-tight tracking-tight ${light ? 'text-porcelain-50' : 'text-midnight-950'}`}>
+        FinEdge Bank
+      </span>
+    </Link>
+  );
+}
 
 export const Header = () => {
-  const { user, logout } = useAuth();
-  const navigate = useNavigate();
-  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
-  const [activeMegaMenu, setActiveMegaMenu] = useState(null); // 'accounts', 'loans', 'cards', 'investments'
-  const [searchQuery, setSearchQuery] = useState('');
-  const [searchFocused, setSearchFocused] = useState(false);
-  const [odometerIndex, setOdometerIndex] = useState(0);
+  const [openMenu, setOpenMenu] = useState(null);
+  const [mobileOpen, setMobileOpen] = useState(false);
+  const [mobileAccordion, setMobileAccordion] = useState(null);
+  const location = useLocation();
+  const { user } = useAuth();
+  const navRef = useRef(null);
+  const triggerRefs = useRef({});
+  const hoverTimerRef = useRef(null);
 
-  // Rotating customer support topics
-  const odometerItems = [
-    'Customer Care: 1800 10 888',
-    'Locate 900+ Branches',
-    'Raise Instant Service Request',
-    'Doorstep Senior Banking',
-    'WhatsApp Banking: Hi to 95555'
-  ];
-
+  // Close menus on route change
   useEffect(() => {
-    const timer = setInterval(() => {
-      setOdometerIndex(prev => (prev + 1) % odometerItems.length);
-    }, 3200);
-    return () => clearInterval(timer);
-  }, [odometerItems.length]);
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    setOpenMenu(null);
+    setMobileOpen(false);
+  }, [location.pathname]);
 
-  const handleSearchSubmit = (e) => {
-    e.preventDefault();
-    if (!searchQuery.trim()) return;
-    const q = searchQuery.toLowerCase();
-    if (q.includes('loan')) navigate('/loans');
-    else if (q.includes('card')) navigate('/cards');
-    else if (q.includes('fd') || q.includes('invest') || q.includes('sip')) navigate('/investments');
-    else if (q.includes('calc') || q.includes('emi')) navigate('/calculators');
-    else navigate('/accounts');
-    setSearchQuery('');
-    setSearchFocused(false);
+  // Close on outside click
+  useEffect(() => {
+    const handleOutsideClick = (e) => {
+      if (navRef.current && !navRef.current.contains(e.target)) {
+        if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+        setOpenMenu(null);
+      }
+    };
+    document.addEventListener('mousedown', handleOutsideClick);
+    return () => document.removeEventListener('mousedown', handleOutsideClick);
+  }, []);
+
+  // 120ms hover intent delay
+  const handleMouseEnter = (menuKey) => {
+    if (typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches) return;
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => {
+      setOpenMenu(menuKey);
+    }, 120);
   };
 
+  const handleMouseLeave = () => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    hoverTimerRef.current = setTimeout(() => {
+      setOpenMenu(null);
+    }, 120);
+  };
+
+  const handleTriggerClick = (menuKey) => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    setOpenMenu((prev) => (prev === menuKey ? null : menuKey));
+  };
+
+  const closeMenu = () => {
+    if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
+    setOpenMenu(null);
+    setMobileOpen(false);
+  };
+
+  // Keyboard accessibility: Escape closes open menu and returns focus
+  const handleKeyDown = (e, menuKey) => {
+    if (e.key === 'Escape') {
+      e.preventDefault();
+      closeMenu();
+      if (triggerRefs.current[menuKey]) {
+        triggerRefs.current[menuKey].focus();
+      }
+    }
+  };
+
+  const isCurrentActive = (path) => location.pathname === path;
+
   return (
-    <header className="sticky top-0 z-40 bg-white shadow-xs border-b border-[#E2E5EA]">
-      {/* Accessibility Sub-bar */}
+    <>
       <AccessibilityBar />
+      <header className="sticky top-0 z-40 border-b border-ink-100 bg-porcelain-50/95 backdrop-blur">
+        <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
+          <Logo />
 
-      {/* Main Header Container */}
-      <div className="max-w-7xl mx-auto px-4">
-        <div className="flex items-center justify-between h-16">
-          {/* Logo & Category Nav */}
-          <div className="flex items-center gap-8">
-            <Link to="/" className="flex items-center gap-2 group">
-              <div className="w-9 h-9 rounded-lg bg-[#9D1D27] flex items-center justify-center text-white font-black text-xl shadow-xs group-hover:bg-[#7A1620] transition-colors">
-                FE
-              </div>
-              <div>
-                <span className="font-extrabold text-xl tracking-tight text-[#1C1B1F]">FinEdge</span>
-                <span className="text-[10px] uppercase font-bold text-[#9D1D27] block -mt-1 tracking-widest">Bank</span>
-              </div>
-            </Link>
-
-            {/* Desktop Navigation Links with Mega Menus */}
-            <nav className="hidden lg:flex items-center gap-1" aria-label="Main Navigation">
-              <div 
-                className="relative"
-                onMouseEnter={() => setActiveMegaMenu('accounts')}
-                onMouseLeave={() => setActiveMegaMenu(null)}
-              >
-                <Link
-                  to="/accounts"
-                  className={`px-3 py-2 rounded-md text-sm font-semibold flex items-center gap-1 transition-colors ${
-                    activeMegaMenu === 'accounts' ? 'text-[#9D1D27] bg-red-50/50' : 'text-gray-800 hover:text-[#9D1D27]'
-                  }`}
-                >
-                  Accounts <ChevronDown className="w-3.5 h-3.5 opacity-60" />
-                </Link>
-
-                {/* Accounts Mega Menu */}
-                {activeMegaMenu === 'accounts' && (
-                  <div className="absolute top-full left-0 w-80 bg-white shadow-xl rounded-xl border border-gray-100 p-4 grid gap-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-2">Account Varieties</span>
-                    <Link to="/accounts#savings" className="p-2 rounded-lg hover:bg-gray-50 flex items-start gap-3 transition-colors">
-                      <div className="p-1.5 rounded-md bg-red-100/60 text-[#9D1D27]">
-                        <Percent className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold text-gray-900">Savings Account</div>
-                        <p className="text-xs text-gray-500">Up to 7.00% monthly interest credit</p>
-                      </div>
-                    </Link>
-                    <Link to="/accounts#current" className="p-2 rounded-lg hover:bg-gray-50 flex items-start gap-3 transition-colors">
-                      <div className="p-1.5 rounded-md bg-gray-100 text-gray-900">
-                        <Landmark className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold text-gray-900">Business Current Account</div>
-                        <p className="text-xs text-gray-500">BRAVO Auto-Sweep & zero fee services</p>
-                      </div>
-                    </Link>
-                    <Link to="/accounts#salary" className="p-2 rounded-lg hover:bg-gray-50 flex items-start gap-3 transition-colors">
-                      <div className="p-1.5 rounded-md bg-blue-100 text-blue-800">
-                        <UserCheck className="w-4 h-4" />
-                      </div>
-                      <div>
-                        <div className="text-sm font-bold text-gray-900">Corporate Salary Account</div>
-                        <p className="text-xs text-gray-500">Zero balance with free executive card</p>
-                      </div>
-                    </Link>
-                  </div>
-                )}
-              </div>
-
-              <div 
-                className="relative"
-                onMouseEnter={() => setActiveMegaMenu('loans')}
-                onMouseLeave={() => setActiveMegaMenu(null)}
-              >
-                <Link
-                  to="/loans"
-                  className={`px-3 py-2 rounded-md text-sm font-semibold flex items-center gap-1 transition-colors ${
-                    activeMegaMenu === 'loans' ? 'text-[#9D1D27] bg-red-50/50' : 'text-gray-800 hover:text-[#9D1D27]'
-                  }`}
-                >
-                  Loans <ChevronDown className="w-3.5 h-3.5 opacity-60" />
-                </Link>
-
-                {/* Loans Mega Menu */}
-                {activeMegaMenu === 'loans' && (
-                  <div className="absolute top-full left-0 w-84 bg-white shadow-xl rounded-xl border border-gray-100 p-4 grid gap-2 z-50 animate-in fade-in slide-in-from-top-2 duration-150">
-                    <span className="text-[11px] font-bold text-gray-400 uppercase tracking-wider px-2">Financing Solutions</span>
-                    <Link to="/loans#home-loan" className="p-2 rounded-lg hover:bg-gray-50 flex items-start gap-3">
-                      <div className="p-1.5 rounded-md bg-red-100/60 text-[#9D1D27]">🏡</div>
-                      <div>
-                        <div className="text-sm font-bold text-gray-900">Dream Home Loan</div>
-                        <p className="text-xs text-gray-500">Rates from 8.45% p.a. with zero prepayment fees</p>
-                      </div>
-                    </Link>
-                    <Link to="/loans#business-loan" className="p-2 rounded-lg hover:bg-gray-50 flex items-start gap-3">
-                      <div className="p-1.5 rounded-md bg-gray-100 text-gray-900">🏢</div>
-                      <div>
-                        <div className="text-sm font-bold text-gray-900">MSME Business Loan</div>
-                        <p className="text-xs text-gray-500">Collateral-free funding up to ₹1 Crore</p>
-                      </div>
-                    </Link>
-                    <Link to="/loans#gold-loan" className="p-2 rounded-lg hover:bg-gray-50 flex items-start gap-3">
-                      <div className="p-1.5 rounded-md bg-amber-100 text-amber-900">🪙</div>
-                      <div>
-                        <div className="text-sm font-bold text-gray-900">Instant Gold Loan</div>
-                        <p className="text-xs text-gray-500">20-minute disbursal with bullet repayment</p>
-                      </div>
-                    </Link>
-                  </div>
-                )}
-              </div>
-
-              <Link
-                to="/cards"
-                className="px-3 py-2 rounded-md text-sm font-semibold text-gray-800 hover:text-[#9D1D27] transition-colors"
-              >
-                Cards
-              </Link>
-
-              <Link
-                to="/investments"
-                className="px-3 py-2 rounded-md text-sm font-semibold text-gray-800 hover:text-[#9D1D27] transition-colors"
-              >
-                Investments & Deposits
-              </Link>
-
-              <Link
-                to="/calculators"
-                className="px-3 py-2 rounded-md text-sm font-semibold text-gray-800 hover:text-[#9D1D27] flex items-center gap-1 transition-colors"
-              >
-                <Calculator className="w-3.5 h-3.5 text-[#9D1D27]" /> Calculators
-              </Link>
-            </nav>
-          </div>
-
-          {/* Right Area: Search, Odometer, NetBanking Login */}
-          <div className="flex items-center gap-3">
-            {/* Search Input */}
-            <form onSubmit={handleSearchSubmit} className="relative hidden md:block">
-              <input
-                type="text"
-                placeholder="Search products, loans..."
-                value={searchQuery}
-                onFocus={() => setSearchFocused(true)}
-                onBlur={() => setTimeout(() => setSearchFocused(false), 200)}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                className={`text-xs pl-8 pr-3 py-2 rounded-full border border-gray-300 bg-gray-50 transition-all duration-300 focus:outline-none focus:bg-white focus:border-[#9D1D27] ${
-                  searchFocused ? 'w-60 ring-2 ring-[#9D1D27]/20' : 'w-44'
+          {/* Desktop Navigation with Data-Driven Mega Menus */}
+          <nav
+            ref={navRef}
+            className="ml-6 hidden items-center gap-1 lg:flex"
+            aria-label="Products and Services"
+          >
+            {/* 1. ACCOUNTS MEGA MENU */}
+            <div
+              className="relative"
+              onMouseEnter={() => handleMouseEnter('Accounts')}
+              onMouseLeave={handleMouseLeave}
+              onKeyDown={(e) => handleKeyDown(e, 'Accounts')}
+            >
+              <button
+                ref={(el) => (triggerRefs.current['Accounts'] = el)}
+                type="button"
+                aria-expanded={openMenu === 'Accounts'}
+                aria-haspopup="true"
+                onClick={() => handleTriggerClick('Accounts')}
+                className={`relative flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-gold-500 ${
+                  isCurrentActive('/accounts')
+                    ? 'text-midnight-950 font-semibold'
+                    : 'text-ink-700 hover:text-midnight-900 hover:bg-midnight-50/50'
                 }`}
-              />
-              <Search className="w-3.5 h-3.5 text-gray-400 absolute left-2.5 top-1/2 -translate-y-1/2 pointer-events-none" />
-            </form>
+              >
+                <span>Accounts</span>
+                <ChevronDown
+                  className={`h-4 w-4 text-ink-400 transition-transform duration-160 ${
+                    openMenu === 'Accounts' ? 'rotate-180 text-gold-600' : ''
+                  }`}
+                  aria-hidden
+                />
+                {isCurrentActive('/accounts') && (
+                  <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-gold-400 rounded-full" />
+                )}
+              </button>
 
-            {/* Support Odometer Ticker */}
-            <div className="hidden xl:flex items-center px-3 py-1.5 rounded-full bg-gray-100 text-xs text-gray-700 overflow-hidden h-8 w-60 border border-gray-200">
-              <PhoneCall className="w-3.5 h-3.5 text-[#9D1D27] shrink-0 mr-2" />
-              <div className="transition-all duration-500 font-medium truncate">
-                {odometerItems[odometerIndex]}
-              </div>
+              {openMenu === 'Accounts' && (
+                <div
+                  className="absolute left-0 top-full mt-1.5 w-[620px] min-w-[620px] rounded-2xl border border-ink-100 border-t-2 border-t-gold-500 bg-white shadow-2xl shadow-modal z-50 overflow-hidden p-5 animate-fade-in"
+                  role="region"
+                  aria-label="Accounts Menu"
+                >
+                  <div className="grid gap-1">
+                    {ACCOUNTS.map((acc) => {
+                      const Icon = ACCOUNT_ICONS[acc.slug] || Wallet;
+                      const fact = getAccountFact(acc);
+                      return (
+                        <Link
+                          key={acc.slug}
+                          to={`/accounts#${acc.slug}`}
+                          onClick={closeMenu}
+                          className="group cursor-pointer flex min-h-[64px] items-center justify-between rounded-xl px-3 py-2 transition-colors duration-150 hover:bg-porcelain-200 focus-visible:outline-2 focus-visible:outline-gold-500"
+                        >
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50 transition-colors duration-150 group-hover:bg-midnight-800 group-hover:text-gold-300">
+                              <Icon className="h-6 w-6" aria-hidden />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate text-base font-semibold text-ink-900 group-hover:text-midnight-950">
+                                {shortProductName(acc.name)}
+                              </p>
+                              <p className="truncate text-sm text-ink-500">{acc.tagline}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0 ml-4">
+                            <span className="tnum text-[15px] font-semibold text-ink-900 group-hover:text-midnight-950">
+                              {fact}
+                            </span>
+                            <ArrowRight className="h-4 w-4 text-ink-400 group-hover:text-midnight-900 transition-colors" />
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 -mx-5 -mb-5 flex items-center justify-between border-t border-ink-100 bg-porcelain-50/90 px-5 py-3.5 text-[15px]">
+                    <Link
+                      to="/accounts"
+                      onClick={closeMenu}
+                      className="font-medium text-ink-700 hover:text-midnight-900 transition-colors"
+                    >
+                      View all accounts →
+                    </Link>
+                    <Link
+                      to="/accounts?apply=1"
+                      onClick={closeMenu}
+                      className="font-semibold text-midnight-900 hover:text-midnight-700 transition-colors"
+                    >
+                      Open an account
+                    </Link>
+                  </div>
+                </div>
+              )}
             </div>
 
-            {/* Portal / Login Action */}
-            <div className="flex items-center gap-2">
-              {user ? (
-                <>
-                  <Link
-                    to="/portal"
-                    className="px-3 py-1.5 rounded-lg bg-[#9D1D27] text-white text-xs font-bold hover:bg-[#7A1620] flex items-center gap-1.5 transition-colors shadow-xs"
-                  >
-                    <Lock className="w-3.5 h-3.5" /> Portal ({user.name.split(' ')[0]})
-                  </Link>
-                  <button
-                    onClick={logout}
-                    className="text-xs text-gray-500 hover:text-gray-800 px-2 py-1"
-                  >
-                    Sign Out
-                  </button>
-                </>
-              ) : (
-                <Link
-                  to="/portal/login"
-                  className="px-3.5 py-2 rounded-md bg-[#9D1D27] text-white text-xs font-bold hover:bg-[#7A1620] flex items-center gap-1.5 transition-colors shadow-xs"
-                >
-                  <Lock className="w-3.5 h-3.5" /> NetBanking Login
-                </Link>
-              )}
+            {/* 2. CARDS MEGA MENU */}
+            <div
+              className="relative"
+              onMouseEnter={() => handleMouseEnter('Cards')}
+              onMouseLeave={handleMouseLeave}
+              onKeyDown={(e) => handleKeyDown(e, 'Cards')}
+            >
+              <button
+                ref={(el) => (triggerRefs.current['Cards'] = el)}
+                type="button"
+                aria-expanded={openMenu === 'Cards'}
+                aria-haspopup="true"
+                onClick={() => handleTriggerClick('Cards')}
+                className={`relative flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-gold-500 ${
+                  isCurrentActive('/cards')
+                    ? 'text-midnight-950 font-semibold'
+                    : 'text-ink-700 hover:text-midnight-900 hover:bg-midnight-50/50'
+                }`}
+              >
+                <span>Cards</span>
+                <ChevronDown
+                  className={`h-4 w-4 text-ink-400 transition-transform duration-160 ${
+                    openMenu === 'Cards' ? 'rotate-180 text-gold-600' : ''
+                  }`}
+                  aria-hidden
+                />
+                {isCurrentActive('/cards') && (
+                  <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-gold-400 rounded-full" />
+                )}
+              </button>
 
-              {/* Staff Portal - Always visible */}
+              {openMenu === 'Cards' && (
+                <div
+                  className="absolute left-0 top-full mt-1.5 w-[620px] min-w-[620px] rounded-2xl border border-ink-100 border-t-2 border-t-gold-500 bg-white shadow-2xl shadow-modal z-50 overflow-hidden p-5 animate-fade-in"
+                  role="region"
+                  aria-label="Cards Menu"
+                >
+                  <div className="space-y-3">
+                    {/* CREDIT CARDS GROUP */}
+                    <div>
+                      <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-[0.14em] text-ink-400">
+                        Credit Cards
+                      </p>
+                      <div className="grid gap-1">
+                        {CREDIT_CARDS.map((card) => (
+                          <Link
+                            key={card.slug}
+                            to={`/cards#${card.slug}`}
+                            onClick={closeMenu}
+                            className="group cursor-pointer flex min-h-[64px] items-center justify-between rounded-xl px-3 py-2 transition-colors duration-150 hover:bg-porcelain-200 focus-visible:outline-2 focus-visible:outline-gold-500"
+                          >
+                            <div className="flex items-center gap-3.5 min-w-0">
+                              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 p-1.5 overflow-hidden transition-colors duration-150 group-hover:bg-midnight-800">
+                                <MiniCardThumb slug={card.slug} />
+                              </span>
+                              <div className="min-w-0">
+                                <p className="truncate text-base font-semibold text-ink-900 group-hover:text-midnight-950">
+                                  {shortProductName(card.name)}
+                                </p>
+                                <p className="truncate text-sm text-ink-500">{card.tagline}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0 ml-4">
+                              <span className="tnum text-[15px] font-semibold text-ink-900 group-hover:text-midnight-950">
+                                {getCardFact(card)}
+                              </span>
+                              <ArrowRight className="h-4 w-4 text-ink-400 group-hover:text-midnight-900 transition-colors" />
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div className="border-t border-ink-100" />
+
+                    {/* DEBIT CARDS GROUP */}
+                    <div>
+                      <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-[0.14em] text-ink-400">
+                        Debit Cards
+                      </p>
+                      <div className="grid gap-1">
+                        {DEBIT_CARDS.map((card) => (
+                          <Link
+                            key={card.slug}
+                            to={`/cards#${card.slug}`}
+                            onClick={closeMenu}
+                            className="group cursor-pointer flex min-h-[64px] items-center justify-between rounded-xl px-3 py-2 transition-colors duration-150 hover:bg-porcelain-200 focus-visible:outline-2 focus-visible:outline-gold-500"
+                          >
+                            <div className="flex items-center gap-3.5 min-w-0">
+                              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 p-1.5 overflow-hidden transition-colors duration-150 group-hover:bg-midnight-800">
+                                <MiniCardThumb slug={card.slug} />
+                              </span>
+                              <div className="min-w-0">
+                                <p className="truncate text-base font-semibold text-ink-900 group-hover:text-midnight-950">
+                                  {shortProductName(card.name)}
+                                </p>
+                                <p className="truncate text-sm text-ink-500">{card.tagline}</p>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 shrink-0 ml-4">
+                              <span className="tnum text-[15px] font-semibold text-ink-900 group-hover:text-midnight-950">
+                                {getCardFact(card)}
+                              </span>
+                              <ArrowRight className="h-4 w-4 text-ink-400 group-hover:text-midnight-900 transition-colors" />
+                            </div>
+                          </Link>
+                        ))}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div className="mt-3 -mx-5 -mb-5 flex items-center justify-between border-t border-ink-100 bg-porcelain-50/90 px-5 py-3.5 text-[15px]">
+                    <Link
+                      to="/cards"
+                      onClick={closeMenu}
+                      className="font-medium text-ink-700 hover:text-midnight-900 transition-colors"
+                    >
+                      View all cards →
+                    </Link>
+                    <Link
+                      to="/cards#compare"
+                      onClick={closeMenu}
+                      className="font-semibold text-midnight-900 hover:text-midnight-700 transition-colors"
+                    >
+                      Compare cards
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 3. LOANS MEGA MENU (ALL 7 PRODUCTS) */}
+            <div
+              className="relative"
+              onMouseEnter={() => handleMouseEnter('Loans')}
+              onMouseLeave={handleMouseLeave}
+              onKeyDown={(e) => handleKeyDown(e, 'Loans')}
+            >
+              <button
+                ref={(el) => (triggerRefs.current['Loans'] = el)}
+                type="button"
+                aria-expanded={openMenu === 'Loans'}
+                aria-haspopup="true"
+                onClick={() => handleTriggerClick('Loans')}
+                className={`relative flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-gold-500 ${
+                  isCurrentActive('/loans')
+                    ? 'text-midnight-950 font-semibold'
+                    : 'text-ink-700 hover:text-midnight-900 hover:bg-midnight-50/50'
+                }`}
+              >
+                <span>Loans</span>
+                <ChevronDown
+                  className={`h-4 w-4 text-ink-400 transition-transform duration-160 ${
+                    openMenu === 'Loans' ? 'rotate-180 text-gold-600' : ''
+                  }`}
+                  aria-hidden
+                />
+                {isCurrentActive('/loans') && (
+                  <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-gold-400 rounded-full" />
+                )}
+              </button>
+
+              {openMenu === 'Loans' && (
+                <div
+                  className="absolute left-0 top-full mt-1.5 w-[620px] min-w-[620px] rounded-2xl border border-ink-100 border-t-2 border-t-gold-500 bg-white shadow-2xl shadow-modal z-50 overflow-hidden p-5 animate-fade-in"
+                  role="region"
+                  aria-label="Loans Menu"
+                >
+                  <div className="grid gap-1">
+                    {LOANS.map((loan) => {
+                      const Icon = LOAN_ICONS[loan.slug] || Home;
+                      return (
+                        <Link
+                          key={loan.slug}
+                          to={`/loans#${loan.slug}`}
+                          onClick={closeMenu}
+                          className="group cursor-pointer flex min-h-[64px] items-center justify-between rounded-xl px-3 py-2 transition-colors duration-150 hover:bg-porcelain-200 focus-visible:outline-2 focus-visible:outline-gold-500"
+                        >
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50 transition-colors duration-150 group-hover:bg-midnight-800 group-hover:text-gold-300">
+                              <Icon className="h-6 w-6" aria-hidden />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate text-base font-semibold text-ink-900 group-hover:text-midnight-950">
+                                {shortProductName(loan.name)}
+                              </p>
+                              <p className="truncate text-sm text-ink-500">{loan.tagline}</p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0 ml-4">
+                            <span className="tnum text-[15px] font-semibold text-ink-900 group-hover:text-midnight-950">
+                              From {loan.rateMin.toFixed(2)}% p.a.
+                            </span>
+                            <ArrowRight className="h-4 w-4 text-ink-400 group-hover:text-midnight-900 transition-colors" />
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 -mx-5 -mb-5 flex items-center justify-between border-t border-ink-100 bg-porcelain-50/90 px-5 py-3.5 text-[15px]">
+                    <Link
+                      to="/loans"
+                      onClick={closeMenu}
+                      className="font-medium text-ink-700 hover:text-midnight-900 transition-colors"
+                    >
+                      View all 7 loans →
+                    </Link>
+                    <Link
+                      to="/calculators"
+                      onClick={closeMenu}
+                      className="font-semibold text-midnight-900 hover:text-midnight-700 transition-colors"
+                    >
+                      EMI calculator
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 4. INVESTMENTS MEGA MENU */}
+            <div
+              className="relative"
+              onMouseEnter={() => handleMouseEnter('Investments')}
+              onMouseLeave={handleMouseLeave}
+              onKeyDown={(e) => handleKeyDown(e, 'Investments')}
+            >
+              <button
+                ref={(el) => (triggerRefs.current['Investments'] = el)}
+                type="button"
+                aria-expanded={openMenu === 'Investments'}
+                aria-haspopup="true"
+                onClick={() => handleTriggerClick('Investments')}
+                className={`relative flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-gold-500 ${
+                  isCurrentActive('/investments')
+                    ? 'text-midnight-950 font-semibold'
+                    : 'text-ink-700 hover:text-midnight-900 hover:bg-midnight-50/50'
+                }`}
+              >
+                <span>Investments</span>
+                <ChevronDown
+                  className={`h-4 w-4 text-ink-400 transition-transform duration-160 ${
+                    openMenu === 'Investments' ? 'rotate-180 text-gold-600' : ''
+                  }`}
+                  aria-hidden
+                />
+                {isCurrentActive('/investments') && (
+                  <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-gold-400 rounded-full" />
+                )}
+              </button>
+
+              {openMenu === 'Investments' && (
+                <div
+                  className="absolute -left-16 top-full mt-1.5 w-[620px] min-w-[620px] rounded-2xl border border-ink-100 border-t-2 border-t-gold-500 bg-white shadow-2xl shadow-modal z-50 overflow-hidden p-5 animate-fade-in"
+                  role="region"
+                  aria-label="Investments Menu"
+                >
+                  <div className="grid gap-1">
+                    {INVESTMENTS.map((inv) => {
+                      const { fact, type, icon: Icon } = getInvestmentMeta(inv);
+                      const isGuaranteed = type === 'Guaranteed';
+                      return (
+                        <Link
+                          key={inv.slug}
+                          to={`/investments#${inv.slug}`}
+                          onClick={closeMenu}
+                          className="group cursor-pointer flex min-h-[64px] items-center justify-between rounded-xl px-3 py-2 transition-colors duration-150 hover:bg-porcelain-200 focus-visible:outline-2 focus-visible:outline-gold-500"
+                        >
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50 transition-colors duration-150 group-hover:bg-midnight-800 group-hover:text-gold-300">
+                              <Icon className="h-6 w-6" aria-hidden />
+                            </span>
+                            <div className="min-w-0">
+                              <div className="flex items-center gap-2">
+                                <p className="truncate text-base font-semibold text-ink-900 group-hover:text-midnight-950">
+                                  {shortProductName(inv.name)}
+                                </p>
+                                <span
+                                  className={`text-[11px] px-2 py-0.5 rounded-md font-semibold tracking-wide ${
+                                    isGuaranteed
+                                      ? 'bg-midnight-900 text-porcelain-50'
+                                      : 'border border-gold-500 text-gold-700 bg-gold-50/60'
+                                  }`}
+                                >
+                                  {type}
+                                </span>
+                              </div>
+                              <p className="truncate text-sm text-ink-500">
+                                {inv.kind === 'SIP' ? 'Market-linked mutual funds • Risks apply' : inv.tagline}
+                              </p>
+                            </div>
+                          </div>
+                          <div className="flex items-center gap-2 shrink-0 ml-4">
+                            <span className="tnum text-[15px] font-semibold text-ink-900 group-hover:text-midnight-950">
+                              {fact}
+                            </span>
+                            <ArrowRight className="h-4 w-4 text-ink-400 group-hover:text-midnight-900 transition-colors" />
+                          </div>
+                        </Link>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 -mx-5 -mb-5 flex items-center justify-between border-t border-ink-100 bg-porcelain-50/90 px-5 py-3.5 text-[15px]">
+                    <Link
+                      to="/investments"
+                      onClick={closeMenu}
+                      className="font-medium text-ink-700 hover:text-midnight-900 transition-colors"
+                    >
+                      View all investments →
+                    </Link>
+                    <Link
+                      to="/grievance-redressal"
+                      onClick={closeMenu}
+                      className="font-semibold text-midnight-900 hover:text-midnight-700 transition-colors"
+                    >
+                      Talk to us
+                    </Link>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* 5. CALCULATORS DIRECT LINK */}
+            <NavLink
+              to="/calculators"
+              className={({ isActive }) =>
+                `relative rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-gold-500 ${
+                  isActive ? 'text-midnight-950 font-semibold' : 'text-ink-700 hover:text-midnight-900 hover:bg-midnight-50/50'
+                }`
+              }
+            >
+              Calculators
+              {isCurrentActive('/calculators') && (
+                <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-gold-400 rounded-full" />
+              )}
+            </NavLink>
+
+            {/* 6. SUPPORT MEGA MENU (400px, shifted right so it never clips) */}
+            <div
+              className="relative"
+              onMouseEnter={() => handleMouseEnter('Support')}
+              onMouseLeave={handleMouseLeave}
+              onKeyDown={(e) => handleKeyDown(e, 'Support')}
+            >
+              <button
+                ref={(el) => (triggerRefs.current['Support'] = el)}
+                type="button"
+                aria-expanded={openMenu === 'Support'}
+                aria-haspopup="true"
+                onClick={() => handleTriggerClick('Support')}
+                className={`relative flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-gold-500 ${
+                  openMenu === 'Support' ? 'text-midnight-950 font-semibold' : 'text-ink-700 hover:text-midnight-900 hover:bg-midnight-50/50'
+                }`}
+              >
+                <span>Support</span>
+                <ChevronDown
+                  className={`h-4 w-4 text-ink-400 transition-transform duration-160 ${
+                    openMenu === 'Support' ? 'rotate-180 text-gold-600' : ''
+                  }`}
+                  aria-hidden
+                />
+              </button>
+
+              {openMenu === 'Support' && (
+                <div
+                  className="absolute right-0 top-full mt-1.5 w-[400px] min-w-[400px] rounded-2xl border border-ink-100 border-t-2 border-t-gold-500 bg-white shadow-2xl shadow-modal z-50 overflow-hidden p-5 animate-fade-in"
+                  role="region"
+                  aria-label="Support and Compliance Menu"
+                >
+                  <div className="grid gap-1">
+                    {SUPPORT_ITEMS.map((item) => {
+                      const Icon = item.icon;
+                      return (
+                        <Link
+                          key={item.name}
+                          to={item.to}
+                          onClick={closeMenu}
+                          className="group cursor-pointer flex min-h-[64px] items-center justify-between rounded-xl px-3 py-2 transition-colors duration-150 hover:bg-porcelain-200 focus-visible:outline-2 focus-visible:outline-gold-500"
+                        >
+                          <div className="flex items-center gap-3.5 min-w-0">
+                            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50 transition-colors duration-150 group-hover:bg-midnight-800 group-hover:text-gold-300">
+                              <Icon className="h-5 w-5" aria-hidden />
+                            </span>
+                            <div className="min-w-0">
+                              <p className="truncate text-base font-semibold text-ink-900 group-hover:text-midnight-950">
+                                {item.name}
+                              </p>
+                              <p className="truncate text-sm text-ink-500">{item.description}</p>
+                            </div>
+                          </div>
+                          <ArrowRight className="h-4 w-4 text-ink-400 group-hover:text-midnight-900 transition-colors ml-2 shrink-0" />
+                        </Link>
+                      );
+                    })}
+                  </div>
+                  <div className="mt-3 -mx-5 -mb-5 flex items-center justify-between border-t border-ink-100 bg-porcelain-50/90 px-5 py-3.5 text-[15px]">
+                    <div>
+                      <p className="text-xs text-ink-500">Toll-Free Helpline</p>
+                      <a href="tel:18002674100" className="font-bold text-midnight-950 hover:text-gold-600 transition-colors">
+                        1800 267 4100
+                      </a>
+                    </div>
+                    <span className="text-xs text-ink-400">Mon–Sat, 9AM–7PM</span>
+                  </div>
+                </div>
+              )}
+            </div>
+          </nav>
+
+          {/* Desktop Right Side Header Actions: Primary Login + Secondary Staff Console */}
+          <div className="ml-auto flex items-center gap-3">
+            <div className="hidden sm:flex items-center gap-3">
+              {user ? (
+                <Button
+                  as={Link}
+                  to="/portal"
+                  variant="primary"
+                  size="md"
+                  className="shadow-sm"
+                >
+                  My Dashboard
+                </Button>
+              ) : (
+                <Button
+                  as={Link}
+                  to="/portal/login"
+                  variant="primary"
+                  size="md"
+                  className="shadow-sm"
+                >
+                  Login
+                </Button>
+              )}
               <Link
                 to="/manager/login"
-                className="px-3 py-1.5 rounded-md bg-[#0B132B] hover:bg-[#1C2541] text-cyan-300 hover:text-white text-xs font-bold flex items-center gap-1.5 transition-colors border border-cyan-500/40 shadow-xs"
-                title="Internal Bank Staff & Manager Operations Terminal"
+                className="rounded-lg px-3 py-2 text-sm font-medium text-midnight-800 transition-colors hover:bg-midnight-50/70 hover:text-midnight-950"
               >
-                <ShieldAlert className="w-3.5 h-3.5 text-cyan-400" /> Staff Portal
+                Staff Console
               </Link>
             </div>
 
-            {/* Mobile Menu Button */}
+            {/* Mobile Hamburger Toggle */}
             <button
-              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
-              className="lg:hidden p-2 rounded-md text-gray-700 hover:bg-gray-100"
-              aria-label="Toggle mobile menu"
+              type="button"
+              className="rounded-lg p-2 text-ink-700 transition-colors hover:text-midnight-900 lg:hidden"
+              onClick={() => setMobileOpen((v) => !v)}
+              aria-label="Toggle menu"
             >
-              {mobileMenuOpen ? <X className="w-6 h-6" /> : <Menu className="w-6 h-6" />}
+              {mobileOpen ? <X className="h-6 w-6" aria-hidden /> : <Menu className="h-6 w-6" aria-hidden />}
             </button>
           </div>
         </div>
-      </div>
 
-      {/* Mobile Drawer */}
-      {mobileMenuOpen && (
-        <div className="lg:hidden bg-white border-b border-gray-200 px-4 pt-2 pb-6 space-y-3 animate-in slide-in-from-top-4 duration-200">
-          <form onSubmit={handleSearchSubmit} className="relative mb-3">
-            <input
-              type="text"
-              placeholder="Search products..."
-              value={searchQuery}
-              onChange={(e) => setSearchQuery(e.target.value)}
-              className="w-full text-sm pl-9 pr-4 py-2 rounded-lg border border-gray-300 bg-gray-50"
-            />
-            <Search className="w-4 h-4 text-gray-400 absolute left-3 top-1/2 -translate-y-1/2" />
-          </form>
+        {/* Mobile Menu Sheet */}
+        {mobileOpen && (
+          <nav
+            className="animate-fade-in border-t border-ink-100 bg-porcelain-50 px-4 py-4 lg:hidden space-y-3 max-h-[calc(100vh-4rem)] overflow-y-auto"
+            aria-label="Mobile Navigation"
+          >
+            {/* Mobile Header: Primary Login Button at top, Staff Console secondary row below */}
+            <div className="pb-3 border-b border-ink-100 space-y-2">
+              {user ? (
+                <Button
+                  as={Link}
+                  to="/portal"
+                  onClick={closeMenu}
+                  variant="primary"
+                  size="md"
+                  className="w-full justify-center shadow-sm"
+                >
+                  My Dashboard
+                </Button>
+              ) : (
+                <Button
+                  as={Link}
+                  to="/portal/login"
+                  onClick={closeMenu}
+                  variant="primary"
+                  size="md"
+                  className="w-full justify-center shadow-sm"
+                >
+                  Login
+                </Button>
+              )}
+              <Link
+                to="/manager/login"
+                onClick={closeMenu}
+                className="flex w-full items-center justify-center rounded-lg py-2 px-3 text-sm font-medium text-midnight-800 hover:bg-midnight-50/70 transition-colors"
+              >
+                Staff Console
+              </Link>
+            </div>
 
-          <div className="space-y-1 text-sm font-semibold">
-            <Link
-              to="/accounts"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-md text-gray-800 hover:bg-red-50 hover:text-[#9D1D27]"
-            >
-              Accounts & Deposits
-            </Link>
-            <Link
-              to="/loans"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-md text-gray-800 hover:bg-red-50 hover:text-[#9D1D27]"
-            >
-              Loans & Credit Lines
-            </Link>
-            <Link
-              to="/cards"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-md text-gray-800 hover:bg-red-50 hover:text-[#9D1D27]"
-            >
-              Credit & Debit Cards
-            </Link>
-            <Link
-              to="/investments"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-md text-gray-800 hover:bg-red-50 hover:text-[#9D1D27]"
-            >
-              Investments (SIP, SSY, FD)
-            </Link>
+            {/* Accounts Accordion */}
+            <div className="rounded-xl border border-ink-200/70 bg-white overflow-hidden shadow-xs">
+              <button
+                type="button"
+                onClick={() => setMobileAccordion(mobileAccordion === 'Accounts' ? null : 'Accounts')}
+                className="flex w-full items-center justify-between p-3.5 text-sm font-semibold text-midnight-950"
+              >
+                <span>Accounts</span>
+                <ChevronDown className={`h-4 w-4 transition-transform ${mobileAccordion === 'Accounts' ? 'rotate-180' : ''}`} />
+              </button>
+              {mobileAccordion === 'Accounts' && (
+                <div className="border-t border-ink-100 divide-y divide-ink-50 p-2 bg-porcelain-50/50 space-y-1">
+                  {ACCOUNTS.map((acc) => {
+                    const Icon = ACCOUNT_ICONS[acc.slug] || Wallet;
+                    return (
+                      <Link
+                        key={acc.slug}
+                        to={`/accounts#${acc.slug}`}
+                        onClick={closeMenu}
+                        className="flex items-center justify-between py-2.5 px-2 rounded-lg hover:bg-porcelain-100 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50">
+                            <Icon className="h-6 w-6" aria-hidden />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-sm text-ink-900 truncate">{shortProductName(acc.name)}</p>
+                            <p className="text-xs text-ink-500 truncate">{acc.tagline}</p>
+                          </div>
+                        </div>
+                        <span className="tnum font-semibold text-xs text-ink-900 shrink-0 ml-2">{getAccountFact(acc)}</span>
+                      </Link>
+                    );
+                  })}
+                  <div className="pt-2 px-2 flex justify-between font-semibold text-xs">
+                    <Link to="/accounts" onClick={closeMenu} className="text-ink-700 hover:text-midnight-900">View all accounts →</Link>
+                    <Link to="/accounts?apply=1" onClick={closeMenu} className="text-midnight-900 hover:text-midnight-700">Open an account</Link>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Cards Accordion */}
+            <div className="rounded-xl border border-ink-200/70 bg-white overflow-hidden shadow-xs">
+              <button
+                type="button"
+                onClick={() => setMobileAccordion(mobileAccordion === 'Cards' ? null : 'Cards')}
+                className="flex w-full items-center justify-between p-3.5 text-sm font-semibold text-midnight-950"
+              >
+                <span>Cards</span>
+                <ChevronDown className={`h-4 w-4 transition-transform ${mobileAccordion === 'Cards' ? 'rotate-180' : ''}`} />
+              </button>
+              {mobileAccordion === 'Cards' && (
+                <div className="border-t border-ink-100 divide-y divide-ink-50 p-2 bg-porcelain-50/50 space-y-1">
+                  <p className="text-xs font-semibold text-ink-400 uppercase tracking-[0.14em] px-2 pt-1">Credit Cards</p>
+                  {CREDIT_CARDS.map((c) => (
+                    <Link
+                      key={c.slug}
+                      to={`/cards#${c.slug}`}
+                      onClick={closeMenu}
+                      className="flex items-center justify-between py-2.5 px-2 rounded-lg hover:bg-porcelain-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 p-1.5 overflow-hidden">
+                          <MiniCardThumb slug={c.slug} />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm text-ink-900 truncate">{shortProductName(c.name)}</p>
+                          <p className="text-xs text-ink-500 truncate">{c.tagline}</p>
+                        </div>
+                      </div>
+                      <span className="tnum font-semibold text-xs text-ink-900 shrink-0 ml-2">{getCardFact(c)}</span>
+                    </Link>
+                  ))}
+                  <p className="text-xs font-semibold text-ink-400 uppercase tracking-[0.14em] px-2 pt-2">Debit Cards</p>
+                  {DEBIT_CARDS.map((c) => (
+                    <Link
+                      key={c.slug}
+                      to={`/cards#${c.slug}`}
+                      onClick={closeMenu}
+                      className="flex items-center justify-between py-2.5 px-2 rounded-lg hover:bg-porcelain-100 transition-colors"
+                    >
+                      <div className="flex items-center gap-3 min-w-0">
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 p-1.5 overflow-hidden">
+                          <MiniCardThumb slug={c.slug} />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm text-ink-900 truncate">{shortProductName(c.name)}</p>
+                          <p className="text-xs text-ink-500 truncate">{c.tagline}</p>
+                        </div>
+                      </div>
+                      <span className="tnum font-semibold text-xs text-ink-900 shrink-0 ml-2">{getCardFact(c)}</span>
+                    </Link>
+                  ))}
+                  <div className="pt-2 px-2 flex justify-between font-semibold text-xs">
+                    <Link to="/cards" onClick={closeMenu} className="text-ink-700 hover:text-midnight-900">View all cards →</Link>
+                    <Link to="/cards#compare" onClick={closeMenu} className="text-midnight-900 hover:text-midnight-700">Compare cards</Link>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Loans Accordion (ALL 7) */}
+            <div className="rounded-xl border border-ink-200/70 bg-white overflow-hidden shadow-xs">
+              <button
+                type="button"
+                onClick={() => setMobileAccordion(mobileAccordion === 'Loans' ? null : 'Loans')}
+                className="flex w-full items-center justify-between p-3.5 text-sm font-semibold text-midnight-950"
+              >
+                <span>Loans</span>
+                <ChevronDown className={`h-4 w-4 transition-transform ${mobileAccordion === 'Loans' ? 'rotate-180' : ''}`} />
+              </button>
+              {mobileAccordion === 'Loans' && (
+                <div className="border-t border-ink-100 divide-y divide-ink-50 p-2 bg-porcelain-50/50 space-y-1">
+                  {LOANS.map((l) => {
+                    const Icon = LOAN_ICONS[l.slug] || Home;
+                    return (
+                      <Link
+                        key={l.slug}
+                        to={`/loans#${l.slug}`}
+                        onClick={closeMenu}
+                        className="flex items-center justify-between py-2.5 px-2 rounded-lg hover:bg-porcelain-100 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50">
+                            <Icon className="h-6 w-6" aria-hidden />
+                          </span>
+                          <div className="min-w-0">
+                            <p className="font-semibold text-sm text-ink-900 truncate">{shortProductName(l.name)}</p>
+                            <p className="text-xs text-ink-500 truncate">{l.tagline}</p>
+                          </div>
+                        </div>
+                        <span className="tnum font-semibold text-xs text-ink-900 shrink-0 ml-2">From {l.rateMin.toFixed(2)}%</span>
+                      </Link>
+                    );
+                  })}
+                  <div className="pt-2 px-2 flex justify-between font-semibold text-xs">
+                    <Link to="/loans" onClick={closeMenu} className="text-ink-700 hover:text-midnight-900">View all 7 loans →</Link>
+                    <Link to="/calculators" onClick={closeMenu} className="text-midnight-900 hover:text-midnight-700">EMI calculator</Link>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Investments Accordion */}
+            <div className="rounded-xl border border-ink-200/70 bg-white overflow-hidden shadow-xs">
+              <button
+                type="button"
+                onClick={() => setMobileAccordion(mobileAccordion === 'Investments' ? null : 'Investments')}
+                className="flex w-full items-center justify-between p-3.5 text-sm font-semibold text-midnight-950"
+              >
+                <span>Investments</span>
+                <ChevronDown className={`h-4 w-4 transition-transform ${mobileAccordion === 'Investments' ? 'rotate-180' : ''}`} />
+              </button>
+              {mobileAccordion === 'Investments' && (
+                <div className="border-t border-ink-100 divide-y divide-ink-50 p-2 bg-porcelain-50/50 space-y-1">
+                  {INVESTMENTS.map((inv) => {
+                    const { fact, type, icon: Icon } = getInvestmentMeta(inv);
+                    return (
+                      <Link
+                        key={inv.slug}
+                        to={`/investments#${inv.slug}`}
+                        onClick={closeMenu}
+                        className="flex items-center justify-between py-2.5 px-2 rounded-lg hover:bg-porcelain-100 transition-colors"
+                      >
+                        <div className="flex items-center gap-3 min-w-0">
+                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50">
+                            <Icon className="h-6 w-6" aria-hidden />
+                          </span>
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-1.5">
+                              <span className="font-semibold text-sm text-ink-900">{shortProductName(inv.name)}</span>
+                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-midnight-100 font-bold text-midnight-900">{type}</span>
+                            </div>
+                            <p className="text-xs text-ink-500 truncate">{inv.tagline}</p>
+                          </div>
+                        </div>
+                        <span className="tnum font-semibold text-xs text-ink-900 shrink-0 ml-2">{fact}</span>
+                      </Link>
+                    );
+                  })}
+                  <div className="pt-2 px-2 flex justify-between font-semibold text-xs">
+                    <Link to="/investments" onClick={closeMenu} className="text-ink-700 hover:text-midnight-900">View all investments →</Link>
+                    <Link to="/grievance-redressal" onClick={closeMenu} className="text-midnight-900 hover:text-midnight-700">Talk to us</Link>
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Calculators Direct Link */}
             <Link
               to="/calculators"
-              onClick={() => setMobileMenuOpen(false)}
-              className="block px-3 py-2 rounded-md text-gray-800 hover:bg-red-50 hover:text-[#9D1D27]"
+              onClick={closeMenu}
+              className="block rounded-xl border border-ink-200/70 bg-white p-3.5 text-sm font-semibold text-midnight-950 shadow-xs"
             >
-              Financial Calculators
+              Calculators
             </Link>
-          </div>
 
-          <div className="pt-3 border-t border-gray-100">
-            {user ? (
-              <div className="space-y-2">
-                <Link
-                  to="/portal"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full text-center py-2.5 rounded-lg bg-[#9D1D27] text-white font-bold block"
-                >
-                  Go to Customer Dashboard
-                </Link>
-                <button
-                  onClick={() => { logout(); setMobileMenuOpen(false); }}
-                  className="w-full text-center py-2 text-xs text-gray-600 block"
-                >
-                  Sign Out
-                </button>
-              </div>
-            ) : (
-              <div className="space-y-2">
-                <Link
-                  to="/portal/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full text-center py-2.5 rounded-lg bg-[#9D1D27] text-white font-bold block"
-                >
-                  Log In to NetBanking
-                </Link>
-                <Link
-                  to="/manager/login"
-                  onClick={() => setMobileMenuOpen(false)}
-                  className="w-full text-center py-2.5 rounded-lg bg-[#1C2541] hover:bg-[#0B132B] text-cyan-300 font-bold block border border-[#3A506B]/50 flex items-center justify-center gap-2"
-                >
-                  <ShieldAlert className="w-4 h-4 text-cyan-400" /> Bank Staff & Manager Portal
-                </Link>
-              </div>
-            )}
-          </div>
-        </div>
-      )}
-    </header>
+            {/* Support Accordion */}
+            <div className="rounded-xl border border-ink-200/70 bg-white overflow-hidden shadow-xs">
+              <button
+                type="button"
+                onClick={() => setMobileAccordion(mobileAccordion === 'Support' ? null : 'Support')}
+                className="flex w-full items-center justify-between p-3.5 text-sm font-semibold text-midnight-950"
+              >
+                <span>Support &amp; Grievances</span>
+                <ChevronDown className={`h-4 w-4 transition-transform ${mobileAccordion === 'Support' ? 'rotate-180' : ''}`} />
+              </button>
+              {mobileAccordion === 'Support' && (
+                <div className="border-t border-ink-100 divide-y divide-ink-50 p-2 bg-porcelain-50/50 space-y-1">
+                  {SUPPORT_ITEMS.map((item) => {
+                    const Icon = item.icon;
+                    return (
+                      <Link
+                        key={item.name}
+                        to={item.to}
+                        onClick={closeMenu}
+                        className="flex items-center gap-3 py-2.5 px-2 rounded-lg hover:bg-porcelain-100 transition-colors"
+                      >
+                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50">
+                          <Icon className="h-5 w-5" aria-hidden />
+                        </span>
+                        <div className="min-w-0">
+                          <p className="font-semibold text-sm text-ink-900 truncate">{item.name}</p>
+                          <p className="text-xs text-ink-500 truncate">{item.description}</p>
+                        </div>
+                      </Link>
+                    );
+                  })}
+                  <div className="pt-2 px-2 text-xs text-ink-600">
+                    Helpline: <a href="tel:18002674100" className="font-bold text-midnight-950">1800 267 4100</a>
+                  </div>
+                </div>
+              )}
+            </div>
+          </nav>
+        )}
+      </header>
+    </>
   );
 };
+
+export default Header;
