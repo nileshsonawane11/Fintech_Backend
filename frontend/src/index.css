@@ -194,6 +194,21 @@ input[type="number"] {
   animation: menu-enter 160ms cubic-bezier(0.16, 1, 0.3, 1) both;
 }
 
+@keyframes accordion-down {
+  from {
+    opacity: 0;
+    transform: translateY(-4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-accordion-down {
+  animation: accordion-down 180ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
 @media (hover: none) {
   .menu-row-arrow {
     opacity: 0.4 !important;
@@ -231,7 +246,8 @@ input[type="number"] {
 
 @media (prefers-reduced-motion: reduce) {
   .animate-card-float,
-  .animate-menu-enter {
+  .animate-menu-enter,
+  .animate-accordion-down {
     animation: none !important;
     transform: none !important;
   }

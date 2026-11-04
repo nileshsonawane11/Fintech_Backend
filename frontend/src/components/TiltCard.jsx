@@ -30,10 +30,12 @@ export function TiltCard({
   shadowFactor = 1.8,
   shadowBlur = 24,
   borderRadius = '1rem',
+  restingShadow = '0 12px 28px -6px rgba(10, 30, 53, 0.3), 0 4px 10px -2px rgba(10, 30, 53, 0.15)',
   overlay = null,
   role = 'presentation',
   'aria-hidden': ariaHidden = true,
   sweepKey = null,
+  'data-testid': dataTestId,
 }) {
   const containerRef = useRef(null);
   const cardRef = useRef(null);
@@ -120,8 +122,7 @@ export function TiltCard({
         cardRef.current.style.willChange = 'auto';
         cardRef.current.style.zIndex = '1';
         if (shadow) {
-          cardRef.current.style.boxShadow =
-            '0 12px 28px -6px rgba(10, 30, 53, 0.3), 0 4px 10px -2px rgba(10, 30, 53, 0.15)';
+          cardRef.current.style.boxShadow = restingShadow;
         }
       }
       if (glareRef.current) {
@@ -151,7 +152,7 @@ export function TiltCard({
     }
 
     rafId.current = requestAnimationFrame(step);
-  }, [glare, lerpFactor, shadow, shadowBaseY, shadowBlur, shadowFactor]);
+  }, [glare, lerpFactor, restingShadow, shadow, shadowBaseY, shadowBlur, shadowFactor]);
 
   const startLoop = useCallback(() => {
     if (!rafId.current && isIntersectingRef.current) {
@@ -159,21 +160,21 @@ export function TiltCard({
     }
   }, [step]);
 
-  // Touch Entry Sweep (~600ms, rotateY -5° -> 0°, single glare pass)
+  // Touch Entry Sweep (~700ms, rotateY -7° -> 0°, single glare pass)
   const runEntrySweep = useCallback(() => {
     if (isReducedMotion() || !isCoarsePointer() || !cardRef.current) return;
 
     const startTime = performance.now();
-    const duration = 600;
+    const duration = 700;
 
     const sweepStep = (now) => {
       const elapsed = now - startTime;
       const progress = Math.min(1, elapsed / duration);
       // Smooth cubic ease-out
       const ease = 1 - Math.pow(1 - progress, 3);
-      const rY = -5 * (1 - ease);
+      const rY = -7 * (1 - ease);
       const gX = 25 + 50 * ease;
-      const gOpacity = 0.28 * Math.sin(progress * Math.PI);
+      const gOpacity = 0.32 * Math.sin(progress * Math.PI);
 
       if (cardRef.current) {
         cardRef.current.style.transform = `rotateX(0deg) rotateY(${rY.toFixed(2)}deg)`;
@@ -198,8 +199,7 @@ export function TiltCard({
           cardRef.current.style.transform = 'rotateX(0deg) rotateY(0deg)';
           cardRef.current.style.willChange = 'auto';
           if (shadow) {
-            cardRef.current.style.boxShadow =
-              '0 12px 28px -6px rgba(10, 30, 53, 0.3), 0 4px 10px -2px rgba(10, 30, 53, 0.15)';
+            cardRef.current.style.boxShadow = restingShadow;
           }
         }
         if (glareRef.current) {
@@ -209,7 +209,7 @@ export function TiltCard({
     };
 
     sweepRafId.current = requestAnimationFrame(sweepStep);
-  }, [glare, isCoarsePointer, isReducedMotion, shadow, shadowBaseY, shadowBlur, shadowFactor]);
+  }, [glare, isCoarsePointer, isReducedMotion, restingShadow, shadow, shadowBaseY, shadowBlur, shadowFactor]);
 
   // Touch Tap Pulse (~250ms, tilt to ~4° and back)
   const runTapPulse = useCallback(() => {
@@ -250,8 +250,7 @@ export function TiltCard({
           cardRef.current.style.transform = 'rotateX(0deg) rotateY(0deg)';
           cardRef.current.style.willChange = 'auto';
           if (shadow) {
-            cardRef.current.style.boxShadow =
-              '0 12px 28px -6px rgba(10, 30, 53, 0.3), 0 4px 10px -2px rgba(10, 30, 53, 0.15)';
+            cardRef.current.style.boxShadow = restingShadow;
           }
         }
         if (glareRef.current) {
@@ -261,7 +260,7 @@ export function TiltCard({
     };
 
     pulseRafId.current = requestAnimationFrame(pulseStep);
-  }, [glare, isReducedMotion, shadow, shadowBaseY, shadowBlur, shadowFactor]);
+  }, [glare, isReducedMotion, restingShadow, shadow, shadowBaseY, shadowBlur, shadowFactor]);
 
   // Pause when offscreen via IntersectionObserver & Trigger Entry Sweep on touch
   useEffect(() => {
@@ -512,6 +511,7 @@ export function TiltCard({
   return (
     <div
       ref={containerRef}
+      data-testid={dataTestId}
       className={`relative aspect-[400/252] w-full select-none touch-pan-y ${className}`}
       style={{ perspective: `${perspective}px`, touchAction: 'pan-y' }}
       onPointerEnter={handlePointerEnter}
@@ -531,9 +531,7 @@ export function TiltCard({
           transform: 'rotateX(0deg) rotateY(0deg)',
           transformStyle: 'preserve-3d',
           borderRadius,
-          boxShadow: shadow
-            ? '0 12px 28px -6px rgba(10, 30, 53, 0.3), 0 4px 10px -2px rgba(10, 30, 53, 0.15)'
-            : 'none',
+          boxShadow: shadow ? restingShadow : 'none',
           transition: 'box-shadow 0.3s ease-out',
         }}
       >

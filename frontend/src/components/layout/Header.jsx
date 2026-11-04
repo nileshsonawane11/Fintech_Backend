@@ -875,7 +875,7 @@ export const Header = () => {
                 <ChevronDown className={`h-4 w-4 transition-transform ${mobileAccordion === 'Accounts' ? 'rotate-180' : ''}`} />
               </button>
               {mobileAccordion === 'Accounts' && (
-                <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-1">
+                <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-1 animate-accordion-down">
                   <div className="grid gap-1">
                     {ACCOUNTS.map((acc) => {
                       const Icon = ACCOUNT_ICONS[acc.slug] || Wallet;
@@ -912,7 +912,7 @@ export const Header = () => {
                 <ChevronDown className={`h-4 w-4 transition-transform ${mobileAccordion === 'Cards' ? 'rotate-180' : ''}`} />
               </button>
               {mobileAccordion === 'Cards' && (
-                <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-2">
+                <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-2 animate-accordion-down">
                   <div>
                     <p className="text-xs font-semibold text-ink-400 uppercase tracking-[0.14em] px-2 pb-1">Credit Cards</p>
                     <div className="grid gap-1">
@@ -967,7 +967,7 @@ export const Header = () => {
                 <ChevronDown className={`h-4 w-4 transition-transform ${mobileAccordion === 'Loans' ? 'rotate-180' : ''}`} />
               </button>
               {mobileAccordion === 'Loans' && (
-                <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-1">
+                <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-1 animate-accordion-down">
                   <div className="grid gap-1">
                     {LOANS.map((l) => {
                       const Icon = LOAN_ICONS[l.slug] || Home;
@@ -1004,7 +1004,7 @@ export const Header = () => {
                 <ChevronDown className={`h-4 w-4 transition-transform ${mobileAccordion === 'Investments' ? 'rotate-180' : ''}`} />
               </button>
               {mobileAccordion === 'Investments' && (
-                <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-1">
+                <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-1 animate-accordion-down">
                   <div className="grid gap-1">
                     {INVESTMENTS.map((inv) => {
                       const { fact, type, icon: Icon } = getInvestmentMeta(inv);
@@ -1051,7 +1051,7 @@ export const Header = () => {
                 <ChevronDown className={`h-4 w-4 transition-transform ${mobileAccordion === 'Support' ? 'rotate-180' : ''}`} />
               </button>
               {mobileAccordion === 'Support' && (
-                <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-1">
+                <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-1 animate-accordion-down">
                   <div className="grid gap-1">
                     {SUPPORT_ITEMS.map((item) => (
                       <MenuRow

@@ -17,6 +17,8 @@ export function HeroEdgeGoldCard({
   hologramRef,
   shimmerRef,
   className = '',
+  shadow = false,
+  style = {},
 }) {
   return (
     <div
@@ -26,8 +28,9 @@ export function HeroEdgeGoldCard({
       className={`relative aspect-[400/252] w-full rounded-[18px] overflow-hidden select-none ${className}`}
       style={{
         transformStyle: 'preserve-3d',
-        boxShadow: '0 20px 45px -10px rgba(10, 30, 53, 0.45)',
+        boxShadow: shadow ? '0 20px 45px -10px rgba(10, 30, 53, 0.45)' : 'none',
         transition: 'box-shadow 0.3s ease-out',
+        ...style,
       }}
     >
       {/* ============================================================ */}
