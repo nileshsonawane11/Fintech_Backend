@@ -93,7 +93,7 @@ export default function InvestmentsPage() {
               {fd.compoundingNote && <> · {fd.compoundingNote}</>}
             </p>
             {Array.isArray(fd.rateGrid) && (
-              <div className="mt-4 overflow-hidden rounded-lg border border-ink-100">
+              <div className="mt-4 overflow-x-auto rounded-lg border border-ink-100">
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="bg-porcelain-100/70 text-xs uppercase tracking-wide text-ink-500">
@@ -141,7 +141,7 @@ export default function InvestmentsPage() {
               {rd.monthlyStep ? formatINRWhole(rd.monthlyStep) : '—'}{rd.compoundingNote && <> · {rd.compoundingNote}</>}
             </p>
             {Array.isArray(rd.rateBands) && (
-              <div className="mt-4 overflow-hidden rounded-lg border border-ink-100">
+              <div className="mt-4 overflow-x-auto rounded-lg border border-ink-100">
                 <table className="w-full text-left text-sm">
                   <thead>
                     <tr className="bg-porcelain-100/70 text-xs uppercase tracking-wide text-ink-500">

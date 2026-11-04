@@ -1434,14 +1434,14 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-midnight-950/70 backdrop-blur-sm transition-opacity"
+      className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6 bg-midnight-950/70 backdrop-blur-sm transition-opacity"
       role="dialog"
       aria-modal="true"
       aria-labelledby="apply-modal-title"
     >
       <div
         ref={modalRef}
-        className="relative w-full max-w-[720px] max-h-[90vh] bg-white rounded-2xl shadow-modal overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
+        className="relative w-full max-w-[720px] max-h-[92vh] sm:max-h-[90vh] bg-white rounded-t-2xl sm:rounded-2xl shadow-modal overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
       >
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ink-100 bg-white/95 px-6 py-4 backdrop-blur-sm">

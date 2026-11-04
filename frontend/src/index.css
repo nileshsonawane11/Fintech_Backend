@@ -211,8 +211,13 @@ input[type="number"] {
 
 @media (hover: none) {
   .menu-row-arrow {
-    opacity: 0.4 !important;
-    transform: none !important;
+    opacity: 0.4;
+    transform: none;
+  }
+  .group:active .menu-row-arrow,
+  .menu-row:active .menu-row-arrow {
+    opacity: 1 !important;
+    transform: translateX(2px) !important;
   }
 }
 

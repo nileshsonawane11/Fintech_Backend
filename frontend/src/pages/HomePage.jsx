@@ -490,7 +490,7 @@ export default function HomePage() {
 
                 return (
                   <Reveal key={idx} treatment="B" staggerIndex={idx}>
-                    <div className="group flex h-full flex-col rounded-xl border border-ink-100 bg-white p-6 shadow-xs transition-all duration-180 hover:-translate-y-0.5 hover:shadow-card hover:border-midnight-300">
+                    <div className="group flex h-full flex-col rounded-xl border border-ink-100 bg-white p-6 shadow-xs transition-all duration-180 hover:-translate-y-0.5 hover:shadow-card hover:border-midnight-300 active:translate-y-0 active:scale-[0.99] active:shadow-xs">
                       {/* Visual slot per tab (Fix 1: Aspect-ratio box reserving art's true rendered height) */}
                       {isCardTab ? (
                         <div className="w-full mb-4">
@@ -556,9 +556,9 @@ export default function HomePage() {
                         )}
                         <Link
                           to={explorePath(product)}
-                          className="group/btn inline-flex items-center gap-1 rounded-lg bg-midnight-900 px-3 py-1.5 text-xs font-semibold text-porcelain-50 transition-colors hover:bg-midnight-800"
+                          className="group/btn inline-flex items-center gap-1 rounded-lg bg-midnight-900 px-3 py-1.5 text-xs font-semibold text-porcelain-50 transition-colors hover:bg-midnight-800 active:scale-[0.98]"
                         >
-                          Explore <ArrowRight className="h-3 w-3 transition-transform duration-150 group-hover/btn:translate-x-0.5" />
+                          Explore <ArrowRight className="h-3 w-3 transition-transform duration-150 group-hover/btn:translate-x-0.5 group-active/btn:translate-x-0.5" />
                         </Link>
                       </div>
                     </div>
@@ -939,7 +939,7 @@ export default function HomePage() {
             {Array.isArray(detailModalAccount.rateSlabs) && detailModalAccount.rateSlabs.length > 0 && (
               <div>
                 <h4 className="font-semibold text-midnight-950 mb-2 text-[13px]">Interest Rate Slabs</h4>
-                <div className="rounded-xl border border-ink-100 overflow-hidden">
+                <div className="rounded-xl border border-ink-100 overflow-x-auto">
                   <table className="w-full text-left text-xs sm:text-sm">
                     <thead className="bg-porcelain-100 border-b border-ink-100 font-semibold text-ink-700">
                       <tr>
@@ -979,7 +979,7 @@ export default function HomePage() {
             {Array.isArray(detailModalAccount.charges) && detailModalAccount.charges.length > 0 && (
               <div>
                 <h4 className="font-semibold text-midnight-950 mb-2 text-[13px]">Schedule of Charges</h4>
-                <div className="rounded-xl border border-ink-100 overflow-hidden">
+                <div className="rounded-xl border border-ink-100 overflow-x-auto">
                   <table className="w-full text-left text-xs sm:text-sm">
                     <thead className="bg-porcelain-100 border-b border-ink-100 font-semibold text-ink-700">
                       <tr>

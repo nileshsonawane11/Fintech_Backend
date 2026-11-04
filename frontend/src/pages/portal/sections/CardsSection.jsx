@@ -26,6 +26,7 @@ import {
   useToast,
 } from '../../../components/ui.jsx';
 import { formatDate, formatINR, formatINRWhole, maskAccount, maskCard } from '../../../lib/format.js';
+import TiltCard from '../../../components/TiltCard.jsx';
 import { CARDS, getCardBySlug } from '../../../data/products.js';
 import {
   applyCard,
@@ -165,8 +166,9 @@ function CardPanel({ card, holderName, actorName, onBlockRequest }) {
       </div>
 
       {/* Card visual — true card aspect ratio */}
+      <TiltCard maxTilt={8} sweepKey={card.id || card.number || 'portal-card'} className="w-full max-w-md mt-4">
       <div
-        className={`relative mt-4 aspect-[1.586/1] w-full max-w-md overflow-hidden rounded-2xl bg-midnight-900 p-5 text-porcelain-50 shadow-raised ${
+        className={`relative aspect-[1.586/1] w-full overflow-hidden rounded-2xl bg-midnight-900 p-5 text-porcelain-50 shadow-raised ${
           blocked ? 'opacity-80' : ''
         }`}
         aria-label={`${card.productName || 'Card'} ending ${last4}`}
@@ -204,6 +206,7 @@ function CardPanel({ card, holderName, actorName, onBlockRequest }) {
           </div>
         </div>
       </div>
+      </TiltCard>
       <p className="mt-2 text-[13px] text-ink-500">
         Card number {maskCard(card.number)}
         {card.dispatchRef ? <> · Dispatch reference {card.dispatchRef}</> : null}

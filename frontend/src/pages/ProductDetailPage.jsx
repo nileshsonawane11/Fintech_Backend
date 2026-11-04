@@ -843,7 +843,7 @@ function CardFeesSection({ product }) {
 
   return (
     <div className="space-y-6">
-      <div className="overflow-hidden rounded-xl border border-ink-100 bg-white">
+      <div className="overflow-x-auto rounded-xl border border-ink-100 bg-white">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-ink-100 bg-porcelain-100/60 text-xs font-semibold uppercase tracking-wider text-ink-600">

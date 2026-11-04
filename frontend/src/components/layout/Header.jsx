@@ -124,7 +124,7 @@ function MenuRow({
     <Link
       to={to}
       onClick={onClick}
-      className={`group cursor-pointer flex items-center rounded-xl transition-colors duration-160 hover:bg-midnight-50 focus-visible:outline-2 focus-visible:outline-gold-500 ${
+      className={`group cursor-pointer flex items-center rounded-xl transition-colors duration-160 hover:bg-midnight-50 active:bg-midnight-100/60 focus-visible:outline-2 focus-visible:outline-gold-500 ${
         isMobile
           ? 'px-3 py-2.5 min-h-[64px] gap-3'
           : 'px-[14px] py-3 min-h-[68px] gap-[14px]'
@@ -174,7 +174,7 @@ function MenuRow({
               </span>
             )}
             <ArrowRight
-              className="h-4 w-4 text-ink-400 group-hover:text-midnight-900 opacity-40 menu-row-arrow shrink-0"
+              className="h-4 w-4 text-ink-400 group-hover:text-midnight-900 group-active:text-midnight-900 group-active:translate-x-0.5 opacity-40 group-active:opacity-100 transition-all duration-160 menu-row-arrow shrink-0"
               aria-hidden
             />
           </div>
@@ -211,7 +211,7 @@ function MenuRow({
               </span>
             )}
             <ArrowRight
-              className="h-4 w-4 text-ink-400 group-hover:text-midnight-900 group-hover:translate-x-0.5 opacity-0 group-hover:opacity-100 transition-all duration-160 menu-row-arrow shrink-0"
+              className="h-4 w-4 text-ink-400 group-hover:text-midnight-900 group-hover:translate-x-0.5 group-active:text-midnight-900 group-active:translate-x-0.5 opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-all duration-160 menu-row-arrow shrink-0"
               aria-hidden
             />
           </div>

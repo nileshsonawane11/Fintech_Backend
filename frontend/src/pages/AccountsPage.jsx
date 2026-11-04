@@ -541,7 +541,7 @@ export default function AccountsPage() {
             {detailAccount.rateSlabs && detailAccount.rateSlabs.length > 0 ? (
               <div>
                 <h4 className="font-semibold text-midnight-950 mb-2">Slab-Wise Daily Balance Interest Rates</h4>
-                <div className="rounded-xl border border-ink-100 overflow-hidden">
+                <div className="rounded-xl border border-ink-100 overflow-x-auto">
                   <table className="w-full text-left text-xs sm:text-sm">
                     <thead className="bg-porcelain-100 border-b border-ink-100 font-semibold text-ink-700">
                       <tr>
@@ -601,7 +601,7 @@ export default function AccountsPage() {
             {Array.isArray(detailAccount.charges) && detailAccount.charges.length > 0 && (
               <div>
                 <h4 className="font-semibold text-midnight-950 mb-2">Service Charges &amp; Fees</h4>
-                <div className="rounded-xl border border-ink-100 overflow-hidden">
+                <div className="rounded-xl border border-ink-100 overflow-x-auto">
                   <table className="w-full text-left text-xs sm:text-sm">
                     <thead className="bg-porcelain-100 border-b border-ink-100 font-semibold text-ink-700">
                       <tr>
