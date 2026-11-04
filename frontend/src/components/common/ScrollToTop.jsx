@@ -1,8 +1,15 @@
 import { useEffect } from 'react';
-import { useLocation } from 'react-router-dom';
+import { useLocation, useNavigationType } from 'react-router-dom';
 
+/**
+ * ScrollToTop — Module 35 Fix 1: Route continuity scroll behavior.
+ * - Forward navigation (PUSH / REPLACE) scrolls to (0, 0) instantly.
+ * - Back/forward navigation (POP) preserves the prior scroll position.
+ * - Hash anchors (#target) scroll smoothly to the target element with highlight.
+ */
 export const ScrollToTop = () => {
   const { pathname, hash } = useLocation();
+  const navType = useNavigationType();
 
   useEffect(() => {
     if (hash) {
@@ -32,9 +39,12 @@ export const ScrollToTop = () => {
       }, 100);
       return () => clearInterval(interval);
     } else {
-      window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      // For POP (history navigation), preserve the previous scroll position
+      if (navType !== 'POP') {
+        window.scrollTo({ top: 0, left: 0, behavior: 'instant' });
+      }
     }
-  }, [pathname, hash]);
+  }, [pathname, hash, navType]);
 
   return null;
 };

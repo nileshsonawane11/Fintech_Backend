@@ -1,3 +1,4 @@
+import Reveal from '../components/Reveal.jsx';
 import { ApplyModal } from '../components/common/ApplyModal.jsx';
 import { CardVisual } from '../components/common/CardVisual.jsx';
 import { TiltCard } from '../components/TiltCard.jsx';
@@ -2218,9 +2219,13 @@ export default function ProductDetailPage({ category, categoryHint }) {
 
             {/* Right side: 3D interactive tilt card (hero setting ±12° + glare + shifting shadow) */}
             <div className="w-full sm:w-[320px] lg:w-[360px] shrink-0 flex justify-center">
-              <TiltCard maxTilt={12} perspective={900} sweepKey={product.slug}>
-                <CardVisual card={product} shadow={false} />
-              </TiltCard>
+              <Reveal treatment="D" className="rounded-2xl overflow-hidden">
+                <div className="reveal-curtain-image">
+                  <TiltCard maxTilt={12} perspective={900} sweepKey={product.slug}>
+                    <CardVisual card={product} shadow={false} />
+                  </TiltCard>
+                </div>
+              </Reveal>
             </div>
           </div>
         </div>
@@ -2471,9 +2476,11 @@ export default function ProductDetailPage({ category, categoryHint }) {
                     <LoanIcon className="h-6 w-6 lg:h-7 lg:w-7 text-gold-400" aria-hidden="true" />
                   </div>
                   <div className="text-left lg:text-right">
-                    <p className="font-display text-3xl sm:text-4xl lg:text-[40px] font-semibold leading-none text-midnight-950 font-mono">
-                      {product.rateMin?.toFixed(2)}%
-                    </p>
+                    <Reveal treatment="E" className="inline-block">
+                      <p className="font-display text-3xl sm:text-4xl lg:text-[40px] font-semibold leading-none text-midnight-950 font-mono">
+                        {product.rateMin?.toFixed(2)}%
+                      </p>
+                    </Reveal>
                     <p className="mt-1 text-xs sm:text-[13px] text-ink-500 font-medium whitespace-nowrap">
                       Interest from, per annum
                     </p>
@@ -3192,16 +3199,18 @@ export default function ProductDetailPage({ category, categoryHint }) {
             More {meta.label.toLowerCase()}
           </h2>
           <div className="mt-5 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {related.map((rel) => (
-              <Link key={rel.slug} to={`${meta.base}/${rel.slug}`} className="group">
-                <Card className="h-full p-6 shadow-none transition-colors group-hover:border-midnight-400">
-                  <h3 className="font-display text-lg font-semibold leading-snug text-midnight-950">{rel.name}</h3>
-                  <p className="mt-1.5 text-sm leading-relaxed text-ink-600">{rel.tagline}</p>
-                  <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-midnight-800">
-                    View details <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
-                  </span>
-                </Card>
-              </Link>
+            {related.map((rel, idx) => (
+              <Reveal key={rel.slug} treatment="B" staggerIndex={idx} className="h-full">
+                <Link to={`${meta.base}/${rel.slug}`} className="group">
+                  <Card className="h-full p-6 shadow-none transition-colors group-hover:border-midnight-400">
+                    <h3 className="font-display text-lg font-semibold leading-snug text-midnight-950">{rel.name}</h3>
+                    <p className="mt-1.5 text-sm leading-relaxed text-ink-600">{rel.tagline}</p>
+                    <span className="mt-4 inline-flex items-center gap-1.5 text-sm font-semibold text-midnight-800">
+                      View details <ArrowRight className="h-4 w-4 transition-transform group-hover:translate-x-0.5" aria-hidden />
+                    </span>
+                  </Card>
+                </Link>
+              </Reveal>
             ))}
           </div>
         </section>

@@ -55,12 +55,13 @@ const ManagerProtectedRoute = ({ children }) => {
 function AppContent() {
   const location = useLocation();
   const isManagerRoute = location.pathname.startsWith('/manager');
+  const routeAnimClass = isManagerRoute ? 'animate-route-manager' : 'animate-route-public';
 
   return (
     <div className="flex flex-col min-h-screen">
       <ScrollToTop />
       {!isManagerRoute && <Header />}
-      <main key={location.pathname} className="flex-1 animate-fade-in motion-reduce:animate-none">
+      <main key={location.pathname} className={`flex-1 ${routeAnimClass} motion-reduce:animate-none`}>
         <RouteErrorBoundary>
           <Suspense fallback={<RouteSuspenseFallback />}>
             <Routes>

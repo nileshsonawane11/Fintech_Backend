@@ -1,3 +1,4 @@
+import Reveal from '../../../components/Reveal.jsx';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
@@ -230,6 +231,7 @@ export default function DashboardPage() {
       )}
 
       {/* Lead Summary: Privacy-conscious Account Balance */}
+      <Reveal treatment="B" staggerIndex={0}>
       <div className="rounded-xl bg-midnight-900 px-5 py-6 text-porcelain-50 shadow-card sm:px-6">
         <div className="flex items-start justify-between gap-3">
           <div>
@@ -282,8 +284,10 @@ export default function DashboardPage() {
           </Link>
         )}
       </div>
+      </Reveal>
 
       {/* Top Frequent Actions (Near the top per feedback) */}
+      <Reveal treatment="B" staggerIndex={1}>
       <section aria-label="Frequent Actions">
         <SubHead title="Frequent Actions" />
         <Card className="overflow-hidden border border-ink-100 shadow-sm">
@@ -304,6 +308,7 @@ export default function DashboardPage() {
           </div>
         </Card>
       </section>
+      </Reveal>
 
       {/* Accounts & Quick Portfolio Distribution */}
       <section>

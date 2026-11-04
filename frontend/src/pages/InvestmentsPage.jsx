@@ -1,3 +1,4 @@
+import Reveal from '../components/Reveal.jsx';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { AlertTriangle, ArrowRight, Landmark, ScrollText, ShieldCheck, Sprout, TrendingUp } from 'lucide-react';
@@ -47,6 +48,7 @@ export default function InvestmentsPage() {
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 lg:py-20">
       <SectionHeader
+        reveal
         titleAs="h1"
         eyebrow="Investments & deposits"
         title="Grow money two honest ways"
@@ -74,7 +76,8 @@ export default function InvestmentsPage() {
         </div>
 
         <div className="mt-6 grid gap-5 lg:grid-cols-2">
-          <Card id={fd.slug} className="flex flex-col scroll-mt-24 p-6 shadow-none transition-shadow hover:shadow-card">
+          <Reveal treatment="B" staggerIndex={0} className="h-full">
+          <Card id={fd.slug} className="h-full flex flex-col scroll-mt-24 p-6 shadow-none transition-shadow hover:shadow-card">
             <div className="flex items-start justify-between gap-3">
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-midnight-50 text-midnight-700">
                 {React.createElement(INVESTMENT_ICONS[fd.slug] || ScrollText, { className: 'h-5 w-5', 'aria-hidden': true })}
@@ -122,8 +125,10 @@ export default function InvestmentsPage() {
               onApply={(p) => setSelectedProductForApply(p)}
             />
           </Card>
+          </Reveal>
 
-          <Card id={rd.slug} className="flex flex-col scroll-mt-24 p-6 shadow-none transition-shadow hover:shadow-card">
+          <Reveal treatment="B" staggerIndex={1} className="h-full">
+          <Card id={rd.slug} className="h-full flex flex-col scroll-mt-24 p-6 shadow-none transition-shadow hover:shadow-card">
             <div className="flex items-start justify-between gap-3">
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-midnight-50 text-midnight-700">
                 <Landmark className="h-5 w-5" aria-hidden />
@@ -167,6 +172,7 @@ export default function InvestmentsPage() {
               onApply={(p) => setSelectedProductForApply(p)}
             />
           </Card>
+          </Reveal>
         </div>
       </section>
 
@@ -184,6 +190,7 @@ export default function InvestmentsPage() {
           </div>
         </div>
 
+        <Reveal treatment="B" staggerIndex={2}>
         <Card id={ssy.slug} className="mt-6 flex flex-col scroll-mt-24 p-6 shadow-none transition-shadow hover:shadow-card lg:flex-row lg:gap-8">
           <div className="flex-1">
             <div className="flex flex-wrap items-center gap-2">
@@ -223,6 +230,7 @@ export default function InvestmentsPage() {
             />
           </div>
         </Card>
+        </Reveal>
       </section>
 
       {/* ---------------- Market-linked ---------------- */}
@@ -239,6 +247,7 @@ export default function InvestmentsPage() {
           </div>
         </div>
 
+        <Reveal treatment="B" staggerIndex={3}>
         <Card id={sip.slug} className="mt-6 flex flex-col scroll-mt-24 border-warning-600/30 p-6 shadow-none transition-shadow hover:shadow-card">
           <div className="flex flex-wrap items-center gap-2">
             <Badge tone="warning">Market-linked — returns not guaranteed</Badge>
@@ -303,6 +312,7 @@ export default function InvestmentsPage() {
             }}
           />
         </Card>
+        </Reveal>
       </section>
 
       <p className="mt-10 text-xs leading-relaxed text-ink-500">{RATE_DISCLAIMER}</p>

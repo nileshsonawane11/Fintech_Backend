@@ -12,6 +12,7 @@ import {
   ResendOtp,
   Spinner,
   PageLoading,
+  Skeleton,
   Field,
   Input,
   Textarea,
@@ -27,7 +28,7 @@ import {
 import { Search, X } from 'lucide-react';
 
 export const Button = (props) => <UiButton {...props} />;
-export { Card, Badge, StatusChip, ToastProvider, useToast, EmptyState, OtpInput, ResendOtp, Spinner, PageLoading, Field, Input, Textarea, Select, Checkbox, FormError, SectionHeader, statusTone, Table, Tabs, Stepper };
+export { Card, Badge, StatusChip, ToastProvider, useToast, EmptyState, OtpInput, ResendOtp, Spinner, PageLoading, Skeleton, Field, Input, Textarea, Select, Checkbox, FormError, SectionHeader, statusTone, Table, Tabs, Stepper };
 
 export const Modal = ({ isOpen, open, ...props }) => (
   <UiModal open={open ?? isOpen} {...props} />

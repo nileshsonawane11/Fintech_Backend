@@ -1,3 +1,4 @@
+import Reveal from '../components/Reveal.jsx';
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Landmark } from 'lucide-react';
@@ -33,6 +34,7 @@ export default function LoansPage() {
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 lg:py-20">
       <SectionHeader
+        reveal
         titleAs="h1"
         eyebrow="Loans"
         title="Borrow with the full price on the table"
@@ -47,8 +49,9 @@ export default function LoansPage() {
       />
 
       <div className="grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {LOANS.map((loan) => (
-          <Card key={loan.slug} id={loan.slug} className="flex flex-col p-6 scroll-mt-24 shadow-none transition-shadow hover:shadow-card">
+        {LOANS.map((loan, idx) => (
+          <Reveal key={loan.slug} treatment="B" staggerIndex={idx}>
+            <Card id={loan.slug} className="flex flex-col p-6 scroll-mt-24 shadow-none transition-shadow hover:shadow-card">
             <div className="flex items-start justify-between gap-3">
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-midnight-50 text-midnight-700">
                 <Landmark className="h-5 w-5" aria-hidden />
@@ -114,6 +117,7 @@ export default function LoansPage() {
               </Button>
             </div>
           </Card>
+          </Reveal>
         ))}
       </div>
 

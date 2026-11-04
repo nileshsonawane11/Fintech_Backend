@@ -1,3 +1,4 @@
+import Reveal from './Reveal.jsx';
 // FinEdge shared primitives — every screen builds from these.
 // No page should hand-roll a button, input, modal, toast or empty state.
 
@@ -21,7 +22,7 @@ export function Button({ as: Component = 'button', variant = 'primary', size = '
   const sizes = { sm: 'min-h-9 px-4 text-xs', md: 'min-h-11 px-5 text-sm', lg: 'min-h-12 px-6 text-sm' };
   return (
     <Component
-      className={`inline-flex select-none items-center justify-center gap-2 rounded-lg font-semibold transition-[color,background-color,border-color,transform] duration-150 ease-out active:translate-y-px disabled:pointer-events-none disabled:opacity-50 ${sizes[size]} ${BTN_VARIANTS[variant] || BTN_VARIANTS.primary} ${className}`}
+      className={`btn-press inline-flex select-none items-center justify-center gap-2 rounded-lg font-semibold transition-[color,background-color,border-color,transform] duration-150 ease-out active:translate-y-px disabled:pointer-events-none disabled:opacity-50 ${sizes[size]} ${BTN_VARIANTS[variant] || BTN_VARIANTS.primary} ${className}`}
       disabled={Component === 'button' ? (disabled || loading) : undefined}
       aria-busy={loading || undefined}
       {...props}
@@ -34,6 +35,14 @@ export function Button({ as: Component = 'button', variant = 'primary', size = '
 
 export function Spinner({ className = 'h-5 w-5 text-midnight-700' }) {
   return <Loader2 className={`animate-spin ${className}`} aria-label="Loading" />;
+}
+
+export function Skeleton({ className = '' }) {
+  return (
+    <div className={`relative overflow-hidden rounded-md bg-ink-100 ${className}`} aria-hidden="true">
+      <div className="skeleton-shimmer" />
+    </div>
+  );
 }
 
 export function PageLoading() {
@@ -118,17 +127,32 @@ export function Card({ className = '', children, ...props }) {
   );
 }
 
-export function SectionHeader({ eyebrow, title, description, action, titleAs: TitleTag = 'h2' }) {
-  return (
+export function SectionHeader({ eyebrow, title, description, action, titleAs: TitleTag = 'h2', reveal = false }) {
+  const content = (
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
-        {eyebrow && <p className="mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-gold-700">{eyebrow}</p>}
-        <TitleTag className="font-display text-2xl font-semibold text-midnight-950 sm:text-3xl">{title}</TitleTag>
-        {description && <p className="mt-1.5 max-w-2xl text-sm leading-relaxed text-ink-600">{description}</p>}
+        {eyebrow && (
+          <p className={`${reveal ? 'reveal-eyebrow-line ' : ''}mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-gold-700`}>
+            {eyebrow}
+          </p>
+        )}
+        <TitleTag className={`${reveal ? 'reveal-title ' : ''}font-display text-2xl font-semibold text-midnight-950 sm:text-3xl`}>
+          {title}
+        </TitleTag>
+        {description && (
+          <p className={`${reveal ? 'reveal-description ' : ''}mt-1.5 max-w-2xl text-sm leading-relaxed text-ink-600`}>
+            {description}
+          </p>
+        )}
       </div>
       {action}
     </div>
   );
+
+  if (reveal) {
+    return <Reveal treatment="A">{content}</Reveal>;
+  }
+  return content;
 }
 
 /* ---------------- Status ---------------- */

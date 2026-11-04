@@ -361,6 +361,16 @@ export default function HomePage() {
   const [openFaq, setOpenFaq] = useState(0);
   const [activeTab, setActiveTab] = useState('account');
   const [tabTransitioning, setTabTransitioning] = useState(false);
+  const dirTabsRef = useRef(null);
+  const [dirIndicator, setDirIndicator] = useState({ left: 0, width: 0, opacity: 0 });
+
+  useEffect(() => {
+    if (!dirTabsRef.current) return;
+    const btn = dirTabsRef.current.querySelector(`[data-tab-key="${activeTab}"]`);
+    if (btn) {
+      setDirIndicator({ left: btn.offsetLeft, width: btn.offsetWidth, opacity: 1 });
+    }
+  }, [activeTab]);
   const [expandedRates, setExpandedRates] = useState(false);
   const [expandedOffers, setExpandedOffers] = useState(false);
   const [detailModalAccount, setDetailModalAccount] = useState(null);
@@ -434,13 +444,14 @@ export default function HomePage() {
               </div>
 
               {/* Fix 3: Category Tabs with animated sliding gold underline */}
-              <div className="relative flex items-center border-b border-ink-200 overflow-x-auto scrollbar-none" role="tablist">
+              <div ref={dirTabsRef} className="relative flex items-center border-b border-ink-200 overflow-x-auto scrollbar-none" role="tablist">
                 {CATEGORY_TABS.map((tab) => {
                   const Icon = tab.icon;
                   const isActive = activeTab === tab.key;
                   return (
                     <button
                       key={tab.key}
+                      data-tab-key={tab.key}
                       id={`home-dir-tab-${tab.key}`}
                       role="tab"
                       type="button"
@@ -453,17 +464,19 @@ export default function HomePage() {
                     >
                       <Icon className={`h-4 w-4 ${isActive ? 'text-gold-600' : 'text-ink-400'}`} />
                       <span>{tab.label}</span>
-                      {isActive && (
-                        <span
-                          className="absolute bottom-0 left-0 right-0 h-0.5 bg-gold-500 rounded-full transition-all duration-200"
-                          style={{
-                            boxShadow: '0 1px 3px rgba(184, 147, 63, 0.4)',
-                          }}
-                        />
-                      )}
                     </button>
                   );
                 })}
+                <span
+                  className="pointer-events-none absolute bottom-0 h-0.5 bg-gold-500 rounded-full transition-all duration-240 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+                  style={{
+                    transform: `translateX(${dirIndicator.left}px)`,
+                    width: `${dirIndicator.width}px`,
+                    opacity: dirIndicator.opacity,
+                    boxShadow: '0 1px 3px rgba(184, 147, 63, 0.4)',
+                  }}
+                  aria-hidden
+                />
               </div>
             </div>
           </Reveal>
@@ -849,11 +862,19 @@ export default function HomePage() {
                         />
                       </button>
                     </h3>
-                    {open && (
-                      <div id={panelId} role="region" aria-labelledby={buttonId} className="px-6 pb-5 pt-1">
-                        <p className="text-sm leading-relaxed text-ink-600">{faq.a}</p>
+                    <div
+                      id={panelId}
+                      role="region"
+                      aria-labelledby={buttonId}
+                      className="accordion-grid-wrapper"
+                      data-open={open}
+                    >
+                      <div className="accordion-grid-inner">
+                        <div className="px-6 pb-5 pt-1">
+                          <p className="text-sm leading-relaxed text-ink-600">{faq.a}</p>
+                        </div>
                       </div>
-                    )}
+                    </div>
                   </div>
                 );
               })}

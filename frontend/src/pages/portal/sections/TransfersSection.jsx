@@ -1,3 +1,4 @@
+import { ConfirmationCheckmark } from '../../../components/common/ConfirmationCheckmark.jsx';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, BadgeIndianRupee, CheckCircle2, Landmark, Users } from 'lucide-react';
@@ -133,11 +134,9 @@ export default function TransfersPage() {
       </div>
 
       {step === 'receipt' && receipt ? (
-        <Card className="px-5 py-6">
+        <Card className="animate-scale-in px-5 py-6">
           <div className="flex items-start gap-3">
-            <span className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-success-50 text-success-600">
-              <CheckCircle2 className="h-5 w-5" aria-hidden />
-            </span>
+            <ConfirmationCheckmark size={44} className="shrink-0" />
             <div>
               <h2 className="font-display text-xl font-semibold text-midnight-950">Transfer completed</h2>
               <p className="mt-1 text-sm text-ink-600">
@@ -271,9 +270,9 @@ export default function TransfersPage() {
                 error={errors.fromAccountId}
                 onChange={(e) => { setFromAccountId(e.target.value); if (e.target.value === ownAccountId) setOwnAccountId(''); }}
               >
-                <option value="" disabled>Choose an account</option>
+                <option key="default-from" value="" disabled>Choose an account</option>
                 {(accounts || []).map((a) => (
-                  <option key={a.id} value={a.id}>
+                  <option key={a.accountId || a.id || a.accountNumber} value={a.accountId || a.id}>
                     {accountLabel(a)} · {maskAccount(a.accountNumber)} · {formatINR(a.balance)}
                   </option>
                 ))}
@@ -303,9 +302,9 @@ export default function TransfersPage() {
                   ) : (
                     <Field label="Beneficiary" required error={errors.beneficiaryId}>
                       <Select value={beneficiaryId} error={errors.beneficiaryId} onChange={(e) => setBeneficiaryId(e.target.value)}>
-                        <option value="" disabled>Choose a beneficiary</option>
+                        <option key="default-bene" value="" disabled>Choose a beneficiary</option>
                         {(beneficiaries || []).map((b) => (
-                          <option key={b.id} value={b.id}>
+                          <option key={b.beneficiaryId || b.id || b.accountNumber} value={b.beneficiaryId || b.id}>
                             {b.name} · {b.bankName || '—'} · {maskAccount(b.accountNumber)}
                           </option>
                         ))}
@@ -320,9 +319,9 @@ export default function TransfersPage() {
                 ) : (
                   <Field label="Your account" required error={errors.ownAccountId}>
                     <Select value={ownAccountId} error={errors.ownAccountId} onChange={(e) => setOwnAccountId(e.target.value)}>
-                      <option value="" disabled>Choose an account</option>
+                      <option key="default-own" value="" disabled>Choose an account</option>
                       {ownOptions.map((a) => (
-                        <option key={a.id} value={a.id}>
+                        <option key={a.accountId || a.id || a.accountNumber} value={a.accountId || a.id}>
                           {accountLabel(a)} · {maskAccount(a.accountNumber)} · {formatINR(a.balance)}
                         </option>
                       ))}
