@@ -21,6 +21,7 @@ import { Card, SectionHeader, Modal, Button } from '../components/ui.jsx';
 import Reveal from '../components/Reveal.jsx';
 import { TiltCard } from '../components/TiltCard.jsx';
 import { CardVisual } from '../components/common/CardVisual.jsx';
+import { PhotoSlider } from '../components/common/PhotoSlider.jsx';
 import { ApplyModal } from '../components/common/ApplyModal.jsx';
 import { HeroEdgeGoldCard } from '../components/HeroEdgeGoldCard.jsx';
 import { formatINRWhole, formatDate, shortProductName } from '../lib/format.js';
@@ -175,11 +176,11 @@ function HomeHero({ savingsRow, homeLoanRow, edgeGoldDebit }) {
         <picture className="w-full h-full block">
           <source
             type="image/webp"
-            srcSet="/images/hero-bg-768.webp 768w, /images/hero-bg-1280.webp 1280w, /images/hero-bg-1920.webp 1920w"
+            srcSet="/images/hero-bg-768.webp 768w, /images/hero-bg-1280.webp 1280w, /images/hero-bg-1920.webp 1920w, /images/hero-bg-2560.webp 2560w, /images/hero-bg-3840.webp 3840w"
             sizes="100vw"
           />
           <img
-            src="/images/hero-bg.jpg"
+            src="/images/hero-bg-1920.webp"
             alt=""
             aria-hidden="true"
             fetchPriority="high"
@@ -214,11 +215,11 @@ function HomeHero({ savingsRow, homeLoanRow, edgeGoldDebit }) {
         <picture className="h-full w-full block">
           <source
             type="image/webp"
-            srcSet="/images/hero-bg-768.webp 768w, /images/hero-bg-1280.webp 1280w, /images/hero-bg-1920.webp 1920w"
+            srcSet="/images/hero-bg-768.webp 768w, /images/hero-bg-1280.webp 1280w, /images/hero-bg-1920.webp 1920w, /images/hero-bg-2560.webp 2560w, /images/hero-bg-3840.webp 3840w"
             sizes="100vw"
           />
           <img
-            src="/images/hero-bg.jpg"
+            src="/images/hero-bg-1920.webp"
             alt=""
             aria-hidden="true"
             fetchPriority="high"
@@ -758,27 +759,32 @@ export default function HomePage() {
                 <p className="reveal-description mt-1.5 text-sm text-ink-600 max-w-2xl">No hidden schedules, no fine-print traps — just transparent banking where every fee and rate is verified before you sign.</p>
               </div>
             </Reveal>
-            {/* Fix 4: Three customer-facing trust cards with signature desktop horizontal hairline */}
-            <div className="relative">
-              <Reveal
-                treatment="B"
-                as="div"
-                aria-hidden="true"
-                className="reveal-trust-line hidden md:block absolute top-[44px] inset-x-8 h-px bg-gold-400/40 pointer-events-none z-0"
-              />
-              <div className="grid gap-6 md:grid-cols-3 relative z-10">
+
+            {/* Two-part layout (Module 33 Placement A): Visual Half (PhotoSlider) + Trust Points Half */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+              {/* Visual Half (PhotoSlider) — Stacks above trust points on mobile, left column on desktop */}
+              <div className="lg:col-span-7">
+                <Reveal treatment="D">
+                  <PhotoSlider />
+                </Reveal>
+              </div>
+
+              {/* Trust Points Half — Preserves all 3 customer-facing cards and facts verbatim */}
+              <div className="lg:col-span-5 flex flex-col gap-4">
                 {TRUST_POINTS.map((point, idx) => {
                   const Icon = point.icon;
                   return (
                     <Reveal key={point.title} treatment="B" staggerIndex={idx}>
-                      <Card className="flex h-full flex-col p-6 shadow-xs border-ink-200 bg-white transition-all duration-180 hover:-translate-y-0.5 hover:shadow-card">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50 shadow-xs">
-                          <Icon className="h-5 w-5 text-gold-300" aria-hidden />
+                      <Card className="flex flex-col p-5 sm:p-6 shadow-xs border-ink-200 bg-white transition-all duration-180 hover:-translate-y-0.5 hover:shadow-card">
+                        <div className="flex items-center gap-3.5">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50 shadow-xs">
+                            <Icon className="h-5 w-5 text-gold-300" aria-hidden />
+                          </div>
+                          <h3 className="text-base font-semibold text-midnight-950">{point.title}</h3>
                         </div>
-                        <h3 className="mt-4 text-base font-semibold text-midnight-950">{point.title}</h3>
-                        <p className="mt-2 flex-1 text-[13px] leading-relaxed text-ink-600">{point.body}</p>
+                        <p className="mt-2.5 text-[13px] leading-relaxed text-ink-600">{point.body}</p>
 
-                        <div className="mt-5 pt-3 border-t border-ink-100 flex items-center gap-3 text-xs font-semibold">
+                        <div className="mt-4 pt-3 border-t border-ink-100 flex items-center gap-3 text-xs font-semibold">
                           <Link
                             to={point.linkTo}
                             className="inline-flex items-center gap-1 text-midnight-800 underline decoration-midnight-300 hover:text-midnight-600"

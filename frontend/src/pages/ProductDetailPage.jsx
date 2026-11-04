@@ -836,6 +836,39 @@ function parseLatePayment(latePaymentStr) {
   return null;
 }
 
+function LifePhoto({ photo }) {
+  if (!photo || !photo.src) return null;
+  return (
+    <figure data-life-photo className="mt-8 overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-xs">
+      <div className="relative aspect-[16/10] w-full overflow-hidden bg-porcelain-100">
+        <picture>
+          {photo.srcSet && (
+            <source
+              type="image/webp"
+              srcSet={photo.srcSet}
+              sizes="(min-width: 1024px) 680px, 100vw"
+            />
+          )}
+          <img
+            src={photo.src}
+            alt={photo.alt || ''}
+            width={photo.width || 1200}
+            height={photo.height || 750}
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full object-cover object-center"
+          />
+        </picture>
+      </div>
+      {photo.caption && (
+        <figcaption className="px-4 py-2.5 text-xs text-ink-600 bg-porcelain-50/80 border-t border-ink-100/60 font-medium">
+          {photo.caption}
+        </figcaption>
+      )}
+    </figure>
+  );
+}
+
 function CardFeesSection({ product }) {
   const [showAll, setShowAll] = useState(false);
   const isCredit = product.cardType === 'credit';
@@ -2301,6 +2334,8 @@ export default function ProductDetailPage({ category, categoryHint }) {
                 </section>
               )}
 
+              {product.lifePhoto && <LifePhoto photo={product.lifePhoto} />}
+
               <p className="text-xs leading-relaxed text-ink-500 mt-6">{RATE_DISCLAIMER}</p>
             </div>
 
@@ -2569,6 +2604,8 @@ export default function ProductDetailPage({ category, categoryHint }) {
                   </ul>
                 </section>
               )}
+
+              {product.lifePhoto && <LifePhoto photo={product.lifePhoto} />}
 
               <p className="text-xs leading-relaxed text-ink-500 mt-6">{RATE_DISCLAIMER}</p>
             </div>
@@ -2920,6 +2957,8 @@ export default function ProductDetailPage({ category, categoryHint }) {
               </div>
             )}
 
+            {product.lifePhoto && <LifePhoto photo={product.lifePhoto} />}
+
             <p className="text-xs leading-relaxed text-ink-500 mt-6">{RATE_DISCLAIMER}</p>
           </div>
         </div>
@@ -3096,6 +3135,8 @@ export default function ProductDetailPage({ category, categoryHint }) {
               <span>{product.disclosure}</span>
             </div>
           )}
+
+          {product.lifePhoto && <LifePhoto photo={product.lifePhoto} />}
 
           <p className="text-xs leading-relaxed text-ink-500">{RATE_DISCLAIMER}</p>
         </div>

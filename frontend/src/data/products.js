@@ -172,6 +172,14 @@ export const ACCOUNTS = [
   {
     slug: 'trade-current',
     category: 'account',
+    lifePhoto: {
+      src: '/images/detail-trade-shopkeeper-1200.webp',
+      srcSet: '/images/detail-trade-shopkeeper-400.webp 400w, /images/detail-trade-shopkeeper-800.webp 800w, /images/detail-trade-shopkeeper-1200.webp 1200w',
+      alt: 'A shop owner at the transaction counter with a card payment terminal',
+      caption: 'A shop, mid-morning.',
+      width: 1200,
+      height: 800,
+    },
     accountType: 'CURRENT',
     name: 'FinEdge Trade Current Account',
     cashDepositFreeLimitMonthly: 1000000,
@@ -238,6 +246,14 @@ export const ACCOUNTS = [
   {
     slug: 'payroll-salary',
     category: 'account',
+    lifePhoto: {
+      src: '/images/detail-payroll-professional-1200.webp',
+      srcSet: '/images/detail-payroll-professional-400.webp 400w, /images/detail-payroll-professional-800.webp 800w, /images/detail-payroll-professional-1200.webp 1200w',
+      alt: 'A professional at her workplace desk working through paperwork and digital records',
+      caption: 'Payday paperwork, done at her desk.',
+      width: 1200,
+      height: 800,
+    },
     accountType: 'SALARY',
     name: 'FinEdge Payroll Salary Account',
     minMonthlySalary: 20000,
@@ -293,6 +309,14 @@ export const ACCOUNTS = [
   {
     slug: 'campus-student',
     category: 'account',
+    lifePhoto: {
+      src: '/images/detail-campus-student-1200.webp',
+      srcSet: '/images/detail-campus-student-400.webp 400w, /images/detail-campus-student-800.webp 800w, /images/detail-campus-student-1200.webp 1200w',
+      alt: 'A university student between academic lectures working on a laptop on campus',
+      caption: 'A student between lectures.',
+      width: 1200,
+      height: 800,
+    },
     accountType: 'STUDENT',
     name: 'FinEdge Campus Student Account',
     tagline: 'A first bank account for students — zero balance, no frills, no traps',
@@ -642,6 +666,14 @@ export const LOANS = [
   {
     slug: 'gold-loan',
     category: 'loan',
+    lifePhoto: {
+      src: '/images/detail-gold-loan-family-1200.webp',
+      srcSet: '/images/detail-gold-loan-family-400.webp 400w, /images/detail-gold-loan-family-800.webp 800w, /images/detail-gold-loan-family-1200.webp 1200w',
+      alt: 'A family sitting together at home reviewing documents',
+      caption: 'Documents reviewed at home, together.',
+      width: 1200,
+      height: 800,
+    },
     loanType: 'GOLD',
     name: 'FinEdge Gold Loan',
     tagline: 'Instant liquidity against gold jewellery, up to 75% of value',
@@ -1138,6 +1170,14 @@ export const SIP = {
 export const SSY = {
   slug: 'sukanya-samriddhi',
   category: 'investment',
+  lifePhoto: {
+    src: '/images/detail-sukanya-father-daughter-1200.webp',
+    srcSet: '/images/detail-sukanya-father-daughter-400.webp 400w, /images/detail-sukanya-father-daughter-800.webp 800w, /images/detail-sukanya-father-daughter-1200.webp 1200w',
+    alt: 'A father and young daughter reading together at home',
+    caption: 'A father and daughter, planning ahead.',
+    width: 1200,
+    height: 800,
+  },
   kind: 'SSY',
   riskClass: 'guaranteed',
   name: 'Sukanya Samriddhi Yojana (SSY)',

@@ -280,6 +280,31 @@ export default function GrievanceRedressal() {
           pulls up the whole case.
         </p>
 
+        {/* Placement B — Level 1 Support Team Photograph (Module 33) */}
+        <figure className="mt-4 mb-5 overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-xs">
+          <div className="relative aspect-[16/9] w-full overflow-hidden bg-porcelain-100">
+            <picture>
+              <source
+                type="image/webp"
+                srcSet="/images/grievance-support-400.webp 400w, /images/grievance-support-800.webp 800w, /images/grievance-support-1200.webp 1200w, /images/grievance-support-1600.webp 1600w"
+                sizes="(min-width: 1024px) 760px, 100vw"
+              />
+              <img
+                src="/images/grievance-support-1200.webp"
+                alt="FinEdge Bank Level 1 customer support operations team assisting customers at workstations"
+                width="1200"
+                height="675"
+                loading="lazy"
+                decoding="async"
+                className="h-full w-full object-cover object-center"
+              />
+            </picture>
+          </div>
+          <figcaption className="px-4 py-2.5 text-xs text-ink-600 bg-porcelain-50 border-t border-ink-100 font-medium">
+            The people who read your complaint — Level 1 support, FinEdge Bank.
+          </figcaption>
+        </figure>
+
         {status === "submitted" ? (
           <div className="animate-calc-fade-rise mt-4 rounded-card border border-success-600/40 bg-success-50 p-5">
             <div className="flex gap-3">
