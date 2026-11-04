@@ -1,8 +1,9 @@
 import React, { useState } from 'react';
 import { Link } from 'react-router-dom';
-import { AlertTriangle, ArrowRight, Landmark, PiggyBank, ShieldCheck, Sprout, TrendingUp } from 'lucide-react';
+import { AlertTriangle, ArrowRight, Landmark, ScrollText, ShieldCheck, Sprout, TrendingUp } from 'lucide-react';
 import { Badge, Button, Card, SectionHeader } from '../components/ui.jsx';
 import { FD, INVESTMENTS, RD, RATE_DISCLAIMER, SIP, SSY } from '../data/products.js';
+import { INVESTMENT_ICONS } from '../data/productIcons.js';
 import { formatINRWhole, shortProductName } from '../lib/format.js';
 import { ApplyModal } from '../components/common/ApplyModal.jsx';
 
@@ -38,6 +39,7 @@ function Actions({ slug, onApply, product }) {
 
 export default function InvestmentsPage() {
   const [selectedProductForApply, setSelectedProductForApply] = useState(null);
+  const [selectedCategoryForApply, setSelectedCategoryForApply] = useState(undefined);
   const fdTop = topOf(fd.rateGrid, 'general');
   const fdTopSenior = topOf(fd.rateGrid, 'senior');
   const rdTop = topOf(rd.rateBands, 'rate');
@@ -75,7 +77,7 @@ export default function InvestmentsPage() {
           <Card id={fd.slug} className="flex flex-col scroll-mt-24 p-6 shadow-none transition-shadow hover:shadow-card">
             <div className="flex items-start justify-between gap-3">
               <span className="flex h-11 w-11 items-center justify-center rounded-full bg-midnight-50 text-midnight-700">
-                <PiggyBank className="h-5 w-5" aria-hidden />
+                {React.createElement(INVESTMENT_ICONS[fd.slug] || ScrollText, { className: 'h-5 w-5', 'aria-hidden': true })}
               </span>
               <Badge tone="success">Guaranteed</Badge>
             </div>
@@ -88,6 +90,7 @@ export default function InvestmentsPage() {
             <p className="text-xs text-ink-500">
               {fdTopSenior !== null ? `Senior citizens up to ${fdTopSenior.toFixed(2)}% p.a. (+${(fd.seniorDelta ?? 0).toFixed(2)}%)` : '—'}
               {' · '}Minimum {fd.minAmount ? formatINRWhole(fd.minAmount) : '—'}
+              {fd.compoundingNote && <> · {fd.compoundingNote}</>}
             </p>
             {Array.isArray(fd.rateGrid) && (
               <div className="mt-4 overflow-hidden rounded-lg border border-ink-100">
@@ -112,6 +115,7 @@ export default function InvestmentsPage() {
               </div>
             )}
             <p className="mt-2 text-xs text-ink-500">First four tenure bands shown — the detail page carries the full grid.</p>
+            {fd.prematureNote && <p className="mt-1 text-xs text-ink-500">{fd.prematureNote}</p>}
             <Actions
               slug={fd.slug}
               product={fd}
@@ -134,7 +138,7 @@ export default function InvestmentsPage() {
             </p>
             <p className="text-xs text-ink-500">
               Start with {rd.minMonthly ? formatINRWhole(rd.minMonthly) : '—'} per month, in multiples of{' '}
-              {rd.monthlyStep ? formatINRWhole(rd.monthlyStep) : '—'} · Interest compounded quarterly
+              {rd.monthlyStep ? formatINRWhole(rd.monthlyStep) : '—'}{rd.compoundingNote && <> · {rd.compoundingNote}</>}
             </p>
             {Array.isArray(rd.rateBands) && (
               <div className="mt-4 overflow-hidden rounded-lg border border-ink-100">
@@ -156,6 +160,7 @@ export default function InvestmentsPage() {
                 </table>
               </div>
             )}
+            {rd.missedInstalmentNote && <p className="mt-2 text-xs text-ink-500">{rd.missedInstalmentNote}</p>}
             <Actions
               slug={rd.slug}
               product={rd}
@@ -190,7 +195,7 @@ export default function InvestmentsPage() {
             <p className="mt-3 max-w-2xl text-sm leading-relaxed text-ink-600">{ssy.overview}</p>
             {ssy.rateNote && <p className="mt-3 text-[13px] leading-snug text-ink-500">{ssy.rateNote}</p>}
           </div>
-          <div className="mt-5 shrink-0 lg:mt-0 lg:w-64">
+          <div className="mt-5 flex flex-col shrink-0 lg:mt-0 lg:w-64">
             <p className="font-display text-2xl font-semibold text-midnight-800">
               {typeof ssy.rate === 'number' ? ssy.rate.toFixed(2) : '—'}
               <span className="ml-1 text-sm font-medium text-ink-500">% p.a.</span>
@@ -211,20 +216,11 @@ export default function InvestmentsPage() {
                 <dd className="font-semibold text-ink-900">{ssy.tenureYears ? `${ssy.tenureYears} years` : '—'}</dd>
               </div>
             </dl>
-            <div className="flex gap-2 pt-4">
-              <Link to={`/investments/${ssy.slug}`} className="flex-1">
-                <Button variant="secondary" className="w-full">
-                  Details <ArrowRight className="h-4 w-4" aria-hidden />
-                </Button>
-              </Link>
-              <Button
-                variant="primary"
-                className="flex-1"
-                onClick={() => setSelectedProductForApply(ssy)}
-              >
-                Apply
-              </Button>
-            </div>
+            <Actions
+              slug={ssy.slug}
+              product={ssy}
+              onApply={(p) => setSelectedProductForApply(p)}
+            />
           </div>
         </Card>
       </section>
@@ -266,15 +262,29 @@ export default function InvestmentsPage() {
           </dl>
 
           {Array.isArray(sip.fundCategories) && sip.fundCategories.length > 0 && (
-            <div className="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+            <div className="mt-4 overflow-hidden rounded-lg border border-ink-100 bg-porcelain-50/50 divide-y divide-ink-100">
               {sip.fundCategories.map((fund) => (
-                <div key={fund.name} className="rounded-lg border border-ink-100 bg-porcelain-50 px-4 py-3">
-                  <p className="text-sm font-semibold text-ink-900">{fund.name}</p>
-                  <p className="mt-0.5 text-xs font-semibold uppercase tracking-wide text-warning-600">
-                    Risk: {fund.riskLevel || '—'}
-                  </p>
-                  <p className="mt-1.5 text-[13px] leading-snug text-ink-600">{fund.note}</p>
-                </div>
+                <button
+                  type="button"
+                  key={fund.name}
+                  onClick={() => {
+                    setSelectedCategoryForApply(fund.name);
+                    setSelectedProductForApply(sip);
+                  }}
+                  className="w-full text-left flex flex-col gap-1 p-3.5 sm:flex-row sm:items-baseline sm:justify-between sm:gap-4 hover:bg-gold-50/40 transition-colors group cursor-pointer"
+                  title={`Start SIP in ${fund.name}`}
+                >
+                  <div className="flex flex-wrap items-baseline gap-2">
+                    <span className="text-sm font-semibold text-ink-900 group-hover:text-midnight-950 underline decoration-dotted decoration-ink-300 group-hover:decoration-gold-500 underline-offset-4">{fund.name}</span>
+                    <span className="text-xs font-semibold uppercase tracking-wide text-warning-700">
+                      Risk: {fund.riskLevel || '—'}
+                    </span>
+                  </div>
+                  <div className="flex items-center gap-2 sm:text-right">
+                    <p className="text-[13px] leading-snug text-ink-600">{fund.note}</p>
+                    <ArrowRight className="h-3.5 w-3.5 text-ink-400 group-hover:text-gold-600 transition-colors shrink-0 hidden sm:block" />
+                  </div>
+                </button>
               ))}
             </div>
           )}
@@ -287,7 +297,10 @@ export default function InvestmentsPage() {
           <Actions
             slug={sip.slug}
             product={sip}
-            onApply={(p) => setSelectedProductForApply(p)}
+            onApply={(p) => {
+              setSelectedCategoryForApply(undefined);
+              setSelectedProductForApply(p);
+            }}
           />
         </Card>
       </section>
@@ -298,7 +311,11 @@ export default function InvestmentsPage() {
         <ApplyModal
           open={Boolean(selectedProductForApply)}
           product={selectedProductForApply}
-          onClose={() => setSelectedProductForApply(null)}
+          initialCategory={selectedCategoryForApply}
+          onClose={() => {
+            setSelectedProductForApply(null);
+            setSelectedCategoryForApply(undefined);
+          }}
         />
       )}
     </div>

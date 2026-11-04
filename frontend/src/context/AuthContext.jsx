@@ -66,8 +66,23 @@ export const AuthProvider = ({ children }) => {
       const filteredAccApps = (db.accountApplications || []).filter(a => !currentCustId || a.customerId === currentCustId);
       const filteredCardApps = (db.cardApplications || []).filter(c => !currentCustId || c.customerId === currentCustId);
       const filteredLoanApps = (db.loanApplications || []).filter(l => !currentCustId || l.customerId === currentCustId);
+      const filteredInvApps = (db.investmentApplications || []).filter(i => !currentCustId || i.customerId === currentCustId);
 
       const combinedApps = [
+        ...filteredInvApps.map(i => ({
+          id: i.applicationId || i.id,
+          productType: 'Investment',
+          productName: i.productName,
+          applicantName: i.applicant?.fullName || i.applicantName || i.fullName || 'Applicant',
+          status: i.status,
+          date: i.submittedAt?.split('T')[0] || new Date().toISOString().split('T')[0],
+          steps: [
+            { name: 'Submitted', completed: true, date: i.submittedAt?.split('T')[0] || new Date().toISOString().split('T')[0] },
+            { name: 'Verification', completed: i.status !== 'REJECTED', date: i.status === 'APPROVED' || i.status === 'BOOKED' ? 'Verified' : 'In Review' },
+            { name: 'Approved', completed: i.status === 'APPROVED' || i.status === 'BOOKED', date: i.status === 'APPROVED' || i.status === 'BOOKED' ? 'Approved' : 'Pending' },
+            { name: 'Booked', completed: i.status === 'BOOKED', date: i.status === 'BOOKED' ? 'Booked' : 'Pending' }
+          ]
+        })),
         ...filteredLoanApps.map(l => ({
           id: l.applicationId || l.id,
           productType: 'Loan',
@@ -252,9 +267,74 @@ export const AuthProvider = ({ children }) => {
     setManagerUser(null);
   };
 
-  // Submit Application (Account, Card, or Loan)
+  // Submit Application (Account, Card, Loan, or Investment)
   const submitApplication = async (applicationData) => {
-    if (applicationData.category === 'loan' || applicationData.category === 'Loans' || applicationData.productType === 'loan' || applicationData.productType === 'Loan') {
+    if (applicationData.category === 'investment' || applicationData.category === 'Investment') {
+      const db = getDb();
+      if (!Array.isArray(db.investmentApplications)) db.investmentApplications = [];
+      const newId = `INV-APP-${Date.now().toString().slice(-6)}`;
+      const applicantName = applicationData.applicant?.fullName || applicationData.fullName || user?.fullName || user?.name || 'Applicant';
+      const applicantMobile = applicationData.applicant?.mobileNumber || applicationData.mobile || user?.mobileNumber || user?.phone || '';
+      const applicantEmail = applicationData.applicant?.email || applicationData.email || user?.email || '';
+      const applicantDob = applicationData.applicant?.dob || applicationData.dob || '';
+      const applicantPan = applicationData.applicant?.panNumber || applicationData.panNumber || user?.pan || '';
+
+      const newApp = {
+        id: newId,
+        applicationId: newId,
+        customerId: user?.customerId || 'CUS-GUEST',
+        customer: {
+          fullName: applicantName,
+          mobileNumber: applicantMobile,
+          email: applicantEmail,
+        },
+        category: 'investment',
+        kind: applicationData.kind || 'FD',
+        productSlug: applicationData.productSlug || '',
+        productName: applicationData.productName || 'FinEdge Investment',
+        applicant: {
+          fullName: applicantName,
+          mobileNumber: applicantMobile,
+          email: applicantEmail,
+          dob: applicantDob,
+          panNumber: applicantPan,
+        },
+        applicantName,
+        fullName: applicantName,
+        email: applicantEmail,
+        mobileNumber: applicantMobile,
+        fundingAccount: applicationData.fundingAccount || {},
+        investmentDetails: applicationData.investmentDetails || {},
+        nominee: applicationData.nominee,
+        consents: applicationData.consents || {},
+        status: 'SUBMITTED',
+        submittedAt: new Date().toISOString(),
+        timeline: [
+          {
+            stage: 'SUBMITTED',
+            at: new Date().toISOString(),
+            note: 'Application received via digital onboarding portal.'
+          }
+        ],
+        steps: [
+          { key: 'SUBMITTED', label: 'Submitted', state: 'COMPLETE', date: new Date().toISOString() },
+          { key: 'VERIFICATION', label: 'Verification', state: 'CURRENT' },
+          { key: 'APPROVED', label: 'Approved', state: 'UPCOMING' },
+          { key: 'BOOKED', label: 'Booked', state: 'UPCOMING' }
+        ]
+      };
+      db.investmentApplications.unshift(newApp);
+      saveDb(db);
+      refreshCustomerData();
+      return {
+        success: true,
+        data: newApp,
+        applicationId: newId,
+        id: newId,
+        referenceNumber: newId,
+        reference: newId
+      };
+    } else if (applicationData.category === 'loan' || applicationData.category === 'Loans' || applicationData.productType === 'loan' || applicationData.productType === 'Loan') {
       const db = getDb();
       if (!Array.isArray(db.loanApplications)) db.loanApplications = [];
       const newId = `LN-APP-${Date.now().toString().slice(-6)}`;
@@ -322,7 +402,7 @@ export const AuthProvider = ({ children }) => {
           fullName: 'Nominee Name',
           relationship: 'SPOUSE',
           dateOfBirth: '1998-01-01',
-          mobileNumber: '9820198402'
+          mobileNumber: user?.mobileNumber || user?.phone || '9876543210'
         }
       });
       refreshCustomerData();

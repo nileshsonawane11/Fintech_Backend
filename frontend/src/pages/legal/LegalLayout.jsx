@@ -1,3 +1,4 @@
+import { useEffect, useState } from "react";
 import { Clock, TriangleAlert } from "lucide-react";
 
 /**
@@ -17,23 +18,67 @@ export default function LegalLayout({
   sections = [],
   children,
 }) {
+  const [activeSection, setActiveSection] = useState(sections[0]?.id || "");
+
+  useEffect(() => {
+    if (!sections.length || typeof window === "undefined") return;
+
+    if (window.location.hash) {
+      const hashId = window.location.hash.slice(1);
+      if (sections.some((s) => s.id === hashId)) {
+        setActiveSection(hashId);
+      }
+    }
+
+    if (!("IntersectionObserver" in window)) return;
+
+    const observer = new IntersectionObserver(
+      (entries) => {
+        const visible = entries.filter((e) => e.isIntersecting);
+        if (visible.length > 0) {
+          visible.sort((a, b) => a.boundingClientRect.top - b.boundingClientRect.top);
+          setActiveSection(visible[0].target.id);
+        }
+      },
+      {
+        rootMargin: "-10% 0px -65% 0px",
+        threshold: [0, 0.25, 0.5],
+      }
+    );
+
+    sections.forEach((s) => {
+      const el = document.getElementById(s.id);
+      if (el) observer.observe(el);
+    });
+
+    return () => observer.disconnect();
+  }, [sections]);
+
+  const handleNavClick = (id) => (e) => {
+    setActiveSection(id);
+    const target = document.getElementById(id);
+    if (target) {
+      target.scrollIntoView({ behavior: "smooth" });
+    }
+  };
+
   return (
     <main className="bg-porcelain-100">
       {/* ── Title band ─────────────────────────────────────────── */}
       <div className="bg-midnight-900 text-porcelain-50">
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-gold-300">
+          <p className="hero-enter-headline text-xs font-semibold uppercase tracking-[0.18em] text-gold-300">
             FinEdge Bank · Legal &amp; Trust
           </p>
-          <h1 className="mt-3 font-display text-3xl font-semibold leading-tight text-porcelain-50 sm:text-4xl">
+          <h1 className="hero-enter-headline mt-3 font-display text-3xl font-semibold leading-tight text-porcelain-50 sm:text-4xl">
             {title}
           </h1>
           {subtitle ? (
-            <p className="mt-3 max-w-[70ch] text-[15px] leading-7 text-porcelain-200">
+            <p className="hero-enter-subtext mt-3 max-w-[70ch] text-[15px] leading-7 text-porcelain-200">
               {subtitle}
             </p>
           ) : null}
-          <p className="mt-5 inline-flex items-center gap-2 rounded-full border border-midnight-700 bg-midnight-800 px-3 py-1.5 text-xs font-medium text-porcelain-200">
+          <p className="hero-enter-cta mt-5 inline-flex items-center gap-2 rounded-full border border-midnight-700 bg-midnight-800 px-3 py-1.5 text-xs font-medium text-porcelain-200">
             <Clock className="h-3.5 w-3.5 text-gold-300" aria-hidden />
             Last updated: {updated}
           </p>
@@ -42,6 +87,32 @@ export default function LegalLayout({
 
       {/* ── Body: section index + document ─────────────────────── */}
       <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
+        {/* Mobile horizontal chip bar (<= 768px / lg:hidden) */}
+        {sections.length > 0 && (
+          <nav
+            aria-label="On this page quick links"
+            className="lg:hidden mb-6 -mx-4 px-4 overflow-x-auto no-scrollbar py-2.5 border-b border-ink-200/70 bg-porcelain-100/95 sticky top-16 z-20 backdrop-blur-xs flex gap-2"
+          >
+            {sections.map((s) => {
+              const active = activeSection === s.id;
+              return (
+                <a
+                  key={s.id}
+                  href={`#${s.id}`}
+                  onClick={handleNavClick(s.id)}
+                  className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-160 ${
+                    active
+                      ? "bg-midnight-900 text-porcelain-50 border border-gold-500 shadow-xs font-semibold"
+                      : "border border-ink-200 bg-white text-ink-700 hover:bg-midnight-50 hover:text-midnight-900"
+                  }`}
+                >
+                  {s.label}
+                </a>
+              );
+            })}
+          </nav>
+        )}
+
         <div className="grid gap-10 lg:grid-cols-[240px_minmax(0,1fr)]">
           <aside className="hidden lg:block">
             <nav
@@ -52,16 +123,24 @@ export default function LegalLayout({
                 On this page
               </p>
               <ul className="mt-3 space-y-1">
-                {sections.map((s) => (
-                  <li key={s.id}>
-                    <a
-                      href={`#${s.id}`}
-                      className="block rounded-md px-2 py-1.5 text-sm text-ink-700 transition-colors hover:bg-midnight-50 hover:text-midnight-800"
-                    >
-                      {s.label}
-                    </a>
-                  </li>
-                ))}
+                {sections.map((s) => {
+                  const active = activeSection === s.id;
+                  return (
+                    <li key={s.id}>
+                      <a
+                        href={`#${s.id}`}
+                        onClick={handleNavClick(s.id)}
+                        className={`block rounded-md px-3 py-2 text-sm transition-all duration-160 ${
+                          active
+                            ? "bg-midnight-900 text-porcelain-50 border-l-2 border-gold-500 font-semibold shadow-xs"
+                            : "text-ink-700 hover:bg-midnight-50 hover:text-midnight-800"
+                        }`}
+                      >
+                        {s.label}
+                      </a>
+                    </li>
+                  );
+                })}
               </ul>
             </nav>
           </aside>
@@ -148,7 +227,8 @@ export function LegalTable({ caption, head, rows }) {
             {rows.map((row, i) => (
               <tr
                 key={i}
-                className={i % 2 === 0 ? "bg-porcelain-50" : "bg-porcelain-100"}
+                className={`reveal-schedule-row ${i % 2 === 0 ? "bg-porcelain-50" : "bg-porcelain-100"}`}
+                style={{ "--stagger-index": i }}
               >
                 {row.map((cell, j) => (
                   <td

@@ -18,7 +18,7 @@ function CardTile({ card, onApply }) {
   return (
     <Card id={card.slug} className="min-w-0 flex flex-col p-6 scroll-mt-24 shadow-none transition-shadow hover:shadow-card">
       {/* 1. Visually distinct shared CardVisual face with cursor-tracked 3D tilt */}
-      <TiltCard maxTilt={10} perspective={900}>
+      <TiltCard maxTilt={10} perspective={900} sweepKey={card.slug}>
         <CardVisual card={card} shadow={false} />
       </TiltCard>
 

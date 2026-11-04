@@ -149,6 +149,16 @@ function HomeHero({ savingsRow, homeLoanRow, edgeGoldDebit }) {
   const rafId = useRef(null);
   const parallaxRafId = useRef(null);
 
+  // Touch tracking & parity refs (Fix 3: Hero parity)
+  const cardTiltRectRef = useRef(null);
+  const heroTouchStartRef = useRef({ x: 0, y: 0, time: 0 });
+  const heroTouchTrackingRef = useRef(false);
+  const heroIsDraggingRef = useRef(false);
+  const heroSuppressClickRef = useRef(false);
+  const heroSweepRafId = useRef(null);
+  const heroPulseRafId = useRef(null);
+  const heroHasSweptRef = useRef(false);
+
   const targetRef = useRef({
     rotateX: 0,
     rotateY: 0,
@@ -305,6 +315,48 @@ function HomeHero({ savingsRow, homeLoanRow, edgeGoldDebit }) {
     }
   }, [animate]);
 
+  // Touch Entry Sweep for Hero Card (~600ms, rotateY -5° -> 0°, single glare pass)
+  const runHeroEntrySweep = useCallback(() => {
+    const isReduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    const isTouch = typeof window !== 'undefined' && (window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(hover: none)').matches);
+    if (isReduced || !isTouch || !cardTiltRef.current) return;
+
+    const startTime = performance.now();
+    const duration = 600;
+
+    const sweepStep = (now) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(1, elapsed / duration);
+      const ease = 1 - Math.pow(1 - progress, 3);
+      const rY = -5 * (1 - ease);
+      const gX = 25 + 50 * ease;
+      const gOpacity = 0.28 * Math.sin(progress * Math.PI);
+
+      if (cardTiltRef.current) {
+        cardTiltRef.current.style.transform = `translate3d(0, 0, 0) scale(1) rotateX(0deg) rotateY(${rY.toFixed(2)}deg)`;
+        cardTiltRef.current.style.willChange = 'transform';
+      }
+
+      if (glareRef.current) {
+        glareRef.current.style.opacity = gOpacity.toFixed(3);
+        glareRef.current.style.background = `radial-gradient(circle 240px at ${gX.toFixed(1)}% 50%, rgba(255, 255, 255, 0.35), transparent 75%)`;
+      }
+
+      if (progress < 1) {
+        heroSweepRafId.current = requestAnimationFrame(sweepStep);
+      } else {
+        heroSweepRafId.current = null;
+        if (cardTiltRef.current) {
+          cardTiltRef.current.style.transform = 'translate3d(0, 0, 0) scale(1) rotateX(0deg) rotateY(0deg)';
+          cardTiltRef.current.style.willChange = 'auto';
+        }
+        if (glareRef.current) glareRef.current.style.opacity = '0';
+      }
+    };
+
+    heroSweepRafId.current = requestAnimationFrame(sweepStep);
+  }, []);
+
   // Pause when offscreen
   useEffect(() => {
     const el = heroRef.current;
@@ -314,9 +366,26 @@ function HomeHero({ savingsRow, homeLoanRow, edgeGoldDebit }) {
       (entries) => {
         entries.forEach((entry) => {
           isIntersectingRef.current = entry.isIntersecting;
-          if (!entry.isIntersecting && rafId.current) {
-            cancelAnimationFrame(rafId.current);
-            rafId.current = null;
+          if (!entry.isIntersecting) {
+            if (rafId.current) {
+              cancelAnimationFrame(rafId.current);
+              rafId.current = null;
+            }
+            if (heroSweepRafId.current) {
+              cancelAnimationFrame(heroSweepRafId.current);
+              heroSweepRafId.current = null;
+            }
+            if (heroPulseRafId.current) {
+              cancelAnimationFrame(heroPulseRafId.current);
+              heroPulseRafId.current = null;
+            }
+          } else {
+            const isTouch = typeof window !== 'undefined' && (window.matchMedia('(pointer: coarse)').matches || window.matchMedia('(hover: none)').matches);
+            const isReduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+            if (isTouch && !isReduced && !heroHasSweptRef.current) {
+              heroHasSweptRef.current = true;
+              runHeroEntrySweep();
+            }
           }
         });
       },
@@ -325,13 +394,15 @@ function HomeHero({ savingsRow, homeLoanRow, edgeGoldDebit }) {
 
     observer.observe(el);
     return () => observer.disconnect();
-  }, []);
+  }, [runHeroEntrySweep]);
 
   // Cleanup on unmount
   useEffect(() => {
     return () => {
       if (rafId.current) cancelAnimationFrame(rafId.current);
       if (parallaxRafId.current) cancelAnimationFrame(parallaxRafId.current);
+      if (heroSweepRafId.current) cancelAnimationFrame(heroSweepRafId.current);
+      if (heroPulseRafId.current) cancelAnimationFrame(heroPulseRafId.current);
     };
   }, []);
 
@@ -453,6 +524,213 @@ function HomeHero({ savingsRow, homeLoanRow, edgeGoldDebit }) {
     startLoop();
   };
 
+  // Touch Tap Pulse for Hero Card (~250ms, tilt to ~4° and back)
+  const runHeroTapPulse = () => {
+    const isReduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (isReduced || !cardTiltRef.current) return;
+
+    const startTime = performance.now();
+    const duration = 250;
+
+    const pulseStep = (now) => {
+      const elapsed = now - startTime;
+      const progress = Math.min(1, elapsed / duration);
+      const pulse = Math.sin(progress * Math.PI);
+
+      const rY = 4 * pulse;
+      const rX = -1.5 * pulse;
+      const gOpacity = 0.22 * pulse;
+
+      if (cardTiltRef.current) {
+        cardTiltRef.current.style.transform = `translate3d(0, 0, 0) scale(1) rotateX(${rX.toFixed(2)}deg) rotateY(${rY.toFixed(2)}deg)`;
+        cardTiltRef.current.style.willChange = 'transform';
+      }
+
+      if (glareRef.current) {
+        glareRef.current.style.opacity = gOpacity.toFixed(3);
+      }
+
+      if (progress < 1) {
+        heroPulseRafId.current = requestAnimationFrame(pulseStep);
+      } else {
+        heroPulseRafId.current = null;
+        if (cardTiltRef.current) {
+          cardTiltRef.current.style.transform = 'translate3d(0, 0, 0) scale(1) rotateX(0deg) rotateY(0deg)';
+          cardTiltRef.current.style.willChange = 'auto';
+        }
+        if (glareRef.current) glareRef.current.style.opacity = '0';
+      }
+    };
+
+    heroPulseRafId.current = requestAnimationFrame(pulseStep);
+  };
+
+  const handleHeroPointerDown = (e) => {
+    const isReduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
+    if (isReduced || e.pointerType !== 'touch') return;
+
+    if (heroSweepRafId.current) {
+      cancelAnimationFrame(heroSweepRafId.current);
+      heroSweepRafId.current = null;
+    }
+    if (heroPulseRafId.current) {
+      cancelAnimationFrame(heroPulseRafId.current);
+      heroPulseRafId.current = null;
+    }
+
+    if (cardTiltRef.current) {
+      cardTiltRectRef.current = cardTiltRef.current.getBoundingClientRect();
+    }
+
+    heroTouchStartRef.current = {
+      x: e.clientX,
+      y: e.clientY,
+      time: performance.now(),
+    };
+    heroTouchTrackingRef.current = true;
+    heroIsDraggingRef.current = false;
+  };
+
+  const handleHeroPointerMove = (e) => {
+    if (e.pointerType !== 'touch') return;
+    if (!heroTouchTrackingRef.current || !cardTiltRectRef.current) return;
+
+    const dx = e.clientX - heroTouchStartRef.current.x;
+    const dy = e.clientY - heroTouchStartRef.current.y;
+
+    if (!heroIsDraggingRef.current) {
+      const absDx = Math.abs(dx);
+      const absDy = Math.abs(dy);
+
+      if (absDx >= 8 && absDx > absDy) {
+        heroIsDraggingRef.current = true;
+        isHoveredRef.current = true;
+        if (cardFloatWrapperRef.current) {
+          cardFloatWrapperRef.current.classList.remove('animate-card-float');
+        }
+        try {
+          e.target.setPointerCapture?.(e.pointerId);
+        } catch (_) {}
+      } else if (absDy >= 8 && absDy > absDx) {
+        heroTouchTrackingRef.current = false;
+        return;
+      } else {
+        return;
+      }
+    }
+
+    const rect = cardTiltRectRef.current;
+    if (rect.width === 0 || rect.height === 0) return;
+
+    const x = e.clientX - rect.left;
+    const y = e.clientY - rect.top;
+    const centerX = rect.width / 2;
+    const centerY = rect.height / 2;
+
+    const px = Math.max(-1, Math.min(1, (x - centerX) / centerX));
+    const py = Math.max(-1, Math.min(1, (y - centerY) / centerY));
+
+    const rY = px * 12; // hero ±12°
+    const rX = -py * 12;
+    const tX = px * 6;
+    const tY = py * 6;
+    const gX = Math.max(0, Math.min(100, (x / rect.width) * 100));
+    const gY = Math.max(0, Math.min(100, (y / rect.height) * 100));
+
+    targetRef.current = {
+      rotateX: rX,
+      rotateY: rY,
+      transX: tX,
+      transY: tY,
+      scale: 1.015,
+      glareX: gX,
+      glareY: gY,
+      glareOpacity: 0.35,
+      shimmerX: gX,
+      edgeLightX: -rY * 0.12,
+      edgeLightY: rX * 0.12,
+      hologramHue: rY * 2.5,
+    };
+
+    startLoop();
+  };
+
+  const handleHeroPointerUp = (e) => {
+    if (e.pointerType !== 'touch') return;
+    if (!heroTouchTrackingRef.current && !heroIsDraggingRef.current) return;
+
+    const wasDragging = heroIsDraggingRef.current;
+    const duration = performance.now() - heroTouchStartRef.current.time;
+
+    heroTouchTrackingRef.current = false;
+    heroIsDraggingRef.current = false;
+    isHoveredRef.current = false;
+
+    try {
+      e.target.releasePointerCapture?.(e.pointerId);
+    } catch (_) {}
+
+    if (wasDragging) {
+      heroSuppressClickRef.current = true;
+      setTimeout(() => {
+        heroSuppressClickRef.current = false;
+      }, 120);
+
+      targetRef.current = {
+        rotateX: 0,
+        rotateY: 0,
+        transX: 0,
+        transY: 0,
+        scale: 1,
+        glareX: 50,
+        glareY: 50,
+        glareOpacity: 0,
+        shimmerX: 50,
+        edgeLightX: 0,
+        edgeLightY: 0,
+        hologramHue: 0,
+      };
+      startLoop();
+    } else if (duration < 280) {
+      runHeroTapPulse();
+    }
+  };
+
+  const handleHeroPointerCancel = (e) => {
+    if (e.pointerType !== 'touch') return;
+    heroTouchTrackingRef.current = false;
+    heroIsDraggingRef.current = false;
+    isHoveredRef.current = false;
+
+    try {
+      e.target.releasePointerCapture?.(e.pointerId);
+    } catch (_) {}
+
+    targetRef.current = {
+      rotateX: 0,
+      rotateY: 0,
+      transX: 0,
+      transY: 0,
+      scale: 1,
+      glareX: 50,
+      glareY: 50,
+      glareOpacity: 0,
+      shimmerX: 50,
+      edgeLightX: 0,
+      edgeLightY: 0,
+      hologramHue: 0,
+    };
+    startLoop();
+  };
+
+  const handleHeroClickCapture = (e) => {
+    if (heroSuppressClickRef.current) {
+      e.preventDefault();
+      e.stopPropagation();
+      heroSuppressClickRef.current = false;
+    }
+  };
+
   return (
     <section
       ref={heroRef}
@@ -482,7 +760,7 @@ function HomeHero({ savingsRow, homeLoanRow, edgeGoldDebit }) {
             src="/images/hero-bg.jpg"
             alt=""
             aria-hidden="true"
-            fetchpriority="high"
+            fetchPriority="high"
             loading="eager"
             decoding="async"
             width="1920"
@@ -602,8 +880,14 @@ function HomeHero({ savingsRow, homeLoanRow, edgeGoldDebit }) {
                     transform: 'translate3d(0, 0, 0) scale(1) rotateX(0deg) rotateY(0deg)',
                     transformStyle: 'preserve-3d',
                     transition: 'transform 0.4s ease-out',
+                    touchAction: 'pan-y',
                   }}
-                  className="relative"
+                  className="relative touch-pan-y select-none"
+                  onPointerDown={handleHeroPointerDown}
+                  onPointerMove={handleHeroPointerMove}
+                  onPointerUp={handleHeroPointerUp}
+                  onPointerCancel={handleHeroPointerCancel}
+                  onClickCapture={handleHeroClickCapture}
                 >
                   {/* Radial gold glow behind card */}
                   <div className="absolute -inset-8 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(184,147,63,0.22),transparent_70%)] pointer-events-none -z-10" />
@@ -760,10 +1044,10 @@ export default function HomePage() {
                 return (
                   <Reveal key={idx} treatment="B" staggerIndex={idx}>
                     <div className="group flex h-full flex-col rounded-xl border border-ink-100 bg-white p-6 shadow-xs transition-all duration-180 hover:-translate-y-0.5 hover:shadow-card hover:border-midnight-300">
-                      {/* Visual slot per tab (Fix 2) */}
+                      {/* Visual slot per tab (Fix 1: Aspect-ratio box reserving art's true rendered height) */}
                       {isCardTab ? (
-                        <div className="w-full flex justify-center py-2 h-[130px] items-center mb-2">
-                          <TiltCard maxTilt={6} glare={true} shadow={true} className="w-[190px]">
+                        <div className="w-full mb-4">
+                          <TiltCard maxTilt={6} glare={true} shadow={true} sweepKey={product.slug}>
                             <CardVisual card={product} shadow={false} />
                           </TiltCard>
                         </div>

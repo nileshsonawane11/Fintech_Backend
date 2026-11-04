@@ -230,6 +230,11 @@ export async function listMyLoanApplications(customerId) {
   return (db.loanApplications || []).filter(l => !customerId || l.customerId === customerId);
 }
 
+export async function listMyInvestmentApplications(customerId) {
+  const db = getDb();
+  return (db.investmentApplications || []).filter(i => !customerId || i.customerId === customerId);
+}
+
 export async function listAccountApplications({ status } = {}) {
   const db = getDb();
   let list = db.accountApplications || [];
@@ -349,7 +354,8 @@ export async function listMyApplications(customerId) {
   const accApps = (db.accountApplications || []).filter(a => !customerId || a.customerId === customerId);
   const cardApps = (db.cardApplications || []).filter(c => !customerId || c.customerId === customerId);
   const loanApps = (db.loanApplications || []).filter(l => !customerId || l.customerId === customerId);
-  return [...accApps, ...cardApps, ...loanApps].sort((a, b) => new Date(b.createdAt || b.submittedAt || 0) - new Date(a.createdAt || a.submittedAt || 0));
+  const invApps = (db.investmentApplications || []).filter(i => !customerId || i.customerId === customerId);
+  return [...accApps, ...cardApps, ...loanApps, ...invApps].sort((a, b) => new Date(b.createdAt || b.submittedAt || 0) - new Date(a.createdAt || a.submittedAt || 0));
 }
 
 export async function listNotifications(customerId) {
@@ -381,32 +387,58 @@ export async function unreadCount(customerId) {
 
 export async function listMyTickets(customerId) {
   const db = getDb();
-  return (db.supportTickets || []).filter(t => !customerId || t.customerId === customerId);
+  const tickets = (db.supportTickets || []).filter(t => !customerId || t.customerId === customerId);
+  return tickets.map(t => ({
+    ...t,
+    id: t.id || t.ticketId,
+    ticketId: t.ticketId || t.id,
+  }));
 }
 
-export async function raiseTicket(customerId, { subject, message, priority = 'NORMAL', category = 'GENERAL' }) {
+export async function raiseTicket(customerId, payload = {}) {
+  const desc = (payload.description || payload.message || '').trim();
   return apiRequest('/api/v1/support/tickets', {
     method: 'POST',
     body: JSON.stringify({
-      subject,
-      message,
-      priority,
-      category
+      customerId: customerId || payload.customerId,
+      subject: payload.subject,
+      description: desc,
+      message: desc,
+      priority: payload.priority || 'NORMAL',
+      category: payload.category || 'GENERAL',
+      transactionRef: payload.transactionRef || payload.accountRef || '',
+      accountRef: payload.accountRef || payload.transactionRef || '',
+      fullName: payload.fullName || payload.customerName,
+      customerName: payload.fullName || payload.customerName,
+      email: payload.email || payload.customerEmail,
+      customerEmail: payload.email || payload.customerEmail,
+      mobile: payload.mobile || payload.customerMobile,
+      customerMobile: payload.mobile || payload.customerMobile,
+      source: payload.source || (customerId ? 'PORTAL' : 'PUBLIC_GRIEVANCE')
     })
   });
 }
 
-export async function replyTicket(ticketId, { message, actor = 'Customer' }) {
+export async function replyTicket(ticketId, payload = {}) {
+  const content = (payload.body || payload.message || payload.text || '').trim();
+  const actor = payload.actor || 'Customer';
+  const from = payload.from || 'CUSTOMER';
+  const now = new Date().toISOString();
   const db = getDb();
   const t = (db.supportTickets || []).find(tk => (tk.ticketId || tk.id) === ticketId);
   if (t) {
     if (!t.messages) t.messages = [];
     t.messages.push({
+      from,
       sender: actor,
-      senderType: 'CUSTOMER',
-      message,
-      timestamp: new Date().toISOString()
+      senderType: from === 'STAFF' ? 'STAFF' : 'CUSTOMER',
+      body: content,
+      text: content,
+      message: content,
+      at: now,
+      timestamp: now
     });
+    t.updatedAt = now;
     saveDb(db);
   }
   return t;
@@ -440,6 +472,7 @@ export const portalBridge = {
   applyCard,
   listMyLoans,
   listMyLoanApplications,
+  listMyInvestmentApplications,
   listAccountApplications,
   applyLoan,
   listHoldings,

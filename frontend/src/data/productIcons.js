@@ -11,6 +11,7 @@ import {
   Repeat,
   TrendingUp,
   ShieldCheck,
+  ScrollText,
 } from 'lucide-react';
 
 /** Single shared product-icon mapping consumed by Header mega menus and catalogue pages. */
@@ -33,7 +34,7 @@ export const LOAN_ICONS = {
 };
 
 export const INVESTMENT_ICONS = {
-  'fixed-deposit': PiggyBank,
+  'fixed-deposit': ScrollText,
   'recurring-deposit': Repeat,
   'systematic-investment-plan': TrendingUp,
   'sukanya-samriddhi': ShieldCheck,

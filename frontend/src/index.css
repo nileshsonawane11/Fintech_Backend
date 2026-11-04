@@ -179,6 +179,28 @@ input[type="number"] {
   animation: slide-in-right 260ms cubic-bezier(0.22, 0.61, 0.36, 1) both;
 }
 
+@keyframes menu-enter {
+  from {
+    opacity: 0;
+    transform: translateY(6px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+.animate-menu-enter {
+  animation: menu-enter 160ms cubic-bezier(0.16, 1, 0.3, 1) both;
+}
+
+@media (hover: none) {
+  .menu-row-arrow {
+    opacity: 0.4 !important;
+    transform: none !important;
+  }
+}
+
 @keyframes card-float {
   0%, 100% {
     transform: translateY(0px);
@@ -208,8 +230,10 @@ input[type="number"] {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .animate-card-float {
+  .animate-card-float,
+  .animate-menu-enter {
     animation: none !important;
+    transform: none !important;
   }
 }
 
@@ -709,6 +733,40 @@ body.letter-spacing-wide {
 }
 body.letter-spacing-wider {
   letter-spacing: 1.5px;
+}
+
+/* ── Module 26 — Calculators Restrained Animation Layer ───────────── */
+@keyframes calc-fade-rise {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+.animate-calc-fade-rise {
+  animation: calc-fade-rise 180ms ease-out both;
+}
+
+@keyframes border-pulse-gold {
+  0% {
+    border-color: rgba(200, 168, 75, 0.9);
+    box-shadow: 0 0 0 1px rgba(200, 168, 75, 0.6);
+  }
+  100% {
+    border-color: rgb(30, 41, 59);
+    box-shadow: none;
+  }
+}
+.animate-border-pulse {
+  animation: border-pulse-gold 120ms ease-out forwards;
+}
+
+.reveal-schedule-row {
+  transition: opacity 180ms ease-out, transform 180ms ease-out;
+  transition-delay: calc(min(var(--stagger-index, 0) * 60ms, 280ms));
 }
 
 /* Respect users who ask for less motion: kill the animation system and

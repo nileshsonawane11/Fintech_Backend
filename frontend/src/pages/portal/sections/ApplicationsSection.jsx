@@ -1,14 +1,12 @@
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { CreditCard, FileText, Landmark, Receipt } from 'lucide-react';
+import { CreditCard, FileText, Landmark, Receipt, TrendingUp } from 'lucide-react';
 import {
   Card, EmptyState, FormError, PageLoading, SectionHeader, StatusChip, Stepper,
 } from '../../../components/ui.jsx';
 import { useAuth, useDbTick } from '../../../context/AuthContext.jsx';
 import { formatDate, formatDateTime, formatINR, productDisplayName } from '../../../lib/format.js';
-import { listMyLoanApplications } from '../../../services/portalBridge.js';
-import { listMyCardApplications } from '../../../services/portalBridge.js';
-import { listAccountApplications } from '../../../services/portalBridge.js';
+import { listMyLoanApplications, listMyCardApplications, listMyInvestmentApplications, listAccountApplications } from '../../../services/portalBridge.js';
 
 const ctaCls = 'inline-flex items-center justify-center gap-2 rounded-lg bg-midnight-800 px-4 py-2.5 text-sm font-medium text-porcelain-50 shadow-sm transition-colors hover:bg-midnight-700';
 
@@ -27,6 +25,7 @@ export default function ApplicationsPage() {
   const [loans, setLoans] = useState([]);
   const [cards, setCards] = useState([]);
   const [accounts, setAccounts] = useState([]);
+  const [investments, setInvestments] = useState([]);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
 
@@ -37,17 +36,19 @@ export default function ApplicationsPage() {
     Promise.allSettled([
       listMyLoanApplications(customerId),
       listMyCardApplications(customerId),
+      listMyInvestmentApplications(customerId),
       listAccountApplications({}),
-    ]).then(([loanRes, cardRes, accRes]) => {
+    ]).then(([loanRes, cardRes, invRes, accRes]) => {
       if (!live) return;
       if (loanRes.status === 'fulfilled') setLoans(newestFirst(loanRes.value, (a) => a.submittedAt || a.appliedAt));
       if (cardRes.status === 'fulfilled') setCards(newestFirst(cardRes.value, (a) => a.submittedAt || a.appliedAt));
+      if (invRes.status === 'fulfilled') setInvestments(newestFirst(invRes.value, (a) => a.submittedAt || a.appliedAt));
       if (accRes.status === 'fulfilled') {
         const mine = (accRes.value || []).filter((a) => a.customerId === customerId);
         setAccounts(newestFirst(mine, (a) => a.submittedAt || a.appliedAt || a.createdAt));
       }
-      const failed = [loanRes, cardRes, accRes].filter((r) => r.status === 'rejected');
-      setError(failed.length === 3 ? 'We could not load your applications. Please try again.' : '');
+      const failed = [loanRes, cardRes, invRes, accRes].filter((r) => r.status === 'rejected');
+      setError(failed.length === 4 ? 'We could not load your applications. Please try again.' : '');
     }).finally(() => { if (live) setLoading(false); });
     return () => { live = false; };
   }, [customerId]);
@@ -174,6 +175,64 @@ export default function ApplicationsPage() {
                 </div>
               </Card>
             ))}
+          </div>
+        )}
+      </section>
+
+      {/* Investments */}
+      <section className="space-y-4">
+        <h3 className="flex items-center gap-2 text-base font-semibold text-midnight-950">
+          <TrendingUp className="h-5 w-5 text-midnight-700" aria-hidden /> Investment applications
+          <span className="text-sm font-normal text-ink-500">({investments.length})</span>
+        </h3>
+        {investments.length === 0 ? (
+          <EmptyState
+            icon={TrendingUp}
+            title="No investment applications yet"
+            body="Applications for Fixed Deposits, Recurring Deposits, SIPs or SSY will appear here with live tracking."
+            action={<Link to="/investments" className={ctaCls}>Explore investments</Link>}
+          />
+        ) : (
+          <div className="space-y-4">
+            {investments.map((app) => {
+              const d = app.investmentDetails || {};
+              let detailLine = '';
+              if (app.kind === 'FD') {
+                detailLine = `${formatINR(d.depositAmount || d.amount)} · ${d.tenureBand || '—'} · ${d.appliedRate ? d.appliedRate + '% p.a.' : '—'}${d.maturityValue ? ` · Maturity ${formatINR(d.maturityValue)}` : ''}`;
+              } else if (app.kind === 'RD') {
+                detailLine = `${formatINR(d.monthlyDeposit || d.monthlyAmount)}/mo · ${d.tenureBand || '—'}${d.maturityValue ? ` · Maturity ${formatINR(d.maturityValue)}` : ''}`;
+              } else if (app.kind === 'SIP') {
+                detailLine = `${d.fundCategory || 'Mutual Fund'} · ${formatINR(d.monthlyInvestment || d.monthlyAmount)}/mo (Debit Day ${d.sipDate || 5}) · ${d.durationYears || '—'} yrs`;
+              } else if (app.kind === 'SSY') {
+                detailLine = `${formatINR(d.annualDeposit)}/yr · Child: ${d.childName || '—'}${d.maturityValue ? ` · Maturity ${formatINR(d.maturityValue)}` : ''}`;
+              }
+
+              return (
+                <Card key={app.id} className="p-5">
+                  <div className="flex flex-wrap items-start justify-between gap-3">
+                    <div>
+                      <p className="text-sm font-semibold text-ink-900">{app.productName || 'Investment Application'}</p>
+                      <p className="tnum mt-0.5 text-[13px] text-ink-500">
+                        {app.id} {detailLine ? `· ${detailLine}` : ''}
+                      </p>
+                      <p className="mt-0.5 text-[13px] text-ink-500">Submitted {formatDate(app.submittedAt || app.appliedAt)}</p>
+                    </div>
+                    <StatusChip status={app.status} />
+                  </div>
+                  {Array.isArray(app.steps) && app.steps.length > 0 && (
+                    <div className="mt-5">
+                      <Stepper
+                        steps={app.steps.map((s) => ({
+                          label: s.label,
+                          state: s.state,
+                          date: s.date ? formatDate(s.date) : undefined,
+                        }))}
+                      />
+                    </div>
+                  )}
+                </Card>
+              );
+            })}
           </div>
         )}
       </section>

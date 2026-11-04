@@ -4,6 +4,7 @@ import {
   Button, EmptyState, Field, PageLoading, SectionHeader, StatusChip, Tabs, Textarea, useToast,
 } from '../../../components/ui.jsx';
 import { formatDate, formatDateTime } from '../../../lib/format.js';
+import { getCategoryLabel } from '../../../data/supportCategories.js';
 import { listAllTickets, replyTicket, setTicketStatus } from '../../../services/managerBridge.js';
 import { useAuth, useDbTick } from '../../../context/AuthContext.jsx';
 
@@ -128,7 +129,7 @@ export default function ManagerTicketsPage() {
                   <span className="min-w-0">
                     <span className="block truncate text-sm font-semibold text-ink-900">{t.subject || '—'}</span>
                     <span className="block text-[13px] text-ink-500">
-                      {t.customer?.fullName || '—'} · {t.id} · {t.category || '—'} · Raised {formatDate(t.createdAt)}
+                      {t.customer?.fullName || '—'} · {t.id} · {getCategoryLabel(t.category)} · Raised {formatDate(t.createdAt)}
                     </span>
                   </span>
                   <StatusChip status={t.status} />
@@ -147,7 +148,7 @@ export default function ManagerTicketsPage() {
               <div className="min-w-0">
                 <h3 className="truncate text-base font-semibold text-midnight-950">{selected.subject || '—'}</h3>
                 <p className="mt-0.5 text-xs text-ink-500">
-                  {selected.customer?.fullName || '—'} · {selected.id} · {selected.category || '—'} · Raised {formatDate(selected.createdAt)}
+                  {selected.customer?.fullName || '—'} · {selected.id} · {getCategoryLabel(selected.category)} · Raised {formatDate(selected.createdAt)}
                 </p>
                 <div className="mt-2"><StatusChip status={selected.status} /></div>
               </div>
@@ -159,18 +160,18 @@ export default function ManagerTicketsPage() {
             <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
               {(selected.messages || []).length === 0 && selected.description ? (
                 <div className="rounded-xl bg-porcelain-100 px-3.5 py-3">
-                  <p className="text-xs font-semibold text-ink-500">Customer · {formatDateTime(selected.createdAt)}</p>
+                  <p className="text-xs font-semibold text-ink-500">{selected.customer?.fullName || 'Customer'} · {formatDateTime(selected.createdAt)}</p>
                   <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink-800">{selected.description}</p>
                 </div>
               ) : null}
               {(selected.messages || []).map((m, i) => {
-                const staffSide = m.from === 'STAFF' || m.from === 'SUPPORT';
+                const staffSide = m.from === 'STAFF' || m.from === 'SUPPORT' || m.senderType === 'STAFF';
                 return (
                   <div key={i} className={`rounded-xl px-3.5 py-3 ${staffSide ? 'bg-midnight-50' : 'bg-porcelain-100'}`}>
                     <p className="text-xs font-semibold text-ink-500">
-                      {staffSide ? 'FinEdge support' : (selected.customer?.fullName || 'Customer')} · {formatDateTime(m.at)}
+                      {staffSide ? 'FinEdge support' : (selected.customer?.fullName || 'Customer')} · {formatDateTime(m.at || m.timestamp)}
                     </p>
-                    <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink-800">{m.text || m.body || '—'}</p>
+                    <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink-800">{m.text || m.body || m.message || '—'}</p>
                   </div>
                 );
               })}
