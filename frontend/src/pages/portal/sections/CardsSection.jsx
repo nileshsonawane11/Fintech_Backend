@@ -27,6 +27,7 @@ import {
 } from '../../../components/ui.jsx';
 import { formatDate, formatINR, formatINRWhole, maskAccount, maskCard } from '../../../lib/format.js';
 import TiltCard from '../../../components/TiltCard.jsx';
+import { CardVisual } from '../../../components/common/CardVisual.jsx';
 import { CARDS, getCardBySlug } from '../../../data/products.js';
 import {
   applyCard,
@@ -167,45 +168,12 @@ function CardPanel({ card, holderName, actorName, onBlockRequest }) {
 
       {/* Card visual — true card aspect ratio */}
       <TiltCard maxTilt={8} sweepKey={card.id || card.number || 'portal-card'} className="w-full max-w-md mt-4">
-      <div
-        className={`relative aspect-[1.586/1] w-full overflow-hidden rounded-2xl bg-midnight-900 p-5 text-porcelain-50 shadow-raised ${
-          blocked ? 'opacity-80' : ''
-        }`}
-        aria-label={`${card.productName || 'Card'} ending ${last4}`}
-      >
-        <div className="pointer-events-none absolute -right-10 -top-14 h-44 w-44 rounded-full bg-gold-500/20" aria-hidden />
-        <div className="pointer-events-none absolute -bottom-16 -left-8 h-44 w-44 rounded-full bg-midnight-600/40" aria-hidden />
-        <div className="relative flex h-full flex-col justify-between">
-          <div className="flex items-start justify-between gap-3">
-            <p className="font-display text-lg font-semibold tracking-wide">FinEdge</p>
-            <span className="rounded-full border border-porcelain-50/40 px-2.5 py-0.5 text-xs font-bold tracking-[0.14em]">
-              {isCredit ? 'CREDIT' : 'DEBIT'}
-            </span>
-          </div>
-          <div className="flex items-center gap-3">
-            <span
-              className="block h-8 w-11 rounded-md border border-gold-300/70 bg-gold-200/30"
-              aria-hidden
-            >
-              <span className="mx-auto mt-[13px] block h-px w-8 bg-gold-300/70" />
-            </span>
-            <Nfc className="h-5 w-5 text-porcelain-50/80" aria-hidden />
-          </div>
-          <div>
-            <p className="tnum text-lg tracking-[0.18em] sm:text-xl">
-              ••••&nbsp;&nbsp;••••&nbsp;&nbsp;••••&nbsp;&nbsp;{last4}
-            </p>
-            <div className="mt-2 flex items-end justify-between gap-3">
-              <p className="truncate text-[13px] font-medium uppercase tracking-wide text-porcelain-50/85">
-                {holderName || 'Card holder'}
-              </p>
-              <p className="shrink-0 text-[13px] font-medium text-porcelain-50/85">
-                {card.productName || ''}
-              </p>
-            </div>
-          </div>
-        </div>
-      </div>
+        <CardVisual
+          card={card}
+          holderName={holderName}
+          shadow={false}
+          className={blocked ? 'opacity-80' : ''}
+        />
       </TiltCard>
       <p className="mt-2 text-[13px] text-ink-500">
         Card number {maskCard(card.number)}
@@ -491,9 +459,9 @@ export default function CardsPage() {
           />
         ) : (
           <div className="space-y-5">
-            {cards.map((card) => (
+            {cards.map((card, idx) => (
               <CardPanel
-                key={card.id}
+                key={card.id || card.cardId || card.number || idx}
                 card={card}
                 holderName={user?.name}
                 actorName={actorName}
@@ -572,8 +540,8 @@ export default function CardsPage() {
                   error={fieldErrors.accountId}
                 >
                   <option value="">Choose an account</option>
-                  {accounts.map((a) => (
-                    <option key={a.id} value={a.id}>{accountLabel(a)}</option>
+                  {accounts.map((a, idx) => (
+                    <option key={a.id || a.accountId || idx} value={a.id}>{accountLabel(a)}</option>
                   ))}
                 </Select>
               </Field>
@@ -629,12 +597,12 @@ export default function CardsPage() {
           />
         ) : (
           <div className="space-y-3">
-            {cardApplications.map((app) => {
+            {cardApplications.map((app, idx) => {
               const product = getCardBySlug(app.productSlug);
               const name = app.productName || product?.name || app.variant || 'Card application';
               const kind = app.kind || app.cardType || (product ? (product.cardType === 'credit' ? 'CREDIT' : 'DEBIT') : null);
               return (
-                <Card key={app.id} className="p-4 sm:p-5">
+                <Card key={app.id || app.applicationId || idx} className="p-4 sm:p-5">
                   <div className="flex flex-wrap items-center justify-between gap-3">
                     <div className="min-w-0">
                       <p className="flex flex-wrap items-center gap-2 text-sm font-semibold text-ink-900">

@@ -117,8 +117,8 @@ function CardTile({ card, onApply }) {
 
       {Array.isArray(card.rewards) && card.rewards.length > 0 && (
         <ul className="mt-3 space-y-1.5">
-          {card.rewards.slice(0, 2).map((r) => (
-            <li key={r} className="flex gap-2 text-[13px] leading-snug text-ink-600">
+          {card.rewards.slice(0, 2).map((r, idx) => (
+            <li key={`${card.slug}-reward-${idx}`} className="flex gap-2 text-[13px] leading-snug text-ink-600">
               <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gold-500" aria-hidden />
               <span>{r}</span>
             </li>
