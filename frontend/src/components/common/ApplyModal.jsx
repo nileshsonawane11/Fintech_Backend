@@ -1,10 +1,11 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
-import { Button } from '../ui.jsx';
-import { CheckCircle2, X, AlertCircle, Info, CreditCard, Landmark, Check } from 'lucide-react';
+import { Button, Badge } from '../ui.jsx';
+import { CheckCircle2, X, AlertCircle, Info, CreditCard, Landmark, Check, TrendingUp, Sprout, ScrollText, ArrowRight, ShieldCheck, AlertTriangle } from 'lucide-react';
 import { shortProductName, formatINRWhole, formatINR } from '../../lib/format.js';
-import { calculateEMI, calculateBulletRepayment } from '../../lib/finance.js';
-import { getProductBySlug, getProductsByCategory } from '../../data/products.js';
+import { calculateEMI, calculateBulletRepayment, calculateFD, calculateRD, calculateSIP, calculateSSY } from '../../lib/finance.js';
+import { getProductBySlug, getProductsByCategory, FD, RD, SIP, SSY } from '../../data/products.js';
+import { InvestmentFormFields } from './InvestmentFormFields.jsx';
 
 const INDIAN_STATES = [
   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
@@ -85,7 +86,7 @@ function calculateAge(dobString) {
   return age;
 }
 
-export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, initialAmount, initialTenure }) => {
+export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, initialAmount, initialTenure, initialCategory }) => {
   const isModalOpen = open ?? isOpen;
   const { submitApplication, user, accounts = [] } = useAuth();
   const modalRef = useRef(null);
@@ -107,17 +108,26 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
   // Category Flags
   const isCard = category === 'card';
   const isLoan = category === 'loan';
+  const isInvestment = category === 'investment';
+  const isAccount = !isCard && !isLoan && !isInvestment;
+
   const isCreditCard = isCard && product?.cardType === 'credit';
   const isDebitCard = isCard && product?.cardType === 'debit';
   const isAssured = isCard && slug === 'edge-assured-credit';
   const isStandardCredit = isCreditCard && !isAssured;
 
+  // Investment specific product kinds (Fix 0)
+  const isFD = isInvestment && (product?.kind === 'FD' || slug === 'fixed-deposit');
+  const isRD = isInvestment && (product?.kind === 'RD' || slug === 'recurring-deposit');
+  const isSIP = isInvestment && (product?.kind === 'SIP' || slug === 'systematic-investment-plan');
+  const isSSY = isInvestment && (product?.kind === 'SSY' || slug === 'sukanya-samriddhi');
+
   // Account specific product types
-  const isMinor = !isCard && !isLoan && slug === 'sprout-minor';
-  const isCurrent = !isCard && !isLoan && slug === 'trade-current';
-  const isSalary = !isCard && !isLoan && slug === 'payroll-salary';
-  const isStudent = !isCard && !isLoan && slug === 'campus-student';
-  const isSavings = !isCard && !isLoan && slug === 'everyday-savings';
+  const isMinor = isAccount && slug === 'sprout-minor';
+  const isCurrent = isAccount && slug === 'trade-current';
+  const isSalary = isAccount && slug === 'payroll-salary';
+  const isStudent = isAccount && slug === 'campus-student';
+  const isSavings = isAccount && slug === 'everyday-savings';
 
   // Loan specific product types
   const isHomeLoan = isLoan && slug === 'home-loan';
@@ -268,7 +278,47 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
     lapHasExistingLoan: 'No',
     lapExistingLender: '',
     lapExistingBalance: '',
-    lapEndUse: 'Business expansion',
+    // Investment Core (Fix 1 - Fix 6)
+    fundingAccountType: (user && accounts.length > 0) ? 'existing' : 'entry',
+    fundingAccountId: accounts[0]?.accountId || '',
+    fundingAccountNumber: '',
+    noFinEdgeAccountYet: false,
+
+    // Fixed Deposit (FD)
+    fdDepositAmount: initialAmount ? String(initialAmount) : '',
+    fdTenureBand: (isFD && initialTenure) ? initialTenure : '2 – 3 years',
+    fdPayoutOption: 'Cumulative (paid at maturity)',
+    fdAutoRenew: false,
+    fdConsentTerms: false,
+
+    // Recurring Deposit (RD)
+    rdMonthlyAmount: initialAmount ? String(initialAmount) : '',
+    rdTenureBand: (isRD && initialTenure) ? initialTenure : '25 – 60 months',
+    rdDebitDate: '5',
+    rdConsentStandingInstruction: false,
+    rdConsentTerms: false,
+
+    // SIP
+    sipFundCategory: initialCategory || 'Large-cap equity',
+    sipMonthlyAmount: initialAmount ? String(initialAmount) : '',
+    sipDate: '5',
+    sipDurationYears: (isSIP && initialTenure) ? String(initialTenure) : '10',
+    sipStepUp: 'None',
+    sipDeclRisk: false,
+    sipDeclKycPan: false,
+    sipConsentMandate: false,
+    sipDeclFatca: false,
+
+    // SSY
+    ssyGuardianName: user?.fullName || user?.name || '',
+    ssyGuardianRelationship: 'Father',
+    ssyGuardianDob: '',
+    ssyChildName: '',
+    ssyChildDob: '',
+    ssyAnnualDeposit: initialAmount ? String(initialAmount) : '',
+    ssyDeclSingleAccount: false,
+    ssyDeclMaxTwo: false,
+    ssyDeclDuration: false,
 
     // Consents & Declarations
     declTaxResident: false,
@@ -372,7 +422,15 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
   }
 
   // Required checkbox checks for gating Submit button per category
-  const isRequiredConsentMet = isLoan
+  const isRequiredConsentMet = isInvestment
+    ? (isFD
+        ? Boolean(formData.fdConsentTerms)
+        : isRD
+        ? Boolean(formData.rdConsentStandingInstruction && formData.rdConsentTerms)
+        : isSIP
+        ? Boolean(formData.sipDeclRisk && formData.sipDeclKycPan && formData.sipConsentMandate && formData.sipDeclFatca)
+        : Boolean(formData.ssyDeclSingleAccount && formData.ssyDeclMaxTwo && formData.ssyDeclDuration))
+    : isLoan
     ? formData.declTaxResident && formData.declNotPep && formData.consentCicBureau && formData.consentMitc && formData.consentNach
     : isDebitCard
     ? formData.consentDebitTerms
@@ -384,6 +442,138 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
 
   const validate = () => {
     const errs = {};
+
+    // -------------------------------------------------------------
+    // Category 0: Investments (FD, RD, SIP, SSY) - Fix 0 - Fix 6
+    // -------------------------------------------------------------
+    if (isInvestment) {
+      const isExpress = Boolean(user);
+
+      if (!isExpress) {
+        if (!isSSY) {
+          if (!formData.fullName.trim()) errs.fullName = 'Full legal name is required';
+          if (!formData.dob) {
+            errs.dob = 'Date of birth is required';
+          } else if (calculateAge(formData.dob) < 18) {
+            errs.dob = 'Applicant must be at least 18 years of age';
+          }
+        }
+        if (!/^[6-9]\d{9}$/.test(formData.mobile)) errs.mobile = 'Enter a valid 10-digit Indian mobile number';
+        if (!/^\S+@\S+\.\S+$/.test(formData.email)) errs.email = 'Enter a valid email address';
+        if (!/^[A-Z]{5}[0-9]{4}[A-Z]$/i.test(formData.panNumber)) errs.panNumber = 'Enter a valid 10-character PAN (e.g. ABCDE1234F)';
+
+        if (!formData.noFinEdgeAccountYet) {
+          if (!formData.fundingAccountNumber.trim()) {
+            errs.fundingAccountNumber = 'Enter your 14-digit FinEdge funding account number';
+          } else if (!/^\d{10,16}$/.test(formData.fundingAccountNumber.replace(/\D/g, ''))) {
+            errs.fundingAccountNumber = 'Enter a valid account number (14 digits)';
+          }
+        }
+      }
+
+      if (isFD) {
+        const amt = Number(formData.fdDepositAmount);
+        const minAmt = product?.minAmount || 5000;
+        if (!formData.fdDepositAmount || isNaN(amt)) {
+          errs.fdDepositAmount = 'Deposit amount is required';
+        } else if (amt < minAmt) {
+          errs.fdDepositAmount = `Minimum deposit amount is ${formatINRWhole(minAmt)}`;
+        }
+        if (!formData.fdTenureBand) {
+          errs.fdTenureBand = 'Please select a tenure band';
+        }
+        if (!formData.fdConsentTerms) {
+          errs.fdConsentTerms = 'You must accept the deposit terms to continue';
+        }
+      } else if (isRD) {
+        const amt = Number(formData.rdMonthlyAmount);
+        const minM = product?.minMonthly || 500;
+        const stepM = product?.monthlyStep || 100;
+        if (!formData.rdMonthlyAmount || isNaN(amt)) {
+          errs.rdMonthlyAmount = 'Monthly deposit amount is required';
+        } else if (amt < minM) {
+          errs.rdMonthlyAmount = `Monthly deposit must be at least ${formatINRWhole(minM)}`;
+        } else if (amt % stepM !== 0) {
+          errs.rdMonthlyAmount = `Monthly deposit must be in multiples of ${formatINRWhole(stepM)}`;
+        }
+        if (!formData.rdTenureBand) {
+          errs.rdTenureBand = 'Please select a tenure band';
+        }
+        if (!formData.rdConsentStandingInstruction) {
+          errs.rdConsentStandingInstruction = 'Standing instruction authorization is mandatory';
+        }
+        if (!formData.rdConsentTerms) {
+          errs.rdConsentTerms = 'You must accept the deposit terms to continue';
+        }
+      } else if (isSIP) {
+        if (!formData.sipFundCategory) {
+          errs.sipFundCategory = 'Please select a fund category';
+        }
+        const amt = Number(formData.sipMonthlyAmount);
+        const minM = product?.minMonthly || 500;
+        if (!formData.sipMonthlyAmount || isNaN(amt)) {
+          errs.sipMonthlyAmount = 'Monthly investment amount is required';
+        } else if (amt < minM) {
+          errs.sipMonthlyAmount = `Minimum monthly investment is ${formatINRWhole(minM)}`;
+        }
+        if (!formData.sipDeclRisk) {
+          errs.sipDeclRisk = 'You must acknowledge the market risk declaration';
+        }
+        if (!formData.sipDeclKycPan) {
+          errs.sipDeclKycPan = 'KYC and PAN confirmation is required';
+        }
+        if (!formData.sipConsentMandate) {
+          errs.sipConsentMandate = 'Auto-debit mandate authorization is required';
+        }
+        if (!formData.sipDeclFatca) {
+          errs.sipDeclFatca = 'Tax residency / FATCA declaration is required';
+        }
+      } else if (isSSY) {
+        if (!formData.ssyGuardianName?.trim()) {
+          errs.ssyGuardianName = 'Guardian full legal name is required';
+        }
+        if (!formData.ssyGuardianRelationship) {
+          errs.ssyGuardianRelationship = 'Please select guardian relationship';
+        }
+        if (!formData.ssyGuardianDob) {
+          errs.ssyGuardianDob = 'Guardian date of birth is required';
+        } else if (calculateAge(formData.ssyGuardianDob) < 18) {
+          errs.ssyGuardianDob = 'Guardian must be at least 18 years of age';
+        }
+
+        if (!formData.ssyChildName?.trim()) {
+          errs.ssyChildName = 'Girl child full name is required';
+        }
+        if (!formData.ssyChildDob) {
+          errs.ssyChildDob = 'Child date of birth is required';
+        } else if (calculateAge(formData.ssyChildDob) >= 10) {
+          errs.ssyChildDob = 'Under scheme rules, the girl child must be below 10 years of age at the time of account opening.';
+        }
+
+        const amt = Number(formData.ssyAnnualDeposit);
+        const minD = product?.minDepositYearly || 250;
+        const maxD = product?.maxDepositYearly || 150000;
+        if (!formData.ssyAnnualDeposit || isNaN(amt)) {
+          errs.ssyAnnualDeposit = 'Annual deposit amount is required';
+        } else if (amt < minD) {
+          errs.ssyAnnualDeposit = `Minimum annual deposit is ${formatINRWhole(minD)} as per Government scheme rules.`;
+        } else if (amt > maxD) {
+          errs.ssyAnnualDeposit = `Maximum annual deposit is ${formatINRWhole(maxD)} per financial year under Government scheme rules.`;
+        }
+
+        if (!formData.ssyDeclSingleAccount) {
+          errs.ssyDeclSingleAccount = 'Single account confirmation is required';
+        }
+        if (!formData.ssyDeclMaxTwo) {
+          errs.ssyDeclMaxTwo = 'Family limit confirmation is required';
+        }
+        if (!formData.ssyDeclDuration) {
+          errs.ssyDeclDuration = 'Scheme term confirmation is required';
+        }
+      }
+
+      return errs;
+    }
 
     // -------------------------------------------------------------
     // Category 1: Debit Cards (Request form)
@@ -842,6 +1032,124 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
 
     setLoading(true);
     try {
+      if (isInvestment) {
+        const isSenior = isFD && formData.dob && calculateAge(formData.dob) >= 60;
+        const fdBand = isFD ? (product?.rateGrid || []).find((r) => r.tenure === formData.fdTenureBand) || product?.rateGrid?.[4] : null;
+        const fdRate = fdBand ? (isSenior ? fdBand.senior : fdBand.general) : 6.95;
+
+        const rdBand = isRD ? (product?.rateBands || []).find((r) => r.tenure === formData.rdTenureBand) || product?.rateBands?.[2] : null;
+        const rdRate = rdBand ? (rdBand.rate ?? rdBand.general ?? 6.55) : 6.55;
+
+        let investmentDetails = {};
+        if (isFD) {
+          const numAmt = Number(formData.fdDepositAmount) || 0;
+          const tenureMonths = fdBand?.tenure === '7 – 45 days' ? 1
+            : fdBand?.tenure === '46 – 179 days' ? 4
+            : fdBand?.tenure === '180 – 364 days' ? 9
+            : fdBand?.tenure === '1 – 2 years' ? 24
+            : fdBand?.tenure === '2 – 3 years' ? 36
+            : fdBand?.tenure === '3 – 5 years' ? 48
+            : 60;
+          const fdCalc = calculateFD({ principal: numAmt, annualRatePct: fdRate, tenureMonths });
+          investmentDetails = {
+            depositAmount: numAmt,
+            tenureBand: formData.fdTenureBand,
+            appliedRate: fdRate,
+            isSeniorCitizen: isSenior,
+            payoutOption: formData.fdPayoutOption || 'Cumulative (paid at maturity)',
+            autoRenew: Boolean(formData.fdAutoRenew),
+            maturityValue: fdCalc.maturityValue,
+            interestEarned: fdCalc.interestEarned,
+          };
+        } else if (isRD) {
+          const numAmt = Number(formData.rdMonthlyAmount) || 0;
+          const tenureMonths = rdBand?.tenure === '6 – 12 months' ? 12
+            : rdBand?.tenure === '13 – 24 months' ? 24
+            : rdBand?.tenure === '25 – 60 months' ? 60
+            : 120;
+          const rdCalc = calculateRD({ monthlyDeposit: numAmt, annualRatePct: rdRate, tenureMonths });
+          investmentDetails = {
+            monthlyDeposit: numAmt,
+            tenureBand: formData.rdTenureBand,
+            appliedRate: rdRate,
+            debitDate: Number(formData.rdDebitDate) || 5,
+            totalDeposited: rdCalc.totalDeposited,
+            maturityValue: rdCalc.maturityValue,
+            interestEarned: rdCalc.interestEarned,
+          };
+        } else if (isSIP) {
+          const numAmt = Number(formData.sipMonthlyAmount) || 0;
+          const numYears = Number(formData.sipDurationYears) || 10;
+          const selectedCat = (product?.fundCategories || []).find((c) => c.name === formData.sipFundCategory) || product?.fundCategories?.[0];
+          investmentDetails = {
+            fundCategory: formData.sipFundCategory,
+            riskLevel: selectedCat?.riskLevel || 'Moderate to High',
+            monthlyInvestment: numAmt,
+            sipDate: Number(formData.sipDate) || 5,
+            durationYears: numYears,
+            stepUp: formData.sipStepUp || 'None',
+          };
+        } else if (isSSY) {
+          const numAmt = Number(formData.ssyAnnualDeposit) || 0;
+          const ssyCalc = calculateSSY({ annualDeposit: numAmt, annualRatePct: product?.rate || 8.05 });
+          investmentDetails = {
+            guardianName: formData.ssyGuardianName,
+            guardianRelationship: formData.ssyGuardianRelationship,
+            guardianDob: formData.ssyGuardianDob,
+            childName: formData.ssyChildName,
+            childDob: formData.ssyChildDob,
+            annualDeposit: numAmt,
+            statutoryRate: `${product?.rate || 8.05}% p.a. (Illustrative)`,
+            maturityValue: ssyCalc.maturityValue,
+            totalDeposited: ssyCalc.totalDeposited,
+          };
+        }
+
+        const isExpress = Boolean(user);
+        const investmentPayload = {
+          category: 'investment',
+          kind: isFD ? 'FD' : isRD ? 'RD' : isSIP ? 'SIP' : 'SSY',
+          productSlug: slug,
+          productName: product?.name || 'FinEdge Investment',
+          applicant: {
+            fullName: isSSY ? formData.ssyGuardianName : (isExpress ? (user?.fullName || user?.name) : formData.fullName.trim()),
+            dob: isSSY ? formData.ssyGuardianDob : (isExpress ? user?.dob : formData.dob),
+            mobileNumber: isExpress ? (user?.mobileNumber || user?.phone) : formData.mobile.trim(),
+            email: isExpress ? user?.email : formData.email.trim(),
+            panNumber: isExpress ? (user?.pan || 'ABCDE1234F') : formData.panNumber.trim().toUpperCase(),
+          },
+          fundingAccount: {
+            type: formData.noFinEdgeAccountYet ? 'NO_ACCOUNT_YET' : (isExpress ? 'FINEDGE_ACCOUNT' : 'ACCOUNT_NUMBER'),
+            accountId: isExpress ? (formData.fundingAccountId || accounts[0]?.accountId) : '',
+            accountNumber: !isExpress ? formData.fundingAccountNumber.trim() : '',
+            noFinEdgeAccountYet: Boolean(formData.noFinEdgeAccountYet),
+          },
+          investmentDetails,
+          nominee: (!isSSY && (formData.nomineeName?.trim() || formData.nomineeRelationship)) ? {
+            fullName: formData.nomineeName.trim(),
+            relationship: formData.nomineeRelationship,
+            dateOfBirth: formData.nomineeDob,
+          } : undefined,
+          consents: {
+            fdConsentTerms: formData.fdConsentTerms,
+            rdConsentStandingInstruction: formData.rdConsentStandingInstruction,
+            rdConsentTerms: formData.rdConsentTerms,
+            sipDeclRisk: formData.sipDeclRisk,
+            sipDeclKycPan: formData.sipDeclKycPan,
+            sipConsentMandate: formData.sipConsentMandate,
+            sipDeclFatca: formData.sipDeclFatca,
+            ssyDeclSingleAccount: formData.ssyDeclSingleAccount,
+            ssyDeclMaxTwo: formData.ssyDeclMaxTwo,
+            ssyDeclDuration: formData.ssyDeclDuration,
+            optInMarketing: formData.optInMarketing,
+          }
+        };
+
+        const res = await submitApplication(investmentPayload);
+        setSubmittedApp(res.data || res);
+        return;
+      }
+
       if (isDebitCard) {
         if (formData.debitLinkType === 'new') {
           const targetAccount = getProductBySlug(formData.newAccountProductId);
@@ -1126,14 +1434,14 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-midnight-950/70 backdrop-blur-sm transition-opacity"
+      className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6 bg-midnight-950/70 backdrop-blur-sm transition-opacity"
       role="dialog"
       aria-modal="true"
       aria-labelledby="apply-modal-title"
     >
       <div
         ref={modalRef}
-        className="relative w-full max-w-[720px] max-h-[90vh] bg-white rounded-2xl shadow-modal overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
+        className="relative w-full max-w-[720px] max-h-[92vh] sm:max-h-[90vh] bg-white rounded-t-2xl sm:rounded-2xl shadow-modal overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
       >
         {/* Header */}
         <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ink-100 bg-white/95 px-6 py-4 backdrop-blur-sm">
@@ -1174,6 +1482,81 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                   </span>
                 </div>
               </div>
+            ) : isInvestment ? (
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-ink-100 bg-porcelain-50 px-3 py-1.5 text-xs text-ink-700">
+                {isFD && (
+                  <>
+                    <div>
+                      <span className="text-ink-500 font-medium">Interest:</span>{' '}
+                      <span className="font-semibold text-midnight-950">Up to 6.95% p.a.</span>
+                    </div>
+                    <div className="h-3 w-px bg-ink-200" aria-hidden />
+                    <div>
+                      <span className="text-ink-500 font-medium">Senior Citizens:</span>{' '}
+                      <span className="font-semibold text-midnight-950">+0.50% extra</span>
+                    </div>
+                    <div className="h-3 w-px bg-ink-200" aria-hidden />
+                    <div>
+                      <span className="text-ink-500 font-medium">Protection:</span>{' '}
+                      <span className="font-semibold text-midnight-950">DICGC insured up to ₹5 Lakh</span>
+                    </div>
+                  </>
+                )}
+                {isRD && (
+                  <>
+                    <div>
+                      <span className="text-ink-500 font-medium">Interest:</span>{' '}
+                      <span className="font-semibold text-midnight-950">Up to 6.55% p.a.</span>
+                    </div>
+                    <div className="h-3 w-px bg-ink-200" aria-hidden />
+                    <div>
+                      <span className="text-ink-500 font-medium">Minimum:</span>{' '}
+                      <span className="font-semibold text-midnight-950">₹500 / month</span>
+                    </div>
+                    <div className="h-3 w-px bg-ink-200" aria-hidden />
+                    <div>
+                      <span className="text-ink-500 font-medium">Tenure:</span>{' '}
+                      <span className="font-semibold text-midnight-950">6 – 120 months</span>
+                    </div>
+                  </>
+                )}
+                {isSIP && (
+                  <>
+                    <div>
+                      <span className="text-ink-500 font-medium">Categories:</span>{' '}
+                      <span className="font-semibold text-midnight-950">5 Fund Categories</span>
+                    </div>
+                    <div className="h-3 w-px bg-ink-200" aria-hidden />
+                    <div>
+                      <span className="text-ink-500 font-medium">Minimum:</span>{' '}
+                      <span className="font-semibold text-midnight-950">₹500 / month</span>
+                    </div>
+                    <div className="h-3 w-px bg-ink-200" aria-hidden />
+                    <div>
+                      <span className="text-ink-500 font-medium">Tenure:</span>{' '}
+                      <span className="font-semibold text-midnight-950">Flexible Duration</span>
+                    </div>
+                  </>
+                )}
+                {isSSY && (
+                  <>
+                    <div>
+                      <span className="text-ink-500 font-medium">Interest:</span>{' '}
+                      <span className="font-semibold text-midnight-950">8.05% p.a.</span>
+                    </div>
+                    <div className="h-3 w-px bg-ink-200" aria-hidden />
+                    <div>
+                      <span className="text-ink-500 font-medium">Security:</span>{' '}
+                      <span className="font-semibold text-midnight-950">Sovereign Guarantee</span>
+                    </div>
+                    <div className="h-3 w-px bg-ink-200" aria-hidden />
+                    <div>
+                      <span className="text-ink-500 font-medium">Tax Status:</span>{' '}
+                      <span className="font-semibold text-midnight-950">Triple Tax-Exempt (EEE)</span>
+                    </div>
+                  </>
+                )}
+              </div>
             ) : (
               <p className="mt-0.5 text-xs text-ink-500">
                 FinEdge Bank Digital Onboarding · Secure 256-bit encrypted application
@@ -1204,7 +1587,116 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
               </p>
             </div>
 
-            {isLoan ? (
+            {isInvestment ? (
+              <div className="space-y-4">
+                <div className="rounded-xl border border-ink-100 bg-porcelain-50 p-4 space-y-2.5">
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-ink-500">Service Reference</span>
+                    <span className="font-mono font-bold text-midnight-950">{submittedApp.applicationId || submittedApp.reference || submittedApp.id}</span>
+                  </div>
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-ink-500">Investment Product</span>
+                    <span className="font-semibold text-midnight-950">{product?.name || submittedApp.productName}</span>
+                  </div>
+                  {isFD && (
+                    <>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-ink-500">Deposit Amount</span>
+                        <span className="font-semibold text-midnight-950">₹{formatINRWhole(formData.fdDepositAmount || submittedApp.investmentDetails?.depositAmount || 0)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-ink-500">Tenure</span>
+                        <span className="font-semibold text-midnight-950">{formData.fdTenureBand || submittedApp.investmentDetails?.tenureBand}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-ink-500">Estimated Maturity</span>
+                        <span className="font-semibold text-emerald-700">₹{formatINRWhole(submittedApp.investmentDetails?.maturityAmount || 0)}</span>
+                      </div>
+                    </>
+                  )}
+                  {isRD && (
+                    <>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-ink-500">Monthly Instalment</span>
+                        <span className="font-semibold text-midnight-950">₹{formatINRWhole(formData.rdMonthlyAmount || submittedApp.investmentDetails?.monthlyAmount || 0)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-ink-500">Tenure</span>
+                        <span className="font-semibold text-midnight-950">{formData.rdTenureMonths || submittedApp.investmentDetails?.tenureMonths} Months</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-ink-500">Estimated Maturity</span>
+                        <span className="font-semibold text-emerald-700">₹{formatINRWhole(submittedApp.investmentDetails?.maturityAmount || 0)}</span>
+                      </div>
+                    </>
+                  )}
+                  {isSIP && (
+                    <>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-ink-500">Fund Category</span>
+                        <span className="font-semibold text-midnight-950">{formData.sipFundCategory || submittedApp.investmentDetails?.fundCategory}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-ink-500">Monthly Contribution</span>
+                        <span className="font-semibold text-midnight-950">₹{formatINRWhole(formData.sipMonthlyAmount || submittedApp.investmentDetails?.monthlyAmount || 0)}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-ink-500">Investment Horizon</span>
+                        <span className="font-semibold text-midnight-950">{formData.sipDurationYears || submittedApp.investmentDetails?.durationYears} Years</span>
+                      </div>
+                    </>
+                  )}
+                  {isSSY && (
+                    <>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-ink-500">Child Name</span>
+                        <span className="font-semibold text-midnight-950">{formData.ssyChildName || submittedApp.investmentDetails?.childName}</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-ink-500">Annual Deposit</span>
+                        <span className="font-semibold text-midnight-950">₹{formatINRWhole(formData.ssyAnnualDeposit || submittedApp.investmentDetails?.yearlyAmount || 0)} / year</span>
+                      </div>
+                      <div className="flex items-center justify-between text-xs">
+                        <span className="text-ink-500">Projected Maturity (21 yrs)</span>
+                        <span className="font-semibold text-emerald-700">₹{formatINRWhole(submittedApp.investmentDetails?.projectedMaturity || 0)}</span>
+                      </div>
+                    </>
+                  )}
+                  <div className="flex items-center justify-between text-xs">
+                    <span className="text-ink-500">Initial Queue Status</span>
+                    <span className="font-semibold text-warning-600 bg-warning-50 px-2 py-0.5 rounded border border-warning-600/20">
+                      SUBMITTED · VERIFICATION
+                    </span>
+                  </div>
+                </div>
+
+                {formData.noFinEdgeAccountYet ? (
+                  <div className="rounded-lg border border-amber-200 bg-amber-50 p-3.5 text-xs text-amber-900 space-y-2">
+                    <p className="font-semibold">Important: Operative Account Required</p>
+                    <p className="text-amber-800 leading-relaxed">
+                      Your investment application is recorded, but investments cannot be debited or booked until you hold an operative FinEdge savings or current account.
+                    </p>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        handleClose();
+                        window.location.href = '/accounts';
+                      }}
+                      className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-md bg-amber-800 text-white font-medium hover:bg-amber-900 transition-colors"
+                    >
+                      Open your account first <ArrowRight className="h-3.5 w-3.5" />
+                    </button>
+                  </div>
+                ) : (
+                  <div className="rounded-lg border border-ink-100 bg-porcelain-50 p-3.5 text-xs text-ink-700 space-y-1">
+                    <p className="font-semibold text-midnight-950">What happens next?</p>
+                    <p className="text-ink-600 leading-relaxed">
+                      Your funding account will be debited upon operational verification; your deposit advice / folio allotment will appear in your portal under Investments.
+                    </p>
+                  </div>
+                )}
+              </div>
+            ) : isLoan ? (
               <div className="space-y-4">
                 <div className="rounded-xl border border-ink-100 bg-porcelain-50 p-4 space-y-2.5">
                   <div className="flex items-center justify-between text-xs">
@@ -1295,7 +1787,23 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
               </div>
             )}
 
-            {/* Note banner when card was preselected into account form */}
+            {isInvestment ? (
+              <InvestmentFormFields
+                product={product}
+                formData={formData}
+                handleChange={handleChange}
+                errors={errors}
+                user={user}
+                accounts={accounts}
+                isExpressMode={Boolean(user)}
+                isFD={isFD}
+                isRD={isRD}
+                isSIP={isSIP}
+                isSSY={isSSY}
+              />
+            ) : (
+              <>
+                {/* Note banner when card was preselected into account form */}
             {cardRequestedNote && (
               <div className="rounded-lg bg-gold-50/80 p-3 border border-gold-200/60 text-xs font-semibold text-midnight-950 flex items-center justify-between">
                 <div className="flex items-center gap-2">
@@ -1501,7 +2009,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       maxLength={10}
                       value={formData.mobile}
                       onChange={(e) => handleChange('mobile', e.target.value.replace(/\D/g, ''))}
-                      placeholder="9820198402"
+                      placeholder="10-digit mobile number"
                       className="h-[42px] w-full rounded-lg border border-ink-200 bg-white pl-12 pr-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
                     />
                   </div>
@@ -3126,7 +3634,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                             maxLength={10}
                             value={formData.studentGuardianMobile}
                             onChange={(e) => handleChange('studentGuardianMobile', e.target.value.replace(/\D/g, ''))}
-                            placeholder="9820198402"
+                            placeholder="10-digit mobile number"
                             className="h-[42px] w-full rounded-lg border border-ink-200 bg-white pl-12 pr-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
                           />
                         </div>
@@ -3361,6 +3869,8 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                 </label>
               </div>
             </div>
+              </>
+            )}
 
             {/* Sticky Modal Footer */}
             <div className="sticky bottom-0 z-10 flex items-center justify-end gap-3 border-t border-ink-100 bg-white/95 px-6 py-4 backdrop-blur-sm -mx-6 -mb-6 mt-6">

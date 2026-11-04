@@ -11,6 +11,7 @@ import {
   LogOut,
   Receipt,
   ShieldCheck,
+  TrendingUp,
   Users,
   Landmark
 } from 'lucide-react';
@@ -22,6 +23,7 @@ import ManagerKycSection from './sections/ManagerKycSection';
 import ManagerAccountsSection from './sections/ManagerAccountsSection';
 import ManagerCardsSection from './sections/ManagerCardsSection';
 import ManagerLoansSection from './sections/ManagerLoansSection';
+import ManagerInvestmentsSection from './sections/ManagerInvestmentsSection';
 import ManagerStaffSection from './sections/ManagerStaffSection';
 import ManagerAuditSection from './sections/ManagerAuditSection';
 import ManagerReportsSection from './sections/ManagerReportsSection';
@@ -33,6 +35,7 @@ const NAV = [
   { to: '/manager/kyc', label: 'KYC Queue', icon: ShieldCheck },
   { to: '/manager/account-applications', altTo: '/manager/accounts', label: 'Account Applications', icon: FileText },
   { to: '/manager/loans', label: 'Loan Applications', icon: Receipt },
+  { to: '/manager/investments', altTo: '/manager/investment-applications', label: 'Investment Applications', icon: TrendingUp },
   { to: '/manager/card-applications', altTo: '/manager/cards', label: 'Card Applications', icon: CreditCard },
   { to: '/manager/tickets', altTo: '/manager/support', label: 'Support Tickets', icon: LifeBuoy },
   { group: 'Records' },
@@ -64,6 +67,8 @@ export const ManagerPortalPage = () => {
     activeSection = 'cards';
   } else if (pathname === '/manager/loans') {
     activeSection = 'loans';
+  } else if (pathname === '/manager/investments' || pathname === '/manager/investment-applications') {
+    activeSection = 'investments';
   } else if (pathname === '/manager/users' || pathname === '/manager/roles' || pathname === '/manager/permissions' || pathname === '/manager/staff') {
     activeSection = 'staff';
   } else if (pathname === '/manager/audit-logs' || pathname === '/manager/audit') {
@@ -189,6 +194,7 @@ export const ManagerPortalPage = () => {
         {activeSection === 'accounts' && <ManagerAccountsSection />}
         {activeSection === 'cards' && <ManagerCardsSection />}
         {activeSection === 'loans' && <ManagerLoansSection />}
+        {activeSection === 'investments' && <ManagerInvestmentsSection />}
         {activeSection === 'staff' && <ManagerStaffSection />}
         {activeSection === 'audit' && <ManagerAuditSection />}
         {activeSection === 'reports' && <ManagerReportsSection />}

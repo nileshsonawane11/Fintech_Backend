@@ -172,6 +172,14 @@ export const ACCOUNTS = [
   {
     slug: 'trade-current',
     category: 'account',
+    lifePhoto: {
+      src: '/images/detail-trade-shopkeeper-1200.webp',
+      srcSet: '/images/detail-trade-shopkeeper-400.webp 400w, /images/detail-trade-shopkeeper-800.webp 800w, /images/detail-trade-shopkeeper-1200.webp 1200w',
+      alt: 'A shop owner at the transaction counter with a card payment terminal',
+      caption: 'A shop, mid-morning.',
+      width: 1200,
+      height: 800,
+    },
     accountType: 'CURRENT',
     name: 'FinEdge Trade Current Account',
     cashDepositFreeLimitMonthly: 1000000,
@@ -238,6 +246,14 @@ export const ACCOUNTS = [
   {
     slug: 'payroll-salary',
     category: 'account',
+    lifePhoto: {
+      src: '/images/detail-payroll-professional-1200.webp',
+      srcSet: '/images/detail-payroll-professional-400.webp 400w, /images/detail-payroll-professional-800.webp 800w, /images/detail-payroll-professional-1200.webp 1200w',
+      alt: 'A professional at her workplace desk working through paperwork and digital records',
+      caption: 'Payday paperwork, done at her desk.',
+      width: 1200,
+      height: 800,
+    },
     accountType: 'SALARY',
     name: 'FinEdge Payroll Salary Account',
     minMonthlySalary: 20000,
@@ -293,6 +309,14 @@ export const ACCOUNTS = [
   {
     slug: 'campus-student',
     category: 'account',
+    lifePhoto: {
+      src: '/images/detail-campus-student-1200.webp',
+      srcSet: '/images/detail-campus-student-400.webp 400w, /images/detail-campus-student-800.webp 800w, /images/detail-campus-student-1200.webp 1200w',
+      alt: 'A university student between academic lectures working on a laptop on campus',
+      caption: 'A student between lectures.',
+      width: 1200,
+      height: 800,
+    },
     accountType: 'STUDENT',
     name: 'FinEdge Campus Student Account',
     tagline: 'A first bank account for students — zero balance, no frills, no traps',
@@ -368,7 +392,7 @@ export const ACCOUNTS = [
       'Child below 18 years of age',
       'Opened by a parent or court-appointed guardian',
       'Guardian must hold (or open) a FinEdge savings account',
-      'Total credits to the account capped at ₹10 lakh per financial year in this model',
+      'Total credits to the account capped at ₹10 lakh per financial year',
     ],
     documents: [
       'Birth certificate of the minor (or passport / school certificate with date of birth)',
@@ -642,6 +666,14 @@ export const LOANS = [
   {
     slug: 'gold-loan',
     category: 'loan',
+    lifePhoto: {
+      src: '/images/detail-gold-loan-family-1200.webp',
+      srcSet: '/images/detail-gold-loan-family-400.webp 400w, /images/detail-gold-loan-family-800.webp 800w, /images/detail-gold-loan-family-1200.webp 1200w',
+      alt: 'A family sitting together at home reviewing documents',
+      caption: 'Documents reviewed at home, together.',
+      width: 1200,
+      height: 800,
+    },
     loanType: 'GOLD',
     name: 'FinEdge Gold Loan',
     tagline: 'Instant liquidity against gold jewellery, up to 75% of value',
@@ -880,7 +912,7 @@ export const CARDS = [
       ageMax: 60,
       minMonthlyIncome: 85000,
       creditScoreMin: 760,
-      note: 'Existing premium cardholders with a clean repayment record are fast-tracked in this model.',
+      note: 'Existing premium cardholders with a clean repayment record are fast-tracked.',
     },
     fees: {
       latePayment: '₹500 (due up to ₹10,000) / ₹1,000 (due ₹10,001–₹50,000) / ₹1,500 (above ₹50,000)',
@@ -1027,7 +1059,9 @@ export const FD = {
   name: 'FinEdge Fixed Deposit',
   tagline: 'Lock in a rate for a chosen tenure — guaranteed returns',
   overview:
-    'A term deposit with a rate fixed at booking for the whole tenure. Interest can be taken as cumulative (paid at maturity) or as regular payouts. Premature withdrawal is allowed with a 1% p.a. rate reduction for the period actually run, in this model.',
+    'A term deposit with a rate fixed at booking for the whole tenure. Interest can be taken as cumulative (paid at maturity) or as regular payouts. Premature withdrawal is allowed with a 1% p.a. rate reduction for the period actually run.',
+  compoundingNote: 'Interest compounded quarterly',
+  prematureNote: 'Premature withdrawal is allowed with a 1% p.a. rate reduction for the period actually run.',
   rateGrid: [
     { tenure: '7 – 45 days', minDays: 7, maxDays: 45, general: 3.9, senior: 4.4 },
     { tenure: '46 – 179 days', minDays: 46, maxDays: 179, general: 5.1, senior: 5.6 },
@@ -1051,7 +1085,13 @@ export const FD = {
     'Auto-renewal option at maturity',
   ],
   disclosure:
-    'Returns are guaranteed by the deposit contract in this model, subject to the premature-withdrawal terms above. Deposit figures on this platform are simulated.',
+    'Returns are guaranteed by the deposit contract, subject to the premature-withdrawal terms above. Deposit figures on this platform are simulated.',
+  howToApply: [
+    'Choose your amount and tenure and start your application online',
+    'Fill in your details and submit the application',
+    'We verify your KYC and application details',
+    'Track the application in your FinEdge account until your deposit is booked',
+  ],
 };
 
 export const RD = {
@@ -1063,6 +1103,8 @@ export const RD = {
   tagline: 'A fixed monthly deposit that builds a lump sum, quarter by quarter',
   overview:
     'Deposit a fixed amount every month for a chosen tenure. Interest is compounded quarterly at the rate applicable to your tenure band, fixed at the start of the RD.',
+  compoundingNote: 'Interest compounded quarterly',
+  missedInstalmentNote: 'One missed instalment per year is tolerated without penalty; later misses cost ₹10 per ₹1,000 of instalment.',
   rateBands: [
     { tenure: '6 – 12 months', minMonths: 6, maxMonths: 12, rate: 6.25 },
     { tenure: '13 – 24 months', minMonths: 13, maxMonths: 24, rate: 6.45 },
@@ -1071,14 +1113,20 @@ export const RD = {
   ],
   minMonthly: 500,
   monthlyStep: 100,
-  eligibility: ['Any FinEdge savings account holder', 'Standing instruction from your FinEdge account is mandatory in this model'],
+  eligibility: ['Any FinEdge savings account holder', 'Standing instruction from your FinEdge account is mandatory'],
   features: [
     'Start with ₹500 per month, in multiples of ₹100',
     'Interest compounded quarterly',
-    'One missed instalment per year tolerated without penalty in this model; later misses cost ₹10 per ₹1,000 of instalment',
+    'One missed instalment per year tolerated without penalty; later misses cost ₹10 per ₹1,000 of instalment',
     'Premature closure allowed; interest paid at the rate for the period actually run, minus 1% p.a.',
   ],
-  disclosure: 'Returns are as per the deposit contract in this model. Deposit figures on this platform are simulated.',
+  disclosure: 'Returns are as per the deposit contract. Deposit figures on this platform are simulated.',
+  howToApply: [
+    'Choose your amount and tenure and start your application online',
+    'Fill in your details and submit the application',
+    'We verify your KYC and application details',
+    'Track the application in your FinEdge account until your deposit is booked',
+  ],
 };
 
 export const SIP = {
@@ -1089,39 +1137,53 @@ export const SIP = {
   name: 'FinEdge SIP (Mutual Fund Investments)',
   tagline: 'Invest monthly in mutual funds — market-linked, long-horizon',
   overview:
-    'A systematic investment plan invests a fixed amount every month into a mutual fund scheme you choose. FinEdge distributes schemes from partner asset-management companies in this model; the bank does not manage the funds and does not set or assure any return.',
+    'A systematic investment plan invests a fixed amount every month into a mutual fund scheme you choose. FinEdge distributes schemes from partner asset-management companies; the bank does not manage the funds and does not set or assure any return.',
   // NOTE: no rate field exists here on purpose. SIP returns are market-linked
   // and must never be presented as a deposit-style rate.
   fundCategories: [
-    { name: 'Large-cap equity', riskLevel: 'Moderate to High', note: 'Established large companies; suitable for 5+ year goals in this model.' },
-    { name: 'Flexi-cap equity', riskLevel: 'High', note: 'Across company sizes; suitable for 7+ year goals in this model.' },
-    { name: 'Hybrid (balanced advantage)', riskLevel: 'Moderate', note: 'Mix of equity and debt; suitable for 3+ year goals in this model.' },
+    { name: 'Large-cap equity', riskLevel: 'Moderate to High', note: 'Established large companies; suitable for 5+ year goals.' },
+    { name: 'Flexi-cap equity', riskLevel: 'High', note: 'Across company sizes; suitable for 7+ year goals.' },
+    { name: 'Hybrid (balanced advantage)', riskLevel: 'Moderate', note: 'Mix of equity and debt; suitable for 3+ year goals.' },
     { name: 'ELSS (tax-saving)', riskLevel: 'High', note: 'Equity with a 3-year lock-in per instalment; tax treatment as per prevailing law.' },
     { name: 'Liquid / overnight debt', riskLevel: 'Low to Moderate', note: 'Short-term parking of money; still market-linked, not a deposit.' },
   ],
   minMonthly: 500,
   eligibility: [
     'Any FinEdge account holder with completed KYC and a valid PAN',
-    'A risk-profile assessment is completed before the first investment in this model',
+    'A risk-profile assessment is completed before the first investment',
   ],
   features: [
-    'Start with ₹500 per month; pause or modify on any date in this model',
+    'Start with ₹500 per month; pause or modify on any date',
     'Step-up SIP: increase the monthly amount automatically every year',
     'Money is invested with the AMC — it is NOT a bank deposit and is NOT insured as a deposit',
   ],
   disclosure:
     'MARKET-LINKED — RETURNS NOT GUARANTEED. Mutual fund investments are subject to market risks. Past performance is not indicative of future returns. The values shown by any SIP calculator on this site are hypothetical illustrations based on an assumed growth rate you select; they are not a promise or projection of actual returns. Please read all scheme documents carefully before investing.',
+  howToApply: [
+    'Choose your fund category and monthly amount and start your application online',
+    'Fill in your details and submit the application',
+    'We verify your KYC and application details',
+    'Track the application in your FinEdge account until your first instalment is set up',
+  ],
 };
 
 export const SSY = {
   slug: 'sukanya-samriddhi',
   category: 'investment',
+  lifePhoto: {
+    src: '/images/detail-sukanya-father-daughter-1200.webp',
+    srcSet: '/images/detail-sukanya-father-daughter-400.webp 400w, /images/detail-sukanya-father-daughter-800.webp 800w, /images/detail-sukanya-father-daughter-1200.webp 1200w',
+    alt: 'A father and young daughter reading together at home',
+    caption: 'A father and daughter, planning ahead.',
+    width: 1200,
+    height: 800,
+  },
   kind: 'SSY',
   riskClass: 'guaranteed',
   name: 'Sukanya Samriddhi Yojana (SSY)',
   tagline: 'A government-backed savings scheme for a girl child’s future',
   overview:
-    'A Government of India savings scheme for the future of a girl child, offered here through the bank channel in this model. The interest rate is notified by the Government and revised from time to time; the rate below is the illustrative rate used by this platform.',
+    'A Government of India savings scheme for the future of a girl child, offered here through the bank channel. The interest rate is notified by the Government and revised from time to time; the rate below is the illustrative rate used by this platform.',
   rate: 8.05,
   rateNote: 'Illustrative rate for this platform. The actual SSY rate is set by the Government of India and revised periodically.',
   minDepositYearly: 250,
@@ -1137,11 +1199,17 @@ export const SSY = {
   features: [
     'Deposits from ₹250 to ₹1,50,000 per financial year',
     'Partial withdrawal up to 50% of the balance for the girl’s higher education, per scheme rules',
-    'Tax treatment as per prevailing law (EEE status under the scheme in this model)',
+    'Tax treatment as per prevailing law (EEE status under the scheme)',
     'Transferable anywhere in India if the family relocates',
   ],
   disclosure:
     'SSY is a Government of India scheme; terms follow the official scheme rules. Figures on this platform are simulated for demonstration.',
+  howToApply: [
+    'Start the application with the girl child\'s and guardian\'s details',
+    'Fill in your details and submit the application',
+    'We verify your KYC and application details',
+    'Track the application in your FinEdge account until the SSY account is opened',
+  ],
 };
 
 export const INVESTMENTS = [FD, RD, SIP, SSY];

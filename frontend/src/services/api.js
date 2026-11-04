@@ -884,12 +884,28 @@ export const getDefaultDb = () => {
     supportTickets: [
       {
         ticketId: 'TCK-700123',
+        id: 'TCK-700123',
         customerId: 'CUS-100234',
+        customerName: 'Vikramaditya Sharma',
         status: 'OPEN',
         category: 'PAYMENT_ISSUE',
         subject: 'IMPS UTR Inquiry',
         description: 'Need confirmation receipt for transfer TXN-554433 to tax authority.',
-        createdAt: '2026-09-27T09:50:00Z'
+        message: 'Need confirmation receipt for transfer TXN-554433 to tax authority.',
+        messages: [
+          {
+            from: 'CUSTOMER',
+            sender: 'Vikramaditya Sharma',
+            senderType: 'CUSTOMER',
+            body: 'Need confirmation receipt for transfer TXN-554433 to tax authority.',
+            text: 'Need confirmation receipt for transfer TXN-554433 to tax authority.',
+            message: 'Need confirmation receipt for transfer TXN-554433 to tax authority.',
+            at: '2026-09-27T09:50:00Z',
+            timestamp: '2026-09-27T09:50:00Z'
+          }
+        ],
+        createdAt: '2026-09-27T09:50:00Z',
+        updatedAt: '2026-09-27T09:50:00Z'
       }
     ]
   };
@@ -1802,16 +1818,42 @@ export const handleLocalFallback = (endpoint, options = {}) => {
 
   // 18. /api/v1/support/tickets
   if (endpoint === '/api/v1/support/tickets' && method === 'POST') {
-    const currentCustId = getAuthenticatedCustomerId(db);
+    const currentCustId = getAuthenticatedCustomerId(db) || body.customerId || null;
+    const desc = (body.description || body.message || '').trim();
+    const ticketId = 'TCK-' + Math.floor(700000 + Math.random() * 100000);
+    const now = new Date().toISOString();
+    const custName = body.fullName || body.customerName || (currentCustId ? db.customers?.find(c => c.customerId === currentCustId)?.fullName : undefined) || (currentCustId ? 'Customer' : 'Guest Visitor');
     const newTicket = {
-      ticketId: 'TCK-' + Math.floor(700000 + Math.random() * 100000),
+      ticketId,
+      id: ticketId,
       customerId: currentCustId,
+      customerName: custName,
+      customerEmail: body.email || body.customerEmail || '',
+      customerMobile: body.mobile || body.customerMobile || '',
+      accountRef: body.accountRef || body.transactionRef || '',
+      transactionRef: body.transactionRef || body.accountRef || '',
+      source: body.source || (currentCustId ? 'portal' : 'public-grievance'),
       status: 'OPEN',
-      category: body.category || 'GENERAL_QUERY',
+      category: body.category || 'OTHER',
       subject: body.subject,
-      description: body.description,
-      createdAt: new Date().toISOString()
+      description: desc,
+      message: desc,
+      messages: desc ? [
+        {
+          from: 'CUSTOMER',
+          sender: custName,
+          senderType: 'CUSTOMER',
+          body: desc,
+          text: desc,
+          message: desc,
+          at: now,
+          timestamp: now
+        }
+      ] : [],
+      createdAt: now,
+      updatedAt: now
     };
+    if (!db.supportTickets) db.supportTickets = [];
     db.supportTickets.unshift(newTicket);
     saveDb(db);
     return newTicket;

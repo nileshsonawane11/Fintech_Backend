@@ -13,9 +13,12 @@ export class RouteErrorBoundary extends Component {
   }
 
   componentDidCatch(error, errorInfo) {
-    // Only capture internally, avoid noisy uncaught console crashes
-    if (typeof window !== 'undefined' && window.__REPORT_ROUTE_ERROR) {
-      window.__REPORT_ROUTE_ERROR(error, errorInfo);
+    console.error('[RouteErrorBoundary caught error]:', error, errorInfo);
+    if (typeof window !== 'undefined') {
+      window.__lastRouteError = { error, errorInfo, message: error?.message, stack: error?.stack };
+      if (window.__REPORT_ROUTE_ERROR) {
+        window.__REPORT_ROUTE_ERROR(error, errorInfo);
+      }
     }
   }
 

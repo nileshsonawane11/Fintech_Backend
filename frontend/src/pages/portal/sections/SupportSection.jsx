@@ -8,10 +8,11 @@ import {
 import { useAuth, useDbTick } from '../../../context/AuthContext.jsx';
 import { formatDate, formatDateTime, formatINR, statusLabel } from '../../../lib/format.js';
 import { BRAND } from '../../../data/products.js';
+import { SUPPORT_CATEGORIES, getCategoryLabel } from '../../../data/supportCategories.js';
 import { listAccounts, listTransactions } from '../../../services/portalBridge.js';
 import { listMyTickets, raiseTicket, replyTicket } from '../../../services/portalBridge.js';
 
-const CATEGORIES = ['Payment Issue', 'Card Dispute', 'Account', 'KYC', 'Other'];
+const CATEGORIES = SUPPORT_CATEGORIES.map((c) => c.label);
 const DESC_MAX = 1000;
 
 export default function SupportPage() {
@@ -167,7 +168,7 @@ export default function SupportPage() {
                         {highlighted && <span className="rounded-full bg-midnight-800 px-2 py-0.5 text-xs font-bold text-porcelain-50">New</span>}
                       </span>
                       <span className="mt-1 block text-[13px] text-ink-500">
-                        {t.id} · {statusLabel(t.category || 'Other')} · Updated {formatDateTime(t.updatedAt || t.createdAt)}
+                        {t.id} · {getCategoryLabel(t.category)} · Updated {formatDateTime(t.updatedAt || t.createdAt)}
                       </span>
                     </span>
                     <span className="flex shrink-0 items-center gap-2">
@@ -183,14 +184,14 @@ export default function SupportPage() {
                       )}
                       <div className="space-y-3">
                         {(t.messages || []).map((m, i) => {
-                          const mine = String(m.from || '').toUpperCase() === 'CUSTOMER';
+                          const mine = String(m.from || '').toUpperCase() === 'CUSTOMER' || m.senderType === 'CUSTOMER';
                           return (
                             <div key={i} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
                               <div className={`max-w-[85%] rounded-xl px-3.5 py-2.5 ${mine ? 'bg-midnight-800 text-porcelain-50' : 'bg-porcelain-100 text-ink-800'}`}>
                                 <p className={`text-xs font-semibold ${mine ? 'text-gold-300' : 'text-midnight-700'}`}>
-                                  {mine ? 'You' : 'FinEdge support'} · {formatDateTime(m.at)}
+                                  {mine ? 'You' : 'FinEdge support'} · {formatDateTime(m.at || m.timestamp)}
                                 </p>
-                                <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{m.text || m.body || ''}</p>
+                                <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{m.text || m.body || m.message || ''}</p>
                               </div>
                             </div>
                           );

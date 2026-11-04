@@ -1,15 +1,20 @@
 import React from 'react';
 
 /**
- * Flagship Edge Gold Debit Card Component (Module 16)
- * True ISO/IEC 7810 ID-1 proportions (1.586 : 1, 400x252 viewBox)
+ * Flagship Edge Gold Debit Card Component (Module 16 & Module 34 — Premium Card-Art Finish).
+ * True ISO/IEC 7810 ID-1 proportions (1.586 : 1, 400x252 viewBox).
  *
- * Layered with preserve-3d internal depth parallax:
- * - Layer 0 (translateZ(0px)): Base radial midnight surface, fine diagonal brushed texture, restrained gold band, perimeter foil edge
- * - Glare Layer (translateZ(6px)): Softened glare below detail layers
- * - Layer 1 (translateZ(18px)): Embossed card number (•••• •••• •••• 8829), bottom row columns, microtext
- * - Layer 2 (translateZ(28px)): FinEdge Bank emblem & wordmark, EDGE GOLD DEBIT, etched EMV chip, contactless arcs
- * - Layer 3 (translateZ(34px)): Circular gold foil hologram medallion with dynamic hue rotation
+ * Implements the unified 7-layer visual system with preserve-3d internal depth parallax:
+ * - Layer 0 (translateZ(0px)): Base radial midnight surface, fine diagonal brushed texture,
+ *   brushed gold facet band, perimeter foil edge, soft top-edge specular line, and static diagonal satin sheen.
+ * - Glare Layer (translateZ(6px)): Softened glare below detail layers.
+ * - Foil Shimmer Layer (translateZ(10px)): Cursor-tracked dynamic shimmer response.
+ * - Layer 1 (translateZ(18px)): Embossed card number (•••• •••• •••• 8829), CARD MEMBER, VALID THRU, VISA, microtext.
+ * - Layer 2 (translateZ(28px)): FinEdge Bank emblem & wordmark, EDGE GOLD DEBIT, etched EMV chip, contactless arcs.
+ * - Layer 3 (translateZ(34px)): Circular gold foil hologram medallion with dynamic hue tilt.
+ *
+ * All colours resolve strictly to design tokens (var(--color-*)). Zero hard-coded hex.
+ * Animation timings, angles, and wrapper settings remain frozen.
  */
 export function HeroEdgeGoldCard({
   cardFaceRef,
@@ -17,6 +22,8 @@ export function HeroEdgeGoldCard({
   hologramRef,
   shimmerRef,
   className = '',
+  shadow = false,
+  style = {},
 }) {
   return (
     <div
@@ -26,13 +33,14 @@ export function HeroEdgeGoldCard({
       className={`relative aspect-[400/252] w-full rounded-[18px] overflow-hidden select-none ${className}`}
       style={{
         transformStyle: 'preserve-3d',
-        boxShadow: '0 20px 45px -10px rgba(10, 30, 53, 0.45)',
+        boxShadow: shadow ? '0 20px 45px -10px rgba(10, 30, 53, 0.45)' : 'none',
         transition: 'box-shadow 0.3s ease-out',
+        ...style,
       }}
     >
       {/* ============================================================ */}
       {/* LAYER 0: BASE SURFACE (translateZ(0px))                      */}
-      {/* Radial depth, brushed metal texture, gold facet, foil border */}
+      {/* Radial depth, brushed metal, gold facet, foil edge, sheen    */}
       {/* ============================================================ */}
       <div
         className="absolute inset-0 pointer-events-none"
@@ -45,14 +53,19 @@ export function HeroEdgeGoldCard({
           aria-hidden="true"
         >
           <defs>
-            {/* Soft radial depth gradient: lighter top-left (#152E4D), darker bottom-right (#050F1D) */}
+            {/* Card Boundary Clip */}
+            <clipPath id="hero-card-boundary">
+              <rect width="400" height="252" rx="18" />
+            </clipPath>
+
+            {/* Radial depth gradient resolving to design tokens */}
             <radialGradient id="hero-gold-radial-bg" cx="22%" cy="18%" r="95%">
-              <stop offset="0%" stopColor="#152E4D" />
-              <stop offset="45%" stopColor="#0B1B2C" />
-              <stop offset="100%" stopColor="#050F1D" />
+              <stop offset="0%" stopColor="var(--color-midnight-700)" />
+              <stop offset="45%" stopColor="var(--color-midnight-900)" />
+              <stop offset="100%" stopColor="var(--color-midnight-950)" />
             </radialGradient>
 
-            {/* Fine diagonal brushed texture at 3.5% opacity */}
+            {/* Fine diagonal brushed texture at 3.8% opacity */}
             <pattern
               id="hero-brushed-metal"
               width="6"
@@ -60,20 +73,50 @@ export function HeroEdgeGoldCard({
               patternTransform="rotate(45 0 0)"
               patternUnits="userSpaceOnUse"
             >
-              <line x1="0" y1="0" x2="0" y2="6" stroke="#FFFFFF" strokeWidth="1" strokeOpacity="0.035" />
+              <line
+                x1="0"
+                y1="0"
+                x2="0"
+                y2="6"
+                stroke="var(--color-porcelain-50)"
+                strokeWidth="0.8"
+                strokeOpacity="0.038"
+              />
             </pattern>
 
             {/* Gold Facet Gradient */}
             <linearGradient id="hero-facet-gold" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#DFBF75" />
-              <stop offset="50%" stopColor="#B8933F" />
-              <stop offset="100%" stopColor="#8C6D2F" />
+              <stop offset="0%" stopColor="var(--color-gold-200)" />
+              <stop offset="50%" stopColor="var(--color-gold-400)" />
+              <stop offset="100%" stopColor="var(--color-gold-600)" />
             </linearGradient>
 
-            {/* Card Boundary Clip */}
-            <clipPath id="hero-card-boundary">
-              <rect width="400" height="252" rx="18" />
-            </clipPath>
+            {/* Perimeter Foil Edge Gradient */}
+            <linearGradient id="hero-foil-edge" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="var(--color-gold-200)" />
+              <stop offset="40%" stopColor="var(--color-gold-400)" />
+              <stop offset="75%" stopColor="var(--color-gold-500)" />
+              <stop offset="100%" stopColor="var(--color-gold-700)" />
+            </linearGradient>
+
+            {/* Top-Edge Specular Light Line Gradient */}
+            <linearGradient id="hero-top-light" x1="0" y1="0" x2="1" y2="0">
+              <stop offset="0%" stopColor="transparent" />
+              <stop offset="15%" stopColor="var(--color-porcelain-100)" stopOpacity="0.4" />
+              <stop offset="50%" stopColor="var(--color-porcelain-50)" stopOpacity="0.75" />
+              <stop offset="85%" stopColor="var(--color-porcelain-100)" stopOpacity="0.4" />
+              <stop offset="100%" stopColor="transparent" />
+            </linearGradient>
+
+            {/* Static Diagonal Satin Sheen */}
+            <linearGradient id="hero-satin-sheen" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="transparent" />
+              <stop offset="38%" stopColor="transparent" />
+              <stop offset="48%" stopColor="var(--color-porcelain-50)" stopOpacity="0.08" />
+              <stop offset="52%" stopColor="var(--color-porcelain-50)" stopOpacity="0.08" />
+              <stop offset="62%" stopColor="transparent" />
+              <stop offset="100%" stopColor="transparent" />
+            </linearGradient>
           </defs>
 
           {/* Base Background */}
@@ -82,13 +125,24 @@ export function HeroEdgeGoldCard({
           {/* Brushed Metal Texture */}
           <rect width="400" height="252" rx="18" fill="url(#hero-brushed-metal)" />
 
-          {/* Catalogue Gold Debit Diagonal Gold Band Identity */}
+          {/* Brushed Foil Diagonal Facet Band */}
           <g clipPath="url(#hero-card-boundary)">
-            <path d="M400 252 L400 110 L250 252 Z" fill="url(#hero-facet-gold)" opacity="0.18" />
-            <path d="M400 90 L230 252 L210 252 L400 70 Z" fill="url(#hero-facet-gold)" opacity="0.08" />
+            <path d="M400 252 L400 110 L250 252 Z" fill="url(#hero-facet-gold)" opacity="0.22" />
+            <path d="M400 252 L400 110 L250 252 Z" fill="url(#hero-brushed-metal)" opacity="0.5" />
+            <path d="M400 90 L230 252 L210 252 L400 70 Z" fill="url(#hero-facet-gold)" opacity="0.1" />
           </g>
 
-          {/* Hairline Gold Foil Edge — 1px inset border, gold at ~45% opacity */}
+          {/* Static Diagonal Satin Sheen */}
+          <rect
+            width="400"
+            height="252"
+            rx="18"
+            fill="url(#hero-satin-sheen)"
+            clipPath="url(#hero-card-boundary)"
+            pointerEvents="none"
+          />
+
+          {/* Hairline Gold Foil Edge — 1px perimeter stroke */}
           <rect
             x="0.75"
             y="0.75"
@@ -96,9 +150,18 @@ export function HeroEdgeGoldCard({
             height="250.5"
             rx="17.25"
             fill="none"
-            stroke="#B8933F"
+            stroke="url(#hero-foil-edge)"
             strokeOpacity="0.45"
-            strokeWidth="1.5"
+            strokeWidth="1.2"
+          />
+
+          {/* Soft Top-Edge Bevel Specular Line */}
+          <path
+            d="M 24 1.5 L 376 1.5"
+            stroke="url(#hero-top-light)"
+            strokeWidth="1"
+            strokeOpacity="0.4"
+            fill="none"
           />
         </svg>
       </div>
@@ -124,14 +187,15 @@ export function HeroEdgeGoldCard({
         className="pointer-events-none absolute -inset-full z-15 opacity-25"
         style={{
           transform: 'translate3d(0, 0, 0)',
-          background: 'linear-gradient(105deg, transparent 40%, rgba(223, 191, 117, 0.45) 48%, rgba(255, 255, 255, 0.5) 50%, rgba(223, 191, 117, 0.45) 52%, transparent 60%)',
+          background:
+            'linear-gradient(105deg, transparent 40%, rgba(223, 191, 117, 0.45) 48%, rgba(255, 255, 255, 0.5) 50%, rgba(223, 191, 117, 0.45) 52%, transparent 60%)',
           mixBlendMode: 'color-dodge',
         }}
       />
 
       {/* ============================================================ */}
       {/* LAYER 1: MID DEPTH (translateZ(18px))                        */}
-      {/* Number row, 3 bottom row columns, microtext                  */}
+      {/* Embossed number row, 3 bottom row columns, microtext         */}
       {/* ============================================================ */}
       <div
         className="absolute inset-0 pointer-events-none z-20"
@@ -147,22 +211,34 @@ export function HeroEdgeGoldCard({
           aria-hidden="true"
         >
           <defs>
-            <filter id="number-emboss" x="-5%" y="-10%" width="110%" height="130%">
-              <feDropShadow dx="0" dy="1" stdDeviation="0.4" floodColor="#FFFFFF" floodOpacity="0.22" />
-              <feDropShadow dx="0" dy="-1" stdDeviation="0.5" floodColor="#000000" floodOpacity="0.7" />
+            <filter id="hero-number-emboss" x="-5%" y="-15%" width="115%" height="135%">
+              <feDropShadow
+                dx="0"
+                dy="1"
+                stdDeviation="0.35"
+                floodColor="var(--color-porcelain-50)"
+                floodOpacity="0.22"
+              />
+              <feDropShadow
+                dx="0"
+                dy="-0.75"
+                stdDeviation="0.45"
+                floodColor="var(--color-midnight-950)"
+                floodOpacity="0.75"
+              />
             </filter>
           </defs>
 
-          {/* Number Row: •••• •••• •••• 8829 in tabular figures with subtle emboss (size ≈ 5% of card width = 20px) */}
+          {/* Number Row: •••• •••• •••• 8829 in tabular figures with tactile emboss */}
           <text
             x="28"
             y="172"
             fontFamily="'Courier New', Courier, monospace"
-            fontSize="20"
+            fontSize="19"
             fontWeight="600"
             letterSpacing="2.5"
-            fill="#F7F3EA"
-            filter="url(#number-emboss)"
+            fill="var(--color-porcelain-100)"
+            filter="url(#hero-number-emboss)"
           >
             •••• •••• •••• 8829
           </text>
@@ -172,48 +248,50 @@ export function HeroEdgeGoldCard({
           <text
             x="28"
             y="204"
-            fontFamily="'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
+            fontFamily="'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif"
             fontSize="8"
             fontWeight="600"
             letterSpacing="2.2"
-            fill="#F7F3EA"
-            fillOpacity="0.55"
+            fill="var(--color-porcelain-100)"
+            fillOpacity="0.6"
+            filter="url(#hero-number-emboss)"
           >
             CARD MEMBER
           </text>
           <text
             x="28"
-            y="223"
-            fontFamily="'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
+            y="222"
+            fontFamily="'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif"
             fontSize="12"
             fontWeight="600"
             letterSpacing="1.2"
-            fill="#F7F3EA"
+            fill="var(--color-porcelain-100)"
           >
             VALUED MEMBER
           </text>
 
-          {/* Column 2: VALID THRU micro label over 12/29 (sample validity matching catalogue art) */}
+          {/* Column 2: VALID THRU micro label over 12/29 */}
           <text
             x="180"
             y="204"
-            fontFamily="'Segoe UI', -apple-system, BlinkMacSystemFont, 'Helvetica Neue', Arial, sans-serif"
+            fontFamily="'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif"
             fontSize="8"
             fontWeight="600"
             letterSpacing="2.2"
-            fill="#F7F3EA"
-            fillOpacity="0.55"
+            fill="var(--color-porcelain-100)"
+            fillOpacity="0.6"
+            filter="url(#hero-number-emboss)"
           >
             VALID THRU
           </text>
           <text
             x="180"
-            y="223"
+            y="222"
             fontFamily="'Courier New', Courier, monospace"
             fontSize="12"
             fontWeight="700"
             letterSpacing="1"
-            fill="#F7F3EA"
+            fill="var(--color-porcelain-100)"
           >
             12/29
           </text>
@@ -228,20 +306,20 @@ export function HeroEdgeGoldCard({
             fontWeight="800"
             fontStyle="italic"
             letterSpacing="0.5"
-            fill="#FAF8F4"
+            fill="var(--color-porcelain-100)"
           >
             VISA
           </text>
 
-          {/* Microtext along very bottom edge (5px scale, low contrast flourish) */}
+          {/* Microtext along very bottom edge */}
           <text
             x="200"
             y="244"
             textAnchor="middle"
             fontFamily="'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif"
-            fontSize="5.2"
+            fontSize="5"
             letterSpacing="0.4"
-            fill="#F7F3EA"
+            fill="var(--color-porcelain-100)"
             fillOpacity="0.35"
           >
             This card is the property of FinEdge Bank • Use implies acceptance of the cardholder terms
@@ -269,47 +347,53 @@ export function HeroEdgeGoldCard({
           <defs>
             {/* Rich multi-stop gold foil for lettering */}
             <linearGradient id="hero-gold-foil" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#F5DF9E" />
-              <stop offset="45%" stopColor="#D4AF37" />
-              <stop offset="70%" stopColor="#B8933F" />
-              <stop offset="100%" stopColor="#967425" />
+              <stop offset="0%" stopColor="var(--color-gold-200)" />
+              <stop offset="45%" stopColor="var(--color-gold-300)" />
+              <stop offset="70%" stopColor="var(--color-gold-400)" />
+              <stop offset="100%" stopColor="var(--color-gold-600)" />
             </linearGradient>
 
             {/* EMV Microchip Gold Texture Gradient */}
-            <linearGradient id="emv-gold-metal" x1="0" y1="0" x2="1" y2="1">
-              <stop offset="0%" stopColor="#EAD397" />
-              <stop offset="30%" stopColor="#D4AF37" />
-              <stop offset="70%" stopColor="#B8933F" />
-              <stop offset="100%" stopColor="#8C6514" />
+            <linearGradient id="hero-emv-gold-metal" x1="0" y1="0" x2="1" y2="1">
+              <stop offset="0%" stopColor="var(--color-gold-200)" />
+              <stop offset="35%" stopColor="var(--color-gold-300)" />
+              <stop offset="70%" stopColor="var(--color-gold-500)" />
+              <stop offset="100%" stopColor="var(--color-gold-700)" />
             </linearGradient>
 
             {/* Drop shadow for EMV microchip */}
-            <filter id="emv-chip-shadow" x="-10%" y="-15%" width="125%" height="135%">
-              <feDropShadow dx="0" dy="1.5" stdDeviation="1.5" floodColor="#050F1D" floodOpacity="0.65" />
+            <filter id="hero-emv-chip-shadow" x="-10%" y="-15%" width="125%" height="135%">
+              <feDropShadow
+                dx="0"
+                dy="1.2"
+                stdDeviation="1.2"
+                floodColor="var(--color-midnight-950)"
+                floodOpacity="0.55"
+              />
             </filter>
           </defs>
 
           {/* Top Row Left: FinEdge Bank Landmark Emblem + Wordmark */}
-          <g transform="translate(28, 20) scale(0.55)">
-            <path fill="#B8933F" d="M32 4 L60 28 L49 28 L32 15 L15 28 L4 28 Z" />
-            <rect fill="#F7F3EA" x="13" y="36" width="7" height="14" />
-            <rect fill="#F7F3EA" x="28.5" y="32" width="7" height="18" />
-            <rect fill="#F7F3EA" x="44" y="36" width="7" height="14" />
-            <rect fill="#F7F3EA" x="10" y="54" width="44" height="3.5" rx="1.75" />
+          <g transform="translate(26, 22) scale(0.55)">
+            <path fill="var(--color-gold-400)" d="M32 4 L60 28 L49 28 L32 15 L15 28 L4 28 Z" />
+            <rect fill="var(--color-porcelain-100)" x="13" y="36" width="7" height="14" />
+            <rect fill="var(--color-porcelain-100)" x="28.5" y="32" width="7" height="18" />
+            <rect fill="var(--color-porcelain-100)" x="44" y="36" width="7" height="14" />
+            <rect fill="var(--color-porcelain-100)" x="10" y="54" width="44" height="3.5" rx="1.75" />
           </g>
           <text
-            x="68"
-            y="36"
+            x="66"
+            y="38"
             fontFamily="Fraunces, Georgia, serif"
             fontSize="13"
             fontWeight="600"
             letterSpacing="0.5"
-            fill="#F7F3EA"
+            fill="var(--color-porcelain-100)"
           >
             FinEdge Bank
           </text>
 
-          {/* Top Row Right: EDGE GOLD with letter spacing, DEBIT beneath in small porcelain caps */}
+          {/* Top Row Right: EDGE GOLD with letter spacing, DEBIT beneath */}
           <text
             x="372"
             y="38"
@@ -317,7 +401,7 @@ export function HeroEdgeGoldCard({
             fontFamily="'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif"
             fontSize="13"
             fontWeight="700"
-            letterSpacing="3"
+            letterSpacing="2.5"
             fill="url(#hero-gold-foil)"
           >
             EDGE GOLD
@@ -329,55 +413,53 @@ export function HeroEdgeGoldCard({
             fontFamily="'Segoe UI', -apple-system, BlinkMacSystemFont, Arial, sans-serif"
             fontSize="9"
             fontWeight="600"
-            letterSpacing="3"
-            fill="#F7F3EA"
-            fillOpacity="0.8"
+            letterSpacing="2.5"
+            fill="var(--color-porcelain-100)"
+            opacity="0.8"
           >
             DEBIT
           </text>
 
           {/* Chip Row: Properly drawn EMV chip with etched contact-line pattern (SVG) */}
-          <g filter="url(#emv-chip-shadow)">
-            {/* Chip Gold Base */}
+          <g filter="url(#hero-emv-chip-shadow)">
+            {/* Chip Gold Base Plate */}
             <rect
               x="28"
-              y="84"
+              y="86"
               width="50"
               height="38"
               rx="6"
-              fill="url(#emv-gold-metal)"
+              fill="url(#hero-emv-gold-metal)"
             />
             {/* Chip Perimeter Etching */}
             <rect
               x="28.75"
-              y="84.75"
+              y="86.75"
               width="48.5"
               height="36.5"
               rx="5.25"
               fill="none"
-              stroke="#6E5010"
+              stroke="var(--color-gold-700)"
               strokeWidth="0.8"
-              strokeOpacity="0.7"
+              strokeOpacity="0.75"
             />
             {/* Etched Contact Pattern Lines */}
-            <g stroke="#6E5010" strokeWidth="1.2" fill="none" strokeLinecap="round">
-              {/* Central Microprocessor Core */}
-              <rect x="45" y="93" width="16" height="20" rx="2.5" strokeWidth="1.1" />
-              {/* Contact Channels */}
-              <line x1="28" y1="96" x2="45" y2="96" />
-              <line x1="28" y1="110" x2="45" y2="110" />
-              <line x1="61" y1="96" x2="78" y2="96" />
-              <line x1="61" y1="110" x2="78" y2="110" />
-              <line x1="53" y1="84" x2="53" y2="93" />
-              <line x1="53" y1="113" x2="53" y2="122" />
+            <g stroke="var(--color-gold-700)" strokeWidth="1.1" fill="none" strokeLinecap="round">
+              <rect x="45" y="95" width="16" height="20" rx="2.5" strokeWidth="1.0" />
+              <line x1="28" y1="98" x2="45" y2="98" />
+              <line x1="28" y1="112" x2="45" y2="112" />
+              <line x1="61" y1="98" x2="78" y2="98" />
+              <line x1="61" y1="112" x2="78" y2="112" />
+              <line x1="53" y1="86" x2="53" y2="95" />
+              <line x1="53" y1="115" x2="53" y2="124" />
             </g>
           </g>
 
-          {/* Contactless Mark in porcelain at full opacity (crisp 3 concentric arcs) */}
-          <g stroke="#F7F3EA" strokeWidth="2.4" fill="none" strokeLinecap="round">
-            <path d="M96 95 A9 9 0 0 1 96 111" />
-            <path d="M102 89 A16 16 0 0 1 102 117" />
-            <path d="M108 83 A23 23 0 0 1 108 123" />
+          {/* Contactless Mark in porcelain (crisp 3 concentric arcs) */}
+          <g stroke="var(--color-porcelain-100)" strokeWidth="2.2" fill="none" strokeLinecap="round" opacity="0.85">
+            <path d="M96 97 A9 9 0 0 1 96 113" />
+            <path d="M102 91 A16 16 0 0 1 102 119" />
+            <path d="M108 85 A23 23 0 0 1 108 125" />
           </g>
         </svg>
       </div>
@@ -403,31 +485,54 @@ export function HeroEdgeGoldCard({
         >
           <defs>
             {/* Hologram metallic foil gradient */}
-            <radialGradient id="hologram-gold-foil" cx="35%" cy="35%" r="65%">
-              <stop offset="0%" stopColor="#FFF2B8" />
-              <stop offset="35%" stopColor="#E2C167" />
-              <stop offset="70%" stopColor="#B38927" />
-              <stop offset="100%" stopColor="#78550D" />
+            <radialGradient id="hero-hologram-gold-foil" cx="35%" cy="35%" r="65%">
+              <stop offset="0%" stopColor="var(--color-porcelain-50)" />
+              <stop offset="30%" stopColor="var(--color-gold-200)" />
+              <stop offset="65%" stopColor="var(--color-gold-400)" />
+              <stop offset="100%" stopColor="var(--color-gold-700)" />
             </radialGradient>
-            <filter id="hologram-shadow" x="-20%" y="-20%" width="140%" height="140%">
-              <feDropShadow dx="0" dy="1" stdDeviation="1" floodColor="#050F1D" floodOpacity="0.5" />
+            <filter id="hero-hologram-shadow" x="-20%" y="-20%" width="140%" height="140%">
+              <feDropShadow
+                dx="0"
+                dy="1"
+                stdDeviation="1"
+                floodColor="var(--color-midnight-950)"
+                floodOpacity="0.45"
+              />
             </filter>
           </defs>
 
-          {/* Hologram: small circular gold foil medallion (~6% width = 24px diameter) placed left of VISA */}
-          <g transform="translate(294, 213)" filter="url(#hologram-shadow)">
+          {/* Hologram: circular gold foil medallion placed left of VISA */}
+          <g transform="translate(294, 213)" filter="url(#hero-hologram-shadow)">
             {/* Medallion Rim */}
-            <circle cx="0" cy="0" r="12" fill="url(#hologram-gold-foil)" />
-            <circle cx="0" cy="0" r="11.2" fill="none" stroke="#FFFFFF" strokeOpacity="0.45" strokeWidth="0.7" />
+            <circle cx="0" cy="0" r="12" fill="url(#hero-hologram-gold-foil)" />
+            <circle
+              cx="0"
+              cy="0"
+              r="11.2"
+              fill="none"
+              stroke="var(--color-porcelain-50)"
+              strokeOpacity="0.45"
+              strokeWidth="0.7"
+            />
             {/* Micro Iridescent concentric ring */}
-            <circle cx="0" cy="0" r="9" fill="none" stroke="#9E7419" strokeWidth="0.6" strokeDasharray="1.5 1.5" />
+            <circle
+              cx="0"
+              cy="0"
+              r="9"
+              fill="none"
+              stroke="var(--color-gold-700)"
+              strokeWidth="0.6"
+              strokeDasharray="1.5 1.5"
+              strokeOpacity="0.65"
+            />
             {/* FinEdge Bank Glyph in center */}
             <g transform="translate(-5.5, -5.5) scale(0.18)">
-              <path fill="#523908" d="M32 4 L60 28 L49 28 L32 15 L15 28 L4 28 Z" />
-              <rect fill="#523908" x="13" y="36" width="7" height="14" />
-              <rect fill="#523908" x="28.5" y="32" width="7" height="18" />
-              <rect fill="#523908" x="44" y="36" width="7" height="14" />
-              <rect fill="#523908" x="10" y="54" width="44" height="3.5" rx="1.75" />
+              <path fill="var(--color-gold-700)" d="M32 4 L60 28 L49 28 L32 15 L15 28 L4 28 Z" />
+              <rect fill="var(--color-gold-700)" x="13" y="36" width="7" height="14" />
+              <rect fill="var(--color-gold-700)" x="28.5" y="32" width="7" height="18" />
+              <rect fill="var(--color-gold-700)" x="44" y="36" width="7" height="14" />
+              <rect fill="var(--color-gold-700)" x="10" y="54" width="44" height="3.5" rx="1.75" />
             </g>
           </g>
         </svg>

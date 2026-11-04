@@ -1,8 +1,8 @@
 import { ApplyModal } from '../components/common/ApplyModal.jsx';
 import { CardVisual } from '../components/common/CardVisual.jsx';
 import { TiltCard } from '../components/TiltCard.jsx';
-import { useState, useEffect, useRef } from 'react';
-import { Link, useParams } from 'react-router-dom';
+import { useState, useEffect, useRef, useMemo } from 'react';
+import { Link, useParams, useSearchParams } from 'react-router-dom';
 import {
   AlertTriangle,
   ArrowLeft,
@@ -17,10 +17,10 @@ import {
   SlidersHorizontal,
 } from 'lucide-react';
 import { Badge, Button, Card, EmptyState, Table } from '../components/ui.jsx';
-import { RATE_DISCLAIMER, SAVINGS_SLABS, getProductBySlug, getProductsByCategory } from '../data/products.js';
+import { RATE_DISCLAIMER, SAVINGS_SLABS, getProductBySlug, getProductsByCategory, FD, RD, SIP, SSY } from '../data/products.js';
 import { LOAN_ICONS } from '../data/productIcons.js';
-import { formatINRWhole } from '../lib/format.js';
-import { calculateEMI, calculateBulletRepayment } from '../lib/finance.js';
+import { formatINR, formatINRWhole, shortProductName } from '../lib/format.js';
+import { calculateEMI, calculateBulletRepayment, calculateFD, calculateRD, calculateSIP, calculateSSY } from '../lib/finance.js';
 
 /** The route prop is plural ('accounts'); the catalogue category is singular ('account'). */
 const CATEGORY_MAP = {
@@ -383,20 +383,33 @@ function headlineStats(product) {
     }
   }
   if (product.category === 'investment') {
-    if (product.kind === 'FD' && Array.isArray(product.rateGrid)) {
-      stats.push({ label: 'Rate', value: `Up to ${Math.max(...product.rateGrid.map((r) => r.general)).toFixed(2)}% p.a.` });
-    }
-    if (product.kind === 'RD' && Array.isArray(product.rateBands)) {
-      stats.push({ label: 'Rate', value: `Up to ${Math.max(...product.rateBands.map((r) => r.rate)).toFixed(2)}% p.a.` });
-    }
-    if (product.kind === 'SSY' && typeof product.rate === 'number') {
+    if (product.kind === 'FD' && Array.isArray(product.rateGrid) && product.rateGrid.length > 0) {
+      const topRate = Math.max(...product.rateGrid.map((r) => r.general));
+      const firstTenure = product.rateGrid[0].tenure.split('–')[0].trim();
+      const lastTenure = product.rateGrid[product.rateGrid.length - 1].tenure.split('–')[1]?.trim() || product.rateGrid[product.rateGrid.length - 1].tenure;
+      stats.push({ label: 'Rate', value: `Up to ${topRate.toFixed(2)}% p.a.` });
+      if (product.minAmount) stats.push({ label: 'Minimum amount', value: formatINRWhole(product.minAmount) });
+      stats.push({ label: 'Tenure', value: `${firstTenure} – ${lastTenure}` });
+    } else if (product.kind === 'RD' && Array.isArray(product.rateBands) && product.rateBands.length > 0) {
+      const topRate = Math.max(...product.rateBands.map((b) => b.rate));
+      const firstTenure = product.rateBands[0].tenure.split('–')[0].trim();
+      const lastTenure = product.rateBands[product.rateBands.length - 1].tenure.split('–')[1]?.trim() || product.rateBands[product.rateBands.length - 1].tenure;
+      stats.push({ label: 'Rate', value: `Up to ${topRate.toFixed(2)}% p.a.` });
+      if (product.minMonthly) stats.push({ label: 'Minimum monthly', value: formatINRWhole(product.minMonthly) });
+      stats.push({ label: 'Tenure', value: `${firstTenure} – ${lastTenure}` });
+    } else if (product.kind === 'SSY' && typeof product.rate === 'number') {
       stats.push({ label: 'Rate', value: `${product.rate.toFixed(2)}% p.a.` });
-    }
-    if (product.kind === 'SIP') {
+      if (product.minDepositYearly && product.maxDepositYearly) {
+        stats.push({ label: 'Yearly deposit', value: `${formatINRWhole(product.minDepositYearly)} – ${formatINRWhole(product.maxDepositYearly)}` });
+      }
+      if (product.depositYears) {
+        stats.push({ label: 'Deposit period', value: `${product.depositYears} years` });
+      }
+    } else if (product.kind === 'SIP') {
       stats.push({ label: 'Returns', value: 'Market-linked — not guaranteed' });
+      if (product.minMonthly) stats.push({ label: 'Minimum monthly', value: formatINRWhole(product.minMonthly) });
+      stats.push({ label: 'Fund categories', value: String(product.fundCategories?.length || 0) });
     }
-    if (product.minAmount) stats.push({ label: 'Minimum amount', value: formatINRWhole(product.minAmount) });
-    if (product.minMonthly) stats.push({ label: 'Minimum monthly', value: formatINRWhole(product.minMonthly) });
   }
   return stats;
 }
@@ -823,6 +836,39 @@ function parseLatePayment(latePaymentStr) {
   return null;
 }
 
+function LifePhoto({ photo }) {
+  if (!photo || !photo.src) return null;
+  return (
+    <figure data-life-photo className="mt-8 overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-xs">
+      <div className="relative aspect-[16/10] w-full overflow-hidden bg-porcelain-100">
+        <picture>
+          {photo.srcSet && (
+            <source
+              type="image/webp"
+              srcSet={photo.srcSet}
+              sizes="(min-width: 1024px) 680px, 100vw"
+            />
+          )}
+          <img
+            src={photo.src}
+            alt={photo.alt || ''}
+            width={photo.width || 1200}
+            height={photo.height || 750}
+            loading="lazy"
+            decoding="async"
+            className="h-full w-full object-cover object-center"
+          />
+        </picture>
+      </div>
+      {photo.caption && (
+        <figcaption className="px-4 py-2.5 text-xs text-ink-600 bg-porcelain-50/80 border-t border-ink-100/60 font-medium">
+          {photo.caption}
+        </figcaption>
+      )}
+    </figure>
+  );
+}
+
 function CardFeesSection({ product }) {
   const [showAll, setShowAll] = useState(false);
   const isCredit = product.cardType === 'credit';
@@ -830,7 +876,7 @@ function CardFeesSection({ product }) {
 
   return (
     <div className="space-y-6">
-      <div className="overflow-hidden rounded-xl border border-ink-100 bg-white">
+      <div className="overflow-x-auto rounded-xl border border-ink-100 bg-white">
         <table className="w-full text-left text-sm">
           <thead>
             <tr className="border-b border-ink-100 bg-porcelain-100/60 text-xs font-semibold uppercase tracking-wider text-ink-600">
@@ -1350,16 +1396,658 @@ function MoreLoansSection({ currentSlug }) {
 }
 
 // ============================================================================
+// FIX 1 & FIX 5: INVESTMENT DETAIL CALCULATORS & MORE INVESTMENTS SECTION
+// ============================================================================
+
+const indianNumber = new Intl.NumberFormat('en-IN', { maximumFractionDigits: 2 });
+function clamp(value, min, max) {
+  return Math.min(max, Math.max(min, value));
+}
+
+function SliderControl({ label, value, min, max, step = 1, decimals = 0, suffix, hint, onChange }) {
+  const formatText = (v) => {
+    if (v === null || v === undefined || Number.isNaN(Number(v))) return '';
+    return decimals > 0 ? Number(v).toFixed(decimals) : indianNumber.format(Math.round(Number(v)));
+  };
+  const [text, setText] = useState(() => formatText(value));
+  const [focused, setFocused] = useState(false);
+
+  useEffect(() => {
+    if (!focused) setText(formatText(value));
+  }, [value, focused, decimals]);
+
+  return (
+    <div>
+      <div className="flex items-center justify-between mb-1.5 text-xs font-semibold text-ink-800">
+        <label>{label}</label>
+        {hint && <span className="font-normal text-ink-500 text-[11px]">{hint}</span>}
+      </div>
+      <div className="flex items-center gap-3">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={Number.isFinite(Number(value)) ? value : min}
+          aria-label={label}
+          onChange={(e) => onChange(clamp(Number(e.target.value), min, max))}
+          className="min-w-0 flex-1 h-2 cursor-pointer appearance-none rounded-lg bg-ink-200 accent-midnight-900"
+        />
+        <div className="flex w-36 shrink-0 items-center gap-1.5">
+          <input
+            type="text"
+            value={text}
+            inputMode="decimal"
+            aria-label={`${label} value`}
+            onFocus={() => setFocused(true)}
+            onChange={(e) => {
+              const raw = e.target.value;
+              setText(raw);
+              const parsed = Number(String(raw).replace(/[₹,\s]/g, ''));
+              if (Number.isFinite(parsed)) onChange(clamp(parsed, min, max));
+            }}
+            onBlur={() => {
+              setFocused(false);
+              setText(formatText(value));
+            }}
+            className="w-full text-right h-9 rounded-lg border border-ink-200 bg-white px-2.5 py-1 text-sm font-semibold text-midnight-950 focus:border-gold-500 focus:outline-hidden focus:ring-1 focus:ring-gold-500"
+          />
+          {suffix && <span className="whitespace-nowrap text-xs text-ink-500 font-medium">{suffix}</span>}
+        </div>
+      </div>
+      <div className="mt-1 flex justify-between text-[11px] text-ink-400">
+        <span>{decimals > 0 ? min.toFixed(decimals) : indianNumber.format(min)}</span>
+        <span>{decimals > 0 ? max.toFixed(decimals) : indianNumber.format(max)}</span>
+      </div>
+    </div>
+  );
+}
+
+function FdProductCalculator({ product, onApplyWithFigures }) {
+  const [amount, setAmount] = useState(100000);
+  const [tenureBand, setTenureBand] = useState('2 – 3 years');
+  const [senior, setSenior] = useState(false);
+
+  const bands = product.rateGrid || [];
+  const selectedBand = bands.find((b) => b.tenure === tenureBand) || bands[4] || bands[0];
+  const baseRate = selectedBand ? selectedBand.general : 6.95;
+
+  const tenureMonths = selectedBand?.tenure === '7 – 45 days' ? 1
+    : selectedBand?.tenure === '46 – 179 days' ? 4
+    : selectedBand?.tenure === '180 – 364 days' ? 9
+    : selectedBand?.tenure === '1 – 2 years' ? 24
+    : selectedBand?.tenure === '2 – 3 years' ? 36
+    : selectedBand?.tenure === '3 – 5 years' ? 48
+    : 60;
+
+  const result = useMemo(() => {
+    try {
+      return calculateFD({
+        principal: amount,
+        annualRatePct: baseRate,
+        tenureMonths,
+        seniorCitizen: senior,
+        seniorCitizenDeltaPct: product.seniorDelta || 0.5,
+      });
+    } catch {
+      return null;
+    }
+  }, [amount, baseRate, tenureMonths, senior, product.seniorDelta]);
+
+  return (
+    <div className="rounded-xl border border-ink-200 bg-white p-5 sm:p-6 shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
+        <h2 className="font-display text-lg sm:text-xl font-semibold text-midnight-950">
+          See what your deposit grows to
+        </h2>
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-porcelain-100 text-midnight-900 border border-ink-200">
+          Cumulative payout
+        </span>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-12">
+        {/* Controls Column (7 cols) */}
+        <div className="space-y-5 lg:col-span-7">
+          <SliderControl
+            label="Deposit amount"
+            value={amount}
+            min={product.minAmount || 5000}
+            max={5000000}
+            step={1000}
+            suffix="₹"
+            onChange={setAmount}
+            hint={`Min. deposit ${formatINRWhole(product.minAmount || 5000)}`}
+          />
+
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wider text-ink-700 block mb-1.5">
+              Tenure band
+            </label>
+            <select
+              value={tenureBand}
+              onChange={(e) => setTenureBand(e.target.value)}
+              className="h-10 w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 font-medium focus:border-gold-500 focus:outline-hidden focus:ring-1 focus:ring-gold-500"
+            >
+              {bands.map((b) => (
+                <option key={b.tenure} value={b.tenure}>
+                  {b.tenure} — {b.general.toFixed(2)}% p.a. {senior ? `(Senior: ${b.senior.toFixed(2)}% p.a.)` : ''}
+                </option>
+              ))}
+            </select>
+          </div>
+
+          <div className="pt-1">
+            <label className="flex items-start gap-2.5 cursor-pointer text-sm text-ink-700">
+              <input
+                type="checkbox"
+                checked={senior}
+                onChange={(e) => setSenior(e.target.checked)}
+                className="mt-0.5 h-4 w-4 shrink-0 accent-midnight-900 cursor-pointer"
+              />
+              <span>
+                <span className="font-semibold text-ink-900">Senior citizen (age 60+)</span>
+                <span className="block text-xs text-ink-500">
+                  Adds +{(product.seniorDelta || 0.5).toFixed(2)}% p.a. to the rate as an illustration
+                </span>
+              </span>
+            </label>
+          </div>
+        </div>
+
+        {/* Results Column (5 cols) */}
+        <div className="flex flex-col justify-between rounded-xl border border-midnight-800 bg-midnight-900 p-5 text-porcelain-100 lg:col-span-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-gold-300">
+              Maturity value
+            </p>
+            <p className="mt-1 font-display text-2xl sm:text-3xl font-bold text-porcelain-50">
+              {result ? formatINR(result.maturityValue) : '—'}
+            </p>
+            <p className="mt-1 text-xs text-porcelain-200/80 leading-relaxed">
+              Quarterly compounding, the Indian bank standard.
+            </p>
+
+            <dl className="mt-4 space-y-2 border-t border-porcelain-50/15 pt-3 text-xs">
+              <div className="flex items-center justify-between">
+                <dt className="text-porcelain-200/80">Amount deposited</dt>
+                <dd className="font-semibold text-porcelain-50 font-mono">{formatINR(amount)}</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-porcelain-200/80">Rate applied</dt>
+                <dd className="font-semibold text-gold-300 font-mono">
+                  {result ? `${result.rateAppliedPct.toFixed(2)}% p.a.` : '—'}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-porcelain-200/80">Interest earned</dt>
+                <dd className="font-semibold text-emerald-300 font-mono">
+                  {result ? formatINR(result.interestEarned) : '—'}
+                </dd>
+              </div>
+            </dl>
+          </div>
+
+          <div className="mt-5 border-t border-porcelain-50/15 pt-4">
+            <button
+              type="button"
+              onClick={() => onApplyWithFigures(product, { amount, tenure: selectedBand?.tenure })}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-porcelain-50 px-4 py-2.5 text-sm font-semibold text-midnight-950 transition-colors hover:bg-porcelain-200 cursor-pointer"
+            >
+              Apply with these figures <ArrowRight className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function RdProductCalculator({ product, onApplyWithFigures }) {
+  const [amount, setAmount] = useState(5000);
+  const [tenureBand, setTenureBand] = useState('25 – 60 months');
+
+  const bands = product.rateBands || [];
+  const selectedBand = bands.find((b) => b.tenure === tenureBand) || bands[2] || bands[0];
+  const rate = selectedBand ? selectedBand.rate : 6.55;
+
+  const tenureMonths = selectedBand?.tenure === '6 – 12 months' ? 12
+    : selectedBand?.tenure === '13 – 24 months' ? 24
+    : selectedBand?.tenure === '25 – 60 months' ? 60
+    : 120;
+
+  const result = useMemo(() => {
+    try {
+      return calculateRD({
+        monthlyDeposit: amount,
+        annualRatePct: rate,
+        tenureMonths,
+      });
+    } catch {
+      return null;
+    }
+  }, [amount, rate, tenureMonths]);
+
+  return (
+    <div className="rounded-xl border border-ink-200 bg-white p-5 sm:p-6 shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
+        <h2 className="font-display text-lg sm:text-xl font-semibold text-midnight-950">
+          See what your monthly deposit builds
+        </h2>
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-porcelain-100 text-midnight-900 border border-ink-200">
+          Quarterly compounding
+        </span>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-12">
+        {/* Controls Column (7 cols) */}
+        <div className="space-y-5 lg:col-span-7">
+          <SliderControl
+            label="Monthly deposit"
+            value={amount}
+            min={product.minMonthly || 500}
+            max={100000}
+            step={product.monthlyStep || 100}
+            suffix="₹"
+            onChange={setAmount}
+            hint={`Starts at ${formatINRWhole(product.minMonthly || 500)}/mo, multiples of ₹${product.monthlyStep || 100}`}
+          />
+
+          <div>
+            <label className="text-xs font-semibold uppercase tracking-wider text-ink-700 block mb-1.5">
+              Tenure band
+            </label>
+            <select
+              value={tenureBand}
+              onChange={(e) => setTenureBand(e.target.value)}
+              className="h-10 w-full rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm text-ink-900 font-medium focus:border-gold-500 focus:outline-hidden focus:ring-1 focus:ring-gold-500"
+            >
+              {bands.map((b) => (
+                <option key={b.tenure} value={b.tenure}>
+                  {b.tenure} — {b.rate.toFixed(2)}% p.a.
+                </option>
+              ))}
+            </select>
+          </div>
+        </div>
+
+        {/* Results Column (5 cols) */}
+        <div className="flex flex-col justify-between rounded-xl border border-midnight-800 bg-midnight-900 p-5 text-porcelain-100 lg:col-span-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-gold-300">
+              Maturity value
+            </p>
+            <p className="mt-1 font-display text-2xl sm:text-3xl font-bold text-porcelain-50">
+              {result ? formatINR(result.maturityValue) : '—'}
+            </p>
+            <p className="mt-1 text-xs text-porcelain-200/80 leading-relaxed">
+              A fixed monthly deposit that builds a lump sum quarter by quarter.
+            </p>
+
+            <dl className="mt-4 space-y-2 border-t border-porcelain-50/15 pt-3 text-xs">
+              <div className="flex items-center justify-between">
+                <dt className="text-porcelain-200/80">Total deposited</dt>
+                <dd className="font-semibold text-porcelain-50 font-mono">
+                  {result ? formatINR(result.totalDeposited) : '—'}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-porcelain-200/80">Applied rate</dt>
+                <dd className="font-semibold text-gold-300 font-mono">{rate.toFixed(2)}% p.a.</dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-porcelain-200/80">Interest earned</dt>
+                <dd className="font-semibold text-emerald-300 font-mono">
+                  {result ? formatINR(result.interestEarned) : '—'}
+                </dd>
+              </div>
+            </dl>
+          </div>
+
+          <div className="mt-5 border-t border-porcelain-50/15 pt-4">
+            <button
+              type="button"
+              onClick={() => onApplyWithFigures(product, { amount, tenure: selectedBand?.tenure })}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-porcelain-50 px-4 py-2.5 text-sm font-semibold text-midnight-950 transition-colors hover:bg-porcelain-200 cursor-pointer"
+            >
+              Apply with these figures <ArrowRight className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SipProductCalculator({ product, onApplyWithFigures }) {
+  const [monthly, setMonthly] = useState(10000);
+  const [years, setYears] = useState(10);
+  const [returnPct, setReturnPct] = useState(10);
+
+  const result = useMemo(() => {
+    try {
+      return calculateSIP({
+        monthlyInvestment: monthly,
+        expectedReturnPct: returnPct,
+        tenureMonths: Math.round(years * 12),
+      });
+    } catch {
+      return null;
+    }
+  }, [monthly, returnPct, years]);
+
+  return (
+    <div className="rounded-xl border border-ink-200 bg-white p-5 sm:p-6 shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
+        <h2 className="font-display text-lg sm:text-xl font-semibold text-midnight-950">
+          Illustrate a monthly investment
+        </h2>
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-porcelain-100 text-midnight-900 border border-ink-200">
+          Hypothetical illustration
+        </span>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-12">
+        {/* Controls Column (7 cols) */}
+        <div className="space-y-5 lg:col-span-7">
+          <SliderControl
+            label="Monthly investment"
+            value={monthly}
+            min={product.minMonthly || 500}
+            max={100000}
+            step={500}
+            suffix="₹"
+            onChange={setMonthly}
+            hint={`Min. ${formatINRWhole(product.minMonthly || 500)}/mo`}
+          />
+
+          <SliderControl
+            label="Investment period"
+            value={years}
+            min={1}
+            max={30}
+            step={1}
+            suffix="years"
+            onChange={setYears}
+          />
+
+          <SliderControl
+            label="Assumed annual return"
+            value={returnPct}
+            min={1}
+            max={20}
+            step={0.5}
+            decimals={1}
+            suffix="% p.a."
+            onChange={setReturnPct}
+            hint="An assumption you choose for this illustration — not a rate the bank offers or expects."
+          />
+        </div>
+
+        {/* Results Column (5 cols) */}
+        <div className="flex flex-col justify-between rounded-xl border border-midnight-800 bg-midnight-900 p-5 text-porcelain-100 lg:col-span-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-gold-300">
+              Projected value (illustration only)
+            </p>
+            <p className="mt-1 font-display text-2xl sm:text-3xl font-bold text-porcelain-50">
+              {result ? formatINR(result.maturityValue) : '—'}
+            </p>
+            <p className="mt-1 text-xs text-porcelain-200/80 leading-relaxed">
+              What the deposits above would grow to IF markets returned exactly the assumed rate every year. They will not.
+            </p>
+
+            <dl className="mt-4 space-y-2 border-t border-porcelain-50/15 pt-3 text-xs">
+              <div className="flex items-center justify-between">
+                <dt className="text-porcelain-200/80">Total invested</dt>
+                <dd className="font-semibold text-porcelain-50 font-mono">
+                  {result ? formatINR(result.totalInvested) : '—'}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-porcelain-200/80">Estimated gain</dt>
+                <dd className="font-semibold text-emerald-300 font-mono">
+                  {result ? formatINR(result.estimatedGain) : '—'}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-porcelain-200/80">Horizon</dt>
+                <dd className="font-semibold text-porcelain-50 font-mono">{years} Years ({years * 12} mo)</dd>
+              </div>
+            </dl>
+          </div>
+
+          <div className="mt-5 border-t border-porcelain-50/15 pt-4">
+            <button
+              type="button"
+              onClick={() => onApplyWithFigures(product, { amount: monthly, tenure: String(years) })}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-porcelain-50 px-4 py-2.5 text-sm font-semibold text-midnight-950 transition-colors hover:bg-porcelain-200 cursor-pointer"
+            >
+              Apply with these figures <ArrowRight className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function SsyProductCalculator({ product, onApplyWithFigures }) {
+  const [yearly, setYearly] = useState(150000);
+
+  const minDep = product.minDepositYearly || 250;
+  const maxDep = product.maxDepositYearly || 150000;
+  const isOutOfRange = yearly < minDep || yearly > maxDep;
+
+  const result = useMemo(() => {
+    try {
+      return calculateSSY({
+        annualDeposit: yearly,
+        annualRatePct: product.rate || 8.05,
+        depositYears: product.depositYears || 15,
+        maturityYears: product.tenureYears || 21,
+        maxDepositPerYear: maxDep,
+      });
+    } catch {
+      return null;
+    }
+  }, [yearly, product.rate, product.depositYears, product.tenureYears, maxDep]);
+
+  return (
+    <div className="rounded-xl border border-ink-200 bg-white p-5 sm:p-6 shadow-xs">
+      <div className="flex flex-wrap items-center justify-between gap-2 mb-5">
+        <h2 className="font-display text-lg sm:text-xl font-semibold text-midnight-950">
+          Project this scheme
+        </h2>
+        <span className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-semibold bg-porcelain-100 text-midnight-900 border border-ink-200">
+          Government scheme · {product.rate.toFixed(2)}% p.a.
+        </span>
+      </div>
+
+      <div className="grid gap-6 lg:grid-cols-12">
+        {/* Controls Column (7 cols) */}
+        <div className="space-y-5 lg:col-span-7">
+          <SliderControl
+            label="Deposit per year"
+            value={yearly}
+            min={minDep}
+            max={maxDep}
+            step={250}
+            suffix="₹"
+            onChange={setYearly}
+            hint={`₹${formatINRWhole(minDep)} – ₹${formatINRWhole(maxDep)} / FY`}
+          />
+
+          {isOutOfRange && (
+            <div className="rounded-lg border border-warning-200 bg-warning-50 p-3 text-xs text-warning-800">
+              Scheme deposit limits are {formatINRWhole(minDep)} to {formatINRWhole(maxDep)} per financial year.
+            </div>
+          )}
+
+          <div className="rounded-lg border border-ink-100 bg-porcelain-50 px-4 py-3">
+            <p className="text-sm text-ink-700">
+              Interest rate used: <strong className="font-semibold text-midnight-900">{product.rate.toFixed(2)}% p.a.</strong>
+            </p>
+            <p className="mt-1 text-xs leading-relaxed text-ink-500">{product.rateNote}</p>
+          </div>
+        </div>
+
+        {/* Results Column (5 cols) */}
+        <div className="flex flex-col justify-between rounded-xl border border-midnight-800 bg-midnight-900 p-5 text-porcelain-100 lg:col-span-5">
+          <div>
+            <p className="text-xs font-semibold uppercase tracking-wider text-gold-300">
+              Maturity value at 21 years (projection)
+            </p>
+            <p className="mt-1 font-display text-2xl sm:text-3xl font-bold text-porcelain-50">
+              {result ? formatINR(result.maturityValue) : '—'}
+            </p>
+            <p className="mt-1 text-xs text-porcelain-200/80 leading-relaxed">
+              Projection at the illustrative rate above.
+            </p>
+
+            <dl className="mt-4 space-y-2 border-t border-porcelain-50/15 pt-3 text-xs">
+              <div className="flex items-center justify-between">
+                <dt className="text-porcelain-200/80">Deposit per year</dt>
+                <dd className="font-semibold text-porcelain-50 font-mono">
+                  {result ? formatINR(result.appliedAnnualDeposit) : '—'}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-porcelain-200/80">Total deposited ({product.depositYears || 15} yrs)</dt>
+                <dd className="font-semibold text-porcelain-50 font-mono">
+                  {result ? formatINR(result.totalDeposited) : '—'}
+                </dd>
+              </div>
+              <div className="flex items-center justify-between">
+                <dt className="text-porcelain-200/80">Interest earned (projected)</dt>
+                <dd className="font-semibold text-emerald-300 font-mono">
+                  {result ? formatINR(result.interestEarned) : '—'}
+                </dd>
+              </div>
+            </dl>
+          </div>
+
+          <div className="mt-5 border-t border-porcelain-50/15 pt-4">
+            <button
+              type="button"
+              onClick={() => onApplyWithFigures(product, { amount: yearly })}
+              className="w-full inline-flex items-center justify-center gap-2 rounded-lg bg-porcelain-50 px-4 py-2.5 text-sm font-semibold text-midnight-950 transition-colors hover:bg-porcelain-200 cursor-pointer"
+            >
+              Apply with these figures <ArrowRight className="h-4 w-4" aria-hidden />
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
+function MoreInvestmentsSection({ currentSlug }) {
+  const allInvestments = getProductsByCategory('investment');
+  const otherInvestments = allInvestments.filter((i) => i.slug !== currentSlug);
+
+  const getFactLine = (rel) => {
+    if (rel.kind === 'FD' && Array.isArray(rel.rateGrid) && rel.rateGrid.length > 0) {
+      const top = Math.max(...rel.rateGrid.map((r) => r.general));
+      return `Up to ${top.toFixed(2)}% p.a.`;
+    }
+    if (rel.kind === 'RD' && Array.isArray(rel.rateBands) && rel.rateBands.length > 0) {
+      const top = Math.max(...rel.rateBands.map((b) => b.rate));
+      return `Up to ${top.toFixed(2)}% p.a.`;
+    }
+    if (rel.kind === 'SIP') {
+      return `From ${formatINRWhole(rel.minMonthly)}/month · Market-linked`;
+    }
+    if (rel.kind === 'SSY' && rel.rate) {
+      return `${rel.rate.toFixed(2)}% p.a. · Government scheme`;
+    }
+    return '';
+  };
+
+  return (
+    <section aria-labelledby="related-investments-heading" className="mt-14 border-t border-ink-100 pt-10">
+      <h2 id="related-investments-heading" className="font-display text-2xl font-semibold text-midnight-950">
+        More investments
+      </h2>
+      <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
+        {otherInvestments.map((rel) => {
+          const cleanName = shortProductName(rel.name);
+          const fact = getFactLine(rel);
+          return (
+            <Link
+              key={rel.slug}
+              to={`/investments/${rel.slug}`}
+              className="group flex flex-col justify-between rounded-xl border border-ink-200 bg-white p-5 shadow-xs transition-all duration-200 hover:border-midnight-500 hover:shadow-md cursor-pointer"
+            >
+              <div>
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-porcelain-100 text-midnight-900 border border-ink-200 mb-2.5">
+                  Investment
+                </span>
+                <h3 className="font-display text-base font-semibold text-midnight-950 group-hover:text-midnight-700">
+                  {cleanName}
+                </h3>
+                <p className="mt-1.5 text-xs text-ink-600 line-clamp-2">
+                  {rel.tagline}
+                </p>
+              </div>
+              <div className="mt-5 pt-3 border-t border-ink-100 text-xs text-ink-600 font-medium flex items-center justify-between">
+                <span className="font-semibold text-midnight-950">{fact}</span>
+                <span className="inline-flex items-center gap-1 font-semibold text-midnight-800 group-hover:translate-x-0.5 transition-transform">
+                  View details <ArrowRight className="h-3.5 w-3.5" aria-hidden />
+                </span>
+              </div>
+            </Link>
+          );
+        })}
+      </div>
+    </section>
+  );
+}
+
+// ============================================================================
 // MAIN EXPORT: PRODUCT DETAIL PAGE
 // ============================================================================
 
 export default function ProductDetailPage({ category, categoryHint }) {
   const { slug } = useParams();
+  const [searchParams] = useSearchParams();
+  const queryAmount = searchParams.get('amount');
+  const queryCategory = searchParams.get('category');
   const [openFaq, setOpenFaq] = useState(0);
-  const [applyOpen, setApplyOpen] = useState(false);
+  const [applyOpen, setApplyOpen] = useState(() => searchParams.get('apply') === 'true');
   const product = getProductBySlug(slug);
   const isCard = product?.category === 'card';
   const isLoan = product?.category === 'loan';
+  const isInvestment = product?.category === 'investment';
+  const isFD = isInvestment && (product?.kind === 'FD' || product?.slug === 'fixed-deposit');
+  const isRD = isInvestment && (product?.kind === 'RD' || product?.slug === 'recurring-deposit');
+  const isSIP = isInvestment && (product?.kind === 'SIP' || product?.slug === 'systematic-investment-plan');
+  const isSSY = isInvestment && (product?.kind === 'SSY' || product?.slug === 'sukanya-samriddhi');
+
+  const [investmentApplyState, setInvestmentApplyState] = useState(() => {
+    if (searchParams.get('apply') === 'true' && product?.category === 'investment') {
+      return {
+        open: true,
+        product,
+        initialAmount: queryAmount ? Number(queryAmount) : undefined,
+        initialCategory: queryCategory || undefined,
+      };
+    }
+    return null;
+  });
+
+  const handleOpenInvestmentApply = (prod) => {
+    setInvestmentApplyState({ open: true, product: prod || product });
+  };
+
+  const handleOpenInvestmentApplyWithFigures = (prod, figures) => {
+    setInvestmentApplyState({
+      open: true,
+      product: prod || product,
+      initialAmount: figures?.amount,
+      initialTenure: figures?.tenure,
+      initialCategory: figures?.category,
+    });
+  };
   const rawCat = (category || categoryHint || product?.category || 'accounts').toLowerCase();
   const meta =
     CATEGORY_MAP[rawCat] ||
@@ -1530,7 +2218,7 @@ export default function ProductDetailPage({ category, categoryHint }) {
 
             {/* Right side: 3D interactive tilt card (hero setting ±12° + glare + shifting shadow) */}
             <div className="w-full sm:w-[320px] lg:w-[360px] shrink-0 flex justify-center">
-              <TiltCard maxTilt={12} perspective={900}>
+              <TiltCard maxTilt={12} perspective={900} sweepKey={product.slug}>
                 <CardVisual card={product} shadow={false} />
               </TiltCard>
             </div>
@@ -1645,6 +2333,8 @@ export default function ProductDetailPage({ category, categoryHint }) {
                   </div>
                 </section>
               )}
+
+              {product.lifePhoto && <LifePhoto photo={product.lifePhoto} />}
 
               <p className="text-xs leading-relaxed text-ink-500 mt-6">{RATE_DISCLAIMER}</p>
             </div>
@@ -1915,6 +2605,8 @@ export default function ProductDetailPage({ category, categoryHint }) {
                 </section>
               )}
 
+              {product.lifePhoto && <LifePhoto photo={product.lifePhoto} />}
+
               <p className="text-xs leading-relaxed text-ink-500 mt-6">{RATE_DISCLAIMER}</p>
             </div>
 
@@ -2045,6 +2737,246 @@ export default function ProductDetailPage({ category, categoryHint }) {
 
         {/* Application Modal (Module 17 + Module 18 amendments) */}
         {applyOpen && <ApplyModal open={applyOpen} product={product} onClose={() => setApplyOpen(false)} />}
+      </div>
+    );
+  }
+
+  // ==========================================================================
+  // INVESTMENT DETAIL PRESENTATION (MODULE 24 - FIXES 1-7)
+  // ==========================================================================
+  if (isInvestment) {
+    return (
+      <div className="mx-auto w-full max-w-7xl px-4 py-8 sm:px-6 lg:py-10">
+        {/* Breadcrumb */}
+        <Link to="/investments" className="inline-flex items-center gap-1.5 text-sm font-medium text-midnight-800 hover:text-midnight-600 mb-4">
+          <ArrowLeft className="h-4 w-4" aria-hidden /> All investments
+        </Link>
+
+        {/* Fix 5: Compressed midnight hero panel */}
+        <div className="rounded-2xl border border-midnight-800 bg-midnight-900 px-6 py-5 sm:px-7 sm:py-5.5 text-porcelain-50 shadow-lg">
+          {/* Eyebrow chip */}
+          <div className="flex items-center gap-2.5 mb-2">
+            {product.riskClass === 'guaranteed' ? (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-success-600/40 bg-midnight-800 px-2.5 py-0.5 text-xs font-semibold text-porcelain-100">
+                <ShieldCheck className="h-3.5 w-3.5" aria-hidden /> Guaranteed
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 rounded-full border border-warning-600/40 bg-midnight-800 px-2.5 py-0.5 text-xs font-semibold text-porcelain-100">
+                <AlertTriangle className="h-3.5 w-3.5" aria-hidden /> Market-linked — not guaranteed
+              </span>
+            )}
+            <span className="text-xs font-medium text-porcelain-300">
+              Investment · {isFD ? 'Fixed Deposit' : isRD ? 'Recurring Deposit' : isSSY ? 'Government scheme' : 'Mutual funds'}
+            </span>
+          </div>
+
+          {/* Fix 3: H1 without FinEdge prefix */}
+          <div className="flex flex-wrap items-end justify-between gap-4">
+            <div className="min-w-0 max-w-2xl">
+              <h1 className="font-display text-2xl sm:text-3xl font-semibold leading-tight text-porcelain-50">
+                {shortProductName(product.name)}
+              </h1>
+              <p className="mt-1 text-sm sm:text-base leading-relaxed text-porcelain-200">
+                {product.tagline}
+              </p>
+            </div>
+            <Button
+              variant="primary"
+              size="md"
+              onClick={() => handleOpenInvestmentApply(product)}
+              className="shrink-0 bg-midnight-800 text-porcelain-50 border border-gold-500/40 hover:bg-midnight-700 font-semibold"
+            >
+              Apply now <ArrowRight className="h-4 w-4 ml-1.5 inline" aria-hidden />
+            </Button>
+          </div>
+
+          {/* Fix 4: Completed hero stat rows from data */}
+          {stats.length > 0 && (
+            <dl className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-porcelain-50/15 pt-3.5">
+              {stats.map((s) => (
+                <div key={s.label}>
+                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-porcelain-300">{s.label}</dt>
+                  <dd className="mt-0.5 text-sm sm:text-base font-semibold text-porcelain-50 font-mono">{s.value}</dd>
+                </div>
+              ))}
+            </dl>
+          )}
+        </div>
+
+        {/* SIP market-risk banner directly under hero */}
+        {isSIP && product.disclosure && (
+          <div className="mt-5 flex items-start gap-2.5 rounded-lg border border-warning-600/30 bg-warning-50 px-4 py-3 text-sm leading-relaxed text-warning-700" role="note">
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-warning-600" aria-hidden />
+            <span>{product.disclosure}</span>
+          </div>
+        )}
+
+        {/* Content Layout: Main column + Sticky rail (mobile stacks rail after calculator) */}
+        <div className="mt-8 grid gap-8 lg:grid-cols-3">
+          {/* Fix 1: One calculator per product at the top of main column */}
+          <div className="min-w-0 lg:col-span-2 order-1">
+            {isFD && <FdProductCalculator product={product} onApplyWithFigures={handleOpenInvestmentApplyWithFigures} />}
+            {isRD && <RdProductCalculator product={product} onApplyWithFigures={handleOpenInvestmentApplyWithFigures} />}
+            {isSIP && <SipProductCalculator product={product} onApplyWithFigures={handleOpenInvestmentApplyWithFigures} />}
+            {isSSY && <SsyProductCalculator product={product} onApplyWithFigures={handleOpenInvestmentApplyWithFigures} />}
+          </div>
+
+          {/* Fix 5: Sticky right rail on desktop, stacked after calculator on mobile */}
+          <div className="min-w-0 lg:col-span-1 order-2 lg:order-none lg:row-span-2">
+            <div className="sticky top-24 space-y-5">
+              {/* Who can apply */}
+              <Card className="p-5 shadow-xs border-ink-200">
+                <h2 className="font-display text-base font-semibold text-midnight-950 mb-3">Who can apply</h2>
+                <Eligibility product={product} compact />
+              </Card>
+
+              {/* Apply button */}
+              <Button
+                variant="primary"
+                onClick={() => handleOpenInvestmentApply(product)}
+                className="w-full bg-midnight-900 text-porcelain-50 hover:bg-midnight-800 h-11 text-sm font-semibold shadow-xs"
+              >
+                Apply for this investment <ArrowRight className="h-4 w-4 ml-1.5 inline" aria-hidden />
+              </Button>
+
+              {/* Documents required */}
+              {Array.isArray(product.documents) && product.documents.length > 0 && (
+                <Card className="p-5 shadow-xs border-ink-200">
+                  <h2 className="font-display text-base font-semibold text-midnight-950 mb-3">Documents required</h2>
+                  <ul className="space-y-2">
+                    {product.documents.map((doc) => (
+                      <li key={doc} className="flex gap-2 text-xs leading-relaxed text-ink-700">
+                        <FileText className="mt-0.5 h-3.5 w-3.5 shrink-0 text-midnight-700" aria-hidden />
+                        <span>{doc}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </Card>
+              )}
+
+              {/* How to apply */}
+              <Card className="p-5 shadow-xs border-ink-200">
+                <h2 className="font-display text-base font-semibold text-midnight-950 mb-3">How to apply</h2>
+                <ol className="space-y-3">
+                  {steps.map((step, i) => (
+                    <li key={step} className="flex gap-2.5">
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-midnight-900 text-[11px] font-bold text-porcelain-50" aria-hidden>
+                        {i + 1}
+                      </span>
+                      <span className="text-xs leading-relaxed text-ink-700">{step}</span>
+                    </li>
+                  ))}
+                </ol>
+              </Card>
+            </div>
+          </div>
+
+          {/* Main content body (Overview, Rates, Features, FAQs, Disclosures) */}
+          <div className="min-w-0 lg:col-span-2 order-3 lg:order-none space-y-10">
+            {/* Overview */}
+            <section aria-labelledby="inv-overview-heading">
+              <h2 id="inv-overview-heading" className="font-display text-2xl font-semibold text-midnight-950">
+                Overview
+              </h2>
+              <p className="mt-3 text-[15px] leading-relaxed text-ink-700">{product.overview || '—'}</p>
+            </section>
+
+            {/* Rates & terms */}
+            <section aria-labelledby="inv-rates-heading">
+              <h2 id="inv-rates-heading" className="font-display text-2xl font-semibold text-midnight-950">
+                {rateTitle}
+              </h2>
+              <div className="mt-4">
+                <RateSection product={product} />
+              </div>
+              {isSIP && (
+                <p className="mt-3 text-sm leading-relaxed text-ink-600">
+                  No rate is published for SIP because returns are market-linked and cannot be assured. Historical
+                  performance of any scheme is not a guide to future returns.
+                </p>
+              )}
+            </section>
+
+            {/* Key features */}
+            {Array.isArray(featureList) && featureList.length > 0 && (
+              <section aria-labelledby="inv-features-heading">
+                <h2 id="inv-features-heading" className="font-display text-2xl font-semibold text-midnight-950">
+                  Key features
+                </h2>
+                <ul className="mt-4 grid gap-3 sm:grid-cols-2">
+                  {featureList.map((f) => (
+                    <li key={f} className="flex gap-2.5 rounded-lg border border-ink-100 bg-white px-4 py-3 text-sm leading-relaxed text-ink-700">
+                      <Check className="mt-0.5 h-4 w-4 shrink-0 text-midnight-700" aria-hidden />
+                      {f}
+                    </li>
+                  ))}
+                </ul>
+              </section>
+            )}
+
+            {/* FAQs */}
+            {faqs.length > 0 && (
+              <section aria-labelledby="inv-faq-heading">
+                <h2 id="inv-faq-heading" className="font-display text-2xl font-semibold text-midnight-950">
+                  Frequently asked questions
+                </h2>
+                <div className="mt-4 divide-y divide-ink-100 rounded-xl border border-ink-100 bg-white shadow-xs">
+                  {faqs.map((faq, i) => {
+                    const open = openFaq === i;
+                    return (
+                      <div key={faq.question}>
+                        <button
+                          type="button"
+                          aria-expanded={open}
+                          onClick={() => setOpenFaq(open ? -1 : i)}
+                          className="flex w-full items-center justify-between gap-3 px-5 py-4 text-left text-sm font-semibold text-ink-900 hover:text-midnight-800 cursor-pointer"
+                        >
+                          <span>{faq.question}</span>
+                          <ChevronDown className={`h-4 w-4 shrink-0 text-ink-400 transition-transform ${open ? 'rotate-180' : ''}`} aria-hidden />
+                        </button>
+                        {open && <p className="px-5 pb-4 text-sm leading-relaxed text-ink-600">{faq.answer}</p>}
+                      </div>
+                    );
+                  })}
+                </div>
+              </section>
+            )}
+
+            {/* Fix 6: Disclosures with deposit insurance line for FD/RD */}
+            {product.disclosure && !isSIP && (
+              <div className="flex items-start gap-2.5 rounded-lg border border-midnight-200 bg-midnight-50 px-4 py-3 text-sm leading-relaxed text-midnight-900" role="note">
+                <Info className="mt-0.5 h-4 w-4 shrink-0 text-midnight-700" aria-hidden />
+                <div className="space-y-1.5">
+                  <p>{product.disclosure}</p>
+                  {(isFD || isRD) && (
+                    <p className="text-xs leading-relaxed text-midnight-800">
+                      Deposits insured by DICGC up to ₹5,00,000 per depositor per bank, modelled on those norms.
+                    </p>
+                  )}
+                </div>
+              </div>
+            )}
+
+            {product.lifePhoto && <LifePhoto photo={product.lifePhoto} />}
+
+            <p className="text-xs leading-relaxed text-ink-500 mt-6">{RATE_DISCLAIMER}</p>
+          </div>
+        </div>
+
+        {/* Fix 5: More investments section (self-excluding, fact lines, no brand prefix) */}
+        <MoreInvestmentsSection currentSlug={product.slug} />
+
+        {/* Fix 7: Apply Modal for this product */}
+        {investmentApplyState?.open && (
+          <ApplyModal
+            open={investmentApplyState.open}
+            product={investmentApplyState.product || product}
+            initialAmount={investmentApplyState.initialAmount}
+            initialTenure={investmentApplyState.initialTenure}
+            initialCategory={investmentApplyState.initialCategory}
+            onClose={() => setInvestmentApplyState(null)}
+          />
+        )}
       </div>
     );
   }
@@ -2204,6 +3136,8 @@ export default function ProductDetailPage({ category, categoryHint }) {
             </div>
           )}
 
+          {product.lifePhoto && <LifePhoto photo={product.lifePhoto} />}
+
           <p className="text-xs leading-relaxed text-ink-500">{RATE_DISCLAIMER}</p>
         </div>
 
@@ -2273,7 +3207,15 @@ export default function ProductDetailPage({ category, categoryHint }) {
         </section>
       )}
 
-      {applyOpen && <ApplyModal open={applyOpen} product={product} onClose={() => setApplyOpen(false)} />}
+      {applyOpen && (
+        <ApplyModal
+          open={applyOpen}
+          product={product}
+          initialAmount={queryAmount ? Number(queryAmount) : undefined}
+          initialCategory={queryCategory || undefined}
+          onClose={() => setApplyOpen(false)}
+        />
+      )}
     </div>
   );
 }

@@ -1,4 +1,5 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
+import { Link } from "react-router-dom";
 import {
   CircleCheck,
   Headset,
@@ -10,6 +11,10 @@ import {
   TriangleAlert,
 } from "lucide-react";
 import LegalLayout, { LegalSection, LegalTable } from "./LegalLayout";
+import { useAuth } from "../../context/AuthContext";
+import { BRAND } from "../../data/products";
+import { SUPPORT_CATEGORIES, getCategoryLabel } from "../../data/supportCategories";
+import { raiseTicket } from "../../services/portalBridge";
 
 const SECTIONS = [
   { id: "before-you-escalate", label: "Before you escalate" },
@@ -17,18 +22,6 @@ const SECTIONS = [
   { id: "timelines", label: "Timelines at a glance" },
   { id: "raise-complaint", label: "Raise a complaint now" },
   { id: "ombudsman", label: "The Banking Ombudsman" },
-];
-
-const CATEGORIES = [
-  "Account & Statements",
-  "Payments & Transfers",
-  "Cards",
-  "Loans",
-  "Digital Banking Access",
-  "Charges & Fees",
-  "Staff Conduct",
-  "Privacy & Data",
-  "Other",
 ];
 
 const LEVELS = [
@@ -62,57 +55,35 @@ const LEVELS = [
   },
 ];
 
-/** Local persistence used until the shared api layer lands (see seam). */
-function persistComplaintLocally(complaint) {
-  const KEY = "finedge.complaints.v1";
-  let existing = [];
-  try {
-    existing = JSON.parse(window.localStorage.getItem(KEY) || "[]");
-  } catch {
-    existing = [];
-  }
-  const reference = `CMP-${new Date().getFullYear()}-${String(
-    existing.length + 1
-  ).padStart(4, "0")}`;
-  const record = {
-    ...complaint,
-    reference,
-    level: 1,
-    status: "OPEN",
-    createdAt: new Date().toISOString(),
-  };
-  try {
-    window.localStorage.setItem(KEY, JSON.stringify([...existing, record]));
-  } catch {
-    /* storage unavailable — the reference is still issued for this demo */
-  }
-  return { reference };
-}
+export default function GrievanceRedressal() {
+  const { user } = useAuth();
 
-/**
- * GrievanceRedressal — escalation structure + a working complaint form.
- *
- * ── SEAM (coordinator): pass `onComplaintSubmit` to route submissions
- *    into the api layer (the support-ticket function in src/api) once it
- *    exists, so complaints raised here appear in the staff support queue
- *    and the customer's My Requests. Until then the form persists the
- *    complaint locally (localStorage, same convention as the demo store)
- *    and issues a real reference the customer can quote at Level 1.
- */
-export default function GrievanceRedressal({ onComplaintSubmit }) {
   const [form, setForm] = useState({
-    fullName: "",
-    email: "",
-    mobile: "",
+    fullName: user?.name || user?.fullName || "",
+    email: user?.email || "",
+    mobile: user?.phone || user?.mobile || "",
     accountRef: "",
     category: "",
     subject: "",
     description: "",
     consent: false,
   });
+
+  useEffect(() => {
+    if (user) {
+      setForm((f) => ({
+        ...f,
+        fullName: f.fullName || user.name || user.fullName || "",
+        email: f.email || user.email || "",
+        mobile: f.mobile || user.phone || user.mobile || "",
+      }));
+    }
+  }, [user]);
+
   const [errors, setErrors] = useState({});
   const [status, setStatus] = useState("idle"); // idle | submitting | submitted | error
   const [reference, setReference] = useState("");
+  const [errorMessage, setErrorMessage] = useState("");
 
   const set = (key) => (e) => {
     const value =
@@ -145,31 +116,53 @@ export default function GrievanceRedressal({ onComplaintSubmit }) {
     e.preventDefault();
     if (!validate()) return;
     setStatus("submitting");
-    const complaint = {
-      fullName: form.fullName.trim(),
-      email: form.email.trim(),
-      mobile: form.mobile.replace(/\s/g, ""),
-      accountRef: form.accountRef.trim(),
-      category: form.category,
-      subject: form.subject.trim(),
-      description: form.description.trim(),
-      source: "grievance-page",
-    };
+    setErrorMessage("");
+
     try {
-      const result =
-        typeof onComplaintSubmit === "function"
-          ? await onComplaintSubmit(complaint)
-          : persistComplaintLocally(complaint);
-      setReference(result?.reference || "Issued at submission");
+      const ticket = await raiseTicket(user?.customerId || null, {
+        customerId: user?.customerId || null,
+        fullName: form.fullName.trim(),
+        customerName: form.fullName.trim(),
+        email: form.email.trim(),
+        customerEmail: form.email.trim(),
+        mobile: form.mobile.replace(/\s/g, ""),
+        customerMobile: form.mobile.replace(/\s/g, ""),
+        accountRef: form.accountRef.trim(),
+        category: form.category,
+        subject: form.subject.trim(),
+        description: form.description.trim(),
+        source: "public-grievance",
+      });
+
+      const issuedRef = ticket?.id || ticket?.ticketId || "TCK-RECORDED";
+      setReference(issuedRef);
       setStatus("submitted");
-    } catch {
+    } catch (err) {
+      setErrorMessage(err?.message || "We could not record your complaint just now.");
       setStatus("error");
     }
   }
 
+  const handleReset = () => {
+    setForm({
+      fullName: user?.name || user?.fullName || "",
+      email: user?.email || "",
+      mobile: user?.phone || user?.mobile || "",
+      accountRef: "",
+      category: "",
+      subject: "",
+      description: "",
+      consent: false,
+    });
+    setErrors({});
+    setStatus("idle");
+    setReference("");
+    setErrorMessage("");
+  };
+
   const inputCls = (hasError) =>
     `w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-ink-900 placeholder:text-ink-400 ${
-      hasError ? "border-danger-600" : "border-ink-300"
+      hasError ? "border-danger-600 ring-1 ring-danger-600" : "border-ink-300 focus:border-midnight-800 focus:ring-1 focus:ring-midnight-800"
     }`;
 
   return (
@@ -188,24 +181,34 @@ export default function GrievanceRedressal({ onComplaintSubmit }) {
           the app and call customer care immediately. Speed matters more
           than sequence when money is at risk.
         </p>
-        <p className="flex flex-wrap gap-x-6 gap-y-2">
-          <span className="inline-flex items-center gap-2">
-            <Phone className="h-4 w-4 text-midnight-700" aria-hidden /> Customer
-            care numbers are listed on the Support page
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <Mail className="h-4 w-4 text-midnight-700" aria-hidden /> Written
-            complaints are accepted at every branch
-          </span>
+        <p className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-2">
+          <a
+            href="tel:18002674100"
+            className="inline-flex items-center gap-2 font-medium text-midnight-900 hover:text-gold-700 transition-colors"
+          >
+            <Phone className="h-4 w-4 text-midnight-700" aria-hidden />
+            <span>Toll-free 1800 267 4100 (Mon–Sat, 9 AM–7 PM IST)</span>
+          </a>
+          <a
+            href={`mailto:${BRAND.support.email}`}
+            className="inline-flex items-center gap-2 font-medium text-midnight-900 hover:text-gold-700 transition-colors"
+          >
+            <Mail className="h-4 w-4 text-midnight-700" aria-hidden />
+            <span>{BRAND.support.email}</span>
+          </a>
         </p>
       </LegalSection>
 
       <LegalSection id="levels" title="2. The four levels">
         <div className="space-y-4">
-          {LEVELS.map((level) => (
+          {LEVELS.map((level, idx) => (
             <div
               key={level.n}
-              className="flex gap-4 rounded-card border border-ink-200 bg-porcelain-50 p-4 shadow-card"
+              style={{
+                animationDelay: `${idx * 70}ms`,
+                transitionDelay: `${idx * 70}ms`,
+              }}
+              className="reveal-schedule-row flex gap-4 rounded-card border border-ink-200 bg-porcelain-50 p-4 shadow-card transition-all duration-200 hover:border-midnight-300"
             >
               <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-midnight-800 text-porcelain-50">
                 <level.icon className="h-5 w-5" aria-hidden />
@@ -277,46 +280,92 @@ export default function GrievanceRedressal({ onComplaintSubmit }) {
           pulls up the whole case.
         </p>
 
+        {/* Placement B — Level 1 Support Team Photograph (Module 33) */}
+        <figure className="mt-4 mb-5 overflow-hidden rounded-2xl border border-ink-100 bg-white shadow-xs">
+          <div className="relative aspect-[16/9] w-full overflow-hidden bg-porcelain-100">
+            <picture>
+              <source
+                type="image/webp"
+                srcSet="/images/grievance-support-400.webp 400w, /images/grievance-support-800.webp 800w, /images/grievance-support-1200.webp 1200w, /images/grievance-support-1600.webp 1600w"
+                sizes="(min-width: 1024px) 760px, 100vw"
+              />
+              <img
+                src="/images/grievance-support-1200.webp"
+                alt="FinEdge Bank Level 1 customer support operations team assisting customers at workstations"
+                width="1200"
+                height="675"
+                loading="lazy"
+                decoding="async"
+                className="h-full w-full object-cover object-center"
+              />
+            </picture>
+          </div>
+          <figcaption className="px-4 py-2.5 text-xs text-ink-600 bg-porcelain-50 border-t border-ink-100 font-medium">
+            The people who read your complaint — Level 1 support, FinEdge Bank.
+          </figcaption>
+        </figure>
+
         {status === "submitted" ? (
-          <div className="mt-4 rounded-card border border-success-600/40 bg-success-50 p-5">
+          <div className="animate-calc-fade-rise mt-4 rounded-card border border-success-600/40 bg-success-50 p-5">
             <div className="flex gap-3">
               <CircleCheck
                 className="mt-0.5 h-6 w-6 shrink-0 text-success-600"
                 aria-hidden
               />
-              <div>
+              <div className="space-y-3">
                 <h3 className="text-base font-semibold text-ink-900">
-                  Complaint recorded
+                  Complaint recorded — Level 1
                 </h3>
-                <p className="mt-1 text-sm leading-6 text-ink-700">
+                <p className="text-sm leading-6 text-ink-700">
                   Your reference is{" "}
-                  <strong className="tnum text-ink-900">{reference}</strong>.
-                  A Level 1 acknowledgement has been issued, our resolution
+                  <strong className="tnum font-bold text-midnight-950 underline decoration-gold-500 underline-offset-2">
+                    {reference}
+                  </strong>
+                  . A Level 1 acknowledgement has been issued, our resolution
                   target is 7 working days, and updates will go to the email
                   and mobile you provided. If we have not resolved it within
                   30 days, you may approach the Banking Ombudsman (section
                   5) — no further step with us is required first.
                 </p>
-                <button
-                  type="button"
-                  onClick={() => {
-                    setForm({
-                      fullName: "",
-                      email: "",
-                      mobile: "",
-                      accountRef: "",
-                      category: "",
-                      subject: "",
-                      description: "",
-                      consent: false,
-                    });
-                    setStatus("idle");
-                    setReference("");
-                  }}
-                  className="mt-4 rounded-lg border border-midnight-700 px-4 py-2 text-sm font-semibold text-midnight-800 transition-colors hover:bg-midnight-50"
-                >
-                  Raise another complaint
-                </button>
+
+                {user ? (
+                  <p className="rounded-lg bg-white/70 p-3 text-xs leading-5 text-ink-800 border border-success-200">
+                    Because you are signed in as{" "}
+                    <strong>{user.name || user.fullName || "Customer"}</strong>,
+                    this request has been linked to your account. You can track
+                    responses and reply to staff directly in{" "}
+                    <Link
+                      to="/portal/support"
+                      className="font-semibold text-midnight-900 underline hover:text-gold-700"
+                    >
+                      My Requests
+                    </Link>
+                    .
+                  </p>
+                ) : (
+                  <p className="rounded-lg bg-white/70 p-3 text-xs leading-5 text-ink-800 border border-success-200">
+                    Quote reference <strong>{reference}</strong> when contacting
+                    customer care or visiting a branch. If you hold a FinEdge
+                    account, you can also{" "}
+                    <Link
+                      to="/portal/login"
+                      className="font-semibold text-midnight-900 underline hover:text-gold-700"
+                    >
+                      sign in to your portal
+                    </Link>{" "}
+                    to track this complaint online.
+                  </p>
+                )}
+
+                <div className="pt-1">
+                  <button
+                    type="button"
+                    onClick={handleReset}
+                    className="rounded-lg border border-midnight-700 bg-white px-4 py-2 text-sm font-semibold text-midnight-800 transition-colors hover:bg-midnight-50 shadow-xs"
+                  >
+                    Raise another complaint
+                  </button>
+                </div>
               </div>
             </div>
           </div>
@@ -333,16 +382,18 @@ export default function GrievanceRedressal({ onComplaintSubmit }) {
                   aria-hidden
                 />
                 <p className="text-sm leading-6 text-ink-700">
-                  We could not record your complaint just now and nothing was
-                  submitted. Your text is still in the form — please try
-                  again, or raise it through customer care or any branch.
+                  {errorMessage ||
+                    "We could not record your complaint just now and nothing was submitted. Your text is still in the form — please try again, or raise it through customer care or any branch."}
                 </p>
               </div>
             ) : null}
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="grv-name" className="mb-1.5 block text-sm font-medium text-ink-900">
+                <label
+                  htmlFor="grv-name"
+                  className="mb-1.5 block text-sm font-medium text-ink-900"
+                >
                   Full name
                 </label>
                 <input
@@ -359,7 +410,10 @@ export default function GrievanceRedressal({ onComplaintSubmit }) {
                 ) : null}
               </div>
               <div>
-                <label htmlFor="grv-mobile" className="mb-1.5 block text-sm font-medium text-ink-900">
+                <label
+                  htmlFor="grv-mobile"
+                  className="mb-1.5 block text-sm font-medium text-ink-900"
+                >
                   Mobile number
                 </label>
                 <input
@@ -380,7 +434,10 @@ export default function GrievanceRedressal({ onComplaintSubmit }) {
 
             <div className="grid gap-4 sm:grid-cols-2">
               <div>
-                <label htmlFor="grv-email" className="mb-1.5 block text-sm font-medium text-ink-900">
+                <label
+                  htmlFor="grv-email"
+                  className="mb-1.5 block text-sm font-medium text-ink-900"
+                >
                   Email address
                 </label>
                 <input
@@ -397,9 +454,12 @@ export default function GrievanceRedressal({ onComplaintSubmit }) {
                 ) : null}
               </div>
               <div>
-                <label htmlFor="grv-account" className="mb-1.5 block text-sm font-medium text-ink-900">
+                <label
+                  htmlFor="grv-account"
+                  className="mb-1.5 block text-sm font-medium text-ink-900"
+                >
                   Account / card number{" "}
-                  <span className="font-normal text-ink-500">(optional, last 4 digits are enough)</span>
+                  <span className="font-normal text-ink-500">(optional)</span>
                 </label>
                 <input
                   id="grv-account"
@@ -409,11 +469,17 @@ export default function GrievanceRedressal({ onComplaintSubmit }) {
                   placeholder="e.g. …4821"
                   className={inputCls(false)}
                 />
+                <p className="mt-1 text-xs text-ink-500">
+                  Last 4 digits are enough
+                </p>
               </div>
             </div>
 
             <div>
-              <label htmlFor="grv-category" className="mb-1.5 block text-sm font-medium text-ink-900">
+              <label
+                htmlFor="grv-category"
+                className="mb-1.5 block text-sm font-medium text-ink-900"
+              >
                 Category
               </label>
               <select
@@ -423,9 +489,9 @@ export default function GrievanceRedressal({ onComplaintSubmit }) {
                 className={inputCls(errors.category)}
               >
                 <option value="">Select a category</option>
-                {CATEGORIES.map((c) => (
-                  <option key={c} value={c}>
-                    {c}
+                {SUPPORT_CATEGORIES.map((c) => (
+                  <option key={c.code} value={c.label}>
+                    {c.label}
                   </option>
                 ))}
               </select>
@@ -435,7 +501,10 @@ export default function GrievanceRedressal({ onComplaintSubmit }) {
             </div>
 
             <div>
-              <label htmlFor="grv-subject" className="mb-1.5 block text-sm font-medium text-ink-900">
+              <label
+                htmlFor="grv-subject"
+                className="mb-1.5 block text-sm font-medium text-ink-900"
+              >
                 Subject
               </label>
               <input
@@ -452,7 +521,10 @@ export default function GrievanceRedressal({ onComplaintSubmit }) {
             </div>
 
             <div>
-              <label htmlFor="grv-desc" className="mb-1.5 block text-sm font-medium text-ink-900">
+              <label
+                htmlFor="grv-desc"
+                className="mb-1.5 block text-sm font-medium text-ink-900"
+              >
                 What happened
               </label>
               <textarea
@@ -464,7 +536,9 @@ export default function GrievanceRedressal({ onComplaintSubmit }) {
                 className={inputCls(errors.description)}
               />
               {errors.description ? (
-                <p className="mt-1 text-xs text-danger-600">{errors.description}</p>
+                <p className="mt-1 text-xs text-danger-600">
+                  {errors.description}
+                </p>
               ) : null}
             </div>
 
@@ -490,7 +564,7 @@ export default function GrievanceRedressal({ onComplaintSubmit }) {
             <button
               type="submit"
               disabled={status === "submitting"}
-              className="rounded-lg bg-midnight-800 px-5 py-2.5 text-sm font-semibold text-porcelain-50 transition-colors hover:bg-midnight-700 disabled:cursor-not-allowed disabled:opacity-60"
+              className="rounded-lg bg-midnight-800 px-5 py-2.5 text-sm font-semibold text-porcelain-50 transition-colors hover:bg-midnight-700 disabled:cursor-not-allowed disabled:opacity-60 shadow-xs"
             >
               {status === "submitting"
                 ? "Recording your complaint…"

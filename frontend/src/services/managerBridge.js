@@ -184,6 +184,66 @@ export async function disburseLoan(appId, { actor = 'Branch Manager' }) {
   return app;
 }
 
+export async function listInvestmentApplications({ status, query } = {}) {
+  const db = getDb();
+  let list = db.investmentApplications || [];
+  if (status && status !== 'ALL') {
+    list = list.filter(i => (i.status || '').toUpperCase() === status.toUpperCase());
+  }
+  if (query) {
+    const q = query.toLowerCase();
+    list = list.filter(i =>
+      (i.productName || '').toLowerCase().includes(q) ||
+      (i.kind || '').toLowerCase().includes(q) ||
+      (i.applicant?.fullName || i.applicantName || i.fullName || '').toLowerCase().includes(q) ||
+      (i.applicationId || i.id || '').toLowerCase().includes(q)
+    );
+  }
+  return list;
+}
+
+export async function decideInvestmentApplication(appId, { decision, reasonCode, note, actor = 'Branch Manager' }) {
+  const db = getDb();
+  const app = (db.investmentApplications || []).find(i => (i.applicationId || i.id) === appId);
+  if (app) {
+    app.status = decision === 'APPROVED' ? 'APPROVED' : 'REJECTED';
+    app.decisionReason = note || reasonCode;
+    app.decidedBy = actor;
+    app.decidedAt = new Date().toISOString();
+    if (Array.isArray(app.steps)) {
+      app.steps = app.steps.map(s => {
+        if (decision === 'APPROVED') {
+          if (s.key === 'VERIFICATION') return { ...s, state: 'COMPLETE', date: new Date().toISOString() };
+          if (s.key === 'APPROVED') return { ...s, state: 'COMPLETE', date: new Date().toISOString() };
+          if (s.key === 'BOOKED') return { ...s, state: 'CURRENT' };
+        } else {
+          if (s.key === 'VERIFICATION') return { ...s, state: 'COMPLETE', date: new Date().toISOString() };
+          if (s.key === 'APPROVED') return { ...s, state: 'REJECTED', label: 'Rejected' };
+        }
+        return s;
+      });
+    }
+    saveDb(db);
+    appendAuditLog('manager@finedge.bank', 'BRANCH_MANAGER', `INVESTMENT_${decision}`, appId, 'SUCCESS', note || reasonCode);
+  }
+  return app;
+}
+
+export async function bookInvestmentApplication(appId, { actor = 'Branch Manager' } = {}) {
+  const db = getDb();
+  const app = (db.investmentApplications || []).find(i => (i.applicationId || i.id) === appId);
+  if (app) {
+    app.status = 'BOOKED';
+    app.bookedAt = new Date().toISOString();
+    if (Array.isArray(app.steps)) {
+      app.steps = app.steps.map(s => (s.key === 'BOOKED' ? { ...s, state: 'COMPLETE', date: new Date().toISOString() } : s));
+    }
+    saveDb(db);
+    appendAuditLog('manager@finedge.bank', 'BRANCH_MANAGER', 'INVESTMENT_BOOKED', appId, 'SUCCESS', 'Investment booked in core ledger');
+  }
+  return app;
+}
+
 export async function listStaff() {
   const res = await managerService.getStaffUsers();
   return Array.isArray(res) ? res : res?.data || [];
@@ -248,32 +308,58 @@ export async function listMyDecisions(actorName, limit = 10) {
 
 export async function listAllTickets() {
   const db = getDb();
-  return db.supportTickets || [];
+  const customers = db.customers || [];
+  return (db.supportTickets || []).map(t => {
+    const cust = customers.find(c => c.customerId === t.customerId || c.id === t.customerId);
+    const fullName = t.customerName || t.fullName || cust?.fullName || cust?.name || (t.customerId === 'guest' || !t.customerId ? 'Guest Visitor' : t.customerId);
+    return {
+      ...t,
+      id: t.id || t.ticketId,
+      ticketId: t.ticketId || t.id,
+      customer: {
+        fullName: t.customer?.fullName || fullName,
+        email: t.customerEmail || t.email || cust?.email || '',
+        mobile: t.customerMobile || t.mobile || cust?.phone || cust?.mobileNumber || '',
+      }
+    };
+  });
 }
 
-export async function replyTicket(ticketId, { message, actor = 'Ops Officer' }) {
+export async function replyTicket(ticketId, payload = {}) {
+  const content = (payload.body || payload.message || payload.text || '').trim();
+  const actor = payload.actor || 'Ops Officer';
+  const from = payload.from || 'STAFF';
+  const now = new Date().toISOString();
   const db = getDb();
   const t = (db.supportTickets || []).find(tk => (tk.ticketId || tk.id) === ticketId);
   if (t) {
     if (!t.messages) t.messages = [];
     t.messages.push({
+      from,
       sender: actor,
       senderType: 'STAFF',
-      message,
-      timestamp: new Date().toISOString()
+      body: content,
+      text: content,
+      message: content,
+      at: now,
+      timestamp: now
     });
     t.status = 'IN_PROGRESS';
+    t.updatedAt = now;
     saveDb(db);
+    appendAuditLog(payload.actorEmail || 'manager@finedge.bank', payload.actorRole || 'BRANCH_MANAGER', 'SUPPORT_TICKET_REPLIED', ticketId, 'SUCCESS', `Replied to ticket: ${content.slice(0, 50)}`);
   }
   return t;
 }
 
-export async function setTicketStatus(ticketId, status) {
+export async function setTicketStatus(ticketId, status, { actor = 'Ops Officer', actorRole = 'BRANCH_MANAGER' } = {}) {
   const db = getDb();
   const t = (db.supportTickets || []).find(tk => (tk.ticketId || tk.id) === ticketId);
   if (t) {
     t.status = status;
+    t.updatedAt = new Date().toISOString();
     saveDb(db);
+    appendAuditLog('manager@finedge.bank', actorRole, 'SUPPORT_TICKET_STATUS_UPDATED', ticketId, 'SUCCESS', `Ticket status updated to ${status}`);
   }
   return t;
 }
@@ -295,6 +381,9 @@ export const managerBridge = {
   listLoanApplications,
   decideLoanApplication,
   disburseLoan,
+  listInvestmentApplications,
+  decideInvestmentApplication,
+  bookInvestmentApplication,
   listStaff,
   setStaffActive,
   updateStaffPermissions,

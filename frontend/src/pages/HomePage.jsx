@@ -1,4 +1,4 @@
-import React, { useState, useEffect, useRef, useCallback } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import { Link } from 'react-router-dom';
 import {
   ArrowRight,
@@ -21,6 +21,7 @@ import { Card, SectionHeader, Modal, Button } from '../components/ui.jsx';
 import Reveal from '../components/Reveal.jsx';
 import { TiltCard } from '../components/TiltCard.jsx';
 import { CardVisual } from '../components/common/CardVisual.jsx';
+import { PhotoSlider } from '../components/common/PhotoSlider.jsx';
 import { ApplyModal } from '../components/common/ApplyModal.jsx';
 import { HeroEdgeGoldCard } from '../components/HeroEdgeGoldCard.jsx';
 import { formatINRWhole, formatDate, shortProductName } from '../lib/format.js';
@@ -135,57 +136,18 @@ const HOMEPAGE_FAQ_QUESTIONS = [
 
 function HomeHero({ savingsRow, homeLoanRow, edgeGoldDebit }) {
   const heroRef = useRef(null);
-  const heroRectRef = useRef(null);
   const bgPhotoRef = useRef(null);
-  const cardTiltRef = useRef(null);
-  const cardFaceRef = useRef(null);
-  const glareRef = useRef(null);
-  const hologramRef = useRef(null);
-  const shimmerRef = useRef(null);
-  const cardFloatWrapperRef = useRef(null);
-
-  const isHoveredRef = useRef(false);
-  const isIntersectingRef = useRef(true);
-  const rafId = useRef(null);
   const parallaxRafId = useRef(null);
 
-  const targetRef = useRef({
-    rotateX: 0,
-    rotateY: 0,
-    transX: 0,
-    transY: 0,
-    scale: 1,
-    glareX: 50,
-    glareY: 50,
-    glareOpacity: 0,
-    shimmerX: 50,
-    edgeLightX: 0,
-    edgeLightY: 0,
-    hologramHue: 0,
-  });
-  const currentRef = useRef({
-    rotateX: 0,
-    rotateY: 0,
-    transX: 0,
-    transY: 0,
-    scale: 1,
-    glareX: 50,
-    glareY: 50,
-    glareOpacity: 0,
-    shimmerX: 50,
-    edgeLightX: 0,
-    edgeLightY: 0,
-    hologramHue: 0,
-  });
-
   // Background photo scroll parallax (max 24px translate, passive listener, zero React state)
+  // Fine pointer / desktop only (hover: hover and pointer: fine)
   useEffect(() => {
-    const isTouch = typeof window !== 'undefined' && window.matchMedia('(hover: none)').matches;
+    const isTouch = typeof window !== 'undefined' && (window.matchMedia('(hover: none)').matches || window.matchMedia('(pointer: coarse)').matches);
     const isReduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
     if (isTouch || isReduced) return undefined;
 
     const onScroll = () => {
-      if (parallaxRafId.current || !bgPhotoRef.current || !isIntersectingRef.current) return;
+      if (parallaxRafId.current || !bgPhotoRef.current) return;
       parallaxRafId.current = requestAnimationFrame(() => {
         parallaxRafId.current = null;
         if (!bgPhotoRef.current) return;
@@ -202,271 +164,49 @@ function HomeHero({ savingsRow, homeLoanRow, edgeGoldDebit }) {
     };
   }, []);
 
-  // 3D card LERP animation loop (~0.12 factor) — runs ONLY while active or settling (0 idle rAF)
-  const animate = useCallback(() => {
-    if (!isIntersectingRef.current) {
-      if (rafId.current) {
-        cancelAnimationFrame(rafId.current);
-        rafId.current = null;
-      }
-      return;
-    }
-
-    const LERP_FACTOR = 0.12;
-    const cur = currentRef.current;
-    const tgt = targetRef.current;
-
-    cur.rotateX += (tgt.rotateX - cur.rotateX) * LERP_FACTOR;
-    cur.rotateY += (tgt.rotateY - cur.rotateY) * LERP_FACTOR;
-    cur.transX += (tgt.transX - cur.transX) * LERP_FACTOR;
-    cur.transY += (tgt.transY - cur.transY) * LERP_FACTOR;
-    cur.scale += (tgt.scale - cur.scale) * LERP_FACTOR;
-    cur.glareX += (tgt.glareX - cur.glareX) * LERP_FACTOR;
-    cur.glareY += (tgt.glareY - cur.glareY) * LERP_FACTOR;
-    cur.glareOpacity += (tgt.glareOpacity - cur.glareOpacity) * LERP_FACTOR;
-    cur.shimmerX += (tgt.shimmerX - cur.shimmerX) * LERP_FACTOR;
-    cur.edgeLightX += (tgt.edgeLightX - cur.edgeLightX) * LERP_FACTOR;
-    cur.edgeLightY += (tgt.edgeLightY - cur.edgeLightY) * LERP_FACTOR;
-    cur.hologramHue += (tgt.hologramHue - cur.hologramHue) * LERP_FACTOR;
-
-    const isSettled =
-      !isHoveredRef.current &&
-      Math.abs(cur.rotateX) < 0.05 &&
-      Math.abs(cur.rotateY) < 0.05 &&
-      Math.abs(cur.transX) < 0.05 &&
-      Math.abs(cur.transY) < 0.05 &&
-      Math.abs(cur.scale - 1) < 0.001 &&
-      cur.glareOpacity < 0.008;
-
-    if (isSettled) {
-      cur.rotateX = 0;
-      cur.rotateY = 0;
-      cur.transX = 0;
-      cur.transY = 0;
-      cur.scale = 1;
-      cur.glareOpacity = 0;
-      cur.shimmerX = 50;
-      cur.edgeLightX = 0;
-      cur.edgeLightY = 0;
-      cur.hologramHue = 0;
-
-      if (cardTiltRef.current) {
-        cardTiltRef.current.style.transform = 'translate3d(0, 0, 0) scale(1) rotateX(0deg) rotateY(0deg)';
-        cardTiltRef.current.style.willChange = 'auto';
-      }
-      if (cardFaceRef.current) {
-        cardFaceRef.current.style.boxShadow = '0 20px 45px -10px rgba(10, 30, 53, 0.45)';
-      }
-      if (glareRef.current) {
-        glareRef.current.style.opacity = '0';
-      }
-      if (hologramRef.current) {
-        hologramRef.current.style.filter = 'none';
-      }
-      if (shimmerRef.current) {
-        shimmerRef.current.style.transform = 'translate3d(0, 0, 0)';
-      }
-      if (cardFloatWrapperRef.current) {
-        cardFloatWrapperRef.current.classList.add('animate-card-float');
-      }
-
-      rafId.current = null;
-      return; // Terminate loop: 0 overhead while resting
-    }
-
-    // Direct DOM write for 60fps tilt + magnetic translation + hover lift
-    if (cardTiltRef.current) {
-      cardTiltRef.current.style.transform = `translate3d(${cur.transX.toFixed(2)}px, ${cur.transY.toFixed(2)}px, 0) scale(${cur.scale.toFixed(4)}) rotateX(${cur.rotateX.toFixed(2)}deg) rotateY(${cur.rotateY.toFixed(2)}deg)`;
-      cardTiltRef.current.style.willChange = 'transform';
-    }
-    if (cardFaceRef.current) {
-      const shadowX = -cur.rotateY * 2.2;
-      const shadowY = 25 + cur.rotateX * 2.2;
-      const edgeAlpha = Math.min(0.65, 0.35 + Math.abs(cur.rotateY) * 0.025);
-      cardFaceRef.current.style.boxShadow = `${shadowX.toFixed(1)}px ${shadowY.toFixed(1)}px 50px rgba(5,15,29,0.75), inset ${cur.edgeLightX.toFixed(2)}px ${cur.edgeLightY.toFixed(2)}px 0 1px rgba(212, 175, 55, ${edgeAlpha.toFixed(2)})`;
-    }
-    if (glareRef.current) {
-      glareRef.current.style.opacity = cur.glareOpacity > 0.005 ? (cur.glareOpacity * 0.65).toFixed(3) : '0';
-      glareRef.current.style.background = `radial-gradient(circle 320px at ${cur.glareX.toFixed(1)}% ${cur.glareY.toFixed(1)}%, rgba(255,255,255,0.4), transparent 70%)`;
-    }
-    if (hologramRef.current) {
-      hologramRef.current.style.filter = `hue-rotate(${cur.hologramHue.toFixed(1)}deg)`;
-    }
-    if (shimmerRef.current) {
-      shimmerRef.current.style.transform = `translate3d(${(cur.shimmerX - 50) * 1.5}%, 0, 0)`;
-    }
-
-    rafId.current = requestAnimationFrame(animate);
-  }, []);
-
-  const startLoop = useCallback(() => {
-    if (!rafId.current && isIntersectingRef.current) {
-      rafId.current = requestAnimationFrame(animate);
-    }
-  }, [animate]);
-
-  // Pause when offscreen
-  useEffect(() => {
-    const el = heroRef.current;
-    if (!el || typeof IntersectionObserver === 'undefined') return undefined;
-
-    const observer = new IntersectionObserver(
-      (entries) => {
-        entries.forEach((entry) => {
-          isIntersectingRef.current = entry.isIntersecting;
-          if (!entry.isIntersecting && rafId.current) {
-            cancelAnimationFrame(rafId.current);
-            rafId.current = null;
-          }
-        });
-      },
-      { threshold: 0.05 }
-    );
-
-    observer.observe(el);
-    return () => observer.disconnect();
-  }, []);
-
-  // Cleanup on unmount
-  useEffect(() => {
-    return () => {
-      if (rafId.current) cancelAnimationFrame(rafId.current);
-      if (parallaxRafId.current) cancelAnimationFrame(parallaxRafId.current);
-    };
-  }, []);
-
-  const handleMouseEnter = () => {
-    if (typeof window !== 'undefined') {
-      if (window.innerWidth < 1024) return;
-      if (window.matchMedia('(hover: none)').matches) return;
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    }
-    if (heroRef.current) {
-      heroRectRef.current = heroRef.current.getBoundingClientRect();
-    }
-  };
-
-  const handleMouseMove = (e) => {
-    if (typeof window !== 'undefined') {
-      if (window.innerWidth < 1024) return;
-      if (window.matchMedia('(hover: none)').matches) return;
-      if (window.matchMedia('(prefers-reduced-motion: reduce)').matches) return;
-    }
-    if (!heroRef.current) return;
-    if (!heroRectRef.current) {
-      heroRectRef.current = heroRef.current.getBoundingClientRect();
-    }
-
-    const rect = heroRectRef.current;
-    const heroMidX = rect.left + rect.width * 0.5;
-
-    // Cursor in left zone: ease card flat and resume gentle idle float
-    if (e.clientX < heroMidX) {
-      if (isHoveredRef.current) {
-        targetRef.current = {
-          rotateX: 0,
-          rotateY: 0,
-          transX: 0,
-          transY: 0,
-          scale: 1,
-          glareX: 50,
-          glareY: 50,
-          glareOpacity: 0,
-          shimmerX: 50,
-          edgeLightX: 0,
-          edgeLightY: 0,
-          hologramHue: 0,
-        };
-        isHoveredRef.current = false;
-        startLoop();
-      }
-      return;
-    }
-
-    // Cursor in right zone: tilt card toward cursor (max ±12°)
-    const rightZoneWidth = rect.width * 0.5;
-    const xInRight = e.clientX - heroMidX;
-    const yInHero = e.clientY - rect.top;
-    const centerX = rightZoneWidth / 2;
-    const centerY = rect.height / 2;
-
-    const rY = Math.max(-12, Math.min(12, ((xInRight - centerX) / centerX) * 12));
-    const rX = Math.max(-12, Math.min(12, -((yInHero - centerY) / centerY) * 12));
-
-    // Magnetic ease: card translates maximum 6px toward cursor
-    const tX = Math.max(-6, Math.min(6, ((xInRight - centerX) / centerX) * 6));
-    const tY = Math.max(-6, Math.min(6, ((yInHero - centerY) / centerY) * 6));
-
-    // Hover lift: scale 1.015
-    const scale = 1.015;
-
-    const gX = Math.max(0, Math.min(100, (xInRight / rightZoneWidth) * 100));
-    const gY = Math.max(0, Math.min(100, (yInHero / rect.height) * 100));
-
-    const sX = gX;
-    const edgeX = -rY * 0.12;
-    const edgeY = rX * 0.12;
-    const holoHue = rY * 2.5;
-
-    targetRef.current = {
-      rotateX: rX,
-      rotateY: rY,
-      transX: tX,
-      transY: tY,
-      scale,
-      glareX: gX,
-      glareY: gY,
-      glareOpacity: 0.35,
-      shimmerX: sX,
-      edgeLightX: edgeX,
-      edgeLightY: edgeY,
-      hologramHue: holoHue,
-    };
-
-    if (!isHoveredRef.current) {
-      isHoveredRef.current = true;
-      if (cardFloatWrapperRef.current) {
-        cardFloatWrapperRef.current.classList.remove('animate-card-float');
-      }
-    }
-
-    startLoop();
-  };
-
-  const handleMouseLeave = () => {
-    targetRef.current = {
-      rotateX: 0,
-      rotateY: 0,
-      transX: 0,
-      transY: 0,
-      scale: 1,
-      glareX: 50,
-      glareY: 50,
-      glareOpacity: 0,
-      shimmerX: 50,
-      edgeLightX: 0,
-      edgeLightY: 0,
-      hologramHue: 0,
-    };
-    isHoveredRef.current = false;
-    heroRectRef.current = null;
-    startLoop();
-  };
-
   return (
     <section
       ref={heroRef}
-      onMouseEnter={handleMouseEnter}
-      onMouseMove={handleMouseMove}
-      onMouseLeave={handleMouseLeave}
       data-testid="hero-section"
-      className="relative overflow-hidden bg-midnight-950 text-porcelain-50 min-h-[680px] py-20 sm:py-24 lg:py-28 flex flex-col justify-center"
+      className="relative overflow-hidden bg-midnight-950 text-porcelain-50 pt-0 pb-16 sm:pb-20 lg:min-h-[680px] lg:py-28 flex flex-col justify-center"
       aria-label="Welcome to FinEdge Bank"
     >
-      {/* 1. Full-background landscape photograph with responsive WebP + scroll parallax */}
+      {/* 1. Mobile Contained Photo Band (<= 1023px) */}
+      <div className="relative w-full aspect-[1920/1281] lg:hidden overflow-hidden bg-midnight-950 hero-bg-enter">
+        <picture className="w-full h-full block">
+          <source
+            type="image/webp"
+            srcSet="/images/hero-bg-768.webp 768w, /images/hero-bg-1280.webp 1280w, /images/hero-bg-1920.webp 1920w, /images/hero-bg-2560.webp 2560w, /images/hero-bg-3840.webp 3840w"
+            sizes="100vw"
+          />
+          <img
+            src="/images/hero-bg-1920.webp"
+            alt=""
+            aria-hidden="true"
+            fetchPriority="high"
+            loading="eager"
+            decoding="async"
+            width="1920"
+            height="1281"
+            className="w-full h-full object-contain object-top block"
+            style={{
+              filter: 'saturate(0.6) contrast(1.05)',
+            }}
+          />
+        </picture>
+        {/* Bottom gradient on the band dissolving into the midnight content zone */}
+        <div
+          className="absolute inset-x-0 bottom-0 h-24 sm:h-28 pointer-events-none"
+          style={{
+            background: 'linear-gradient(to top, rgba(5,15,29,1) 0%, rgba(5,15,29,0.7) 40%, transparent 100%)',
+          }}
+        />
+      </div>
+
+      {/* 2. Desktop Full-background landscape photograph with responsive WebP + scroll parallax (>= 1024px) */}
       <div
         ref={bgPhotoRef}
-        className="absolute -top-6 -bottom-6 inset-x-0 pointer-events-none overflow-hidden"
+        className="hidden lg:block absolute -top-6 -bottom-6 inset-x-0 pointer-events-none overflow-hidden"
         style={{
           transform: 'none',
           willChange: 'transform',
@@ -475,14 +215,14 @@ function HomeHero({ savingsRow, homeLoanRow, edgeGoldDebit }) {
         <picture className="h-full w-full block">
           <source
             type="image/webp"
-            srcSet="/images/hero-bg-768.webp 768w, /images/hero-bg-1280.webp 1280w, /images/hero-bg-1920.webp 1920w"
+            srcSet="/images/hero-bg-768.webp 768w, /images/hero-bg-1280.webp 1280w, /images/hero-bg-1920.webp 1920w, /images/hero-bg-2560.webp 2560w, /images/hero-bg-3840.webp 3840w"
             sizes="100vw"
           />
           <img
-            src="/images/hero-bg.jpg"
+            src="/images/hero-bg-1920.webp"
             alt=""
             aria-hidden="true"
-            fetchpriority="high"
+            fetchPriority="high"
             loading="eager"
             decoding="async"
             width="1920"
@@ -495,7 +235,7 @@ function HomeHero({ savingsRow, homeLoanRow, edgeGoldDebit }) {
         </picture>
       </div>
 
-      {/* 2. Readability Overlays */}
+      {/* Desktop Readability Overlays */}
       {/* Desktop Left-to-Right Midnight Wash */}
       <div
         className="absolute inset-0 pointer-events-none hidden lg:block"
@@ -504,27 +244,19 @@ function HomeHero({ savingsRow, homeLoanRow, edgeGoldDebit }) {
             'linear-gradient(90deg, rgba(5,15,29,0.96) 0%, rgba(5,15,29,0.88) 45%, rgba(5,15,29,0.45) 70%, rgba(5,15,29,0.22) 100%)',
         }}
       />
-      {/* Mobile Top-to-Bottom Strengthened Gradient */}
+      {/* Desktop Bottom Grounding Gradient */}
       <div
-        className="absolute inset-0 pointer-events-none lg:hidden"
-        style={{
-          background:
-            'linear-gradient(180deg, rgba(5,15,29,0.96) 0%, rgba(5,15,29,0.88) 50%, rgba(5,15,29,0.96) 100%)',
-        }}
-      />
-      {/* Bottom Grounding Gradient (All viewports) */}
-      <div
-        className="absolute inset-0 pointer-events-none"
+        className="absolute inset-0 pointer-events-none hidden lg:block"
         style={{
           background:
             'linear-gradient(to top, rgba(5,15,29,0.65) 0%, rgba(5,15,29,0.55) 15%, transparent 35%)',
         }}
       />
-      {/* Subtle Top Radial Gold Wash */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(184,147,63,0.08),transparent)] pointer-events-none" />
+      {/* Desktop Subtle Top Radial Gold Wash */}
+      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(184,147,63,0.08),transparent)] pointer-events-none hidden lg:block" />
 
       {/* 3. Foreground Content Container */}
-      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 w-full">
+      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 w-full pt-4 sm:pt-6 lg:pt-0">
         <div className="relative">
           {/* Left Zone: Copy, CTAs & Stats (never overlapped by card) */}
           <div
@@ -591,31 +323,31 @@ function HomeHero({ savingsRow, homeLoanRow, edgeGoldDebit }) {
           <div
             data-testid="hero-right-zone"
             className="mt-10 lg:mt-0 mx-auto lg:mx-0 w-full max-w-[380px] sm:max-w-[420px] lg:max-w-none lg:w-[clamp(380px,34vw,500px)] lg:absolute lg:right-4 xl:right-8 lg:bottom-6 xl:bottom-8 z-20"
-            style={{ perspective: '1000px' }}
           >
             <div className="hero-card-entrance">
-              <div ref={cardFloatWrapperRef} className="animate-card-float">
-                <div
-                  ref={cardTiltRef}
-                  data-testid="hero-card-tilt"
-                  style={{
-                    transform: 'translate3d(0, 0, 0) scale(1) rotateX(0deg) rotateY(0deg)',
-                    transformStyle: 'preserve-3d',
-                    transition: 'transform 0.4s ease-out',
-                  }}
-                  className="relative"
-                >
-                  {/* Radial gold glow behind card */}
-                  <div className="absolute -inset-8 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(184,147,63,0.22),transparent_70%)] pointer-events-none -z-10" />
+              <div className="relative">
+                {/* Radial gold glow behind card */}
+                <div className="absolute -inset-8 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(184,147,63,0.22),transparent_70%)] pointer-events-none -z-10" />
 
-                  {/* Flagship Edge Gold Debit Card Face */}
-                  <HeroEdgeGoldCard
-                    cardFaceRef={cardFaceRef}
-                    glareRef={glareRef}
-                    hologramRef={hologramRef}
-                    shimmerRef={shimmerRef}
-                  />
-                </div>
+                {/* Shared 3D TiltCard with locked hero settings */}
+                <TiltCard
+                  maxTilt={12}
+                  perspective={1000}
+                  lerpFactor={0.12}
+                  enableFloat={true}
+                  glare={true}
+                  shadow={true}
+                  shadowBaseY={25}
+                  shadowFactor={2.2}
+                  shadowBlur={45}
+                  restingShadow="0 20px 45px -10px rgba(10, 30, 53, 0.45)"
+                  borderRadius="18px"
+                  sweepKey="hero-edge-gold-card"
+                  data-testid="hero-card-tilt"
+                  className="w-full"
+                >
+                  <HeroEdgeGoldCard />
+                </TiltCard>
               </div>
             </div>
           </div>
@@ -759,11 +491,11 @@ export default function HomePage() {
 
                 return (
                   <Reveal key={idx} treatment="B" staggerIndex={idx}>
-                    <div className="group flex h-full flex-col rounded-xl border border-ink-100 bg-white p-6 shadow-xs transition-all duration-180 hover:-translate-y-0.5 hover:shadow-card hover:border-midnight-300">
-                      {/* Visual slot per tab (Fix 2) */}
+                    <div className="group flex h-full flex-col rounded-xl border border-ink-100 bg-white p-6 shadow-xs transition-all duration-180 hover:-translate-y-0.5 hover:shadow-card hover:border-midnight-300 active:translate-y-0 active:scale-[0.99] active:shadow-xs">
+                      {/* Visual slot per tab (Fix 1: Aspect-ratio box reserving art's true rendered height) */}
                       {isCardTab ? (
-                        <div className="w-full flex justify-center py-2 h-[130px] items-center mb-2">
-                          <TiltCard maxTilt={6} glare={true} shadow={true} className="w-[190px]">
+                        <div className="w-full mb-4">
+                          <TiltCard maxTilt={6} glare={true} shadow={true} sweepKey={product.slug}>
                             <CardVisual card={product} shadow={false} />
                           </TiltCard>
                         </div>
@@ -825,9 +557,9 @@ export default function HomePage() {
                         )}
                         <Link
                           to={explorePath(product)}
-                          className="group/btn inline-flex items-center gap-1 rounded-lg bg-midnight-900 px-3 py-1.5 text-xs font-semibold text-porcelain-50 transition-colors hover:bg-midnight-800"
+                          className="group/btn inline-flex items-center gap-1 rounded-lg bg-midnight-900 px-3 py-1.5 text-xs font-semibold text-porcelain-50 transition-colors hover:bg-midnight-800 active:scale-[0.98]"
                         >
-                          Explore <ArrowRight className="h-3 w-3 transition-transform duration-150 group-hover/btn:translate-x-0.5" />
+                          Explore <ArrowRight className="h-3 w-3 transition-transform duration-150 group-hover/btn:translate-x-0.5 group-active/btn:translate-x-0.5" />
                         </Link>
                       </div>
                     </div>
@@ -1027,27 +759,32 @@ export default function HomePage() {
                 <p className="reveal-description mt-1.5 text-sm text-ink-600 max-w-2xl">No hidden schedules, no fine-print traps — just transparent banking where every fee and rate is verified before you sign.</p>
               </div>
             </Reveal>
-            {/* Fix 4: Three customer-facing trust cards with signature desktop horizontal hairline */}
-            <div className="relative">
-              <Reveal
-                treatment="B"
-                as="div"
-                aria-hidden="true"
-                className="reveal-trust-line hidden md:block absolute top-[44px] inset-x-8 h-px bg-gold-400/40 pointer-events-none z-0"
-              />
-              <div className="grid gap-6 md:grid-cols-3 relative z-10">
+
+            {/* Two-part layout (Module 33 Placement A): Visual Half (PhotoSlider) + Trust Points Half */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
+              {/* Visual Half (PhotoSlider) — Stacks above trust points on mobile, left column on desktop */}
+              <div className="lg:col-span-7">
+                <Reveal treatment="D">
+                  <PhotoSlider />
+                </Reveal>
+              </div>
+
+              {/* Trust Points Half — Preserves all 3 customer-facing cards and facts verbatim */}
+              <div className="lg:col-span-5 flex flex-col gap-4">
                 {TRUST_POINTS.map((point, idx) => {
                   const Icon = point.icon;
                   return (
                     <Reveal key={point.title} treatment="B" staggerIndex={idx}>
-                      <Card className="flex h-full flex-col p-6 shadow-xs border-ink-200 bg-white transition-all duration-180 hover:-translate-y-0.5 hover:shadow-card">
-                        <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50 shadow-xs">
-                          <Icon className="h-5 w-5 text-gold-300" aria-hidden />
+                      <Card className="flex flex-col p-5 sm:p-6 shadow-xs border-ink-200 bg-white transition-all duration-180 hover:-translate-y-0.5 hover:shadow-card">
+                        <div className="flex items-center gap-3.5">
+                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50 shadow-xs">
+                            <Icon className="h-5 w-5 text-gold-300" aria-hidden />
+                          </div>
+                          <h3 className="text-base font-semibold text-midnight-950">{point.title}</h3>
                         </div>
-                        <h3 className="mt-4 text-base font-semibold text-midnight-950">{point.title}</h3>
-                        <p className="mt-2 flex-1 text-[13px] leading-relaxed text-ink-600">{point.body}</p>
+                        <p className="mt-2.5 text-[13px] leading-relaxed text-ink-600">{point.body}</p>
 
-                        <div className="mt-5 pt-3 border-t border-ink-100 flex items-center gap-3 text-xs font-semibold">
+                        <div className="mt-4 pt-3 border-t border-ink-100 flex items-center gap-3 text-xs font-semibold">
                           <Link
                             to={point.linkTo}
                             className="inline-flex items-center gap-1 text-midnight-800 underline decoration-midnight-300 hover:text-midnight-600"
@@ -1208,7 +945,7 @@ export default function HomePage() {
             {Array.isArray(detailModalAccount.rateSlabs) && detailModalAccount.rateSlabs.length > 0 && (
               <div>
                 <h4 className="font-semibold text-midnight-950 mb-2 text-[13px]">Interest Rate Slabs</h4>
-                <div className="rounded-xl border border-ink-100 overflow-hidden">
+                <div className="rounded-xl border border-ink-100 overflow-x-auto">
                   <table className="w-full text-left text-xs sm:text-sm">
                     <thead className="bg-porcelain-100 border-b border-ink-100 font-semibold text-ink-700">
                       <tr>
@@ -1248,7 +985,7 @@ export default function HomePage() {
             {Array.isArray(detailModalAccount.charges) && detailModalAccount.charges.length > 0 && (
               <div>
                 <h4 className="font-semibold text-midnight-950 mb-2 text-[13px]">Schedule of Charges</h4>
-                <div className="rounded-xl border border-ink-100 overflow-hidden">
+                <div className="rounded-xl border border-ink-100 overflow-x-auto">
                   <table className="w-full text-left text-xs sm:text-sm">
                     <thead className="bg-porcelain-100 border-b border-ink-100 font-semibold text-ink-700">
                       <tr>

@@ -7,22 +7,12 @@ import {
   X,
   ArrowRight,
   Wallet,
-  Receipt,
-  GraduationCap,
-  Sprout,
-  PiggyBank,
-  Repeat,
-  TrendingUp,
-  ShieldCheck,
-  CreditCard,
   Home,
-  Briefcase,
-  Car,
-  Coins,
-  Building2,
+  ScrollText,
   LifeBuoy,
   FileText,
   Scale,
+  ShieldCheck,
   Lock,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
@@ -35,10 +25,9 @@ import {
   CREDIT_CARDS,
   DEBIT_CARDS,
   INVESTMENTS,
-  SAVINGS_TOP_RATE,
   accountRateFact,
 } from '../../data/products.js';
-import { ACCOUNT_ICONS } from '../../data/productIcons.js';
+import { ACCOUNT_ICONS, LOAN_ICONS, INVESTMENT_ICONS } from '../../data/productIcons.js';
 import { shortProductName } from '../../lib/format.js';
 import { CardVisual } from '../common/CardVisual.jsx';
 
@@ -50,17 +39,7 @@ function MiniCardThumb({ card, slug }) {
   return <CardVisual card={target} className="w-full h-full shadow-none" />;
 }
 
-/* ---------------- Dynamic Product Mapping ---------------- */
-
-const LOAN_ICONS = {
-  'home-loan': Home,
-  'business-loan': Briefcase,
-  'agriculture-loan': Sprout,
-  'vehicle-loan': Car,
-  'gold-loan': Coins,
-  'loan-against-property': Building2,
-  'education-loan': GraduationCap,
-};
+/* ---------------- Fact Helpers ---------------- */
 
 function getAccountFact(acc) {
   return accountRateFact(acc);
@@ -73,21 +52,22 @@ function getCardFact(card) {
 }
 
 function getInvestmentMeta(inv) {
+  const Icon = INVESTMENT_ICONS[inv.slug] || ScrollText;
   if (inv.kind === 'FD') {
     const top = Math.max(...(inv.rateGrid?.map((r) => r.general) || [6.95]));
-    return { fact: `Up to ${top.toFixed(2)}% p.a.`, type: 'Guaranteed', icon: PiggyBank };
+    return { fact: `Up to ${top.toFixed(2)}% p.a.`, type: 'Guaranteed', icon: Icon };
   }
   if (inv.kind === 'RD') {
     const top = Math.max(...(inv.rateBands?.map((b) => b.rate) || [7.00]));
-    return { fact: `Up to ${top.toFixed(2)}% p.a.`, type: 'Guaranteed', icon: Repeat };
+    return { fact: `Up to ${top.toFixed(2)}% p.a.`, type: 'Guaranteed', icon: Icon };
   }
   if (inv.kind === 'SIP') {
-    return { fact: 'Market-linked', type: 'Market-linked', icon: TrendingUp };
+    return { fact: 'Market-linked', type: 'Market-linked', icon: Icon };
   }
   if (inv.kind === 'SSY') {
-    return { fact: `${inv.rate?.toFixed(2) || '8.20'}% p.a.`, type: 'Guaranteed', icon: ShieldCheck };
+    return { fact: `${inv.rate?.toFixed(2) || '8.05'}% p.a.`, type: 'Guaranteed', icon: Icon };
   }
-  return { fact: '—', type: 'Guaranteed', icon: PiggyBank };
+  return { fact: '—', type: 'Guaranteed', icon: Icon };
 }
 
 const SUPPORT_ITEMS = [
@@ -96,37 +76,207 @@ const SUPPORT_ITEMS = [
     description: 'Statutory redressal officer & dispute escalations',
     to: '/grievance-redressal',
     icon: LifeBuoy,
-    fact: '24x7 Queue',
   },
   {
     name: 'Schedule of Charges',
     description: 'Honest tariff schedule across all accounts and loans',
     to: '/schedule-of-charges',
     icon: FileText,
-    fact: 'Transparent',
   },
   {
     name: 'Fair Practice Code',
     description: 'Lending commitments & grievance resolution charter',
     to: '/fair-practice-code',
     icon: Scale,
-    fact: 'Statutory',
   },
   {
     name: 'Regulatory Disclosures',
     description: 'Capital adequacy ratios, Basel III & liquidity records',
     to: '/disclosures',
     icon: ShieldCheck,
-    fact: 'RBI Norms',
   },
   {
     name: 'Privacy Policy & Terms',
     description: 'Digital data protection and cookie management',
     to: '/privacy-policy',
     icon: Lock,
-    fact: 'Encrypted',
   },
 ];
+
+/* ---------------- Module 28 Shared UI: MenuRow & MegaMenuPanel ---------------- */
+
+/**
+ * Shared MenuRow template (Module 28 Fix 0).
+ * Consumed across all 6 desktop mega menus and mobile accordion.
+ */
+function MenuRow({
+  to,
+  onClick,
+  icon: Icon,
+  card,
+  name,
+  description,
+  chip,
+  fact,
+  isMobile = false,
+}) {
+  return (
+    <Link
+      to={to}
+      onClick={onClick}
+      className={`group cursor-pointer flex items-center rounded-xl transition-colors duration-160 hover:bg-midnight-50 active:bg-midnight-100/60 focus-visible:outline-2 focus-visible:outline-gold-500 ${
+        isMobile
+          ? 'px-3 py-2.5 min-h-[64px] gap-3'
+          : 'px-[14px] py-3 min-h-[68px] gap-[14px]'
+      }`}
+    >
+      {/* Tile: Cards 64x40 mini card art OR standard 48x48 icon tile */}
+      {card ? (
+        <span className="w-16 h-10 shrink-0 rounded-lg overflow-hidden border border-ink-100/60 bg-midnight-950 p-0.5 shadow-xs flex items-center justify-center">
+          <MiniCardThumb card={card} />
+        </span>
+      ) : Icon ? (
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50 transition-colors duration-160 group-hover:text-gold-300">
+          <Icon className="h-6 w-6" aria-hidden />
+        </span>
+      ) : null}
+
+      {/* Text Block & Fact Block */}
+      {isMobile ? (
+        <div className="flex-1 min-w-0 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
+          <div className="min-w-0 flex-1">
+            <div className="flex items-baseline gap-2 min-w-0">
+              <span className="truncate text-base font-semibold text-ink-900 group-hover:text-midnight-950 transition-colors duration-160">
+                {name}
+              </span>
+              {chip && (
+                <span
+                  className={`shrink-0 text-[11px] px-2 py-0.5 rounded-md font-semibold tracking-wide ${
+                    chip === 'Guaranteed'
+                      ? 'bg-midnight-900 text-porcelain-50'
+                      : 'border border-gold-500 text-gold-700 bg-gold-50/60'
+                  }`}
+                >
+                  {chip}
+                </span>
+              )}
+            </div>
+            {description && (
+              <p className="mt-0.5 text-sm leading-snug text-ink-600">
+                {description}
+              </p>
+            )}
+          </div>
+          <div className="flex-none text-right flex items-center gap-1.5 shrink-0 ml-auto max-[400px]:w-full max-[400px]:justify-end">
+            {fact && (
+              <span className="tnum text-[15px] font-semibold text-midnight-950 tabular-nums whitespace-nowrap">
+                {fact}
+              </span>
+            )}
+            <ArrowRight
+              className="h-4 w-4 text-ink-400 group-hover:text-midnight-900 group-active:text-midnight-900 group-active:translate-x-0.5 opacity-40 group-active:opacity-100 transition-all duration-160 menu-row-arrow shrink-0"
+              aria-hidden
+            />
+          </div>
+        </div>
+      ) : (
+        <>
+          <div className="flex-1 min-w-0">
+            <div className="flex items-baseline gap-2 min-w-0">
+              <span className="truncate text-base font-semibold text-ink-900 group-hover:text-midnight-950 transition-colors duration-160">
+                {name}
+              </span>
+              {chip && (
+                <span
+                  className={`shrink-0 text-[11px] px-2 py-0.5 rounded-md font-semibold tracking-wide ${
+                    chip === 'Guaranteed'
+                      ? 'bg-midnight-900 text-porcelain-50'
+                      : 'border border-gold-500 text-gold-700 bg-gold-50/60'
+                  }`}
+                >
+                  {chip}
+                </span>
+              )}
+            </div>
+            {description && (
+              <p className="mt-0.5 text-sm leading-snug text-ink-600">
+                {description}
+              </p>
+            )}
+          </div>
+          <div className="flex-none text-right flex items-center gap-2 shrink-0 ml-3">
+            {fact && (
+              <span className="tnum text-[15px] font-semibold text-midnight-950 tabular-nums whitespace-nowrap">
+                {fact}
+              </span>
+            )}
+            <ArrowRight
+              className="h-4 w-4 text-ink-400 group-hover:text-midnight-900 group-hover:translate-x-0.5 group-active:text-midnight-900 group-active:translate-x-0.5 opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-all duration-160 menu-row-arrow shrink-0"
+              aria-hidden
+            />
+          </div>
+        </>
+      )}
+    </Link>
+  );
+}
+
+/**
+ * Viewport-safe MegaMenuPanel (Module 28 Fix 1).
+ * Clamps dynamically within viewport bounds (min 16px clearance on both edges).
+ */
+function MegaMenuPanel({
+  children,
+  align = 'left',
+  widthClass = 'w-[min(640px,calc(100vw-32px))]',
+  role = 'region',
+  'aria-label': ariaLabel,
+}) {
+  const containerRef = useRef(null);
+
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+
+    const clamp = () => {
+      el.style.transform = '';
+      const rect = el.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const minLeft = 16;
+      const maxRight = vw - 16;
+
+      let shift = 0;
+      if (rect.right > maxRight) {
+        shift = -(rect.right - maxRight);
+      } else if (rect.left < minLeft) {
+        shift = minLeft - rect.left;
+      }
+
+      if (shift !== 0) {
+        el.style.transform = `translateX(${shift}px)`;
+      }
+    };
+
+    clamp();
+    window.addEventListener('resize', clamp);
+    return () => window.removeEventListener('resize', clamp);
+  }, []);
+
+  return (
+    <div
+      ref={containerRef}
+      className={`absolute ${align === 'right' ? 'right-0' : 'left-0'} top-full mt-1.5 z-50 ${widthClass} max-w-[calc(100vw-32px)]`}
+    >
+      <div
+        role={role}
+        aria-label={ariaLabel}
+        className="w-full rounded-2xl border border-ink-100 border-t-2 border-t-gold-500 bg-white shadow-2xl shadow-modal p-2.5 animate-menu-enter overflow-hidden"
+      >
+        {children}
+      </div>
+    </div>
+  );
+}
 
 export function Logo({ light = false }) {
   return (
@@ -198,6 +348,22 @@ export const Header = () => {
   };
 
   // Keyboard accessibility: Escape closes open menu and returns focus
+  useEffect(() => {
+    if (!openMenu) return;
+    const onGlobalKeyDown = (e) => {
+      if (e.key === 'Escape') {
+        e.preventDefault();
+        const currentKey = openMenu;
+        closeMenu();
+        if (triggerRefs.current[currentKey]) {
+          triggerRefs.current[currentKey].focus();
+        }
+      }
+    };
+    document.addEventListener('keydown', onGlobalKeyDown);
+    return () => document.removeEventListener('keydown', onGlobalKeyDown);
+  }, [openMenu]);
+
   const handleKeyDown = (e, menuKey) => {
     if (e.key === 'Escape') {
       e.preventDefault();
@@ -237,7 +403,9 @@ export const Header = () => {
                 aria-haspopup="true"
                 onClick={() => handleTriggerClick('Accounts')}
                 className={`relative flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-gold-500 ${
-                  isCurrentActive('/accounts')
+                  openMenu === 'Accounts'
+                    ? 'bg-porcelain-200/80 text-midnight-950 font-semibold'
+                    : isCurrentActive('/accounts')
                     ? 'text-midnight-950 font-semibold'
                     : 'text-ink-700 hover:text-midnight-900 hover:bg-midnight-50/50'
                 }`}
@@ -255,44 +423,24 @@ export const Header = () => {
               </button>
 
               {openMenu === 'Accounts' && (
-                <div
-                  className="absolute left-0 top-full mt-1.5 w-[620px] min-w-[620px] rounded-2xl border border-ink-100 border-t-2 border-t-gold-500 bg-white shadow-2xl shadow-modal z-50 overflow-hidden p-5 animate-fade-in"
-                  role="region"
-                  aria-label="Accounts Menu"
-                >
+                <MegaMenuPanel align="left" aria-label="Accounts Menu">
                   <div className="grid gap-1">
                     {ACCOUNTS.map((acc) => {
                       const Icon = ACCOUNT_ICONS[acc.slug] || Wallet;
-                      const fact = getAccountFact(acc);
                       return (
-                        <Link
+                        <MenuRow
                           key={acc.slug}
                           to={`/accounts#${acc.slug}`}
                           onClick={closeMenu}
-                          className="group cursor-pointer flex min-h-[64px] items-center justify-between rounded-xl px-3 py-2 transition-colors duration-150 hover:bg-porcelain-200 focus-visible:outline-2 focus-visible:outline-gold-500"
-                        >
-                          <div className="flex items-center gap-3.5 min-w-0">
-                            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50 transition-colors duration-150 group-hover:bg-midnight-800 group-hover:text-gold-300">
-                              <Icon className="h-6 w-6" aria-hidden />
-                            </span>
-                            <div className="min-w-0">
-                              <p className="truncate text-base font-semibold text-ink-900 group-hover:text-midnight-950">
-                                {shortProductName(acc.name)}
-                              </p>
-                              <p className="truncate text-sm text-ink-500">{acc.tagline}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0 ml-4">
-                            <span className="tnum text-[15px] font-semibold text-ink-900 group-hover:text-midnight-950">
-                              {fact}
-                            </span>
-                            <ArrowRight className="h-4 w-4 text-ink-400 group-hover:text-midnight-900 transition-colors" />
-                          </div>
-                        </Link>
+                          icon={Icon}
+                          name={shortProductName(acc.name)}
+                          description={acc.tagline}
+                          fact={getAccountFact(acc)}
+                        />
                       );
                     })}
                   </div>
-                  <div className="mt-3 -mx-5 -mb-5 flex items-center justify-between border-t border-ink-100 bg-porcelain-50/90 px-5 py-3.5 text-[15px]">
+                  <div className="mt-2.5 -mx-2.5 -mb-2.5 flex items-center justify-between border-t border-ink-100 bg-porcelain-50/90 px-5 py-3.5 text-[15px]">
                     <Link
                       to="/accounts"
                       onClick={closeMenu}
@@ -308,7 +456,7 @@ export const Header = () => {
                       Open an account
                     </Link>
                   </div>
-                </div>
+                </MegaMenuPanel>
               )}
             </div>
 
@@ -326,7 +474,9 @@ export const Header = () => {
                 aria-haspopup="true"
                 onClick={() => handleTriggerClick('Cards')}
                 className={`relative flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-gold-500 ${
-                  isCurrentActive('/cards')
+                  openMenu === 'Cards'
+                    ? 'bg-porcelain-200/80 text-midnight-950 font-semibold'
+                    : isCurrentActive('/cards')
                     ? 'text-midnight-950 font-semibold'
                     : 'text-ink-700 hover:text-midnight-900 hover:bg-midnight-50/50'
                 }`}
@@ -344,43 +494,24 @@ export const Header = () => {
               </button>
 
               {openMenu === 'Cards' && (
-                <div
-                  className="absolute left-0 top-full mt-1.5 w-[620px] min-w-[620px] rounded-2xl border border-ink-100 border-t-2 border-t-gold-500 bg-white shadow-2xl shadow-modal z-50 overflow-hidden p-5 animate-fade-in"
-                  role="region"
-                  aria-label="Cards Menu"
-                >
+                <MegaMenuPanel align="left" aria-label="Cards Menu">
                   <div className="space-y-3">
                     {/* CREDIT CARDS GROUP */}
                     <div>
-                      <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-[0.14em] text-ink-400">
+                      <p className="px-3.5 pb-1 text-xs font-semibold uppercase tracking-[0.14em] text-ink-400">
                         Credit Cards
                       </p>
                       <div className="grid gap-1">
                         {CREDIT_CARDS.map((card) => (
-                          <Link
+                          <MenuRow
                             key={card.slug}
                             to={`/cards#${card.slug}`}
                             onClick={closeMenu}
-                            className="group cursor-pointer flex min-h-[64px] items-center justify-between rounded-xl px-3 py-2 transition-colors duration-150 hover:bg-porcelain-200 focus-visible:outline-2 focus-visible:outline-gold-500"
-                          >
-                            <div className="flex items-center gap-3.5 min-w-0">
-                              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 p-1.5 overflow-hidden transition-colors duration-150 group-hover:bg-midnight-800">
-                                <MiniCardThumb slug={card.slug} />
-                              </span>
-                              <div className="min-w-0">
-                                <p className="truncate text-base font-semibold text-ink-900 group-hover:text-midnight-950">
-                                  {shortProductName(card.name)}
-                                </p>
-                                <p className="truncate text-sm text-ink-500">{card.tagline}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0 ml-4">
-                              <span className="tnum text-[15px] font-semibold text-ink-900 group-hover:text-midnight-950">
-                                {getCardFact(card)}
-                              </span>
-                              <ArrowRight className="h-4 w-4 text-ink-400 group-hover:text-midnight-900 transition-colors" />
-                            </div>
-                          </Link>
+                            card={card}
+                            name={shortProductName(card.name)}
+                            description={card.tagline}
+                            fact={getCardFact(card)}
+                          />
                         ))}
                       </div>
                     </div>
@@ -389,41 +520,26 @@ export const Header = () => {
 
                     {/* DEBIT CARDS GROUP */}
                     <div>
-                      <p className="px-3 pb-1 text-xs font-semibold uppercase tracking-[0.14em] text-ink-400">
+                      <p className="px-3.5 pb-1 text-xs font-semibold uppercase tracking-[0.14em] text-ink-400">
                         Debit Cards
                       </p>
                       <div className="grid gap-1">
                         {DEBIT_CARDS.map((card) => (
-                          <Link
+                          <MenuRow
                             key={card.slug}
                             to={`/cards#${card.slug}`}
                             onClick={closeMenu}
-                            className="group cursor-pointer flex min-h-[64px] items-center justify-between rounded-xl px-3 py-2 transition-colors duration-150 hover:bg-porcelain-200 focus-visible:outline-2 focus-visible:outline-gold-500"
-                          >
-                            <div className="flex items-center gap-3.5 min-w-0">
-                              <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 p-1.5 overflow-hidden transition-colors duration-150 group-hover:bg-midnight-800">
-                                <MiniCardThumb slug={card.slug} />
-                              </span>
-                              <div className="min-w-0">
-                                <p className="truncate text-base font-semibold text-ink-900 group-hover:text-midnight-950">
-                                  {shortProductName(card.name)}
-                                </p>
-                                <p className="truncate text-sm text-ink-500">{card.tagline}</p>
-                              </div>
-                            </div>
-                            <div className="flex items-center gap-2 shrink-0 ml-4">
-                              <span className="tnum text-[15px] font-semibold text-ink-900 group-hover:text-midnight-950">
-                                {getCardFact(card)}
-                              </span>
-                              <ArrowRight className="h-4 w-4 text-ink-400 group-hover:text-midnight-900 transition-colors" />
-                            </div>
-                          </Link>
+                            card={card}
+                            name={shortProductName(card.name)}
+                            description={card.tagline}
+                            fact={getCardFact(card)}
+                          />
                         ))}
                       </div>
                     </div>
                   </div>
 
-                  <div className="mt-3 -mx-5 -mb-5 flex items-center justify-between border-t border-ink-100 bg-porcelain-50/90 px-5 py-3.5 text-[15px]">
+                  <div className="mt-2.5 -mx-2.5 -mb-2.5 flex items-center justify-between border-t border-ink-100 bg-porcelain-50/90 px-5 py-3.5 text-[15px]">
                     <Link
                       to="/cards"
                       onClick={closeMenu}
@@ -439,7 +555,7 @@ export const Header = () => {
                       Compare cards
                     </Link>
                   </div>
-                </div>
+                </MegaMenuPanel>
               )}
             </div>
 
@@ -457,7 +573,9 @@ export const Header = () => {
                 aria-haspopup="true"
                 onClick={() => handleTriggerClick('Loans')}
                 className={`relative flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-gold-500 ${
-                  isCurrentActive('/loans')
+                  openMenu === 'Loans'
+                    ? 'bg-porcelain-200/80 text-midnight-950 font-semibold'
+                    : isCurrentActive('/loans')
                     ? 'text-midnight-950 font-semibold'
                     : 'text-ink-700 hover:text-midnight-900 hover:bg-midnight-50/50'
                 }`}
@@ -475,43 +593,24 @@ export const Header = () => {
               </button>
 
               {openMenu === 'Loans' && (
-                <div
-                  className="absolute left-0 top-full mt-1.5 w-[620px] min-w-[620px] rounded-2xl border border-ink-100 border-t-2 border-t-gold-500 bg-white shadow-2xl shadow-modal z-50 overflow-hidden p-5 animate-fade-in"
-                  role="region"
-                  aria-label="Loans Menu"
-                >
+                <MegaMenuPanel align="left" aria-label="Loans Menu">
                   <div className="grid gap-1">
                     {LOANS.map((loan) => {
                       const Icon = LOAN_ICONS[loan.slug] || Home;
                       return (
-                        <Link
+                        <MenuRow
                           key={loan.slug}
                           to={`/loans#${loan.slug}`}
                           onClick={closeMenu}
-                          className="group cursor-pointer flex min-h-[64px] items-center justify-between rounded-xl px-3 py-2 transition-colors duration-150 hover:bg-porcelain-200 focus-visible:outline-2 focus-visible:outline-gold-500"
-                        >
-                          <div className="flex items-center gap-3.5 min-w-0">
-                            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50 transition-colors duration-150 group-hover:bg-midnight-800 group-hover:text-gold-300">
-                              <Icon className="h-6 w-6" aria-hidden />
-                            </span>
-                            <div className="min-w-0">
-                              <p className="truncate text-base font-semibold text-ink-900 group-hover:text-midnight-950">
-                                {shortProductName(loan.name)}
-                              </p>
-                              <p className="truncate text-sm text-ink-500">{loan.tagline}</p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0 ml-4">
-                            <span className="tnum text-[15px] font-semibold text-ink-900 group-hover:text-midnight-950">
-                              From {loan.rateMin.toFixed(2)}% p.a.
-                            </span>
-                            <ArrowRight className="h-4 w-4 text-ink-400 group-hover:text-midnight-900 transition-colors" />
-                          </div>
-                        </Link>
+                          icon={Icon}
+                          name={shortProductName(loan.name)}
+                          description={loan.tagline}
+                          fact={`From ${loan.rateMin.toFixed(2)}% p.a.`}
+                        />
                       );
                     })}
                   </div>
-                  <div className="mt-3 -mx-5 -mb-5 flex items-center justify-between border-t border-ink-100 bg-porcelain-50/90 px-5 py-3.5 text-[15px]">
+                  <div className="mt-2.5 -mx-2.5 -mb-2.5 flex items-center justify-between border-t border-ink-100 bg-porcelain-50/90 px-5 py-3.5 text-[15px]">
                     <Link
                       to="/loans"
                       onClick={closeMenu}
@@ -527,7 +626,7 @@ export const Header = () => {
                       EMI calculator
                     </Link>
                   </div>
-                </div>
+                </MegaMenuPanel>
               )}
             </div>
 
@@ -545,7 +644,9 @@ export const Header = () => {
                 aria-haspopup="true"
                 onClick={() => handleTriggerClick('Investments')}
                 className={`relative flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-gold-500 ${
-                  isCurrentActive('/investments')
+                  openMenu === 'Investments'
+                    ? 'bg-porcelain-200/80 text-midnight-950 font-semibold'
+                    : isCurrentActive('/investments')
                     ? 'text-midnight-950 font-semibold'
                     : 'text-ink-700 hover:text-midnight-900 hover:bg-midnight-50/50'
                 }`}
@@ -563,57 +664,25 @@ export const Header = () => {
               </button>
 
               {openMenu === 'Investments' && (
-                <div
-                  className="absolute -left-16 top-full mt-1.5 w-[620px] min-w-[620px] rounded-2xl border border-ink-100 border-t-2 border-t-gold-500 bg-white shadow-2xl shadow-modal z-50 overflow-hidden p-5 animate-fade-in"
-                  role="region"
-                  aria-label="Investments Menu"
-                >
+                <MegaMenuPanel align="right" aria-label="Investments Menu">
                   <div className="grid gap-1">
                     {INVESTMENTS.map((inv) => {
                       const { fact, type, icon: Icon } = getInvestmentMeta(inv);
-                      const isGuaranteed = type === 'Guaranteed';
                       return (
-                        <Link
+                        <MenuRow
                           key={inv.slug}
                           to={`/investments#${inv.slug}`}
                           onClick={closeMenu}
-                          className="group cursor-pointer flex min-h-[64px] items-center justify-between rounded-xl px-3 py-2 transition-colors duration-150 hover:bg-porcelain-200 focus-visible:outline-2 focus-visible:outline-gold-500"
-                        >
-                          <div className="flex items-center gap-3.5 min-w-0">
-                            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50 transition-colors duration-150 group-hover:bg-midnight-800 group-hover:text-gold-300">
-                              <Icon className="h-6 w-6" aria-hidden />
-                            </span>
-                            <div className="min-w-0">
-                              <div className="flex items-center gap-2">
-                                <p className="truncate text-base font-semibold text-ink-900 group-hover:text-midnight-950">
-                                  {shortProductName(inv.name)}
-                                </p>
-                                <span
-                                  className={`text-[11px] px-2 py-0.5 rounded-md font-semibold tracking-wide ${
-                                    isGuaranteed
-                                      ? 'bg-midnight-900 text-porcelain-50'
-                                      : 'border border-gold-500 text-gold-700 bg-gold-50/60'
-                                  }`}
-                                >
-                                  {type}
-                                </span>
-                              </div>
-                              <p className="truncate text-sm text-ink-500">
-                                {inv.kind === 'SIP' ? 'Market-linked mutual funds • Risks apply' : inv.tagline}
-                              </p>
-                            </div>
-                          </div>
-                          <div className="flex items-center gap-2 shrink-0 ml-4">
-                            <span className="tnum text-[15px] font-semibold text-ink-900 group-hover:text-midnight-950">
-                              {fact}
-                            </span>
-                            <ArrowRight className="h-4 w-4 text-ink-400 group-hover:text-midnight-900 transition-colors" />
-                          </div>
-                        </Link>
+                          icon={Icon}
+                          name={shortProductName(inv.name)}
+                          chip={type}
+                          description={inv.tagline}
+                          fact={fact}
+                        />
                       );
                     })}
                   </div>
-                  <div className="mt-3 -mx-5 -mb-5 flex items-center justify-between border-t border-ink-100 bg-porcelain-50/90 px-5 py-3.5 text-[15px]">
+                  <div className="mt-2.5 -mx-2.5 -mb-2.5 flex items-center justify-between border-t border-ink-100 bg-porcelain-50/90 px-5 py-3.5 text-[15px]">
                     <Link
                       to="/investments"
                       onClick={closeMenu}
@@ -629,7 +698,7 @@ export const Header = () => {
                       Talk to us
                     </Link>
                   </div>
-                </div>
+                </MegaMenuPanel>
               )}
             </div>
 
@@ -648,7 +717,7 @@ export const Header = () => {
               )}
             </NavLink>
 
-            {/* 6. SUPPORT MEGA MENU (400px, shifted right so it never clips) */}
+            {/* 6. SUPPORT MEGA MENU */}
             <div
               className="relative"
               onMouseEnter={() => handleMouseEnter('Support')}
@@ -662,7 +731,9 @@ export const Header = () => {
                 aria-haspopup="true"
                 onClick={() => handleTriggerClick('Support')}
                 className={`relative flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-gold-500 ${
-                  openMenu === 'Support' ? 'text-midnight-950 font-semibold' : 'text-ink-700 hover:text-midnight-900 hover:bg-midnight-50/50'
+                  openMenu === 'Support'
+                    ? 'bg-porcelain-200/80 text-midnight-950 font-semibold'
+                    : 'text-ink-700 hover:text-midnight-900 hover:bg-midnight-50/50'
                 }`}
               >
                 <span>Support</span>
@@ -675,47 +746,36 @@ export const Header = () => {
               </button>
 
               {openMenu === 'Support' && (
-                <div
-                  className="absolute right-0 top-full mt-1.5 w-[400px] min-w-[400px] rounded-2xl border border-ink-100 border-t-2 border-t-gold-500 bg-white shadow-2xl shadow-modal z-50 overflow-hidden p-5 animate-fade-in"
-                  role="region"
+                <MegaMenuPanel
+                  align="right"
+                  widthClass="w-[min(490px,calc(100vw-32px))]"
                   aria-label="Support and Compliance Menu"
                 >
                   <div className="grid gap-1">
-                    {SUPPORT_ITEMS.map((item) => {
-                      const Icon = item.icon;
-                      return (
-                        <Link
-                          key={item.name}
-                          to={item.to}
-                          onClick={closeMenu}
-                          className="group cursor-pointer flex min-h-[64px] items-center justify-between rounded-xl px-3 py-2 transition-colors duration-150 hover:bg-porcelain-200 focus-visible:outline-2 focus-visible:outline-gold-500"
-                        >
-                          <div className="flex items-center gap-3.5 min-w-0">
-                            <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50 transition-colors duration-150 group-hover:bg-midnight-800 group-hover:text-gold-300">
-                              <Icon className="h-5 w-5" aria-hidden />
-                            </span>
-                            <div className="min-w-0">
-                              <p className="truncate text-base font-semibold text-ink-900 group-hover:text-midnight-950">
-                                {item.name}
-                              </p>
-                              <p className="truncate text-sm text-ink-500">{item.description}</p>
-                            </div>
-                          </div>
-                          <ArrowRight className="h-4 w-4 text-ink-400 group-hover:text-midnight-900 transition-colors ml-2 shrink-0" />
-                        </Link>
-                      );
-                    })}
+                    {SUPPORT_ITEMS.map((item) => (
+                      <MenuRow
+                        key={item.name}
+                        to={item.to}
+                        onClick={closeMenu}
+                        icon={item.icon}
+                        name={item.name}
+                        description={item.description}
+                      />
+                    ))}
                   </div>
-                  <div className="mt-3 -mx-5 -mb-5 flex items-center justify-between border-t border-ink-100 bg-porcelain-50/90 px-5 py-3.5 text-[15px]">
+                  <div className="mt-2.5 -mx-2.5 -mb-2.5 flex items-center justify-between border-t border-ink-100 bg-porcelain-50/90 px-5 py-3.5 text-[15px]">
                     <div>
                       <p className="text-xs text-ink-500">Toll-Free Helpline</p>
-                      <a href="tel:18002674100" className="font-bold text-midnight-950 hover:text-gold-600 transition-colors">
+                      <a
+                        href="tel:18002674100"
+                        className="font-bold text-midnight-950 hover:text-gold-600 transition-colors"
+                      >
                         1800 267 4100
                       </a>
                     </div>
                     <span className="text-xs text-ink-400">Mon–Sat, 9AM–7PM</span>
                   </div>
-                </div>
+                </MegaMenuPanel>
               )}
             </div>
           </nav>
@@ -815,30 +875,25 @@ export const Header = () => {
                 <ChevronDown className={`h-4 w-4 transition-transform ${mobileAccordion === 'Accounts' ? 'rotate-180' : ''}`} />
               </button>
               {mobileAccordion === 'Accounts' && (
-                <div className="border-t border-ink-100 divide-y divide-ink-50 p-2 bg-porcelain-50/50 space-y-1">
-                  {ACCOUNTS.map((acc) => {
-                    const Icon = ACCOUNT_ICONS[acc.slug] || Wallet;
-                    return (
-                      <Link
-                        key={acc.slug}
-                        to={`/accounts#${acc.slug}`}
-                        onClick={closeMenu}
-                        className="flex items-center justify-between py-2.5 px-2 rounded-lg hover:bg-porcelain-100 transition-colors"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50">
-                            <Icon className="h-6 w-6" aria-hidden />
-                          </span>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-sm text-ink-900 truncate">{shortProductName(acc.name)}</p>
-                            <p className="text-xs text-ink-500 truncate">{acc.tagline}</p>
-                          </div>
-                        </div>
-                        <span className="tnum font-semibold text-xs text-ink-900 shrink-0 ml-2">{getAccountFact(acc)}</span>
-                      </Link>
-                    );
-                  })}
-                  <div className="pt-2 px-2 flex justify-between font-semibold text-xs">
+                <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-1 animate-accordion-down">
+                  <div className="grid gap-1">
+                    {ACCOUNTS.map((acc) => {
+                      const Icon = ACCOUNT_ICONS[acc.slug] || Wallet;
+                      return (
+                        <MenuRow
+                          key={acc.slug}
+                          to={`/accounts#${acc.slug}`}
+                          onClick={closeMenu}
+                          icon={Icon}
+                          name={shortProductName(acc.name)}
+                          description={acc.tagline}
+                          fact={getAccountFact(acc)}
+                          isMobile
+                        />
+                      );
+                    })}
+                  </div>
+                  <div className="pt-2 px-2 flex justify-between font-semibold text-xs border-t border-ink-100 mt-2">
                     <Link to="/accounts" onClick={closeMenu} className="text-ink-700 hover:text-midnight-900">View all accounts →</Link>
                     <Link to="/accounts?apply=1" onClick={closeMenu} className="text-midnight-900 hover:text-midnight-700">Open an account</Link>
                   </div>
@@ -857,48 +912,43 @@ export const Header = () => {
                 <ChevronDown className={`h-4 w-4 transition-transform ${mobileAccordion === 'Cards' ? 'rotate-180' : ''}`} />
               </button>
               {mobileAccordion === 'Cards' && (
-                <div className="border-t border-ink-100 divide-y divide-ink-50 p-2 bg-porcelain-50/50 space-y-1">
-                  <p className="text-xs font-semibold text-ink-400 uppercase tracking-[0.14em] px-2 pt-1">Credit Cards</p>
-                  {CREDIT_CARDS.map((c) => (
-                    <Link
-                      key={c.slug}
-                      to={`/cards#${c.slug}`}
-                      onClick={closeMenu}
-                      className="flex items-center justify-between py-2.5 px-2 rounded-lg hover:bg-porcelain-100 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 p-1.5 overflow-hidden">
-                          <MiniCardThumb slug={c.slug} />
-                        </span>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-sm text-ink-900 truncate">{shortProductName(c.name)}</p>
-                          <p className="text-xs text-ink-500 truncate">{c.tagline}</p>
-                        </div>
-                      </div>
-                      <span className="tnum font-semibold text-xs text-ink-900 shrink-0 ml-2">{getCardFact(c)}</span>
-                    </Link>
-                  ))}
-                  <p className="text-xs font-semibold text-ink-400 uppercase tracking-[0.14em] px-2 pt-2">Debit Cards</p>
-                  {DEBIT_CARDS.map((c) => (
-                    <Link
-                      key={c.slug}
-                      to={`/cards#${c.slug}`}
-                      onClick={closeMenu}
-                      className="flex items-center justify-between py-2.5 px-2 rounded-lg hover:bg-porcelain-100 transition-colors"
-                    >
-                      <div className="flex items-center gap-3 min-w-0">
-                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 p-1.5 overflow-hidden">
-                          <MiniCardThumb slug={c.slug} />
-                        </span>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-sm text-ink-900 truncate">{shortProductName(c.name)}</p>
-                          <p className="text-xs text-ink-500 truncate">{c.tagline}</p>
-                        </div>
-                      </div>
-                      <span className="tnum font-semibold text-xs text-ink-900 shrink-0 ml-2">{getCardFact(c)}</span>
-                    </Link>
-                  ))}
-                  <div className="pt-2 px-2 flex justify-between font-semibold text-xs">
+                <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-2 animate-accordion-down">
+                  <div>
+                    <p className="text-xs font-semibold text-ink-400 uppercase tracking-[0.14em] px-2 pb-1">Credit Cards</p>
+                    <div className="grid gap-1">
+                      {CREDIT_CARDS.map((c) => (
+                        <MenuRow
+                          key={c.slug}
+                          to={`/cards#${c.slug}`}
+                          onClick={closeMenu}
+                          card={c}
+                          name={shortProductName(c.name)}
+                          description={c.tagline}
+                          fact={getCardFact(c)}
+                          isMobile
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="border-t border-ink-100" />
+                  <div>
+                    <p className="text-xs font-semibold text-ink-400 uppercase tracking-[0.14em] px-2 pb-1">Debit Cards</p>
+                    <div className="grid gap-1">
+                      {DEBIT_CARDS.map((c) => (
+                        <MenuRow
+                          key={c.slug}
+                          to={`/cards#${c.slug}`}
+                          onClick={closeMenu}
+                          card={c}
+                          name={shortProductName(c.name)}
+                          description={c.tagline}
+                          fact={getCardFact(c)}
+                          isMobile
+                        />
+                      ))}
+                    </div>
+                  </div>
+                  <div className="pt-2 px-2 flex justify-between font-semibold text-xs border-t border-ink-100 mt-2">
                     <Link to="/cards" onClick={closeMenu} className="text-ink-700 hover:text-midnight-900">View all cards →</Link>
                     <Link to="/cards#compare" onClick={closeMenu} className="text-midnight-900 hover:text-midnight-700">Compare cards</Link>
                   </div>
@@ -917,30 +967,25 @@ export const Header = () => {
                 <ChevronDown className={`h-4 w-4 transition-transform ${mobileAccordion === 'Loans' ? 'rotate-180' : ''}`} />
               </button>
               {mobileAccordion === 'Loans' && (
-                <div className="border-t border-ink-100 divide-y divide-ink-50 p-2 bg-porcelain-50/50 space-y-1">
-                  {LOANS.map((l) => {
-                    const Icon = LOAN_ICONS[l.slug] || Home;
-                    return (
-                      <Link
-                        key={l.slug}
-                        to={`/loans#${l.slug}`}
-                        onClick={closeMenu}
-                        className="flex items-center justify-between py-2.5 px-2 rounded-lg hover:bg-porcelain-100 transition-colors"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50">
-                            <Icon className="h-6 w-6" aria-hidden />
-                          </span>
-                          <div className="min-w-0">
-                            <p className="font-semibold text-sm text-ink-900 truncate">{shortProductName(l.name)}</p>
-                            <p className="text-xs text-ink-500 truncate">{l.tagline}</p>
-                          </div>
-                        </div>
-                        <span className="tnum font-semibold text-xs text-ink-900 shrink-0 ml-2">From {l.rateMin.toFixed(2)}%</span>
-                      </Link>
-                    );
-                  })}
-                  <div className="pt-2 px-2 flex justify-between font-semibold text-xs">
+                <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-1 animate-accordion-down">
+                  <div className="grid gap-1">
+                    {LOANS.map((l) => {
+                      const Icon = LOAN_ICONS[l.slug] || Home;
+                      return (
+                        <MenuRow
+                          key={l.slug}
+                          to={`/loans#${l.slug}`}
+                          onClick={closeMenu}
+                          icon={Icon}
+                          name={shortProductName(l.name)}
+                          description={l.tagline}
+                          fact={`From ${l.rateMin.toFixed(2)}%`}
+                          isMobile
+                        />
+                      );
+                    })}
+                  </div>
+                  <div className="pt-2 px-2 flex justify-between font-semibold text-xs border-t border-ink-100 mt-2">
                     <Link to="/loans" onClick={closeMenu} className="text-ink-700 hover:text-midnight-900">View all 7 loans →</Link>
                     <Link to="/calculators" onClick={closeMenu} className="text-midnight-900 hover:text-midnight-700">EMI calculator</Link>
                   </div>
@@ -959,33 +1004,26 @@ export const Header = () => {
                 <ChevronDown className={`h-4 w-4 transition-transform ${mobileAccordion === 'Investments' ? 'rotate-180' : ''}`} />
               </button>
               {mobileAccordion === 'Investments' && (
-                <div className="border-t border-ink-100 divide-y divide-ink-50 p-2 bg-porcelain-50/50 space-y-1">
-                  {INVESTMENTS.map((inv) => {
-                    const { fact, type, icon: Icon } = getInvestmentMeta(inv);
-                    return (
-                      <Link
-                        key={inv.slug}
-                        to={`/investments#${inv.slug}`}
-                        onClick={closeMenu}
-                        className="flex items-center justify-between py-2.5 px-2 rounded-lg hover:bg-porcelain-100 transition-colors"
-                      >
-                        <div className="flex items-center gap-3 min-w-0">
-                          <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50">
-                            <Icon className="h-6 w-6" aria-hidden />
-                          </span>
-                          <div className="min-w-0">
-                            <div className="flex items-center gap-1.5">
-                              <span className="font-semibold text-sm text-ink-900">{shortProductName(inv.name)}</span>
-                              <span className="text-[10px] px-1.5 py-0.2 rounded bg-midnight-100 font-bold text-midnight-900">{type}</span>
-                            </div>
-                            <p className="text-xs text-ink-500 truncate">{inv.tagline}</p>
-                          </div>
-                        </div>
-                        <span className="tnum font-semibold text-xs text-ink-900 shrink-0 ml-2">{fact}</span>
-                      </Link>
-                    );
-                  })}
-                  <div className="pt-2 px-2 flex justify-between font-semibold text-xs">
+                <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-1 animate-accordion-down">
+                  <div className="grid gap-1">
+                    {INVESTMENTS.map((inv) => {
+                      const { fact, type, icon: Icon } = getInvestmentMeta(inv);
+                      return (
+                        <MenuRow
+                          key={inv.slug}
+                          to={`/investments#${inv.slug}`}
+                          onClick={closeMenu}
+                          icon={Icon}
+                          name={shortProductName(inv.name)}
+                          chip={type}
+                          description={inv.tagline}
+                          fact={fact}
+                          isMobile
+                        />
+                      );
+                    })}
+                  </div>
+                  <div className="pt-2 px-2 flex justify-between font-semibold text-xs border-t border-ink-100 mt-2">
                     <Link to="/investments" onClick={closeMenu} className="text-ink-700 hover:text-midnight-900">View all investments →</Link>
                     <Link to="/grievance-redressal" onClick={closeMenu} className="text-midnight-900 hover:text-midnight-700">Talk to us</Link>
                   </div>
@@ -1013,27 +1051,21 @@ export const Header = () => {
                 <ChevronDown className={`h-4 w-4 transition-transform ${mobileAccordion === 'Support' ? 'rotate-180' : ''}`} />
               </button>
               {mobileAccordion === 'Support' && (
-                <div className="border-t border-ink-100 divide-y divide-ink-50 p-2 bg-porcelain-50/50 space-y-1">
-                  {SUPPORT_ITEMS.map((item) => {
-                    const Icon = item.icon;
-                    return (
-                      <Link
+                <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-1 animate-accordion-down">
+                  <div className="grid gap-1">
+                    {SUPPORT_ITEMS.map((item) => (
+                      <MenuRow
                         key={item.name}
                         to={item.to}
                         onClick={closeMenu}
-                        className="flex items-center gap-3 py-2.5 px-2 rounded-lg hover:bg-porcelain-100 transition-colors"
-                      >
-                        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50">
-                          <Icon className="h-5 w-5" aria-hidden />
-                        </span>
-                        <div className="min-w-0">
-                          <p className="font-semibold text-sm text-ink-900 truncate">{item.name}</p>
-                          <p className="text-xs text-ink-500 truncate">{item.description}</p>
-                        </div>
-                      </Link>
-                    );
-                  })}
-                  <div className="pt-2 px-2 text-xs text-ink-600">
+                        icon={item.icon}
+                        name={item.name}
+                        description={item.description}
+                        isMobile
+                      />
+                    ))}
+                  </div>
+                  <div className="pt-2 px-2 text-xs text-ink-600 border-t border-ink-100 mt-2">
                     Helpline: <a href="tel:18002674100" className="font-bold text-midnight-950">1800 267 4100</a>
                   </div>
                 </div>

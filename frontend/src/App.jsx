@@ -60,7 +60,7 @@ function AppContent() {
     <div className="flex flex-col min-h-screen">
       <ScrollToTop />
       {!isManagerRoute && <Header />}
-      <main className="flex-1">
+      <main key={location.pathname} className="flex-1 animate-fade-in motion-reduce:animate-none">
         <RouteErrorBoundary>
           <Suspense fallback={<RouteSuspenseFallback />}>
             <Routes>
