@@ -1,6 +1,6 @@
 import { ConfirmationCheckmark } from '../../../components/common/ConfirmationCheckmark.jsx';
 import React, { useEffect, useMemo, useState } from 'react';
-import { Link } from 'react-router-dom';
+import { Link, useLocation } from 'react-router-dom';
 import { ArrowLeft, ArrowRight, BadgeIndianRupee, CheckCircle2, Landmark, Users } from 'lucide-react';
 import { Badge, Button, Card, Field, FormError, Input, PageLoading, SectionHeader, Select, Stepper, Tabs } from '../../../components/ui.jsx';
 import { formatDateTime, formatINR, maskAccount } from '../../../lib/format.js';
@@ -11,6 +11,7 @@ import { accountLabel } from './AccountsSection.jsx';
 export default function TransfersPage() {
   const { user } = useAuth();
   useDbTick();
+  const location = useLocation();
 
   const [accounts, setAccounts] = useState(null);
   const [beneficiaries, setBeneficiaries] = useState(null);
@@ -36,17 +37,48 @@ export default function TransfersPage() {
         setAccounts(accs);
         setBeneficiaries(bens);
         setFromAccountId((prev) => prev || accs[0]?.id || '');
+
+        // Preselect beneficiary if passed via location state or query
+        const queryParams = new URLSearchParams(location.search);
+        const preselectBeneId = location.state?.beneficiaryId || queryParams.get('beneficiaryId');
+        if (preselectBeneId && bens.some((b) => b.id === preselectBeneId)) {
+          setDestTab('BENEFICIARY');
+          setBeneficiaryId(preselectBeneId);
+        }
       })
       .catch((e) => setLoadError(e.message || 'We could not load your accounts.'));
   };
 
-  useEffect(loadData, [user?.customerId]); // eslint-disable-line react-hooks/exhaustive-deps
+  useEffect(loadData, [user?.customerId, location]); // eslint-disable-line react-hooks/exhaustive-deps
 
   const fromAccount = useMemo(() => (accounts || []).find((a) => a.id === fromAccountId) || null, [accounts, fromAccountId]);
-  const rail = useMemo(() => RAILS.find((r) => r.id === railId) || RAILS[0], [railId]);
   const beneficiary = useMemo(() => (beneficiaries || []).find((b) => b.id === beneficiaryId) || null, [beneficiaries, beneficiaryId]);
   const ownAccount = useMemo(() => (accounts || []).find((a) => a.id === ownAccountId) || null, [accounts, ownAccountId]);
   const ownOptions = useMemo(() => (accounts || []).filter((a) => a.id !== fromAccountId), [accounts, fromAccountId]);
+
+  // Determine if destination is FinEdge Bank
+  const isFinEdgeDest = useMemo(() => {
+    if (destTab === 'OWN') return true;
+    if (!beneficiary) return false;
+    const ifsc = (beneficiary.ifsc || beneficiary.ifscCode || '').toUpperCase();
+    const bank = (beneficiary.bankName || '').toLowerCase();
+    return ifsc.startsWith('FEDG') || bank.includes('finedge');
+  }, [destTab, beneficiary]);
+
+  // Auto-switch rail when destination changes
+  useEffect(() => {
+    if (isFinEdgeDest) {
+      if (railId !== 'INTERNAL') {
+        setRailId('INTERNAL');
+      }
+    } else {
+      if (railId === 'INTERNAL') {
+        setRailId('IMPS');
+      }
+    }
+  }, [isFinEdgeDest, railId]);
+
+  const rail = useMemo(() => RAILS.find((r) => r.id === railId) || RAILS[0], [railId]);
 
   const amountNum = Number(amount);
   const amountValid = amount !== '' && Number.isFinite(amountNum) && amountNum > 0;
@@ -60,6 +92,14 @@ export default function TransfersPage() {
       if (!ownAccount) next.ownAccountId = 'Choose one of your other accounts.';
       else if (ownAccount.id === fromAccountId) next.ownAccountId = 'Choose a different account from the source.';
     }
+
+    // Rail eligibility validation
+    if (isFinEdgeDest && railId !== 'INTERNAL') {
+      next.rail = 'Only internal transfer is available for FinEdge destinations.';
+    } else if (!isFinEdgeDest && railId === 'INTERNAL') {
+      next.rail = 'Internal transfer is available only for FinEdge Bank accounts.';
+    }
+
     if (!amountValid) next.amount = 'Enter an amount greater than zero.';
     else if (fromAccount) {
       if (amountNum > rail.limit) next.amount = `This exceeds the ${rail.id} limit of ${formatINR(rail.limit)} per transfer.`;
@@ -336,14 +376,26 @@ export default function TransfersPage() {
               <div className="grid gap-2 sm:grid-cols-2" role="radiogroup" aria-label="Transfer rail">
                 {RAILS.map((r) => {
                   const selected = railId === r.id;
+                  const isEligible = isFinEdgeDest ? r.id === 'INTERNAL' : r.id !== 'INTERNAL';
+                  const ineligibilityReason = isFinEdgeDest
+                    ? 'Beneficiary is with FinEdge Bank (internal transfer only)'
+                    : 'Internal transfer is available only for FinEdge Bank accounts';
+
                   return (
                     <button
                       key={r.id}
                       type="button"
                       role="radio"
                       aria-checked={selected}
-                      onClick={() => setRailId(r.id)}
-                      className={`rounded-lg border px-3.5 py-3 text-left transition-colors ${selected ? 'border-midnight-600 bg-midnight-50' : 'border-ink-200 bg-white hover:border-midnight-300'}`}
+                      disabled={!isEligible}
+                      onClick={() => { if (isEligible) setRailId(r.id); }}
+                      className={`rounded-lg border px-3.5 py-3 text-left transition-colors ${
+                        !isEligible
+                          ? 'border-ink-100 bg-porcelain-100 opacity-60 cursor-not-allowed'
+                          : selected
+                          ? 'border-midnight-600 bg-midnight-50'
+                          : 'border-ink-200 bg-white hover:border-midnight-300 cursor-pointer'
+                      }`}
                     >
                       <span className="flex items-center justify-between gap-2">
                         <span className="text-sm font-semibold text-ink-900">{r.label}</span>
@@ -352,10 +404,16 @@ export default function TransfersPage() {
                       <span className="tnum mt-1 block text-[13px] text-ink-500">
                         {r.charge ? `Charge ${formatINR(r.charge)}` : 'No charge'} · Limit {formatINR(r.limit)} per transfer
                       </span>
+                      {!isEligible && (
+                        <span className="mt-1 block text-xs text-ink-500 font-medium">
+                          {ineligibilityReason}
+                        </span>
+                      )}
                     </button>
                   );
                 })}
               </div>
+              {errors.rail && <p className="mt-1 text-xs text-danger-600">{errors.rail}</p>}
             </div>
 
             <div className="grid gap-5 sm:grid-cols-2">

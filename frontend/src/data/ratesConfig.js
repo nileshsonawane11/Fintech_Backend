@@ -9,8 +9,8 @@ export const FINEDGE_RATES_CONFIG = {
   brand: {
     name: 'FinEdge Bank',
     tagline: 'Precision Banking Engineered for Modern Growth',
-    ifscPrefix: 'FNEG0001234',
-    ifscCode: 'FNEG0001234',
+    ifscPrefix: 'FEDG0001021',
+    ifscCode: 'FEDG0001021',
     micrCode: '400240012',
     demoDisclaimer: 'FinEdge Bank is a simulated digital banking brand engineered for demonstration, training, and functional evaluation.',
     dicgcInsurance: '₹5,00,000 per depositor across branches under RBI DICGC framework',
@@ -102,7 +102,7 @@ export const FINEDGE_RATES_CONFIG = {
 
   // 4. Credit Cards APR & Fee Schedules
   cards: {
-    aurumMetal: {
+    cashbackCredit: {
       annualFee: '₹2,999 (Waived on ₹3 Lakh annual spend)',
       joiningFee: '₹2,999',
       annualFeeRenewal: '₹2,999',

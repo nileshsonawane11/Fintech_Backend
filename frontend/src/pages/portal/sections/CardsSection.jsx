@@ -1,4 +1,4 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Ban,
   Banknote,
@@ -6,9 +6,11 @@ import {
   CreditCard,
   FileText,
   Globe,
+  KeyRound,
   Nfc,
   PackageCheck,
   Plane,
+  RefreshCw,
   ShieldCheck,
 } from 'lucide-react';
 import {
@@ -18,6 +20,7 @@ import {
   EmptyState,
   Field,
   FormError,
+  Input,
   Modal,
   PageLoading,
   SectionHeader,
@@ -34,6 +37,7 @@ import {
   blockCard,
   listMyCardApplications,
   listMyCards,
+  payCard,
   updateCardControls,
 } from '../../../services/portalBridge.js';
 import { listAccounts } from '../../../services/portalBridge.js';
@@ -45,14 +49,6 @@ const CHANNELS = [
   { key: 'international', label: 'International use', hint: 'Overseas and foreign-currency spends', icon: Plane },
   { key: 'contactless', label: 'Contactless', hint: 'Tap to pay without a PIN up to the contactless limit', icon: Nfc },
 ];
-
-const LIMIT_SLIDERS = [
-  { key: 'dailySpend', label: 'Daily spend limit', min: 5000, max: 300000, step: 5000 },
-  { key: 'atmWithdrawal', label: 'ATM withdrawal limit (per day)', min: 5000, max: 100000, step: 5000 },
-];
-
-const DEFAULT_CONTROLS = { online: true, atm: true, international: false, contactless: true };
-const DEFAULT_LIMITS = { dailySpend: 50000, atmWithdrawal: 25000 };
 
 function feeLabel(value) {
   if (value == null) return '—';
@@ -88,31 +84,77 @@ function Toggle({ checked, onChange, disabled, label }) {
 }
 
 /* One issued card: visual, billing band (credit), controls, limits, services. */
-function CardPanel({ card, holderName, actorName, onBlockRequest }) {
+function CardPanel({ card, accounts, holderName, actorName, onBlockRequest, onRefresh }) {
   const { toast } = useToast();
   const blocked = card.status === 'BLOCKED';
   const disabled = blocked || card.status !== 'ACTIVE';
   const isCredit = card.kind === 'CREDIT';
 
-  const [controls, setControls] = useState(() => ({ ...DEFAULT_CONTROLS, ...(card.controls || {}) }));
-  const [draftLimits, setDraftLimits] = useState(() => ({ ...DEFAULT_LIMITS, ...(card.limits || {}) }));
-  const [savedLimits, setSavedLimits] = useState(() => ({ ...DEFAULT_LIMITS, ...(card.limits || {}) }));
+  // Dynamic limits bounded by the card's product specification in products.js
+  const product = useMemo(() => {
+    return getCardBySlug(card.productSlug) ||
+      CARDS.find((c) => c.slug === card.productSlug || c.name.toLowerCase() === (card.productName || '').toLowerCase()) ||
+      CARDS[0];
+  }, [card.productSlug, card.productName]);
+
+  const posMax = product?.limits?.posDaily || (isCredit ? 150000 : 100000);
+  const atmMax = product?.limits?.atmDaily || (isCredit ? 25000 : 40000);
+
+  const defaultControls = { online: true, atm: true, international: false, contactless: true };
+  const defaultLimits = { dailySpend: Math.min(50000, posMax), atmWithdrawal: Math.min(25000, atmMax) };
+
+  const [controls, setControls] = useState(() => ({
+    ...defaultControls,
+    online: card.controls?.online ?? true,
+    atm: card.controls?.atm ?? true,
+    international: card.controls?.international ?? false,
+    contactless: card.controls?.contactless ?? true,
+  }));
+
+  const [draftLimits, setDraftLimits] = useState(() => ({
+    dailySpend: Math.min(card.limits?.spendDaily ?? card.limits?.dailySpend ?? defaultLimits.dailySpend, posMax),
+    atmWithdrawal: Math.min(card.limits?.atmDaily ?? card.limits?.atmWithdrawal ?? defaultLimits.atmWithdrawal, atmMax),
+  }));
+  const [savedLimits, setSavedLimits] = useState(() => ({ ...draftLimits }));
   const draggingRef = useRef(false);
 
-  // Sync from the store when the card changes elsewhere (e.g. it was blocked).
-  const controlsKey = JSON.stringify(card.controls || {});
-  const limitsKey = JSON.stringify(card.limits || {});
+  // Bill payment state
+  const [payModalOpen, setPayModalOpen] = useState(false);
+  const [payOption, setPayOption] = useState('MIN'); // 'FULL' or 'MIN'
+  const [payAccountId, setPayAccountId] = useState(() => (accounts[0]?.id || ''));
+  const [paying, setPaying] = useState(false);
+
+  // PIN modal state
+  const [pinModalOpen, setPinModalOpen] = useState(false);
+  const [pin, setPin] = useState('');
+  const [confirmPin, setConfirmPin] = useState('');
+  const [pinError, setPinError] = useState('');
+  const [savingPin, setSavingPin] = useState(false);
+
+  // Replacement modal state
+  const [replaceModalOpen, setReplaceModalOpen] = useState(false);
+  const [replaceReason, setReplaceReason] = useState('Damaged physical card');
+  const [requestingReplace, setRequestingReplace] = useState(false);
+
+  // Sync controls and limits when card updates
   useEffect(() => {
-    setControls({ ...DEFAULT_CONTROLS, ...(card.controls || {}) });
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [controlsKey, card.status]);
+    setControls({
+      online: card.controls?.online ?? true,
+      atm: card.controls?.atm ?? true,
+      international: card.controls?.international ?? false,
+      contactless: card.controls?.contactless ?? true,
+    });
+  }, [card.controls, card.status]);
+
   useEffect(() => {
     if (draggingRef.current) return;
-    const next = { ...DEFAULT_LIMITS, ...(card.limits || {}) };
+    const next = {
+      dailySpend: Math.min(card.limits?.spendDaily ?? card.limits?.dailySpend ?? defaultLimits.dailySpend, posMax),
+      atmWithdrawal: Math.min(card.limits?.atmDaily ?? card.limits?.atmWithdrawal ?? defaultLimits.atmWithdrawal, atmMax),
+    };
     setDraftLimits(next);
     setSavedLimits(next);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [limitsKey, card.status]);
+  }, [card.limits, card.status, posMax, atmMax]);
 
   async function toggleChannel(key) {
     if (disabled) return;
@@ -121,6 +163,11 @@ function CardPanel({ card, holderName, actorName, onBlockRequest }) {
     setControls(next); // optimistic
     try {
       await updateCardControls(card.id, { controls: { [key]: next[key] } }, actorName);
+      toast({
+        tone: 'success',
+        title: 'Card control updated',
+        body: `${CHANNELS.find((c) => c.key === key)?.label} is now ${next[key] ? 'enabled' : 'disabled'}.`,
+      });
     } catch (err) {
       setControls(previous); // revert
       toast({
@@ -142,9 +189,16 @@ function CardPanel({ card, holderName, actorName, onBlockRequest }) {
     }
     const previous = savedLimits;
     try {
-      await updateCardControls(card.id, { limits: { ...draftLimits } }, actorName);
+      await updateCardControls(card.id, {
+        limits: {
+          spendDaily: draftLimits.dailySpend,
+          dailySpend: draftLimits.dailySpend,
+          atmDaily: draftLimits.atmWithdrawal,
+          atmWithdrawal: draftLimits.atmWithdrawal,
+        },
+      }, actorName);
       setSavedLimits({ ...draftLimits });
-      toast({ tone: 'success', title: 'Saved', body: 'Your card limits have been updated.' });
+      toast({ tone: 'success', title: 'Limits updated', body: 'Your daily card limits have been saved.' });
     } catch (err) {
       setDraftLimits(previous);
       toast({
@@ -155,14 +209,108 @@ function CardPanel({ card, holderName, actorName, onBlockRequest }) {
     }
   }
 
+  async function handlePayBill() {
+    if (!payAccountId) {
+      toast({ tone: 'error', title: 'Select account', body: 'Please select an account to pay from.' });
+      return;
+    }
+    const amountToPay = payOption === 'FULL' ? (card.outstanding || 0) : (card.minDue || 0);
+    if (amountToPay <= 0) {
+      toast({ tone: 'info', title: 'No dues', body: 'There is no outstanding balance due on this card.' });
+      setPayModalOpen(false);
+      return;
+    }
+    setPaying(true);
+    try {
+      const res = await payCard(card.id, { accountId: payAccountId, amount: amountToPay });
+      toast({
+        tone: 'success',
+        title: 'Payment successful',
+        body: `₹${amountToPay.toLocaleString('en-IN')} paid towards ${card.productName}. Reference: ${res.reference || 'PAY-CARD'}`,
+      });
+      setPayModalOpen(false);
+      onRefresh();
+    } catch (err) {
+      toast({
+        tone: 'error',
+        title: 'Payment failed',
+        body: err?.message || 'Could not process card payment. Please verify account balance.',
+      });
+    } finally {
+      setPaying(false);
+    }
+  }
+
+  async function handleSetPin(e) {
+    e.preventDefault();
+    setPinError('');
+    if (!/^\d{4}$/.test(pin)) {
+      setPinError('PIN must be exactly 4 digits.');
+      return;
+    }
+    if (pin !== confirmPin) {
+      setPinError('PINs do not match.');
+      return;
+    }
+    setSavingPin(true);
+    try {
+      await updateCardControls(card.id, { pinSet: true }, actorName);
+      toast({
+        tone: 'success',
+        title: 'PIN set successfully',
+        body: `A new 4-digit PIN has been configured for card ending in ${String(card.number || '').slice(-4)}.`,
+      });
+      setPinModalOpen(false);
+      setPin('');
+      setConfirmPin('');
+    } catch (err) {
+      setPinError(err?.message || 'Failed to update PIN. Please try again.');
+    } finally {
+      setSavingPin(false);
+    }
+  }
+
+  async function handleRequestReplacement() {
+    setRequestingReplace(true);
+    try {
+      const app = await applyCard(card.customerId, {
+        productSlug: card.productSlug,
+        productName: `${card.productName} (Replacement)`,
+        kind: 'Replacement',
+        reason: replaceReason,
+        accountId: card.linkedAccountId || accounts[0]?.id,
+      });
+      toast({
+        tone: 'success',
+        title: 'Replacement requested',
+        body: `Replacement request (${app.id}) submitted. It will be dispatched after approval.`,
+      });
+      setReplaceModalOpen(false);
+      onRefresh();
+    } catch (err) {
+      toast({
+        tone: 'error',
+        title: 'Request failed',
+        body: err?.message || 'Could not request replacement card.',
+      });
+    } finally {
+      setRequestingReplace(false);
+    }
+  }
+
   const last4 = card.number ? String(card.number).replace(/\s/g, '').slice(-4) : '••••';
   const available =
-    isCredit && card.limit != null && card.outstanding != null ? card.limit - card.outstanding : null;
+    isCredit && card.limit != null && card.outstanding != null ? Math.max(0, card.limit - card.outstanding) : null;
 
   return (
     <Card className="p-5 sm:p-6">
       <div className="flex flex-wrap items-center justify-between gap-3">
-        <p className="text-base font-semibold text-midnight-950">{card.productName || 'FinEdge Card'}</p>
+        <div>
+          <p className="text-base font-semibold text-midnight-950">{card.productName || 'FinEdge Card'}</p>
+          <span className="rounded-full border border-ink-200 bg-porcelain-100 px-2 py-0.5 text-xs font-bold tracking-wide text-ink-600">
+            {card.kind} · {card.network}
+          </span>
+        </div>
         <StatusChip status={card.status} />
       </div>
 
@@ -210,21 +358,16 @@ function CardPanel({ card, holderName, actorName, onBlockRequest }) {
               )}
             </div>
           </dl>
-          <div className="mt-4">
+          <div className="mt-4 flex items-center gap-3">
             <Button
               type="button"
-             
               size="sm"
-              onClick={() =>
-                toast({
-                  tone: 'info',
-                  title: 'Payment is simulated in this prototype',
-                  body: 'No real payment is taken here. In the live product this would open the bill-payment flow for this card.',
-                })
-              }
+              disabled={disabled || (card.outstanding || 0) <= 0}
+              onClick={() => setPayModalOpen(true)}
             >
               Pay now
             </Button>
+            <span className="text-xs text-ink-500">Simulated settlement from linked account</span>
           </div>
         </div>
       )}
@@ -258,59 +401,242 @@ function CardPanel({ card, holderName, actorName, onBlockRequest }) {
         </ul>
       </div>
 
-      {/* Limits — commit on release only */}
+      {/* Limits — bounded by product specification */}
       <div className="mt-6 space-y-5">
-        {LIMIT_SLIDERS.map((s) => (
-          <div key={s.key}>
-            <div className="flex items-baseline justify-between gap-3">
-              <label htmlFor={`${card.id}-${s.key}`} className="text-sm font-medium text-ink-800">
-                {s.label}
-              </label>
-              <span className="tnum text-sm font-semibold text-midnight-900">
-                {formatINRWhole(draftLimits[s.key])}
-              </span>
-            </div>
-            <input
-              id={`${card.id}-${s.key}`}
-              type="range"
-              min={s.min}
-              max={s.max}
-              step={s.step}
-              value={draftLimits[s.key]}
-              disabled={disabled}
-              aria-valuetext={formatINRWhole(draftLimits[s.key])}
-              onChange={(e) =>
-                setDraftLimits((prev) => ({ ...prev, [s.key]: Number(e.target.value) }))
-              }
-              onPointerDown={() => {
-                draggingRef.current = true;
-              }}
-              onMouseUp={commitLimits}
-              onTouchEnd={commitLimits}
-              onKeyUp={commitLimits}
-              className="mt-2 w-full accent-midnight-800 disabled:opacity-50"
-            />
-            <div className="tnum mt-1 flex justify-between text-xs text-ink-500">
-              <span>{formatINRWhole(s.min)}</span>
-              <span>{formatINRWhole(s.max)}</span>
-            </div>
+        <div>
+          <div className="flex items-baseline justify-between gap-3">
+            <label htmlFor={`${card.id}-spend`} className="text-sm font-medium text-ink-800">
+              Daily spend limit (POS & Online)
+            </label>
+            <span className="tnum text-sm font-semibold text-midnight-900">
+              {formatINRWhole(draftLimits.dailySpend)}
+            </span>
           </div>
-        ))}
+          <input
+            id={`${card.id}-spend`}
+            type="range"
+            min={5000}
+            max={posMax}
+            step={5000}
+            value={draftLimits.dailySpend}
+            disabled={disabled}
+            aria-valuetext={formatINRWhole(draftLimits.dailySpend)}
+            onChange={(e) =>
+              setDraftLimits((prev) => ({ ...prev, dailySpend: Number(e.target.value) }))
+            }
+            onPointerDown={() => { draggingRef.current = true; }}
+            onMouseUp={commitLimits}
+            onTouchEnd={commitLimits}
+            onKeyUp={commitLimits}
+            className="mt-2 w-full accent-midnight-800 disabled:opacity-50"
+          />
+          <div className="tnum mt-1 flex justify-between text-xs text-ink-500">
+            <span>₹5,000</span>
+            <span>Max: {formatINRWhole(posMax)}</span>
+          </div>
+        </div>
+
+        <div>
+          <div className="flex items-baseline justify-between gap-3">
+            <label htmlFor={`${card.id}-atm`} className="text-sm font-medium text-ink-800">
+              ATM withdrawal limit (per day)
+            </label>
+            <span className="tnum text-sm font-semibold text-midnight-900">
+              {formatINRWhole(draftLimits.atmWithdrawal)}
+            </span>
+          </div>
+          <input
+            id={`${card.id}-atm`}
+            type="range"
+            min={5000}
+            max={atmMax}
+            step={5000}
+            value={draftLimits.atmWithdrawal}
+            disabled={disabled}
+            aria-valuetext={formatINRWhole(draftLimits.atmWithdrawal)}
+            onChange={(e) =>
+              setDraftLimits((prev) => ({ ...prev, atmWithdrawal: Number(e.target.value) }))
+            }
+            onPointerDown={() => { draggingRef.current = true; }}
+            onMouseUp={commitLimits}
+            onTouchEnd={commitLimits}
+            onKeyUp={commitLimits}
+            className="mt-2 w-full accent-midnight-800 disabled:opacity-50"
+          />
+          <div className="tnum mt-1 flex justify-between text-xs text-ink-500">
+            <span>₹5,000</span>
+            <span>Max: {formatINRWhole(atmMax)}</span>
+          </div>
+        </div>
         <p className="text-[13px] text-ink-500">Limits save when you release the slider.</p>
       </div>
 
       {/* Services footer */}
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-4">
-        <p className="flex items-center gap-2 text-[13px] text-ink-500">
-          <PackageCheck className="h-4 w-4 text-midnight-700" aria-hidden />
-          {card.dispatchRef ? `Dispatched · reference ${card.dispatchRef}` : 'Card services'}
-        </p>
+        <div className="flex flex-wrap items-center gap-2">
+          {!blocked && (
+            <>
+              <Button type="button" variant="secondary" size="sm" onClick={() => setPinModalOpen(true)}>
+                <KeyRound className="h-4 w-4" aria-hidden /> Set / Change PIN
+              </Button>
+              <Button type="button" variant="secondary" size="sm" onClick={() => setReplaceModalOpen(true)}>
+                <RefreshCw className="h-4 w-4" aria-hidden /> Request replacement
+              </Button>
+            </>
+          )}
+        </div>
         {!blocked && (
           <Button type="button" variant="danger" size="sm" onClick={() => onBlockRequest(card)}>
             <Ban className="h-4 w-4" aria-hidden /> Block card
           </Button>
         )}
       </div>
+
+      {/* Bill Pay Modal */}
+      {isCredit && (
+        <Modal
+          open={payModalOpen}
+          onClose={() => setPayModalOpen(false)}
+          title={`Pay Credit Card Bill — ${card.productName}`}
+          footer={
+            <>
+              <Button type="button" variant="secondary" onClick={() => setPayModalOpen(false)} disabled={paying}>
+                Cancel
+              </Button>
+              <Button type="button" variant="primary" onClick={handlePayBill} loading={paying}>
+                Pay {formatINR(payOption === 'FULL' ? (card.outstanding || 0) : (card.minDue || 0))}
+              </Button>
+            </>
+          }
+        >
+          <div className="space-y-4">
+            <p className="text-sm text-ink-600">
+              Select payment amount and the FinEdge funding account to debit.
+            </p>
+            <div className="space-y-2">
+              <label className="flex items-center gap-3 rounded-lg border border-ink-200 p-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="payAmt"
+                  value="MIN"
+                  checked={payOption === 'MIN'}
+                  onChange={() => setPayOption('MIN')}
+                  className="accent-midnight-800"
+                />
+                <div>
+                  <span className="block text-sm font-semibold text-ink-900">
+                    Minimum Amount Due: {formatINR(card.minDue || 0)}
+                  </span>
+                  <span className="block text-xs text-ink-500">Pay minimum due to avoid late payment penalties</span>
+                </div>
+              </label>
+
+              <label className="flex items-center gap-3 rounded-lg border border-ink-200 p-3 cursor-pointer">
+                <input
+                  type="radio"
+                  name="payAmt"
+                  value="FULL"
+                  checked={payOption === 'FULL'}
+                  onChange={() => setPayOption('FULL')}
+                  className="accent-midnight-800"
+                />
+                <div>
+                  <span className="block text-sm font-semibold text-ink-900">
+                    Total Outstanding: {formatINR(card.outstanding || 0)}
+                  </span>
+                  <span className="block text-xs text-ink-500">Clear full statement balance</span>
+                </div>
+              </label>
+            </div>
+
+            <Field label="Debited from account" required>
+              <Select value={payAccountId} onChange={(e) => setPayAccountId(e.target.value)}>
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>
+                    {a.productName || a.type} · {maskAccount(a.accountNumber)} ({formatINR(a.balance)})
+                  </option>
+                ))}
+              </Select>
+            </Field>
+          </div>
+        </Modal>
+      )}
+
+      {/* Set PIN Modal */}
+      <Modal
+        open={pinModalOpen}
+        onClose={() => setPinModalOpen(false)}
+        title="Set / Change ATM PIN"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={() => setPinModalOpen(false)} disabled={savingPin}>
+              Cancel
+            </Button>
+            <Button type="button" variant="primary" onClick={handleSetPin} loading={savingPin}>
+              Save new PIN
+            </Button>
+          </>
+        }
+      >
+        <form onSubmit={handleSetPin} className="space-y-4">
+          <p className="text-sm text-ink-600">
+            Enter a confidential 4-digit PIN for ATM and retail chip-and-PIN transactions.
+          </p>
+          <FormError message={pinError} />
+          <Field label="Enter 4-digit PIN" required>
+            <Input
+              type="password"
+              maxLength={4}
+              placeholder="••••"
+              value={pin}
+              onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
+            />
+          </Field>
+          <Field label="Confirm 4-digit PIN" required>
+            <Input
+              type="password"
+              maxLength={4}
+              placeholder="••••"
+              value={confirmPin}
+              onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
+            />
+          </Field>
+        </form>
+      </Modal>
+
+      {/* Replacement Card Modal */}
+      <Modal
+        open={replaceModalOpen}
+        onClose={() => setReplaceModalOpen(false)}
+        title="Request Replacement Card"
+        footer={
+          <>
+            <Button type="button" variant="secondary" onClick={() => setReplaceModalOpen(false)} disabled={requestingReplace}>
+              Cancel
+            </Button>
+            <Button type="button" variant="primary" onClick={handleRequestReplacement} loading={requestingReplace}>
+              Submit request
+            </Button>
+          </>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-sm text-ink-600">
+            A replacement card will be issued with the same card product features. Please select the reason for replacement:
+          </p>
+          <Field label="Reason for replacement" required>
+            <Select value={replaceReason} onChange={(e) => setReplaceReason(e.target.value)}>
+              <option value="Damaged physical card">Damaged physical card</option>
+              <option value="Chip / contactless malfunction">Chip / contactless malfunction</option>
+              <option value="Card lost or misplaced">Card lost or misplaced</option>
+              <option value="Name correction / design upgrade">Name correction / design upgrade</option>
+            </Select>
+          </Field>
+          <p className="text-xs text-ink-500">
+            Your replacement request will appear in your card applications tracker and dispatch status will update upon manager dispatch.
+          </p>
+        </div>
+      </Modal>
     </Card>
   );
 }
@@ -327,7 +653,7 @@ export default function CardsPage() {
   const [cards, setCards] = useState([]);
   const [cardApplications, setCardApplications] = useState([]);
   const [accounts, setAccounts] = useState([]);
-  const dataKeyRef = useRef('');
+  const [refreshCount, setRefreshCount] = useState(0);
 
   // ---- block flow ----
   const [blockTarget, setBlockTarget] = useState(null);
@@ -342,7 +668,6 @@ export default function CardsPage() {
   const [submitting, setSubmitting] = useState(false);
   const [successApp, setSuccessApp] = useState(null);
 
-  // Live reload (same change-guarded pattern as the Loans page).
   useEffect(() => {
     let live = true;
     if (!customerId) {
@@ -357,18 +682,14 @@ export default function CardsPage() {
           listAccounts(customerId),
         ]);
         if (!live) return;
-        const key = JSON.stringify([myCards, myApps, accs]);
-        if (key !== dataKeyRef.current) {
-          dataKeyRef.current = key;
-          setCards(myCards);
-          setCardApplications(myApps);
-          setAccounts(accs);
-          setAccountId((prev) => {
-            if (prev && accs.some((a) => a.id === prev)) return prev;
-            const active = accs.find((a) => a.status === 'ACTIVE') || accs[0];
-            return active ? active.id : '';
-          });
-        }
+        setCards(myCards || []);
+        setCardApplications(myApps || []);
+        setAccounts(accs || []);
+        setAccountId((prev) => {
+          if (prev && accs.some((a) => a.id === prev)) return prev;
+          const active = accs.find((a) => a.status === 'ACTIVE') || accs[0];
+          return active ? active.id : '';
+        });
         setLoadError('');
       } catch (err) {
         if (live) setLoadError(err?.message || 'We could not load your cards. Please try again.');
@@ -379,7 +700,7 @@ export default function CardsPage() {
     return () => {
       live = false;
     };
-  });
+  }, [customerId, refreshCount]);
 
   async function confirmBlock() {
     if (!blockTarget) return;
@@ -392,6 +713,7 @@ export default function CardsPage() {
         body: `${blockTarget.productName || 'Your card'} ending ${String(blockTarget.number || '').slice(-4)} is now blocked and cannot be used.`,
       });
       setBlockTarget(null);
+      setRefreshCount((c) => c + 1);
     } catch (err) {
       toast({
         tone: 'error',
@@ -413,12 +735,26 @@ export default function CardsPage() {
     if (!consent) errors.consent = 'Please confirm you agree to the card terms before applying.';
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0 || !product || !customerId) return;
+
+    // Check duplicate by product (not kind)
+    const existing = cardApplications.find(
+      (a) =>
+        (a.productSlug === product.slug || a.cardName === product.name || a.productName === product.name) &&
+        ['PENDING_APPROVAL', 'UNDER_REVIEW', 'SUBMITTED'].includes(a.status)
+    );
+    if (existing) {
+      setFormError(`An active application (${existing.id}) for ${product.name} is currently under review.`);
+      return;
+    }
+
     setSubmitting(true);
     try {
       const app = await applyCard(customerId, {
         productSlug: product.slug,
         productName: product.name,
+        cardName: product.name,
         kind: product.cardType === 'credit' ? 'CREDIT' : 'DEBIT',
+        cardType: product.cardType === 'credit' ? 'CREDIT' : 'DEBIT',
         accountId,
       });
       setSuccessApp(app);
@@ -463,9 +799,11 @@ export default function CardsPage() {
               <CardPanel
                 key={card.id || card.cardId || card.number || idx}
                 card={card}
+                accounts={accounts}
                 holderName={user?.name}
                 actorName={actorName}
                 onBlockRequest={setBlockTarget}
+                onRefresh={() => setRefreshCount((c) => c + 1)}
               />
             ))}
           </div>

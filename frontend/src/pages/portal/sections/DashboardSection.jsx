@@ -2,19 +2,20 @@ import Reveal from '../../../components/Reveal.jsx';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import {
-  ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, Bell, ChevronRight,
-  CreditCard, Eye, EyeOff, FileCheck2, LifeBuoy, PiggyBank, Receipt, ShieldCheck,
-  Wallet, Search, Filter, TrendingDown, TrendingUp, Download, Sparkles, AlertCircle
+  ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, Bell, CalendarClock, ChevronRight,
+  CreditCard, Eye, EyeOff, FileCheck2, PiggyBank, Receipt, Search,
+  TrendingDown, TrendingUp, Download, Sparkles, Wallet
 } from 'lucide-react';
 import {
   Button, Card, EmptyState, PageLoading, StatusChip, Stepper,
 } from '../../../components/ui.jsx';
-import { useAuth } from '../../../context/AuthContext.jsx';
+import { useAuth, useDbTick } from '../../../context/AuthContext.jsx';
 import * as accountsApi from '../../../services/portalBridge.js';
 import * as kycApi from '../../../services/portalBridge.js';
 import * as loansApi from '../../../services/portalBridge.js';
 import * as supportApi from '../../../services/portalBridge.js';
 import { formatDate, formatDateTime, formatINR, formatSignedINR, maskAccount, productDisplayName } from '../../../lib/format.js';
+import { FD } from '../../../data/products.js';
 
 const ACCOUNT_TYPE_LABELS = {
   SAVINGS: 'Everyday Savings',
@@ -36,15 +37,18 @@ function greeting() {
   return 'Good evening';
 }
 
+const maxFdRate = Math.max(...(FD.rateGrid || []).map(g => g.general || 0));
+const maxFdRateSub = `FD up to ${maxFdRate.toFixed(2)}% p.a.`;
+
 const TOP_FREQUENT_ACTIONS = [
   { to: '/portal/transfers', label: 'Transfer Funds', sub: 'NEFT, IMPS & UPI', icon: ArrowLeftRight },
   { to: '/portal/transfers?mode=upi', label: 'Pay Bills & UPI', sub: 'Utilities & merchants', icon: Receipt },
   { to: '/portal/accounts', label: 'View Statement', sub: 'Download reports', icon: Download },
   { to: '/portal/cards', label: 'Manage Cards', sub: 'Limits & freeze', icon: CreditCard },
-  { to: '/portal/investments', label: 'Book Deposit', sub: 'FD up to 7.75%', icon: PiggyBank },
+  { to: '/portal/investments', label: 'Book Deposit', sub: maxFdRateSub, icon: PiggyBank },
 ];
 
-const ACTIVE_APP_STATUSES = ['SUBMITTED', 'DOCUMENT_VERIFICATION', 'UNDER_REVIEW', 'INFO_REQUIRED', 'APPROVED', 'PENDING'];
+const ACTIVE_APP_STATUSES = ['SUBMITTED', 'DOCUMENT_VERIFICATION', 'UNDER_REVIEW', 'INFO_REQUIRED', 'APPROVED', 'PENDING', 'BOOKED'];
 
 function SubHead({ title, action }) {
   return (
@@ -65,14 +69,20 @@ function TextLink({ to, children }) {
 
 export default function DashboardPage() {
   const { user } = useAuth();
+  useDbTick();
   const customerId = user?.customerId;
 
   const [loading, setLoading] = useState(true);
   const [loadError, setLoadError] = useState('');
   const [accounts, setAccounts] = useState([]);
   const [recentTxns, setRecentTxns] = useState([]);
+  const [monthTxns, setMonthTxns] = useState([]);
   const [kycStatus, setKycStatus] = useState(null);
   const [applications, setApplications] = useState([]);
+  const [holdings, setHoldings] = useState([]);
+  const [cards, setCards] = useState([]);
+  const [loans, setLoans] = useState([]);
+  const [beneficiaries, setBeneficiaries] = useState([]);
   const [unread, setUnread] = useState(0);
 
   // Privacy-conscious balance toggle (persisted)
@@ -103,13 +113,21 @@ export default function DashboardPage() {
     setLoading(true);
     setLoadError('');
     try {
-      const [accs, kyc, apps, unreadN] = await Promise.all([
+      const [accs, profile, apps, unreadN, hlds, crds, myLoans, bens] = await Promise.all([
         accountsApi.listAccounts(customerId),
-        kycApi.getMyKyc(customerId).catch(() => null),
-        loansApi.listMyLoanApplications(customerId).catch(() => []),
+        kycApi.getMyProfile(customerId).catch(() => null),
+        accountsApi.listMyApplications(customerId).catch(() => []),
         supportApi.unreadCount(customerId).catch(() => 0),
+        accountsApi.listHoldings(customerId).catch(() => []),
+        accountsApi.listMyCards(customerId).catch(() => []),
+        loansApi.listMyLoans(customerId).catch(() => []),
+        accountsApi.listBeneficiaries(customerId).catch(() => []),
       ]);
       setAccounts(accs || []);
+      setHoldings(hlds || []);
+      setCards(crds || []);
+      setLoans(myLoans || []);
+      setBeneficiaries(bens || []);
 
       const perAccount = await Promise.all(
         (accs || []).map(async (a) => {
@@ -117,13 +135,19 @@ export default function DashboardPage() {
           return txns.map((t) => ({ ...t, account: a }));
         }),
       );
-      const merged = perAccount.flat().sort((a, b) => (a.date < b.date ? 1 : -1)).slice(0, 12);
-      setRecentTxns(merged);
+      const allTxns = perAccount.flat().sort((a, b) => (a.date < b.date ? 1 : -1));
+      setRecentTxns(allTxns.slice(0, 12));
 
-      if (kyc) {
-        let status = kyc.customer?.kycStatus || kyc.kycCase?.status || null;
-        if (kyc.kycCase?.status === 'APPROVED') status = 'VERIFIED';
-        if (kyc.kycCase?.status === 'INFO_REQUIRED') status = 'PENDING';
+      // Current calendar month window
+      const now = new Date();
+      const currentYearMonth = `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, '0')}`;
+      const inMonth = allTxns.filter(t => String(t.date).slice(0, 7) === currentYearMonth);
+      setMonthTxns(inMonth);
+
+      if (profile?.kycCase) {
+        let status = profile.customer?.kycStatus || profile.kycCase?.status || null;
+        if (profile.kycCase?.status === 'APPROVED') status = 'VERIFIED';
+        if (profile.kycCase?.status === 'INFO_REQUIRED') status = 'PENDING';
         setKycStatus(status);
       }
       setApplications((apps || []).filter((a) => ACTIVE_APP_STATUSES.includes(a.status)));
@@ -153,18 +177,41 @@ export default function DashboardPage() {
 
   const totalBalance = accounts.reduce((sum, a) => sum + (Number(a.balance) || 0), 0);
   const primaryAccount = accounts[0] || null;
-  const firstName = (user?.name || '').split(' ')[0] || 'there';
+  const firstName = (user?.name || user?.fullName || '').split(' ')[0] || 'there';
   const lastLogin = user?.lastLogin || user?.lastLoginAt;
   const money = (v) => (showBalance ? formatINR(v) : '••••••');
 
-  // Transactions calculations & filtering
-  const totalDebits = recentTxns
+  // Month Cash Flow calculations over defined calendar window
+  const now = new Date();
+  const currentMonthLabel = now.toLocaleString('en-IN', { month: 'long', year: 'numeric' });
+  const monthCredits = monthTxns
+    .filter((t) => t.type === 'CREDIT')
+    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+  const monthDebits = monthTxns
     .filter((t) => t.type === 'DEBIT')
     .reduce((sum, t) => sum + Number(t.amount || 0), 0);
 
-  const totalCredits = recentTxns
-    .filter((t) => t.type === 'CREDIT')
-    .reduce((sum, t) => sum + Number(t.amount || 0), 0);
+  // Real deposits snapshot from holdings
+  const totalHoldingsPrincipal = holdings.reduce(
+    (sum, h) => sum + Number(h.depositAmount || h.principal || h.monthlyInstallment || h.annualDeposit || 0),
+    0
+  );
+
+  // Cards snapshot
+  const creditCards = cards.filter((c) => c.kind === 'CREDIT');
+  const totalCreditOutstanding = creditCards.reduce((sum, c) => sum + Number(c.outstanding || 0), 0);
+
+  // Fix 10: Upcoming obligations strip
+  const thirtyDaysFromNow = new Date(Date.now() + 30 * 86400 * 1000).toISOString().split('T')[0];
+  const todayStr = new Date().toISOString().split('T')[0];
+
+  const upcomingLoan = loans.find((l) => l.status === 'ACTIVE' && l.nextEmiDate);
+  const maturingDeposits = holdings.filter(
+    (h) => h.status === 'ACTIVE' && h.maturityDate && h.maturityDate >= todayStr && h.maturityDate <= thirtyDaysFromNow
+  );
+  const activeSips = holdings.filter((h) => h.status === 'ACTIVE' && h.kind === 'SIP');
+
+  const hasObligations = Boolean(upcomingLoan || maturingDeposits.length > 0 || activeSips.length > 0);
 
   const filteredTxns = recentTxns.filter((t) => {
     if (txnFilter === 'CREDIT' && t.type !== 'CREDIT') return false;
@@ -172,7 +219,7 @@ export default function DashboardPage() {
     if (txnSearch.trim()) {
       const q = txnSearch.toLowerCase();
       const descMatch = (t.description || '').toLowerCase().includes(q);
-      const refMatch = (t.reference || '').toLowerCase().includes(q);
+      const refMatch = (t.reference || t.referenceNumber || '').toLowerCase().includes(q);
       const amtMatch = String(t.amount || '').includes(q);
       return descMatch || refMatch || amtMatch;
     }
@@ -198,7 +245,8 @@ export default function DashboardPage() {
             {greeting()}, {firstName}
           </h1>
           <p className="mt-1 text-[13px] text-ink-500">
-            Customer ID: <span className="font-mono font-medium text-ink-800">{user?.customerId || 'CUS-100234'}</span> · Last sign-in: {lastLogin ? formatDateTime(lastLogin) : 'Today'}
+            Customer ID: <span className="font-mono font-medium text-ink-800">{user?.customerId || ''}</span>
+            {lastLogin ? <> · Last sign-in: {formatDateTime(lastLogin)}</> : null}
           </p>
         </div>
         <Link
@@ -208,7 +256,7 @@ export default function DashboardPage() {
           <Bell className="h-4 w-4 text-ink-600" aria-hidden />
           <span>Notifications</span>
           {unread > 0 && (
-            <span className="rounded-full bg-danger-600 px-1.5 py-0.2 text-xs font-bold text-white">{unread}</span>
+            <span className="rounded-full bg-danger-600 px-1.5 py-0.5 text-xs font-bold text-white">{unread}</span>
           )}
         </Link>
       </div>
@@ -232,82 +280,170 @@ export default function DashboardPage() {
 
       {/* Lead Summary: Privacy-conscious Account Balance */}
       <Reveal treatment="B" staggerIndex={0}>
-      <div className="rounded-xl bg-midnight-900 px-5 py-6 text-porcelain-50 shadow-card sm:px-6">
-        <div className="flex items-start justify-between gap-3">
-          <div>
-            <div className="flex items-center gap-2">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-300">Total Net Worth</p>
-              <button
-                type="button"
-                onClick={toggleShowBalance}
-                className="inline-flex items-center gap-1 rounded bg-midnight-800/80 px-2 py-0.5 text-[11px] font-medium text-midnight-200 hover:text-white"
-                title={showBalance ? 'Click to hide balance' : 'Click to reveal balance'}
-              >
-                {showBalance ? (
-                  <>
-                    <EyeOff className="h-3 w-3" />
-                    <span>Hide</span>
-                  </>
-                ) : (
-                  <>
-                    <Eye className="h-3 w-3" />
-                    <span>Show</span>
-                  </>
-                )}
-              </button>
+        <div className="rounded-xl bg-midnight-900 px-5 py-6 text-porcelain-50 shadow-card sm:px-6">
+          <div className="flex items-start justify-between gap-3">
+            <div>
+              <div className="flex items-center gap-2">
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-300">Total balance</p>
+                <button
+                  type="button"
+                  onClick={toggleShowBalance}
+                  className="inline-flex items-center gap-1 rounded bg-midnight-800/80 px-2 py-0.5 text-[11px] font-medium text-midnight-200 hover:text-white"
+                  title={showBalance ? 'Click to hide balance' : 'Click to reveal balance'}
+                >
+                  {showBalance ? (
+                    <>
+                      <EyeOff className="h-3 w-3" />
+                      <span>Hide</span>
+                    </>
+                  ) : (
+                    <>
+                      <Eye className="h-3 w-3" />
+                      <span>Show</span>
+                    </>
+                  )}
+                </button>
+              </div>
+              <p className="tnum mt-2 font-display text-3xl font-semibold sm:text-4xl text-porcelain-50">{money(totalBalance)}</p>
+              <p className="mt-1 text-[13px] text-midnight-200">
+                Across {accounts.length} active {accounts.length === 1 ? 'account' : 'accounts'}
+              </p>
             </div>
-            <p className="tnum mt-2 font-display text-3xl font-semibold sm:text-4xl text-porcelain-50">{money(totalBalance)}</p>
-            <p className="mt-1 text-[13px] text-midnight-200">
-              Across {accounts.length} active {accounts.length === 1 ? 'account' : 'accounts'}
-            </p>
           </div>
 
-          <div className="hidden sm:block text-right">
-            <span className="inline-flex items-center gap-1.5 rounded-full bg-success-500/10 px-3 py-1 text-xs font-semibold text-success-300 border border-success-500/20">
-              <ShieldCheck className="h-3.5 w-3.5 text-success-400" />
-              <span>DICGC Insured</span>
-            </span>
-          </div>
+          {primaryAccount && (
+            <Link
+              to={`/portal/accounts/${primaryAccount.id}`}
+              className="mt-6 flex items-center gap-3 border-t border-porcelain-50/15 pt-4 transition-colors hover:text-white"
+            >
+              <span className="min-w-0 flex-1">
+                <span className="block truncate text-sm font-semibold">{typeLabel(primaryAccount.type)}</span>
+                <span className="tnum block text-[13px] text-midnight-200">{maskAccount(primaryAccount.accountNumber)}</span>
+              </span>
+              <span className="tnum text-sm font-semibold">{money(primaryAccount.balance)}</span>
+              <ChevronRight className="h-4.5 w-4.5 shrink-0 text-midnight-300" aria-hidden />
+            </Link>
+          )}
         </div>
-
-        {primaryAccount && (
-          <Link
-            to={`/portal/accounts/${primaryAccount.id}`}
-            className="mt-6 flex items-center gap-3 border-t border-porcelain-50/15 pt-4 transition-colors hover:text-white"
-          >
-            <span className="min-w-0 flex-1">
-              <span className="block truncate text-sm font-semibold">{typeLabel(primaryAccount.type)}</span>
-              <span className="tnum block text-[13px] text-midnight-200">{maskAccount(primaryAccount.accountNumber)}</span>
-            </span>
-            <span className="tnum text-sm font-semibold">{money(primaryAccount.balance)}</span>
-            <ChevronRight className="h-4.5 w-4.5 shrink-0 text-midnight-300" aria-hidden />
-          </Link>
-        )}
-      </div>
       </Reveal>
 
-      {/* Top Frequent Actions (Near the top per feedback) */}
-      <Reveal treatment="B" staggerIndex={1}>
-      <section aria-label="Frequent Actions">
-        <SubHead title="Frequent Actions" />
-        <Card className="overflow-hidden border border-ink-100 shadow-sm">
-          <div className="grid grid-cols-2 gap-px bg-ink-100 sm:grid-cols-3 lg:grid-cols-5">
-            {TOP_FREQUENT_ACTIONS.map((q) => (
-              <Link
-                key={q.to + q.label}
-                to={q.to}
-                className="bg-white p-4 transition-all hover:bg-midnight-50/60 group"
-              >
-                <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-midnight-50 text-midnight-800 group-hover:bg-midnight-900 group-hover:text-gold-300 transition-colors">
-                  <q.icon className="h-5 w-5" aria-hidden />
+      {/* Fix 10: Upcoming Obligations Strip (Rendered ONLY when non-empty) */}
+      {hasObligations && (
+        <section aria-label="Upcoming Obligations">
+          <SubHead title="Upcoming Obligations" />
+          <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
+            {upcomingLoan && (
+              <Card className="p-4 shadow-sm border border-ink-100">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-midnight-50 text-midnight-800">
+                    <CalendarClock className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-ink-500">Next Loan EMI</p>
+                    <p className="tnum font-display text-base font-semibold text-midnight-950">
+                      {formatINR(upcomingLoan.emi || upcomingLoan.monthlyEmi)}
+                    </p>
+                    <p className="mt-0.5 text-[13px] text-ink-600">
+                      Due on {formatDate(upcomingLoan.nextEmiDate)} · {upcomingLoan.productName}
+                    </p>
+                    <Link to="/portal/loans" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-midnight-800 hover:text-midnight-600">
+                      View loan schedule <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  </div>
                 </div>
-                <span className="mt-3 block text-sm font-semibold text-ink-900">{q.label}</span>
-                <span className="mt-0.5 block text-xs text-ink-500">{q.sub}</span>
-              </Link>
-            ))}
+              </Card>
+            )}
+
+            {maturingDeposits.length > 0 && (
+              <Card className="p-4 shadow-sm border border-ink-100">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gold-400/20 text-gold-700">
+                    <PiggyBank className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-ink-500">Deposit Maturing Soon</p>
+                    <p className="tnum font-display text-base font-semibold text-midnight-950">
+                      {formatINR(maturingDeposits[0].maturityAmount || maturingDeposits[0].depositAmount)}
+                    </p>
+                    <p className="mt-0.5 text-[13px] text-ink-600">
+                      Matures on {formatDate(maturingDeposits[0].maturityDate)} · {maturingDeposits[0].productName}
+                    </p>
+                    <Link to="/portal/investments" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-midnight-800 hover:text-midnight-600">
+                      View deposit holdings <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  </div>
+                </div>
+              </Card>
+            )}
+
+            {activeSips.length > 0 && (
+              <Card className="p-4 shadow-sm border border-ink-100">
+                <div className="flex items-start gap-3">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-success-50 text-success-600">
+                    <TrendingUp className="h-5 w-5" />
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="text-xs text-ink-500">Upcoming SIP Instalment</p>
+                    <p className="tnum font-display text-base font-semibold text-midnight-950">
+                      {formatINR(activeSips[0].monthlyAmount)}
+                    </p>
+                    <p className="mt-0.5 text-[13px] text-ink-600">
+                      Debit day: {activeSips[0].debitDate || 5}th of each month · {activeSips[0].productName}
+                    </p>
+                    <Link to="/portal/investments" className="mt-2 inline-flex items-center gap-1 text-xs font-semibold text-midnight-800 hover:text-midnight-600">
+                      Manage SIPs <ArrowRight className="h-3 w-3" />
+                    </Link>
+                  </div>
+                </div>
+              </Card>
+            )}
           </div>
-        </Card>
-      </section>
+        </section>
+      )}
+
+      {/* Top Frequent Actions */}
+      <Reveal treatment="B" staggerIndex={1}>
+        <section aria-label="Frequent Actions">
+          <SubHead title="Frequent Actions" />
+          <Card className="overflow-hidden border border-ink-100 shadow-sm">
+            <div className="grid grid-cols-2 gap-px bg-ink-100 sm:grid-cols-3 lg:grid-cols-5">
+              {TOP_FREQUENT_ACTIONS.map((q) => (
+                <Link
+                  key={q.to + q.label}
+                  to={q.to}
+                  className="bg-white p-4 transition-all hover:bg-midnight-50/60 group"
+                >
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-midnight-50 text-midnight-800 group-hover:bg-midnight-900 group-hover:text-gold-300 transition-colors">
+                    <q.icon className="h-5 w-5" aria-hidden />
+                  </div>
+                  <span className="mt-3 block text-sm font-semibold text-ink-900">{q.label}</span>
+                  <span className="mt-0.5 block text-xs text-ink-500">{q.sub}</span>
+                </Link>
+              ))}
+            </div>
+
+            {/* Fix 10: Quick Pay / Pay again row */}
+            {beneficiaries.length > 0 && (
+              <div className="border-t border-ink-100 bg-porcelain-50/70 px-4 py-3 sm:px-5">
+                <div className="flex flex-wrap items-center gap-3">
+                  <span className="text-[13px] font-semibold text-ink-700">Pay again:</span>
+                  <div className="flex flex-wrap items-center gap-2">
+                    {beneficiaries.slice(0, 4).map((b) => (
+                      <Link
+                        key={b.id}
+                        to={`/portal/transfers?beneficiary=${b.id}`}
+                        className="inline-flex items-center gap-1.5 rounded-full border border-ink-200 bg-white px-3 py-1 text-xs font-medium text-ink-800 hover:border-midnight-500 hover:text-midnight-950 transition-colors shadow-xs"
+                      >
+                        <span>{b.name}</span>
+                        <span className="text-ink-400">· {b.bankName}</span>
+                      </Link>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            )}
+          </Card>
+        </section>
       </Reveal>
 
       {/* Accounts & Quick Portfolio Distribution */}
@@ -334,13 +470,13 @@ export default function DashboardPage() {
                 <span className="min-w-0 flex-1">
                   <span className="block truncate text-sm font-semibold text-ink-900">{typeLabel(a.type)}</span>
                   <span className="tnum block text-[13px] text-ink-500">
-                    {maskAccount(a.accountNumber)} · Opened {formatDate(a.openedAt)}
+                    {maskAccount(a.accountNumber)} {a.openedAt ? `· Opened ${formatDate(a.openedAt)}` : ''}
                   </span>
                 </span>
                 {a.status && a.status !== 'ACTIVE' && <StatusChip status={a.status} className="hidden sm:inline-flex" />}
                 <div className="text-right">
                   <span className="tnum block text-sm font-bold text-ink-900">{money(a.balance)}</span>
-                  <span className="text-[11px] text-ink-400">Available</span>
+                  <span className="text-[13px] text-ink-500">Available</span>
                 </div>
                 <ChevronRight className="h-4.5 w-4.5 shrink-0 text-ink-300" aria-hidden />
               </Link>
@@ -349,9 +485,9 @@ export default function DashboardPage() {
         )}
       </section>
 
-      {/* Spending Summary Snapshot */}
+      {/* Defined Window: Cash Flow Overview */}
       <section aria-label="Monthly Cashflow Snapshot">
-        <SubHead title="Cash Flow Overview (Recent)" />
+        <SubHead title={`Cash flow — ${currentMonthLabel}`} />
         <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <Card className="p-4 shadow-sm">
             <div className="flex items-center gap-3">
@@ -361,7 +497,7 @@ export default function DashboardPage() {
               <div>
                 <p className="text-xs text-ink-500">Total Credits</p>
                 <p className="tnum font-display text-base font-semibold text-success-700">
-                  {showBalance ? formatINR(totalCredits) : '••••••'}
+                  {showBalance ? formatINR(monthCredits) : '••••••'}
                 </p>
               </div>
             </div>
@@ -374,7 +510,7 @@ export default function DashboardPage() {
               <div>
                 <p className="text-xs text-ink-500">Total Debits</p>
                 <p className="tnum font-display text-base font-semibold text-ink-900">
-                  {showBalance ? formatINR(totalDebits) : '••••••'}
+                  {showBalance ? formatINR(monthDebits) : '••••••'}
                 </p>
               </div>
             </div>
@@ -385,10 +521,18 @@ export default function DashboardPage() {
                 <CreditCard className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-ink-500">Card Outflow</p>
-                <p className="font-display text-base font-semibold text-ink-900">
-                  <Link to="/portal/cards" className="text-xs text-midnight-700 underline hover:text-midnight-900">Manage Cards →</Link>
-                </p>
+                <p className="text-xs text-ink-500">Cards</p>
+                {creditCards.length > 0 ? (
+                  <p className="tnum font-display text-base font-semibold text-ink-900">
+                    {showBalance ? formatINR(totalCreditOutstanding) : '••••••'}
+                  </p>
+                ) : (
+                  <p className="font-display text-base font-semibold text-ink-900">
+                    <Link to="/portal/cards" className="text-xs text-midnight-700 underline hover:text-midnight-900">
+                      {cards.length} active debit {cards.length === 1 ? 'card' : 'cards'} →
+                    </Link>
+                  </p>
+                )}
               </div>
             </div>
           </Card>
@@ -398,10 +542,18 @@ export default function DashboardPage() {
                 <PiggyBank className="h-5 w-5" />
               </div>
               <div>
-                <p className="text-xs text-ink-500">Term Deposits</p>
-                <p className="font-display text-base font-semibold text-ink-900">
-                  <Link to="/portal/investments" className="text-xs text-midnight-700 underline hover:text-midnight-900">Explore FDs →</Link>
-                </p>
+                <p className="text-xs text-ink-500">Deposits</p>
+                {totalHoldingsPrincipal > 0 ? (
+                  <p className="tnum font-display text-base font-semibold text-ink-900">
+                    {showBalance ? formatINR(totalHoldingsPrincipal) : '••••••'}
+                  </p>
+                ) : (
+                  <p className="font-display text-base font-semibold text-ink-900">
+                    <Link to="/portal/investments" className="text-xs text-midnight-700 underline hover:text-midnight-900">
+                      No deposits yet →
+                    </Link>
+                  </p>
+                )}
               </div>
             </div>
           </Card>
@@ -425,7 +577,7 @@ export default function DashboardPage() {
                   placeholder="Search description, ref, or amount..."
                   value={txnSearch}
                   onChange={(e) => setTxnSearch(e.target.value)}
-                  className="w-full rounded-lg border border-ink-200 bg-white py-1.5 pl-9 pr-3 text-xs text-ink-900 placeholder:text-ink-400 focus:border-midnight-500 focus:outline-none"
+                  className="w-full rounded-lg border border-ink-200 bg-white py-2 pl-9 pr-3 text-base text-ink-900 placeholder:text-ink-400 focus:border-midnight-500 focus:outline-none"
                 />
               </div>
               <div className="flex items-center gap-1">
@@ -447,7 +599,7 @@ export default function DashboardPage() {
             </div>
 
             {filteredTxns.length === 0 ? (
-              <div className="p-8 text-center text-xs text-ink-500">
+              <div className="p-8 text-center text-[13px] text-ink-500">
                 No transactions match your search filter.
               </div>
             ) : (
@@ -462,16 +614,16 @@ export default function DashboardPage() {
                           : <ArrowUpRight className="h-4 w-4" aria-hidden />}
                       </span>
                       <span className="min-w-0 flex-1">
-                        <span className="block truncate text-xs sm:text-sm font-semibold text-ink-900">{t.description}</span>
-                        <span className="block text-[11px] text-ink-500">
+                        <span className="block truncate text-sm font-semibold text-ink-900">{t.description}</span>
+                        <span className="block text-[13px] text-ink-500">
                           {formatDate(t.date)} · <span className="font-mono">{t.reference || 'TXN-SIM'}</span> · {typeLabel(t.account?.type)}
                         </span>
                       </span>
                       <div className="text-right">
-                        <span className={`tnum block text-xs sm:text-sm font-semibold ${isCredit ? 'text-success-600' : 'text-ink-900'}`}>
+                        <span className={`tnum block text-sm font-semibold ${isCredit ? 'text-success-600' : 'text-ink-900'}`}>
                           {showBalance ? formatSignedINR(isCredit ? t.amount : -Number(t.amount)) : '••••••'}
                         </span>
-                        <span className={`text-[10px] font-bold uppercase ${isCredit ? 'text-success-600' : 'text-ink-400'}`}>
+                        <span className={`text-[13px] font-medium ${isCredit ? 'text-success-600' : 'text-ink-500'}`}>
                           {isCredit ? 'Credit' : 'Debit'}
                         </span>
                       </div>
@@ -483,38 +635,30 @@ export default function DashboardPage() {
           </Card>
         </section>
 
-        {/* Active Applications & Service Timeline */}
+        {/* Active Applications */}
         <section className="min-w-0 lg:col-span-2">
           <SubHead title="Active Applications" action={<TextLink to="/portal/applications">Track All</TextLink>} />
           {applications.length === 0 ? (
             <EmptyState
               icon={Receipt}
               title="No applications in progress"
-              body="Loan and card applications you submit will show real-time officer queue status right here."
+              body="Loan and card applications you submit will show real-time status right here."
               action={<Link to="/portal/loans"><Button size="sm">Explore Loans</Button></Link>}
             />
           ) : (
             <div className="space-y-3">
-              {applications.slice(0, 3).map((app) => (
-                <Card key={app.id} className="p-4 shadow-sm border border-ink-100">
+              {applications.slice(0, 3).map((app, i) => (
+                <Card key={app.id || app.accountApplicationId || app.applicationId || app.cardApplicationId || i} className="p-4 shadow-sm border border-ink-100">
                   <div className="flex items-start justify-between gap-2">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-semibold text-ink-900">
-                        {productDisplayName(app) || 'FinEdge Facility'}
+                        {productDisplayName(app) || app.productName || 'FinEdge Facility'}
                       </p>
-                      <p className="tnum mt-0.5 text-xs text-ink-500">
-                        {formatINR(app.amount)} · Submitted {formatDate(app.submittedAt || app.appliedAt)}
+                      <p className="tnum mt-0.5 text-[13px] text-ink-500">
+                        {formatINR(app.amount)} · Submitted {formatDate(app.submittedAt || app.appliedAt || app.createdAt)}
                       </p>
                     </div>
                     <StatusChip status={app.status} />
-                  </div>
-
-                  {/* Operational status pipeline */}
-                  <div className="mt-3 rounded-lg bg-porcelain-50 p-2.5 border border-ink-100">
-                    <div className="flex items-center justify-between text-[11px] text-ink-500 font-medium">
-                      <span>Queue: Branch Operations</span>
-                      <span className="font-semibold text-midnight-900">Simulated Flow</span>
-                    </div>
                   </div>
 
                   {Array.isArray(app.steps) && app.steps.length > 0 && (
@@ -525,9 +669,9 @@ export default function DashboardPage() {
 
                   <Link
                     to="/portal/applications"
-                    className="mt-3 inline-flex items-center gap-1 text-xs font-semibold text-midnight-800 hover:text-midnight-600"
+                    className="mt-3 inline-flex items-center gap-1 text-[13px] font-semibold text-midnight-800 hover:text-midnight-600"
                   >
-                    Track in lifecycle console <ArrowRight className="h-3 w-3" aria-hidden />
+                    View application details <ArrowRight className="h-3.5 w-3.5" aria-hidden />
                   </Link>
                 </Card>
               ))}

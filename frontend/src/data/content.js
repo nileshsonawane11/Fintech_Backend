@@ -128,7 +128,7 @@ export const BRANCHES = [
     pincode: '400053',
     ifsc: ifsc(1021),
     phone: '022 4890 2211',
-    hours: 'Mon–Sat, 9:30 am – 4:30 pm',
+    hours: BRAND.support.hours,
     services: ['Accounts', 'Loans', 'Gold loan vault', 'Forex desk', 'Locker facility'],
   },
   {
@@ -140,7 +140,7 @@ export const BRANCHES = [
     pincode: '110001',
     ifsc: ifsc(2043),
     phone: '011 4890 3345',
-    hours: 'Mon–Sat, 9:30 am – 4:30 pm',
+    hours: BRAND.support.hours,
     services: ['Accounts', 'Loans', 'Trade services', 'NRI desk', 'Locker facility'],
   },
   {
@@ -152,7 +152,7 @@ export const BRANCHES = [
     pincode: '560034',
     ifsc: ifsc(3077),
     phone: '080 4890 5519',
-    hours: 'Mon–Sat, 9:30 am – 4:30 pm',
+    hours: BRAND.support.hours,
     services: ['Accounts', 'Loans', 'Startup & payroll desk', 'Wealth desk'],
   },
   {
@@ -164,7 +164,7 @@ export const BRANCHES = [
     pincode: '411038',
     ifsc: ifsc(4092),
     phone: '020 4890 6612',
-    hours: 'Mon–Sat, 9:30 am – 4:30 pm',
+    hours: BRAND.support.hours,
     services: ['Accounts', 'Loans', 'Gold loan vault', 'Education loan desk'],
   },
   {
@@ -176,7 +176,7 @@ export const BRANCHES = [
     pincode: '500034',
     ifsc: ifsc(5118),
     phone: '040 4890 7730',
-    hours: 'Mon–Sat, 9:30 am – 4:30 pm',
+    hours: BRAND.support.hours,
     services: ['Accounts', 'Loans', 'Forex desk', 'Locker facility'],
   },
   {
@@ -188,7 +188,7 @@ export const BRANCHES = [
     pincode: '600040',
     ifsc: ifsc(6135),
     phone: '044 4890 8841',
-    hours: 'Mon–Sat, 9:30 am – 4:30 pm',
+    hours: BRAND.support.hours,
     services: ['Accounts', 'Loans', 'SSY & government schemes desk', 'Senior citizen desk'],
   },
   {
@@ -200,7 +200,7 @@ export const BRANCHES = [
     pincode: '700064',
     ifsc: ifsc(7159),
     phone: '033 4890 9924',
-    hours: 'Mon–Sat, 9:30 am – 4:30 pm',
+    hours: BRAND.support.hours,
     services: ['Accounts', 'Loans', 'Trade services', 'Locker facility'],
   },
 ];

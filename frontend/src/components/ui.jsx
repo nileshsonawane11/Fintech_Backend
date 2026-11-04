@@ -282,7 +282,7 @@ export function Stepper({ steps }) {
   return (
     <ol className="flex flex-col gap-0 sm:flex-row sm:items-start">
       {steps.map((step, i) => (
-        <li key={step.label} className="relative flex flex-1 gap-3 pb-5 last:pb-0 sm:flex-col sm:gap-0 sm:pb-0">
+        <li key={step.id || step.label || i} className="relative flex flex-1 gap-3 pb-5 last:pb-0 sm:flex-col sm:gap-0 sm:pb-0">
           {i < steps.length - 1 && (
             <>
               <span className={`absolute left-3.5 top-7 h-[calc(100%-24px)] w-0.5 sm:hidden ${step.state === 'done' ? 'bg-midnight-600' : 'bg-line'}`} aria-hidden />

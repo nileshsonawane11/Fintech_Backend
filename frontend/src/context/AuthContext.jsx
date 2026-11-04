@@ -177,7 +177,7 @@ export const AuthProvider = ({ children }) => {
         mobile: matched.mobileNumber || identifier,
         customerId: matched.customerId || res.customerId,
         kycStatus: matched.kycStatus || 'APPROVED',
-        lastLogin: new Date().toLocaleString('en-IN')
+        lastLogin: new Date().toISOString()
       };
       setUser(initialUser);
       return { success: true, user: initialUser };
@@ -200,7 +200,7 @@ export const AuthProvider = ({ children }) => {
         mobile: matched.mobileNumber || '9820198402',
         customerId: matched.customerId || res.customerId,
         kycStatus: matched.kycStatus || 'APPROVED',
-        lastLogin: new Date().toLocaleString('en-IN')
+        lastLogin: new Date().toISOString()
       };
       setUser(initialUser);
       return { success: true, user: initialUser };
@@ -247,7 +247,7 @@ export const AuthProvider = ({ children }) => {
         roleTitle: res.roleTitle || (res.role === 'BANK_MANAGER' ? 'Chief Branch Manager' : res.role === 'KYC_OFFICER' ? 'Senior KYC Verification Officer' : 'Account & Card Operations Specialist'),
         department: res.department || 'Operations',
         permissions: res.permissions || [],
-        lastLogin: new Date().toLocaleString('en-IN')
+        lastLogin: new Date().toISOString()
       };
       setManagerUser(mgr);
       if (typeof localStorage !== 'undefined') {
@@ -409,8 +409,9 @@ export const AuthProvider = ({ children }) => {
       return res;
     } else {
       const res = await cardService.applyForCard({
-        cardType: applicationData.cardType || 'METAL_CREDIT',
-        cardName: applicationData.cardName || applicationData.productName || applicationData.title || 'FinEdge Aurum Metal Card',
+        cardType: applicationData.cardType || 'CREDIT',
+        cardName: applicationData.cardName || applicationData.productName || applicationData.title || 'FinEdge Edge Cashback Card',
+        productSlug: applicationData.productSlug || 'edge-cashback-credit',
         linkedAccountId: applicationData.linkedAccountId || accounts[0]?.accountId || 'ACC-1001'
       });
       refreshCustomerData();

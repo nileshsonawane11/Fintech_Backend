@@ -1,5 +1,5 @@
 // Bank Manager & Staff Operations Service
-import { apiRequest, getDb, saveDb, appendAuditLog, resetDemoDb } from './api';
+import { apiRequest, getDb, saveDb, appendAuditLog, resetDemoDb } from './api.js';
 
 export const managerService = {
   // Operational Dashboard Metrics

@@ -1,7 +1,8 @@
 // Manager Bridge Service
 // Connects manager sections to managerService and real DB engine
-import { managerService } from './managerService';
-import { getDb, saveDb, appendAuditLog } from './api';
+import { managerService } from './managerService.js';
+import { getDb, saveDb, appendAuditLog } from './api.js';
+import { calculateEMI } from '../lib/finance.js';
 
 export const PERMISSION_CATALOGUE = [
   { code: 'customers.read', label: 'View customer directory', module: 'Customers' },
@@ -169,19 +170,89 @@ export async function decideLoanApplication(appId, { decision, reasonCode, note,
     saveDb(db);
     appendAuditLog('manager@finedge.bank', 'BRANCH_MANAGER', `LOAN_${decision}`, appId, 'SUCCESS', note || reasonCode);
   }
-  return app;
+  app.success = true;
+  return { success: true, ...app };
 }
 
-export async function disburseLoan(appId, { actor = 'Branch Manager' }) {
+export async function disburseLoan(appId, options = {}) {
+  const opts = typeof options === 'string' ? { disbursementAccountId: options } : (options || {});
+  const actor = opts.actor || 'Branch Manager';
   const db = getDb();
   const app = (db.loanApplications || []).find(l => (l.applicationId || l.id) === appId);
   if (app) {
-    app.status = 'DISBURSED';
-    app.disbursedAt = new Date().toISOString();
-    saveDb(db);
-    appendAuditLog('manager@finedge.bank', 'BRANCH_MANAGER', 'LOAN_DISBURSED', appId, 'SUCCESS', 'Sanctioned funds disbursed to operative account');
+    if (!db.loans) db.loans = [];
+    const alreadyDisbursed = db.loans.find(l => l.applicationId === appId || l.loanApplicationId === appId);
+    if (!alreadyDisbursed) {
+      app.status = 'DISBURSED';
+      app.disbursedAt = new Date().toISOString();
+      if (Array.isArray(app.steps)) {
+        app.steps.forEach(s => { s.state = 'done'; });
+      }
+
+      const principal = Number(app.sanctionedAmount || app.amount || app.requestedAmount || 1000000);
+      const rate = Number(app.rate || 8.75);
+      const tenureMonths = Number(app.tenureMonths || 36);
+      const emiCalc = calculateEMI(principal, rate, tenureMonths);
+      const emi = emiCalc.emi;
+      const schedule = emiCalc.schedule || [];
+
+      const loanId = 'LN-' + Math.floor(100000 + Math.random() * 900000);
+      const disbursementAccountId = opts.disbursementAccountId || app.disbursementAccountId || app.accountId || (db.accounts.find(a => a.customerId === app.customerId)?.accountId) || 'ACC-1001';
+
+      const newLoan = {
+        id: loanId,
+        loanId,
+        applicationId: appId,
+        loanApplicationId: appId,
+        disbursementRef: 'DISB-' + appId,
+        customerId: app.customerId,
+        productName: app.productName || 'FinEdge Home Loan',
+        productSlug: app.productSlug || 'home-loan',
+        principal,
+        sanctionedAmount: principal,
+        outstandingPrincipal: principal,
+        rate,
+        interestRate: rate,
+        tenureMonths,
+        emi,
+        monthlyEmi: emi,
+        disbursementAccountId,
+        disbursedAccountId: disbursementAccountId,
+        startDate: new Date().toISOString(),
+        nextEmiDate: new Date(Date.now() + 30 * 24 * 3600 * 1000).toISOString().split('T')[0],
+        status: 'ACTIVE',
+        schedule
+      };
+      db.loans.push(newLoan);
+
+      // Credit disbursement account
+      const targetAcc = (db.accounts || []).find(a => (a.accountId === disbursementAccountId || a.id === disbursementAccountId));
+      if (targetAcc) {
+        targetAcc.balance.availableBalance += principal;
+        targetAcc.balance.ledgerBalance += principal;
+        const txnId = 'TXN-' + Math.floor(500000 + Math.random() * 500000);
+        db.transactions.unshift({
+          transactionId: txnId,
+          accountId: targetAcc.accountId,
+          transactionType: 'LOAN_DISBURSEMENT',
+          direction: 'CREDIT',
+          amount: principal,
+          currency: 'INR',
+          status: 'SUCCESS',
+          description: `Loan Disbursement — ${app.productName || 'FinEdge Loan'} (${loanId})`,
+          referenceNumber: 'DISB-' + Math.floor(100000 + Math.random() * 900000),
+          runningBalance: targetAcc.balance.availableBalance,
+          valueDate: new Date().toISOString().split('T')[0],
+          createdAt: new Date().toISOString()
+        });
+      }
+
+      saveDb(db);
+      appendAuditLog('manager@finedge.bank', 'BRANCH_MANAGER', 'LOAN_DISBURSED', appId, 'SUCCESS', 'Sanctioned funds disbursed to operative account');
+    }
   }
-  return app;
+  if (app) { app.success = true; }
+  return { success: Boolean(app), ...app };
 }
 
 export async function listInvestmentApplications({ status, query } = {}) {

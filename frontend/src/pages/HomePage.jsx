@@ -117,7 +117,7 @@ const TRUST_POINTS = [
   {
     icon: PhoneCall,
     title: 'A human when you need one',
-    body: 'Direct phone support at 1800 267 4100 (Mon–Sat 9:00 AM–7:00 PM IST), along with a transparent multi-level Grievance Redressal framework.',
+    body: `Direct phone support at 1800 267 4100 (${BRAND.support.hours}), along with a transparent multi-level Grievance Redressal framework.`,
     linkText: 'Grievance Redressal',
     linkTo: '/grievance-redressal',
     extraLinkText: 'Call 1800 267 4100',

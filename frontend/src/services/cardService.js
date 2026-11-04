@@ -1,5 +1,5 @@
 // Card Applications & Card Controls Service
-import { apiRequest } from './api';
+import { apiRequest } from './api.js';
 
 export const cardService = {
   // Get Customer Cards (Section 7.2)

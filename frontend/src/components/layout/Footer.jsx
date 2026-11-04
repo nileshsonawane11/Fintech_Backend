@@ -1,6 +1,7 @@
 import React from 'react';
 import { Link } from 'react-router-dom';
 import { Logo } from './Header';
+import { BRAND } from '../../data/products.js';
 
 export const Footer = () => {
   return (
@@ -37,7 +38,7 @@ export const Footer = () => {
           <h3 className="mb-3 text-[13px] font-semibold text-porcelain-50">Reach Us &amp; Access</h3>
           <ul className="space-y-2 text-[13px]">
             <li><a className="transition-colors hover:text-gold-300" href="tel:18002674100">Toll free: 1800 267 4100</a></li>
-            <li><span className="text-porcelain-300">Mon–Sat, 9:00 AM – 7:00 PM IST</span></li>
+            <li><span className="text-porcelain-300">{BRAND.support.hours}</span></li>
             <li className="pt-2"><Link className="transition-colors text-gold-300 hover:text-gold-200" to="/portal/login">Customer NetBanking Portal →</Link></li>
             <li><Link className="transition-colors text-porcelain-400 hover:text-porcelain-200" to="/manager/login">Bank Staff Operations Terminal →</Link></li>
           </ul>

@@ -34,7 +34,7 @@ export default function SupportPage() {
   const [subject, setSubject] = useState('');
   const [description, setDescription] = useState('');
   const [txnRef, setTxnRef] = useState('');
-  const [recentTxns, setRecentTxns] = useState([]);
+  const [accountGroups, setAccountGroups] = useState([]);
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -56,15 +56,26 @@ export default function SupportPage() {
     return () => { live = false; };
   }, [customerId, refresh]);
 
+  // Load transactions across ALL customer accounts grouped by account
   useEffect(() => {
     if (!customerId) return undefined;
     let live = true;
     listAccounts(customerId)
       .then(async (accounts) => {
-        const first = (accounts || [])[0];
-        if (!first) return;
-        const txns = await listTransactions(first.id);
-        if (live) setRecentTxns((txns || []).slice(0, 10));
+        const groups = await Promise.all(
+          (accounts || []).map(async (acc) => {
+            try {
+              const txns = await listTransactions(acc.id);
+              return {
+                account: acc,
+                transactions: (txns || []).slice(0, 10),
+              };
+            } catch {
+              return { account: acc, transactions: [] };
+            }
+          })
+        );
+        if (live) setAccountGroups(groups.filter((g) => g.transactions.length > 0));
       })
       .catch(() => { /* transaction reference is optional — the form works without it */ });
     return () => { live = false; };
@@ -158,62 +169,66 @@ export default function SupportPage() {
                 <Card key={t.id} className={`p-5 ${highlighted ? 'border-midnight-300 bg-midnight-50/40' : ''}`}>
                   <button
                     type="button"
-                    onClick={() => { setExpandedId(expanded ? null : t.id); setReplyDraft(''); }}
+                    onClick={() => { setExpandedId(expanded ? null : t.id); setHighlightId(null); }}
                     className="flex w-full items-start justify-between gap-3 text-left"
                     aria-expanded={expanded}
                   >
-                    <span className="min-w-0">
-                      <span className="flex flex-wrap items-center gap-2">
-                        <span className="text-sm font-semibold text-ink-900">{t.subject || 'Support request'}</span>
-                        {highlighted && <span className="rounded-full bg-midnight-800 px-2 py-0.5 text-xs font-bold text-porcelain-50">New</span>}
-                      </span>
-                      <span className="mt-1 block text-[13px] text-ink-500">
-                        {t.id} · {getCategoryLabel(t.category)} · Updated {formatDateTime(t.updatedAt || t.createdAt)}
-                      </span>
-                    </span>
-                    <span className="flex shrink-0 items-center gap-2">
+                    <div className="min-w-0">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <span className="text-sm font-semibold text-midnight-950">{t.subject}</span>
+                        <span className="rounded-full border border-ink-200 bg-porcelain-100 px-2 py-0.5 text-xs text-ink-600">{t.category}</span>
+                      </div>
+                      <p className="mt-1 text-xs text-ink-500">
+                        Ticket {t.id} · Created {formatDateTime(t.createdAt)} · Last updated {formatDateTime(t.updatedAt || t.createdAt)}
+                        {t.transactionRef && <> · Ref: {t.transactionRef}</>}
+                      </p>
+                    </div>
+                    <div className="flex shrink-0 items-center gap-2">
                       <StatusChip status={t.status} />
                       <ChevronDown className={`h-4 w-4 text-ink-400 transition-transform ${expanded ? 'rotate-180' : ''}`} aria-hidden />
-                    </span>
+                    </div>
                   </button>
 
                   {expanded && (
                     <div className="mt-4 border-t border-ink-100 pt-4">
-                      {t.transactionRef && (
-                        <p className="tnum mb-3 text-[13px] text-ink-500">Transaction reference: {t.transactionRef}</p>
-                      )}
+                      {/* Thread messages */}
                       <div className="space-y-3">
-                        {(t.messages || []).map((m, i) => {
-                          const mine = String(m.from || '').toUpperCase() === 'CUSTOMER' || m.senderType === 'CUSTOMER';
+                        {(t.messages || []).map((m, idx) => {
+                          const isCustomer = m.from === 'CUSTOMER' || m.actorRole === 'CUSTOMER';
                           return (
-                            <div key={i} className={`flex ${mine ? 'justify-end' : 'justify-start'}`}>
-                              <div className={`max-w-[85%] rounded-xl px-3.5 py-2.5 ${mine ? 'bg-midnight-800 text-porcelain-50' : 'bg-porcelain-100 text-ink-800'}`}>
-                                <p className={`text-xs font-semibold ${mine ? 'text-gold-300' : 'text-midnight-700'}`}>
-                                  {mine ? 'You' : 'FinEdge support'} · {formatDateTime(m.at || m.timestamp)}
-                                </p>
-                                <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed">{m.text || m.body || m.message || ''}</p>
+                            <div
+                              key={m.id || idx}
+                              className={`rounded-lg p-3 text-sm leading-relaxed ${
+                                isCustomer
+                                  ? 'bg-midnight-50/60 border border-midnight-100'
+                                  : 'bg-porcelain-100/70 border border-ink-100'
+                              }`}
+                            >
+                              <div className="flex items-center justify-between text-xs text-ink-500">
+                                <span className="font-semibold text-ink-800">{m.actor || (isCustomer ? 'You' : 'FinEdge Support')}</span>
+                                <span>{formatDateTime(m.at || m.createdAt)}</span>
                               </div>
+                              <p className="mt-1 text-ink-800 whitespace-pre-wrap">{m.body}</p>
                             </div>
                           );
                         })}
-                        {(t.messages || []).length === 0 && (
-                          <p className="text-sm text-ink-500">{t.description || 'No messages yet.'}</p>
-                        )}
                       </div>
 
-                      <div className="mt-4 flex flex-col gap-2 sm:flex-row">
-                        <Textarea
-                          rows={2}
-                          value={replyDraft}
-                          onChange={(e) => setReplyDraft(e.target.value)}
-                          placeholder="Write a reply to the support team…"
-                          aria-label={`Reply to request ${t.id}`}
-                          className="flex-1"
-                        />
-                        <Button onClick={() => handleReply(t)} loading={replying} disabled={!replyDraft.trim()} className="shrink-0 self-end">
-                          <Send className="h-4 w-4" aria-hidden /> Reply
-                        </Button>
-                      </div>
+                      {/* Reply form */}
+                      {t.status !== 'RESOLVED' && t.status !== 'CLOSED' && (
+                        <div className="mt-4 flex gap-2">
+                          <Input
+                            placeholder="Type a reply..."
+                            value={replyDraft}
+                            onChange={(e) => setReplyDraft(e.target.value)}
+                            onKeyDown={(e) => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); handleReply(t); } }}
+                            className="flex-1"
+                          />
+                          <Button size="sm" onClick={() => handleReply(t)} loading={replying} disabled={!replyDraft.trim()}>
+                            <Send className="h-4 w-4" /> Reply
+                          </Button>
+                        </div>
+                      )}
                     </div>
                   )}
                 </Card>
@@ -223,10 +238,11 @@ export default function SupportPage() {
         )}
       </section>
 
-      {/* Channel strip */}
-      <section>
-        <div className="grid gap-3 sm:grid-cols-3">
-          <a href="tel:18002674100" className="flex items-start gap-3 rounded-xl border border-ink-100 bg-white p-4 shadow-card transition-colors hover:border-midnight-400">
+      {/* Support contact tiles */}
+      <section className="space-y-3">
+        <h3 className="text-base font-semibold text-midnight-950">Direct channels</h3>
+        <div className="grid gap-4 sm:grid-cols-3">
+          <a href={`tel:${BRAND.support.phone.replace(/\s+/g, '')}`} className="flex items-start gap-3 rounded-xl border border-ink-100 bg-white p-4 shadow-card transition-colors hover:border-midnight-400">
             <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-full bg-midnight-50 text-midnight-700">
               <Phone className="h-5 w-5" aria-hidden />
             </span>
@@ -312,10 +328,14 @@ export default function SupportPage() {
             <Field label="Transaction reference (optional)" hint="If this is about a payment, pick the transaction so the team can find it faster.">
               <Select value={txnRef} onChange={(e) => setTxnRef(e.target.value)}>
                 <option value="">No specific transaction</option>
-                {recentTxns.map((t) => (
-                  <option key={t.id} value={t.reference || t.id}>
-                    {formatDate(t.date)} · {t.description} · {formatINR(t.amount)} · {t.reference || t.id}
-                  </option>
+                {accountGroups.map((g) => (
+                  <optgroup key={g.account.id} label={`${g.account.productName || g.account.type} (ending in ${String(g.account.accountNumber || '').slice(-4)})`}>
+                    {g.transactions.map((t) => (
+                      <option key={t.id} value={t.reference || t.id}>
+                        {formatDate(t.date)} · {t.description} · {formatINR(t.amount)} · {t.reference || t.id}
+                      </option>
+                    ))}
+                  </optgroup>
                 ))}
               </Select>
             </Field>

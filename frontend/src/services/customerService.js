@@ -1,5 +1,5 @@
 // Customer & KYC Service
-import { apiRequest } from './api';
+import { apiRequest } from './api.js';
 
 export const customerService = {
   // Get Current Customer Profile (Section 3.1)

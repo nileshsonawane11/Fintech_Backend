@@ -1,5 +1,5 @@
 // Authentication & Session Management Service
-import { apiRequest, setTokens, clearTokens, setManagerToken, clearManagerToken } from './api';
+import { apiRequest, setTokens, clearTokens, setManagerToken, clearManagerToken } from './api.js';
 
 export const authService = {
   // Register Customer (Section 2.1 of API Doc)

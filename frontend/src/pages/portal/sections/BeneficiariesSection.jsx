@@ -2,7 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { Plus, Trash2, Users } from 'lucide-react';
 import { Button, Card, EmptyState, Field, FormError, Input, Modal, PageLoading, SectionHeader, Table, useToast } from '../../../components/ui.jsx';
 import { formatDate, maskAccount } from '../../../lib/format.js';
-import { addBeneficiary, deleteBeneficiary, listBeneficiaries } from '../../../services/portalBridge.js';
+import { addBeneficiary, deleteBeneficiary, listAccounts, listBeneficiaries } from '../../../services/portalBridge.js';
 import { useAuth, useDbTick } from '../../../context/AuthContext.jsx';
 
 const IFSC_RE = /^[A-Z]{4}0[A-Z0-9]{6}$/;
@@ -14,6 +14,7 @@ export default function BeneficiariesPage() {
   useDbTick();
 
   const [beneficiaries, setBeneficiaries] = useState(null);
+  const [accounts, setAccounts] = useState([]);
   const [loadError, setLoadError] = useState('');
   const [form, setForm] = useState(EMPTY_FORM);
   const [errors, setErrors] = useState({});
@@ -25,8 +26,14 @@ export default function BeneficiariesPage() {
 
   const load = useCallback(() => {
     if (!user?.customerId) return;
-    listBeneficiaries(user.customerId)
-      .then(setBeneficiaries)
+    Promise.all([
+      listBeneficiaries(user.customerId),
+      listAccounts(user.customerId)
+    ])
+      .then(([bens, accs]) => {
+        setBeneficiaries(bens || []);
+        setAccounts(accs || []);
+      })
       .catch((e) => setLoadError(e.message || 'We could not load your beneficiaries.'));
   }, [user?.customerId]);
 
@@ -49,6 +56,29 @@ export default function BeneficiariesPage() {
     if (!form.ifsc.trim()) next.ifsc = 'Enter the IFSC.';
     else if (!IFSC_RE.test(form.ifsc.trim())) next.ifsc = 'Enter a valid IFSC — 4 letters, then 0, then 6 letters or digits (e.g. FEDG0004521).';
     if (!form.bankName.trim()) next.bankName = 'Enter the bank name.';
+
+    // Check if adding own account
+    const isOwn = (accounts || []).some((a) => {
+      const cleanRaw = (a.rawAccountNumber || a.accountNumber || '').replace(/[^0-9]/g, '');
+      const cleanInput = acct.replace(/[^0-9]/g, '');
+      return cleanRaw && cleanInput && (cleanRaw === cleanInput || cleanRaw.endsWith(cleanInput) || cleanInput.endsWith(cleanRaw));
+    });
+    if (isOwn) {
+      next.accountNumber = 'You cannot add your own account as a beneficiary.';
+    }
+
+    // Check duplicate account number + IFSC
+    const isDuplicate = (beneficiaries || []).some((b) => {
+      const bAcct = (b.accountNumber || '').replace(/[^0-9]/g, '');
+      const inputAcct = acct.replace(/[^0-9]/g, '');
+      const bIfsc = (b.ifsc || b.ifscCode || '').toUpperCase();
+      const inputIfsc = form.ifsc.trim().toUpperCase();
+      return bAcct === inputAcct && bIfsc === inputIfsc;
+    });
+    if (isDuplicate) {
+      next.accountNumber = 'You already have a beneficiary with this account.';
+    }
+
     setErrors(next);
     return Object.keys(next).length === 0;
   };

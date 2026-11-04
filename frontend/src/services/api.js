@@ -266,6 +266,10 @@ export const getDefaultDb = () => {
         currency: 'INR',
         openedAt: '2026-09-12T09:20:00Z',
         interestRate: 7.00,
+        ifsc: 'FEDG0001021',
+        ifscCode: 'FEDG0001021',
+        branch: 'BKC Flagship Branch, Mumbai',
+        branchName: 'BKC Flagship Branch, Mumbai',
         balance: {
           ledgerBalance: 284500.00,
           availableBalance: 279500.00,
@@ -285,6 +289,10 @@ export const getDefaultDb = () => {
         currency: 'INR',
         openedAt: '2026-10-12T11:00:00Z',
         interestRate: 0.00,
+        ifsc: 'FEDG0001021',
+        ifscCode: 'FEDG0001021',
+        branch: 'BKC Flagship Branch, Mumbai',
+        branchName: 'BKC Flagship Branch, Mumbai',
         balance: {
           ledgerBalance: 1450000.00,
           availableBalance: 1450000.00,
@@ -304,6 +312,10 @@ export const getDefaultDb = () => {
         currency: 'INR',
         openedAt: '2026-09-27T09:30:00Z',
         interestRate: 0.00,
+        ifsc: 'FEDG0001021',
+        ifscCode: 'FEDG0001021',
+        branch: 'BKC Flagship Branch, Mumbai',
+        branchName: 'BKC Flagship Branch, Mumbai',
         balance: {
           ledgerBalance: 500000.00,
           availableBalance: 500000.00,
@@ -323,6 +335,10 @@ export const getDefaultDb = () => {
         currency: 'INR',
         openedAt: '2026-10-25T11:30:00Z',
         interestRate: 0.00,
+        ifsc: 'FEDG0001021',
+        ifscCode: 'FEDG0001021',
+        branch: 'BKC Flagship Branch, Mumbai',
+        branchName: 'BKC Flagship Branch, Mumbai',
         balance: {
           ledgerBalance: 1840000.00,
           availableBalance: 1840000.00,
@@ -342,6 +358,10 @@ export const getDefaultDb = () => {
         currency: 'INR',
         openedAt: '2026-10-26T09:00:00Z',
         interestRate: 7.00,
+        ifsc: 'FEDG0001021',
+        ifscCode: 'FEDG0001021',
+        branch: 'BKC Flagship Branch, Mumbai',
+        branchName: 'BKC Flagship Branch, Mumbai',
         balance: {
           ledgerBalance: 675000.00,
           availableBalance: 675000.00,
@@ -372,28 +392,37 @@ export const getDefaultDb = () => {
     cards: [
       {
         cardId: 'CARD-3001',
-        cardType: 'METAL_CREDIT',
-        cardName: 'FinEdge Aurum Metal Credit Card',
+        cardType: 'CREDIT',
+        productSlug: 'edge-cashback-credit',
+        cardName: 'FinEdge Edge Cashback Card',
         maskedCardNumber: '************1234',
         expiryMonth: 12,
         expiryYear: 2030,
         status: 'ACTIVE',
         linkedAccountId: 'ACC-1001',
         customerId: 'CUS-100234',
-        availableLimit: 425000.00,
-        totalLimit: 500000.00,
+        availableLimit: 231550.00,
+        totalLimit: 250000.00,
+        outstanding: 18450.00,
+        minDue: 1845.00,
+        dueDate: '2026-11-20',
+        network: 'RuPay',
+
         controls: {
           onlineEnabled: true,
           internationalEnabled: true,
           contactlessEnabled: true,
           atmWithdrawalEnabled: true,
-          dailyLimit: 75000.00
+          dailyLimit: 150000.00,
+          limits: { dailySpend: 150000, atmWithdrawal: 25000, spendDaily: 150000, atmDaily: 25000 }
         }
       },
       {
         cardId: 'CARD-3002',
         cardType: 'DEBIT',
-        cardName: 'FinEdge Platinum Contactless Debit Card',
+        productSlug: 'classic-debit',
+        cardName: 'FinEdge Classic Debit Card',
+        network: 'RuPay',
         maskedCardNumber: '************5678',
         expiryMonth: 8,
         expiryYear: 2029,
@@ -405,7 +434,8 @@ export const getDefaultDb = () => {
           internationalEnabled: false,
           contactlessEnabled: true,
           atmWithdrawalEnabled: true,
-          dailyLimit: 50000.00
+          dailyLimit: 50000.00,
+          limits: { dailySpend: 50000, atmWithdrawal: 20000, spendDaily: 50000, atmDaily: 20000 }
         }
       },
       {
@@ -447,7 +477,9 @@ export const getDefaultDb = () => {
       {
         cardId: 'CARD-3005',
         cardType: 'DEBIT',
-        cardName: 'FinEdge Platinum Contactless Debit Card',
+        productSlug: 'classic-debit',
+        cardName: 'FinEdge Classic Debit Card',
+        network: 'RuPay',
         maskedCardNumber: '************7788',
         expiryMonth: 9,
         expiryYear: 2029,
@@ -493,7 +525,8 @@ export const getDefaultDb = () => {
         description: 'Transfer to Ananya Iyer via IMPS',
         referenceNumber: 'PAY-987654',
         valueDate: '2026-10-27',
-        createdAt: '2026-10-27T08:15:30Z'
+        createdAt: '2026-10-27T08:15:30Z',
+        runningBalance: 279500.00
       },
       {
         transactionId: 'TXN-554432',
@@ -506,7 +539,8 @@ export const getDefaultDb = () => {
         description: 'Monthly Salary Credit â€” Acme FinTech Corp',
         referenceNumber: 'PAY-882191',
         valueDate: '2026-10-01',
-        createdAt: '2026-10-01T05:00:00Z'
+        createdAt: '2026-10-01T05:00:00Z',
+        runningBalance: 294500.00
       },
       {
         transactionId: 'TXN-554431',
@@ -519,7 +553,8 @@ export const getDefaultDb = () => {
         description: 'Monthly Compounded Savings Interest Credit',
         referenceNumber: 'INT-330191',
         valueDate: '2026-09-30',
-        createdAt: '2026-09-30T18:30:00Z'
+        createdAt: '2026-09-30T18:30:00Z',
+        runningBalance: 109500.00
       },
       {
         transactionId: 'TXN-771101',
@@ -556,8 +591,8 @@ export const getDefaultDb = () => {
         beneficiaryName: 'Ananya Iyer',
         accountNumber: '123456789012',
         maskedAccountNumber: '**********9012',
-        ifscCode: 'FNEG0001234',
-        bankName: 'FinEdge Core Branch',
+        ifscCode: 'FEDG0001021',
+        bankName: 'FinEdge Bank',
         status: 'ACTIVE',
         verificationStatus: 'VERIFIED'
       }
@@ -698,8 +733,9 @@ export const getDefaultDb = () => {
         cardApplicationId: 'CARD-APP-400123',
         customerId: 'CUS-100234',
         customerName: 'Vikramaditya Sharma',
-        cardType: 'METAL_CREDIT',
-        cardName: 'FinEdge Aurum Metal Credit Card',
+        cardType: 'CREDIT',
+        productSlug: 'edge-cashback-credit',
+        cardName: 'FinEdge Edge Cashback Card',
         linkedAccountId: 'ACC-1001',
         status: 'APPROVED',
         submittedAt: '2026-09-12T12:00:00Z',
@@ -719,8 +755,9 @@ export const getDefaultDb = () => {
         cardApplicationId: 'CARD-APP-400125',
         customerId: 'CUS-100236',
         customerName: 'Priya Nair',
-        cardType: 'METAL_CREDIT',
-        cardName: 'FinEdge Aurum Metal Credit Card',
+        cardType: 'CREDIT',
+        productSlug: 'edge-cashback-credit',
+        cardName: 'FinEdge Edge Cashback Card',
         linkedAccountId: 'ACC-1001',
         status: 'UNDER_REVIEW',
         submittedAt: '2026-09-27T14:45:00Z'
@@ -907,7 +944,11 @@ export const getDefaultDb = () => {
         createdAt: '2026-09-27T09:50:00Z',
         updatedAt: '2026-09-27T09:50:00Z'
       }
-    ]
+    ],
+    loans: [],
+    loanApplications: [],
+    investmentHoldings: [],
+    investmentApplications: []
   };
 };
 
@@ -1006,6 +1047,12 @@ export const getDb = () => {
         dirty = true;
       }
     });
+
+    if (!Array.isArray(db.loans)) { db.loans = []; dirty = true; }
+    if (!Array.isArray(db.loanApplications)) { db.loanApplications = []; dirty = true; }
+    if (!Array.isArray(db.investmentHoldings)) { db.investmentHoldings = []; dirty = true; }
+    if (!Array.isArray(db.investmentApplications)) { db.investmentApplications = []; dirty = true; }
+    if (!Array.isArray(db.beneficiaries)) { db.beneficiaries = []; dirty = true; }
 
     if (dirty) {
       localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(db));
@@ -1512,8 +1559,8 @@ export const handleLocalFallback = (endpoint, options = {}) => {
         productCode: body.productCode || 'SAVINGS_REGULAR',
         productName: body.productName || (body.productCode === 'CURRENT_BUSINESS' ? 'FinEdge Trade Current Account' : 'FinEdge Everyday Savings Account'),
         initialFundingAmount: body.initialFundingAmount || 10000.00,
-        status: 'UNDER_REVIEW',
-        submittedAt: new Date().toISOString(),
+        status: 'PENDING_APPROVAL',
+      submittedAt: new Date().toISOString(),
         nominee: body.nominee || {}
       };
       db.accountApplications.unshift(newApp);
@@ -1584,7 +1631,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
   // 12. /api/v1/payments/transfers
   if (endpoint === '/api/v1/payments/transfers' && method === 'POST') {
     const currentCustId = getAuthenticatedCustomerId(db);
-    const debitAcc = db.accounts.find(a => a.accountId === body.debitAccountId && a.customerId === currentCustId);
+    const debitAcc = db.accounts.find(a => (a.accountId === body.debitAccountId || a.id === body.debitAccountId) && a.customerId === currentCustId);
     if (!debitAcc) {
       throw {
         status: 403,
@@ -1604,31 +1651,72 @@ export const handleLocalFallback = (endpoint, options = {}) => {
       };
     }
 
-    if (debitAcc.balance.availableBalance < amount) {
+    const rail = (body.transferMode || body.railId || 'IMPS').toUpperCase();
+    const charge = rail === 'IMPS' ? 5 : 0;
+    const totalDebit = Math.round((amount + charge) * 100) / 100;
+
+    if (debitAcc.balance.availableBalance < totalDebit) {
       throw {
         status: 422,
         code: 'INSUFFICIENT_BALANCE',
         title: 'Business Rule Violation',
-        detail: `Transfer amount â‚¹${amount.toLocaleString()} exceeds available balance â‚¹${debitAcc.balance.availableBalance.toLocaleString()}.`
+        detail: `Transfer amount plus charges (₹${totalDebit.toFixed(2)}) exceeds available balance ₹${debitAcc.balance.availableBalance.toFixed(2)}.`
       };
     }
 
-    debitAcc.balance.availableBalance -= amount;
-    debitAcc.balance.ledgerBalance -= amount;
+    debitAcc.balance.availableBalance -= totalDebit;
+    debitAcc.balance.ledgerBalance -= totalDebit;
 
     const paymentId = 'PAY-' + Math.floor(100000 + Math.random() * 900000);
     const txnId = 'TXN-' + Math.floor(500000 + Math.random() * 500000);
+
+    // Check own account transfer
+    const destId = body.destinationId || body.beneficiaryId || body.creditAccountId;
+    const isOwn = body.destinationType === 'OWN' || (db.accounts || []).some(a => (a.accountId === destId || a.id === destId) && a.customerId === currentCustId && a.accountId !== debitAcc.accountId);
+
+    let toName = '';
+    let creditAcc = null;
+
+    if (isOwn) {
+      creditAcc = (db.accounts || []).find(a => (a.accountId === destId || a.id === destId) && a.customerId === currentCustId);
+      if (creditAcc) {
+        creditAcc.balance.availableBalance += amount;
+        creditAcc.balance.ledgerBalance += amount;
+        toName = creditAcc.productName || 'Own Account';
+
+        const creditTxnId = 'TXN-' + Math.floor(500000 + Math.random() * 500000);
+        const creditTxn = {
+          transactionId: creditTxnId,
+          accountId: creditAcc.accountId,
+          transactionType: 'TRANSFER',
+          direction: 'CREDIT',
+          amount,
+          currency: 'INR',
+          status: 'SUCCESS',
+          description: body.remarks || `Transfer from ${debitAcc.accountNumber || debitAcc.accountId}`,
+          referenceNumber: paymentId,
+          runningBalance: creditAcc.balance.availableBalance,
+          valueDate: new Date().toISOString().split('T')[0],
+          createdAt: new Date().toISOString()
+        };
+        db.transactions.unshift(creditTxn);
+      }
+    } else {
+      const bene = (db.beneficiaries || []).find(b => b.beneficiaryId === destId || b.id === destId);
+      toName = bene?.beneficiaryName || bene?.name || body.toName || 'Beneficiary';
+    }
 
     const newTxn = {
       transactionId: txnId,
       accountId: debitAcc.accountId,
       transactionType: 'TRANSFER',
       direction: 'DEBIT',
-      amount,
+      amount: totalDebit,
       currency: 'INR',
       status: 'SUCCESS',
-      description: body.remarks || 'Electronic Fund Transfer',
+      description: body.remarks || `Transfer to ${toName || 'Beneficiary'} via ${rail}`,
       referenceNumber: paymentId,
+      runningBalance: debitAcc.balance.availableBalance,
       valueDate: new Date().toISOString().split('T')[0],
       createdAt: new Date().toISOString()
     };
@@ -1640,23 +1728,30 @@ export const handleLocalFallback = (endpoint, options = {}) => {
       templateCode: 'PAYMENT_SUCCESS',
       channel: 'IN_APP',
       title: 'Transfer Executed',
-      body: `â‚¹${amount.toLocaleString()} debited from account ending in ${debitAcc.accountNumber.slice(-4)}. Reference: ${paymentId}`,
+      body: `₹${totalDebit.toFixed(2)} debited from account ending in ${debitAcc.accountNumber.slice(-4)}. Reference: ${paymentId}`,
       read: false,
       createdAt: new Date().toISOString()
     });
 
     saveDb(db);
-    appendAuditLog(currentCustId, 'CUSTOMER', 'PAYMENT_TRANSFER_SUCCESS', paymentId, 'SUCCESS', `Transferred â‚¹${amount} via ${body.transferMode || 'IMPS'}`);
+    appendAuditLog(currentCustId, 'CUSTOMER', 'PAYMENT_TRANSFER_SUCCESS', paymentId, 'SUCCESS', `Transferred ₹${amount} via ${rail}`);
 
     return {
       paymentId,
+      reference: paymentId,
+      referenceNumber: paymentId,
       transactionId: txnId,
       status: 'SUCCESS',
       amount,
       currency: 'INR',
-      charges: [{ chargeType: 'TRANSFER_FEE', amount: 0.00, currency: 'INR' }],
-      estimatedCompletionTime: new Date().toISOString(),
-      links: { self: `/api/v1/payments/${paymentId}` }
+      charges: charge,
+      totalDebit,
+      rail,
+      toName: toName || 'Beneficiary',
+      fromAccount: debitAcc.accountNumber,
+      balanceAfter: debitAcc.balance.availableBalance,
+      at: new Date().toISOString(),
+      simulated: rail !== 'INTERNAL'
     };
   }
 
@@ -1676,25 +1771,65 @@ export const handleLocalFallback = (endpoint, options = {}) => {
           detail: 'Beneficiary Name and Account Number are required.'
         };
       }
+      const rawAcct = String(body.accountNumber).replace(/\s/g, '');
+      const isOwnAccount = (db.accounts || []).some(a =>
+        a.customerId === currentCustId &&
+        (a.rawAccountNumber === rawAcct || a.accountNumber === rawAcct || a.accountId === rawAcct || (rawAcct.length >= 4 && (a.rawAccountNumber?.endsWith(rawAcct) || a.accountNumber?.endsWith(rawAcct))))
+      );
+      if (isOwnAccount) {
+        throw {
+          status: 422,
+          code: 'OWN_ACCOUNT_BENEFICIARY',
+          title: 'Validation Failed',
+          detail: 'You cannot add your own account as a beneficiary.'
+        };
+      }
+      const duplicate = (db.beneficiaries || []).find(b =>
+        b.customerId === currentCustId &&
+        b.accountNumber === rawAcct &&
+        (b.ifscCode || b.ifsc) === (body.ifscCode || body.ifsc || 'FEDG0001021')
+      );
+      if (duplicate) {
+        throw {
+          status: 409,
+          code: 'DUPLICATE_BENEFICIARY',
+          title: 'Duplicate Beneficiary',
+          detail: 'You already have a beneficiary with this account.'
+        };
+      }
+
       const newBenId = 'BEN-' + Math.floor(100000 + Math.random() * 900000);
       const newBen = {
         beneficiaryId: newBenId,
+        id: newBenId,
         customerId: currentCustId,
         nickname: body.nickname || body.beneficiaryName.split(' ')[0],
         beneficiaryName: body.beneficiaryName,
-        accountNumber: body.accountNumber,
-        maskedAccountNumber: '**********' + body.accountNumber.slice(-4),
-        ifscCode: body.ifscCode || 'FNEG0001234',
+        name: body.beneficiaryName,
+        accountNumber: rawAcct,
+        maskedAccountNumber: '**********' + rawAcct.slice(-4),
+        ifscCode: body.ifscCode || body.ifsc || 'FEDG0001021',
+        ifsc: body.ifscCode || body.ifsc || 'FEDG0001021',
         bankName: body.bankName || 'FinEdge Bank',
         status: 'ACTIVE',
         verificationStatus: 'VERIFIED',
-        createdAt: new Date().toISOString()
+        createdAt: new Date().toISOString(),
+        addedAt: new Date().toISOString()
       };
       if (!db.beneficiaries) db.beneficiaries = [];
       db.beneficiaries.push(newBen);
       saveDb(db);
       return newBen;
     }
+  }
+
+  // 12c. /api/v1/beneficiaries/:id (DELETE)
+  const deleteBeneMatch = endpoint.match(/^\/api\/v1\/beneficiaries\/([^/]+)/);
+  if (deleteBeneMatch && method === 'DELETE') {
+    const benId = deleteBeneMatch[1];
+    db.beneficiaries = (db.beneficiaries || []).filter(b => b.beneficiaryId !== benId && b.id !== benId);
+    saveDb(db);
+    return { success: true, message: 'Beneficiary removed' };
   }
 
   // 13. /api/v1/cards (Strict Customer Data Isolation)
@@ -1709,17 +1844,18 @@ export const handleLocalFallback = (endpoint, options = {}) => {
   // 14. /api/v1/cards/applications
   if (endpoint === '/api/v1/cards/applications' && method === 'POST') {
     const currentCustId = getAuthenticatedCustomerId(db);
-    const existingCardApp = db.cardApplications.find(c => 
+    const prodSlug = body.productSlug || (body.cardName ? body.cardName.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'edge-cashback-credit');
+    const existingCardApp = (db.cardApplications || []).find(c => 
       c.customerId === currentCustId && 
-      c.cardType === body.cardType && 
-      ['UNDER_REVIEW', 'PENDING_APPROVAL'].includes(c.status)
+      (c.productSlug === prodSlug || c.cardName === body.cardName) && 
+      ['UNDER_REVIEW', 'PENDING_APPROVAL', 'SUBMITTED'].includes(c.status)
     );
     if (existingCardApp) {
       throw {
         status: 409,
         code: 'DUPLICATE_APPLICATION',
         title: 'Application Already Pending',
-        detail: `An active application (${existingCardApp.cardApplicationId}) for this card product is currently under review.`
+        detail: `An active application (${existingCardApp.cardApplicationId}) for ${body.cardName || 'this card'} is currently under review.`
       };
     }
 
@@ -1727,12 +1863,15 @@ export const handleLocalFallback = (endpoint, options = {}) => {
     const newCardAppId = 'CARD-APP-' + Math.floor(400000 + Math.random() * 100000);
     const newCardApp = {
       cardApplicationId: newCardAppId,
+      id: newCardAppId,
       customerId: currentCustId,
       customerName: cust?.fullName || 'Customer',
-      cardType: body.cardType || 'METAL_CREDIT',
-      cardName: body.cardName || 'FinEdge Aurum Metal Credit Card',
+      cardType: body.cardType || 'CREDIT',
+      cardName: body.cardName || 'FinEdge Edge Cashback Card',
+      productName: body.cardName || 'FinEdge Edge Cashback Card',
+      productSlug: prodSlug,
       linkedAccountId: body.linkedAccountId || 'ACC-1001',
-      status: 'UNDER_REVIEW',
+      status: 'PENDING_APPROVAL',
       submittedAt: new Date().toISOString()
     };
     db.cardApplications.unshift(newCardApp);
@@ -1740,10 +1879,75 @@ export const handleLocalFallback = (endpoint, options = {}) => {
     appendAuditLog(currentCustId, 'CUSTOMER', 'CARD_APPLICATION_SUBMITTED', newCardAppId, 'SUCCESS', `Applied for ${newCardApp.cardName}`);
     return {
       cardApplicationId: newCardAppId,
-      cardType: body.cardType,
+      id: newCardAppId,
+      reference: newCardAppId,
+      cardType: newCardApp.cardType,
+      cardName: newCardApp.cardName,
+      productName: newCardApp.cardName,
       status: 'PENDING_APPROVAL',
       estimatedDeliveryTime: new Date(Date.now() + 7 * 86400 * 1000).toISOString().split('T')[0]
     };
+  }
+
+  // Card bill payment
+  const cardPayMatch = endpoint.match(/^\/api\/v1\/cards\/([^/]+)\/pay/);
+  if (cardPayMatch && method === 'POST') {
+    const currentCustId = getAuthenticatedCustomerId(db);
+    const card = (db.cards || []).find(c => c.cardId === cardPayMatch[1] || c.id === cardPayMatch[1]);
+    if (!card) throw { status: 404, code: 'CARD_NOT_FOUND', detail: 'Card not found' };
+    const payAmount = Number(body.amount);
+    if (!payAmount || payAmount <= 0) throw { status: 422, code: 'INVALID_AMOUNT', detail: 'Invalid payment amount' };
+    const fromAcc = (db.accounts || []).find(a => (a.accountId === body.accountId || a.id === body.accountId) && a.customerId === currentCustId);
+    if (!fromAcc) throw { status: 404, code: 'ACCOUNT_NOT_FOUND', detail: 'Funding account not found' };
+    if (fromAcc.balance.availableBalance < payAmount) {
+      throw { status: 422, code: 'INSUFFICIENT_BALANCE', detail: 'Insufficient balance to pay card bill.' };
+    }
+    fromAcc.balance.availableBalance -= payAmount;
+    fromAcc.balance.ledgerBalance -= payAmount;
+    card.outstanding = Math.max(0, (card.outstanding || 0) - payAmount);
+    card.minDue = Math.max(0, (card.minDue || 0) - payAmount);
+    card.availableLimit = (card.totalLimit || 250000) - card.outstanding;
+    const paymentRef = 'PAY-CARD-' + Math.floor(100000 + Math.random() * 900000);
+    db.transactions.unshift({
+      transactionId: 'TXN-' + Math.floor(500000 + Math.random() * 500000),
+      accountId: fromAcc.accountId,
+      transactionType: 'CARD_PAYMENT',
+      direction: 'DEBIT',
+      amount: payAmount,
+      currency: 'INR',
+      status: 'SUCCESS',
+      description: `Credit Card Bill Payment — ${card.cardName || 'FinEdge Card'}`,
+      referenceNumber: paymentRef,
+      runningBalance: fromAcc.balance.availableBalance,
+      valueDate: new Date().toISOString().split('T')[0],
+      createdAt: new Date().toISOString()
+    });
+    saveDb(db);
+    return {
+      success: true,
+      reference: paymentRef,
+      paidAmount: payAmount,
+      balanceAfter: fromAcc.balance.availableBalance,
+      outstandingAfter: card.outstanding
+    };
+  }
+
+  // Change password
+  if ((endpoint === '/api/v1/customers/password' || endpoint === '/api/v1/auth/password/change') && (method === 'PUT' || method === 'POST')) {
+    const currentCustId = getAuthenticatedCustomerId(db);
+    const cust = (db.customers || []).find(c => c.customerId === currentCustId);
+    if (!cust) throw { status: 404, code: 'CUSTOMER_NOT_FOUND', detail: 'Customer not found' };
+    const currentPassword = cust.password || 'Password@123';
+    if (body.currentPassword !== currentPassword) {
+      throw { status: 400, code: 'INVALID_CREDENTIALS', detail: 'The current password you entered is incorrect.' };
+    }
+    if (!body.newPassword || body.newPassword.length < 8) {
+      throw { status: 422, code: 'WEAK_PASSWORD', detail: 'New password must be at least 8 characters.' };
+    }
+    cust.password = body.newPassword;
+    saveDb(db);
+    appendAuditLog(currentCustId, 'CUSTOMER', 'PASSWORD_CHANGED', cust.customerId, 'SUCCESS', 'Password updated');
+    return { success: true, message: 'Password updated successfully' };
   }
 
   // 15. /api/v1/cards/{cardId}/block (Customer Ownership Check)
@@ -1784,7 +1988,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
   const controlsMatch = endpoint.match(/^\/api\/v1\/cards\/([^/]+)\/controls/);
   if (controlsMatch && (method === 'PUT' || method === 'POST')) {
     const currentCustId = getAuthenticatedCustomerId(db);
-    const card = db.cards.find(c => c.cardId === controlsMatch[1]);
+    const card = db.cards.find(c => c.cardId === controlsMatch[1] || c.id === controlsMatch[1]);
     if (!card) {
       throw {
         status: 404,
@@ -1801,9 +2005,49 @@ export const handleLocalFallback = (endpoint, options = {}) => {
         detail: 'Unauthorized cross-customer card control update blocked.'
       };
     }
-    card.controls = { ...card.controls, ...body };
+
+    if (!card.controls) card.controls = {};
+    if (!card.limits) card.limits = {};
+
+    if (body.controls) {
+      if (body.controls.online !== undefined) {
+        card.controls.online = body.controls.online;
+        card.controls.onlineEnabled = body.controls.online;
+      }
+      if (body.controls.atm !== undefined) {
+        card.controls.atm = body.controls.atm;
+        card.controls.atmWithdrawalEnabled = body.controls.atm;
+      }
+      if (body.controls.international !== undefined) {
+        card.controls.international = body.controls.international;
+        card.controls.internationalEnabled = body.controls.international;
+      }
+      if (body.controls.contactless !== undefined) {
+        card.controls.contactless = body.controls.contactless;
+        card.controls.contactlessEnabled = body.controls.contactless;
+      }
+    }
+    if (body.limits) {
+      const spend = body.limits.spendDaily ?? body.limits.dailySpend;
+      const atm = body.limits.atmDaily ?? body.limits.atmWithdrawal;
+      if (spend !== undefined) {
+        card.limits.dailySpend = spend;
+        card.limits.spendDaily = spend;
+        card.dailyLimit = spend;
+      }
+      if (atm !== undefined) {
+        card.limits.atmWithdrawal = atm;
+        card.limits.atmDaily = atm;
+      }
+    }
+    if (body.onlineEnabled !== undefined) { card.controls.onlineEnabled = body.onlineEnabled; card.controls.online = body.onlineEnabled; }
+    if (body.internationalEnabled !== undefined) { card.controls.internationalEnabled = body.internationalEnabled; card.controls.international = body.internationalEnabled; }
+    if (body.contactlessEnabled !== undefined) { card.controls.contactlessEnabled = body.contactlessEnabled; card.controls.contactless = body.contactlessEnabled; }
+    if (body.atmWithdrawalEnabled !== undefined) { card.controls.atmWithdrawalEnabled = body.atmWithdrawalEnabled; card.controls.atm = body.atmWithdrawalEnabled; }
+    if (body.dailyLimit !== undefined) { card.controls.dailyLimit = body.dailyLimit; card.dailyLimit = body.dailyLimit; card.limits.dailySpend = body.dailyLimit; card.limits.spendDaily = body.dailyLimit; }
+    if (body.pinSet) { card.pinSet = true; card.pinSetAt = new Date().toISOString(); }
     saveDb(db);
-    return { cardId: card.cardId, controls: card.controls };
+    return { cardId: card.cardId, controls: card.controls, limits: card.limits };
   }
 
   // 17. /api/v1/notifications
