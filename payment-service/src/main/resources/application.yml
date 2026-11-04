@@ -8,8 +8,8 @@ spring:
 
   datasource:
     url: ${PAYMENT_DB_URL:jdbc:postgresql://localhost:5432/fintech_payment}
-    username: ${PAYMENT_DB_USERNAME}
-    password: ${PAYMENT_DB_PASSWORD}
+    username: ${PAYMENT_DB_USERNAME:postgres}
+    password: ${PAYMENT_DB_PASSWORD:root}
     driver-class-name: org.postgresql.Driver
 
   jpa:

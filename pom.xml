@@ -21,8 +21,10 @@
     <modules>
         <module>api-gateway</module>
         <module>service-discovery</module>
+        <module>account-service</module>
         <module>identity-access-service</module>
         <module>customer-service</module>
+        <module>card-service</module>
         <module>payment-service</module>
         <module>frontend</module>
     </modules>
