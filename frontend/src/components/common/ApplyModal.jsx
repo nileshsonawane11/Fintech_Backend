@@ -1,3 +1,4 @@
+import { ConfirmationCheckmark } from './ConfirmationCheckmark.jsx';
 import React, { useState, useEffect, useRef } from 'react';
 import { useAuth } from '../../context/AuthContext';
 import { Button, Badge } from '../ui.jsx';
@@ -1576,9 +1577,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
         {submittedApp ? (
           <div className="p-6 space-y-6 overflow-y-auto flex-1">
             <div className="flex flex-col items-center text-center space-y-2 py-4">
-              <div className="h-12 w-12 rounded-full bg-emerald-50 text-emerald-600 flex items-center justify-center mb-2">
-                <CheckCircle2 className="h-8 w-8" />
-              </div>
+              <ConfirmationCheckmark size={56} className="mb-2" />
               <h3 className="font-display text-xl font-bold text-midnight-950">
                 Application Successfully Submitted
               </h3>
@@ -1592,7 +1591,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                 <div className="rounded-xl border border-ink-100 bg-porcelain-50 p-4 space-y-2.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-ink-500">Service Reference</span>
-                    <span className="font-mono font-bold text-midnight-950">{submittedApp.applicationId || submittedApp.reference || submittedApp.id}</span>
+                    <span className="font-mono font-bold text-midnight-950 confirm-ref-settle">{submittedApp.applicationId || submittedApp.reference || submittedApp.id}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-ink-500">Investment Product</span>
@@ -1701,7 +1700,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                 <div className="rounded-xl border border-ink-100 bg-porcelain-50 p-4 space-y-2.5">
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-ink-500">Service Reference</span>
-                    <span className="font-mono font-bold text-midnight-950">{submittedApp.applicationId || submittedApp.reference || submittedApp.id}</span>
+                    <span className="font-mono font-bold text-midnight-950 confirm-ref-settle">{submittedApp.applicationId || submittedApp.reference || submittedApp.id}</span>
                   </div>
                   <div className="flex items-center justify-between text-xs">
                     <span className="text-ink-500">Loan Product</span>
@@ -1751,9 +1750,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
               <div className="rounded-xl border border-ink-100 bg-porcelain-50 p-4 space-y-2 text-xs">
                 <div className="flex justify-between">
                   <span className="text-ink-500">Application Reference</span>
-                  <span className="font-mono font-bold text-midnight-900">
-                    {submittedApp.accountApplicationId || submittedApp.cardApplicationId || submittedApp.applicationId || submittedApp.id || 'APP-SAVED'}
-                  </span>
+                  <span className="font-mono font-bold text-midnight-900 confirm-ref-settle">{submittedApp.accountApplicationId || submittedApp.cardApplicationId || submittedApp.applicationId || submittedApp.id || 'APP-SAVED'}</span>
                 </div>
                 <div className="flex justify-between">
                   <span className="text-ink-500">Applicant Name</span>
@@ -3851,6 +3848,25 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       </span>
                     </label>
                     {errors.consentCardTerms && <p className="text-xs text-danger-600 pl-7">{errors.consentCardTerms}</p>}
+                  </>
+                )}
+
+                {/* Debit Card Terms */}
+                {isDebitCard && (
+                  <>
+                    <label className="flex items-start gap-3 cursor-pointer">
+                      <input
+                        type="checkbox"
+                        name="consentDebitTerms"
+                        checked={formData.consentDebitTerms}
+                        onChange={(e) => handleChange('consentDebitTerms', e.target.checked)}
+                        className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                      />
+                      <span className="text-xs leading-relaxed text-ink-700">
+                        I agree to the debit cardholder terms and Schedule of Charges for the <strong className="text-midnight-950">{product?.name}</strong>.<span className="text-danger-600"> *</span>
+                      </span>
+                    </label>
+                    {errors.consentDebitTerms && <p className="text-xs text-danger-600 pl-7">{errors.consentDebitTerms}</p>}
                   </>
                 )}
 

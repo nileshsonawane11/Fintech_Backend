@@ -89,7 +89,7 @@ function CalculatorTabs({ tabs, active, onChange }) {
         );
       })}
       <span
-        className="pointer-events-none absolute bottom-0 h-0.5 bg-gold-500 transition-all duration-180 ease-out motion-reduce:transition-none"
+        className="pointer-events-none absolute bottom-0 h-0.5 bg-gold-500 rounded-full transition-all duration-240 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
         style={{
           transform: `translateX(${indicatorStyle.left}px)`,
           width: `${indicatorStyle.width}px`,
@@ -248,11 +248,11 @@ function ProportionBar({ aLabel, aValue, bLabel, bValue }) {
     <div className="mt-5">
       <div className="flex h-3 overflow-hidden rounded-full bg-porcelain-50/10" role="img" aria-label={`${aLabel} ${aPct}%, ${bLabel} ${100 - aPct}%`}>
         <div
-          className="bg-midnight-400 transition-[width] duration-240 ease-out motion-reduce:transition-none"
+          className="bg-midnight-400 transition-[width] duration-240 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
           style={{ width: `${aPct}%` }}
         />
         <div
-          className="bg-midnight-300 transition-[width] duration-240 ease-out motion-reduce:transition-none"
+          className="bg-midnight-300 transition-[width] duration-240 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
           style={{ width: `${100 - aPct}%` }}
         />
       </div>
@@ -1067,6 +1067,7 @@ export default function CalculatorsPage() {
   return (
     <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:py-20">
       <SectionHeader
+        reveal
         titleAs="h1"
         eyebrow="Calculators"
         title="Plan the numbers before you apply"

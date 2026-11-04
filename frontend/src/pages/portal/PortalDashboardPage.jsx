@@ -198,7 +198,7 @@ export const PortalDashboardPage = () => {
                 <n.icon className="h-4.5 w-4.5 shrink-0" aria-hidden />
                 <span className="flex-1">{n.label}</span>
                 {n.badge === 'unread' && unreadN > 0 && (
-                  <span className="rounded-full bg-danger-600 px-1.5 py-0.5 text-xs font-bold text-white">{unreadN}</span>
+                  <span className="animate-notification-pop rounded-full bg-danger-600 px-1.5 py-0.5 text-xs font-bold text-white motion-reduce:animate-none">{unreadN}</span>
                 )}
               </NavLink>
             );
@@ -240,6 +240,7 @@ export const PortalDashboardPage = () => {
 
       {/* Main Content View */}
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-24 pt-5 sm:px-6 lg:pb-10 lg:pt-7">
+        <div key={activeSection} className="animate-portal-crossfade motion-reduce:animate-none">
         {activeSection === 'overview' && <DashboardSection />}
         {activeSection === 'accounts' && <AccountsSection />}
         {activeSection === 'account-detail' && <AccountDetailSection accountId={accountDetailId} />}
@@ -253,6 +254,7 @@ export const PortalDashboardPage = () => {
         {activeSection === 'notifications' && <NotificationsSection />}
         {activeSection === 'profile' && <ProfileSection />}
         {activeSection === 'support' && <SupportSection />}
+        </div>
       </main>
 
       {/* Mobile Bottom Tab Bar */}

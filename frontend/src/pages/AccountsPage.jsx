@@ -1,3 +1,4 @@
+import Reveal from '../components/Reveal.jsx';
 import React, { useMemo, useState, useRef, useEffect } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { ArrowRight, CheckCircle2, Scale, Search, X } from 'lucide-react';
@@ -281,10 +282,10 @@ export default function AccountsPage() {
             const spanClass = getCardGridSpan(index, filtered.length);
 
             return (
-              <Card
-                key={account.slug}
+              <Reveal key={account.slug} treatment="B" staggerIndex={index} className={spanClass}>
+                <Card
                 id={account.slug}
-                className={`flex flex-col p-6 scroll-mt-24 shadow-card transition-all duration-180 ease-out hover:-translate-y-0.5 hover:shadow-raised motion-reduce:hover:translate-y-0 ${spanClass}`}
+                className="h-full flex flex-col p-6 scroll-mt-24 shadow-card transition-all duration-180 ease-out hover:-translate-y-0.5 hover:shadow-raised motion-reduce:hover:translate-y-0"
               >
                 {/* Product Header: 48x48 Dark Tile (Fix 2) */}
                 <div className="flex items-start justify-between gap-3">
@@ -382,6 +383,7 @@ export default function AccountsPage() {
                   </div>
                 </div>
               </Card>
+              </Reveal>
             );
           })}
         </div>

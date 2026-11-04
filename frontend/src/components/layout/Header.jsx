@@ -874,8 +874,9 @@ export const Header = () => {
                 <span>Accounts</span>
                 <ChevronDown className={`h-4 w-4 transition-transform ${mobileAccordion === 'Accounts' ? 'rotate-180' : ''}`} />
               </button>
-              {mobileAccordion === 'Accounts' && (
-                <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-1 animate-accordion-down">
+              <div className="accordion-grid-wrapper" data-open={mobileAccordion === 'Accounts'}>
+                <div className="accordion-grid-inner">
+                  <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-1 animate-accordion-down">
                   <div className="grid gap-1">
                     {ACCOUNTS.map((acc) => {
                       const Icon = ACCOUNT_ICONS[acc.slug] || Wallet;
@@ -898,7 +899,8 @@ export const Header = () => {
                     <Link to="/accounts?apply=1" onClick={closeMenu} className="text-midnight-900 hover:text-midnight-700">Open an account</Link>
                   </div>
                 </div>
-              )}
+                </div>
+              </div>
             </div>
 
             {/* Cards Accordion */}
@@ -911,8 +913,9 @@ export const Header = () => {
                 <span>Cards</span>
                 <ChevronDown className={`h-4 w-4 transition-transform ${mobileAccordion === 'Cards' ? 'rotate-180' : ''}`} />
               </button>
-              {mobileAccordion === 'Cards' && (
-                <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-2 animate-accordion-down">
+              <div className="accordion-grid-wrapper" data-open={mobileAccordion === 'Cards'}>
+                <div className="accordion-grid-inner">
+                  <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-2 animate-accordion-down">
                   <div>
                     <p className="text-xs font-semibold text-ink-400 uppercase tracking-[0.14em] px-2 pb-1">Credit Cards</p>
                     <div className="grid gap-1">
@@ -953,7 +956,8 @@ export const Header = () => {
                     <Link to="/cards#compare" onClick={closeMenu} className="text-midnight-900 hover:text-midnight-700">Compare cards</Link>
                   </div>
                 </div>
-              )}
+                </div>
+              </div>
             </div>
 
             {/* Loans Accordion (ALL 7) */}
@@ -966,8 +970,9 @@ export const Header = () => {
                 <span>Loans</span>
                 <ChevronDown className={`h-4 w-4 transition-transform ${mobileAccordion === 'Loans' ? 'rotate-180' : ''}`} />
               </button>
-              {mobileAccordion === 'Loans' && (
-                <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-1 animate-accordion-down">
+              <div className="accordion-grid-wrapper" data-open={mobileAccordion === 'Loans'}>
+                <div className="accordion-grid-inner">
+                  <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-1 animate-accordion-down">
                   <div className="grid gap-1">
                     {LOANS.map((l) => {
                       const Icon = LOAN_ICONS[l.slug] || Home;
@@ -990,7 +995,8 @@ export const Header = () => {
                     <Link to="/calculators" onClick={closeMenu} className="text-midnight-900 hover:text-midnight-700">EMI calculator</Link>
                   </div>
                 </div>
-              )}
+                </div>
+              </div>
             </div>
 
             {/* Investments Accordion */}
@@ -1003,8 +1009,9 @@ export const Header = () => {
                 <span>Investments</span>
                 <ChevronDown className={`h-4 w-4 transition-transform ${mobileAccordion === 'Investments' ? 'rotate-180' : ''}`} />
               </button>
-              {mobileAccordion === 'Investments' && (
-                <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-1 animate-accordion-down">
+              <div className="accordion-grid-wrapper" data-open={mobileAccordion === 'Investments'}>
+                <div className="accordion-grid-inner">
+                  <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-1 animate-accordion-down">
                   <div className="grid gap-1">
                     {INVESTMENTS.map((inv) => {
                       const { fact, type, icon: Icon } = getInvestmentMeta(inv);
@@ -1028,7 +1035,8 @@ export const Header = () => {
                     <Link to="/grievance-redressal" onClick={closeMenu} className="text-midnight-900 hover:text-midnight-700">Talk to us</Link>
                   </div>
                 </div>
-              )}
+                </div>
+              </div>
             </div>
 
             {/* Calculators Direct Link */}
@@ -1050,8 +1058,9 @@ export const Header = () => {
                 <span>Support &amp; Grievances</span>
                 <ChevronDown className={`h-4 w-4 transition-transform ${mobileAccordion === 'Support' ? 'rotate-180' : ''}`} />
               </button>
-              {mobileAccordion === 'Support' && (
-                <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-1 animate-accordion-down">
+              <div className="accordion-grid-wrapper" data-open={mobileAccordion === 'Support'}>
+                <div className="accordion-grid-inner">
+                  <div className="border-t border-ink-100 p-2 bg-porcelain-50/50 space-y-1 animate-accordion-down">
                   <div className="grid gap-1">
                     {SUPPORT_ITEMS.map((item) => (
                       <MenuRow
@@ -1069,7 +1078,8 @@ export const Header = () => {
                     Helpline: <a href="tel:18002674100" className="font-bold text-midnight-950">1800 267 4100</a>
                   </div>
                 </div>
-              )}
+                </div>
+              </div>
             </div>
           </nav>
         )}

@@ -1,3 +1,4 @@
+import Reveal from '../components/Reveal.jsx';
 import React, { useState, useEffect } from 'react';
 import { Link, useSearchParams, useLocation } from 'react-router-dom';
 import { ArrowRight, CreditCard, Sparkles } from 'lucide-react';
@@ -173,6 +174,7 @@ export default function CardsPage() {
   return (
     <div className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 lg:py-20">
       <SectionHeader
+        reveal
         titleAs="h1"
         eyebrow="Cards"
         title="Cards that suit how you spend"
@@ -198,12 +200,13 @@ export default function CardsPage() {
 
       {/* Tiles Grid */}
       <div className="mt-6 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-        {cards.map((card) => (
-          <CardTile
-            key={card.slug}
-            card={card}
-            onApply={(c) => setSelectedProductForApply(c)}
-          />
+        {cards.map((card, idx) => (
+          <Reveal key={card.slug} treatment="B" staggerIndex={idx}>
+            <CardTile
+              card={card}
+              onApply={(c) => setSelectedProductForApply(c)}
+            />
+          </Reveal>
         ))}
       </div>
 
