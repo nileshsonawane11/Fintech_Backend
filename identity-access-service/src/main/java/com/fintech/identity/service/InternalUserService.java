@@ -111,6 +111,7 @@ public class InternalUserService {
         }
 
         Customer customer = new Customer(
+                employeeCode,
                 mobile,
                 email,
                 passwordEncoder.encode(request.password()),
@@ -199,6 +200,7 @@ public class InternalUserService {
         }
 
         Customer customer = new Customer(
+                managerCode,
                 mobile,
                 email,
                 passwordEncoder.encode(request.password()),

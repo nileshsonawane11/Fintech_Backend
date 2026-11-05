@@ -107,6 +107,7 @@ export const PortalLoginPage = () => {
     setLoading(true);
     try {
       const result = await login(trimmedId, password);
+      console.log(result);
       if (result?.mfaRequired) {
         setMfaReferenceId(result.mfaReferenceId);
         setMfaOtp('');
@@ -116,7 +117,7 @@ export const PortalLoginPage = () => {
         navigate('/portal');
       }
     } catch (err) {
-      const msg = err?.error?.message || err?.detail || err?.title || 'Invalid credentials. Please verify your details.';
+      const msg = err?.errors[0]?.message || err?.detail || err?.title || 'Invalid credentials. Please verify your details.';
       setError(msg);
     } finally {
       setLoading(false);
@@ -168,11 +169,15 @@ export const PortalLoginPage = () => {
         email: regEmail.trim(),
         password: regPassword
       });
-      setOtpReferenceId(res?.otpReferenceId || 'REF-' + Date.now());
-      setMode('register_otp');
-      setSuccessMsg(`Verification OTP sent to ${getMaskedTarget(regMobile)}.`);
+
+      console.log(res.code)
+      setMode('login');
+      // setOtpReferenceId(res?.otpReferenceId || 'REF-' + Date.now());
+      // setMode('register_otp');
+      // setSuccessMsg(`Verification OTP sent to ${getMaskedTarget(regMobile)}.`);
     } catch (err) {
-      const msg = err?.error?.message || err?.detail || 'Registration failed. Please check your details.';
+      console.log(err);
+      const msg = err?.errors[0]?.message || err?.detail || 'Registration failed. Please check your details.';
       setError(msg);
     } finally {
       setLoading(false);

@@ -161,22 +161,23 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     try {
       const res = await authService.login({ identifier, password: password || 'Str0ngPassw0rd!' });
+
       if (res.mfaRequired) {
         return { mfaRequired: true, mfaReferenceId: res.mfaReferenceId };
       }
-      const db = getDb();
-      const matched = db.customers.find(c => 
-        (c.email && c.email.toLowerCase() === identifier.toLowerCase()) || 
-        c.mobileNumber === identifier || 
-        c.customerId === res.customerId
-      ) || db.customers[0];
-
+      // const db = getDb();
+      // const matched = db.customers.find(c =>
+      //   (c.email && c.email.toLowerCase() === identifier.toLowerCase()) ||
+      //   c.mobileNumber === identifier ||
+      //   c.customerId === res.customerId
+      // ) || db.customers[0];
+      //
       const initialUser = {
-        name: matched.fullName || 'FinEdge Customer',
-        email: matched.email || identifier,
-        mobile: matched.mobileNumber || identifier,
-        customerId: matched.customerId || res.customerId,
-        kycStatus: matched.kycStatus || 'APPROVED',
+        name: res.customer.fullName || 'FinEdge Customer',
+        email: res.customer.email || identifier,
+        mobile: res.customer.mobileNumber || identifier,
+        customerId: res.customer.id || res.customerId,
+        kycStatus: res.customer.status || 'APPROVED',
         lastLogin: new Date().toLocaleString('en-IN')
       };
       setUser(initialUser);
