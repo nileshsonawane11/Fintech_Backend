@@ -26,7 +26,11 @@ const SESSION_CUST_KEY = 'finedge_session_customer_id';
 export const getAccessToken = () => (typeof localStorage !== 'undefined' ? localStorage.getItem(TOKEN_KEY) : null);
 export const setTokens = (accessToken, refreshToken) => {
   if (typeof localStorage === 'undefined') return;
-  if (accessToken) localStorage.setItem(TOKEN_KEY, accessToken);
+    if (accessToken) {
+        localStorage.setItem(TOKEN_KEY, accessToken);
+        // Add this line directly after setting it:
+        console.log("Did it save? ", localStorage.getItem(TOKEN_KEY));
+    }
   if (refreshToken) localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
 };
 export const clearTokens = () => {
@@ -1140,7 +1144,6 @@ export const apiRequest = async (endpoint, options = {}) => {
     'Content-Type': 'application/json',
     'Accept': 'application/json',
     'X-Correlation-Id': generateUUID(),
-    'X-Device-Id': 'finedge-web-client-v2',
     ...options.headers
   };
 
@@ -1175,31 +1178,47 @@ export const apiRequest = async (endpoint, options = {}) => {
       data = await response.text();
     }
 
-    if (!response.ok) {
-      const errCode = data?.error?.code || data?.code || 'API_ERROR';
-      const errDetail = data?.error?.message || data?.detail || data?.title || response.statusText;
-      const errDetails = data?.error?.details || data?.details || data?.errors || [];
-      const reqId = data?.error?.requestId || headers['X-Correlation-Id'];
-      throw {
-        status: response.status,
-        code: errCode,
-        title: data?.title || 'Request Failed',
-        detail: errDetail,
-        message: errDetail,
-        details: errDetails,
-        errors: errDetails,
-        requestId: reqId,
-        error: {
-          code: errCode,
-          message: errDetail,
-          details: errDetails,
-          requestId: reqId
-        }
-      };
-    }
+    // if (!response.ok) {
+    //   const errCode = data?.error?.code || data?.code || 'API_ERROR';
+    //   const errDetail = data?.error?.message || data?.detail || data?.title || response.statusText;
+    //   const errDetails = data?.error?.details || data?.details || data?.errors || [];
+    //   const reqId = data?.error?.requestId || headers['X-Correlation-Id'];
+    //   throw {
+    //     status: response.status,
+    //     code: errCode,
+    //     title: data?.title || 'Request Failed',
+    //     detail: errDetail,
+    //     message: errDetail,
+    //     details: errDetails,
+    //     errors: errDetails,
+    //     requestId: reqId,
+    //     error: {
+    //       data
+    //     }
+    //   };
+    // }
+
+      if (!response.ok) {
+          let errorData;
+
+          try {
+              errorData = JSON.parse(data);
+          } catch {
+              errorData = {
+                  message: data || response.statusText || "Request failed",
+              };
+          }
+
+          throw {
+              ...errorData,
+              status: response.status,
+              statusText: response.statusText,
+          };
+      }
 
     return data;
   } catch (err) {
+    console.log(err);
     if (err.name === 'TypeError' || err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
       return handleLocalFallback(endpoint, options);
     }
@@ -1209,14 +1228,17 @@ export const apiRequest = async (endpoint, options = {}) => {
 
 const tryRefreshToken = async () => {
   if (typeof localStorage === 'undefined') return false;
-  const refreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
-  if (!refreshToken) return false;
+  const oldRefreshToken = localStorage.getItem(REFRESH_TOKEN_KEY);
+  if (!oldRefreshToken) return false;
   try {
     const res = await fetch(`${BASE_URL}/api/v1/auth/refresh`, {
       method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({ refreshToken })
+      headers: {
+          'Content-Type': 'application/json'
+      },
+      body: JSON.stringify({ refreshToken: oldRefreshToken })
     });
+    console.log(res)
     if (res.ok) {
       const data = await res.json();
       setTokens(data.accessToken, data.refreshToken);
@@ -1264,41 +1286,43 @@ export const handleLocalFallback = (endpoint, options = {}) => {
       };
     }
 
-    const existing = db.customers.find(c => c.mobileNumber === body.mobileNumber || c.email?.toLowerCase() === body.email?.toLowerCase());
-    if (existing) {
-      throw {
-        status: 409,
-        code: 'USER_ALREADY_EXISTS',
-        title: 'Account Exists',
-        detail: 'A customer with this mobile number or email is already registered.'
-      };
-    }
+    // const existing = db.customers.find(c => c.mobileNumber === body.mobileNumber || c.email?.toLowerCase() === body.email?.toLowerCase());
+    // if (existing) {
+    //   throw {
+    //     status: 409,
+    //     code: 'USER_ALREADY_EXISTS',
+    //     title: 'Account Exists',
+    //     detail: 'A customer with this mobile number or email is already registered.'
+    //   };
+    // }
 
-    const newUserId = generateUUID();
-    const newCustomer = {
-      customerId: 'CUS-' + Math.floor(100000 + Math.random() * 900000),
-      userId: newUserId,
-      fullName: body.fullName,
-      mobileNumber: body.mobileNumber,
-      email: body.email.toLowerCase(),
-      password: body.password,
-      pan: body.pan || '',
-      dateOfBirth: body.dateOfBirth || '1998-01-01',
-      kycStatus: 'NOT_STARTED',
-      riskCategory: 'UNASSESSED',
-      createdAt: new Date().toISOString()
-    };
-    db.customers.push(newCustomer);
-    saveDb(db);
-    appendAuditLog(body.email, 'CUSTOMER', 'CUSTOMER_REGISTERED', newCustomer.customerId, 'SUCCESS', 'New customer registration created');
+    // const newUserId = generateUUID();
+    // const newCustomer = {
+    //   customerId: 'CUS-' + Math.floor(100000 + Math.random() * 900000),
+    //   userId: newUserId,
+    //   fullName: body.fullName,
+    //   mobileNumber: body.mobileNumber,
+    //   email: body.email.toLowerCase(),
+    //   password: body.password,
+    //   pan: body.pan || '',
+    //   dateOfBirth: body.dateOfBirth || '1998-01-01',
+    //   kycStatus: 'NOT_STARTED',
+    //   riskCategory: 'UNASSESSED',
+    //   createdAt: new Date().toISOString()
+    // };
+    // db.customers.push(newCustomer);
+    // saveDb(db);
+    // appendAuditLog(body.email, 'CUSTOMER', 'CUSTOMER_REGISTERED', newCustomer.customerId, 'SUCCESS', 'New customer registration created');
+    //
+    // return {
+    //   userId: newUserId,
+    //   mobileNumber: '******' + body.mobileNumber.slice(-4),
+    //   email: body.email.replace(/(.{2})(.*)(@.*)/, '$1***$3'),
+    //   status: 'PENDING_VERIFICATION',
+    //   nextStep: 'VERIFY_OTP'
+    // };
 
-    return {
-      userId: newUserId,
-      mobileNumber: '******' + body.mobileNumber.slice(-4),
-      email: body.email.replace(/(.{2})(.*)(@.*)/, '$1***$3'),
-      status: 'PENDING_VERIFICATION',
-      nextStep: 'VERIFY_OTP'
-    };
+    console.log(body);
   }
 
   // 2. /api/v1/auth/otp/verify

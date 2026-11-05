@@ -7,10 +7,10 @@ export const authService = {
     return apiRequest('/api/v1/auth/register', {
       method: 'POST',
       body: JSON.stringify({
+        fullName,
         mobileNumber,
         email,
         password,
-        fullName,
         acceptedTermsVersion,
         marketingConsent
       })
@@ -38,6 +38,7 @@ export const authService = {
     if (res.accessToken) {
       setTokens(res.accessToken, res.refreshToken);
     }
+
     return res;
   },
 

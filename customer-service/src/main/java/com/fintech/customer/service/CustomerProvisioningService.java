@@ -30,6 +30,7 @@ public class CustomerProvisioningService {
         profile.setCustomerId(
                 UUID.randomUUID().toString().replace("-", "")
         );
+        profile.setFullName("");
         profile.setIdentitySubject(identitySubject);
         profile.setKycStatus("NOT_STARTED");
         profile.setRiskCategory("UNASSESSED");
