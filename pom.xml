@@ -26,6 +26,7 @@
         <module>customer-service</module>
         <module>card-service</module>
         <module>payment-service</module>
+        <module>ledger-transaction-service</module>
         <module>frontend</module>
     </modules>
 

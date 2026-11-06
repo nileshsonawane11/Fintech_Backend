@@ -1,0 +1,103 @@
+server:
+  port: ${LEDGER_SERVICE_PORT:8083}
+
+spring:
+  application:
+    name: LEDGER-TRANSACTION-SERVICE
+
+  datasource:
+    url: ${LEDGER_DB_URL:jdbc:postgresql://localhost:5432/fintech_ledger}
+    username: ${LEDGER_DB_USERNAME:postgres}
+    password: ${LEDGER_DB_PASSWORD:root}
+    driver-class-name: org.postgresql.Driver
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create
+    properties:
+      hibernate:
+        format_sql: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    validate-on-migrate: true
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.JacksonJsonSerializer
+      acks: all
+      properties:
+        "[spring.json.add.type.headers]": false
+    consumer:
+      group-id: ledger-service-group
+      auto-offset-reset: earliest
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.ErrorHandlingDeserializer
+      properties:
+        "[spring.deserializer.value.delegate.class]": org.springframework.kafka.support.serializer.JacksonJsonDeserializer
+        "[spring.json.trusted.packages]": "*"
+
+  jackson:
+    time-zone: UTC
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_SERVER_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+
+security:
+  jwt:
+    public-key-location: ${JWT_PUBLIC_KEY_PATH:classpath:keys/public.pem}
+    issuer: ${JWT_ISSUER:identity-service}
+  internal:
+    secret-token: ${INTERNAL_SERVICE_TOKEN:finbank-internal-secret-token}
+
+app:
+  kafka:
+    topics:
+      transaction-events: ${LEDGER_TOPIC_TRANSACTIONS:ledger.transaction-events.v1}
+      posting-events: ${LEDGER_TOPIC_POSTINGS:ledger.posting-events.v1}
+      balance-events: ${LEDGER_TOPIC_BALANCES:ledger.balance-events.v1}
+      hold-events: ${LEDGER_TOPIC_HOLDS:ledger.hold-events.v1}
+      reconciliation-events: ${LEDGER_TOPIC_RECONCILIATION:ledger.reconciliation-events.v1}
+      account-lifecycle: ${ACCOUNT_TOPIC_LIFECYCLE:account.lifecycle-events.v1}
+      account-holds: ${ACCOUNT_TOPIC_HOLD:account.hold-events.v1}
+  services:
+    account-service:
+      url: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
+      mock-enabled: ${ACCOUNT_SERVICE_MOCK_ENABLED:true}
+    customer-service:
+      url: ${CUSTOMER_SERVICE_URL:http://localhost:8084}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics
+  endpoint:
+    health:
+      show-details: when-authorized
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+  swagger-ui:
+    path: /swagger-ui.html
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+
+logging:
+  level:
+    com.fintech.ledger: DEBUG
+    org.springframework.security: INFO
+    org.hibernate.SQL: INFO
