@@ -69,6 +69,7 @@ public class AuthService {
     public RegisterResponse register(RegisterRequest request) {
         String mobile = request.mobileNumber().trim();
         String email = request.email().trim().toLowerCase(Locale.ROOT);
+        String fullName = request.fullName().trim();
 
         if (customerRepository.existsByMobileNumber(mobile)) {
             throw new ApiException(
@@ -87,6 +88,7 @@ public class AuthService {
         }
 
         Customer customer = new Customer(
+                fullName,
                 mobile,
                 email,
                 passwordEncoder.encode(request.password()),
@@ -265,6 +267,7 @@ public class AuthService {
         refreshTokenRepository.save(savedToken);
 
         return new TokenResponse(
+                customer,
                 accessToken,
                 refreshToken,
                 "Bearer",
@@ -332,6 +335,7 @@ public class AuthService {
         refreshTokenRepository.save(savedToken);
 
         return new TokenResponse(
+                customer,
                 accessToken,
                 refreshToken,
                 "Bearer",

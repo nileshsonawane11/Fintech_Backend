@@ -7,6 +7,9 @@ import jakarta.validation.constraints.Size;
 
 public record RegisterRequest(
 
+        @NotBlank(message="Name is required")
+        String fullName,
+
         @NotBlank(message = "Mobile number is required")
         @Pattern(
                 regexp = "^[0-9]{10}$",
@@ -20,7 +23,7 @@ public record RegisterRequest(
         String email,
 
         @NotBlank(message = "Password is required")
-        @Size(min = 12, max = 72,
+        @Size(min = 8, max = 25,
                 message = "Password must contain between 12 and 72 characters")
         @Pattern(
                 regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z\\d]).+$",

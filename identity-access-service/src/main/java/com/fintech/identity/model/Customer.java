@@ -27,6 +27,9 @@ public class Customer {
     @GeneratedValue(strategy = GenerationType.UUID)
     private UUID id;
 
+    @Column(name = "full_name", nullable = false)
+    private String fullName;
+
     @Column(name = "mobile_number", nullable = false, length = 10)
     private String mobileNumber;
 
@@ -66,12 +69,14 @@ public class Customer {
     }
 
     public Customer(
+            String fullName,
             String mobileNumber,
             String email,
             String passwordHash,
             String acceptedTermsVersion,
             boolean marketingConsent
     ) {
+        this.fullName = fullName;
         this.mobileNumber = mobileNumber;
         this.email = email;
         this.passwordHash = passwordHash;
@@ -82,6 +87,7 @@ public class Customer {
     }
 
     public Customer(
+            String fullName,
             String mobileNumber,
             String email,
             String passwordHash,
@@ -89,7 +95,7 @@ public class Customer {
             boolean marketingConsent,
             Role role
     ) {
-        this(mobileNumber, email, passwordHash, acceptedTermsVersion, marketingConsent);
+        this(fullName, mobileNumber, email, passwordHash, acceptedTermsVersion, marketingConsent);
         this.role = role != null ? role : Role.CUSTOMER;
     }
 
@@ -131,6 +137,7 @@ public class Customer {
     }
 
     public UUID getId() { return id; }
+    public String getFullName() {return fullName;}
     public String getMobileNumber() { return mobileNumber; }
     public String getEmail() { return email; }
     public String getPasswordHash() { return passwordHash; }

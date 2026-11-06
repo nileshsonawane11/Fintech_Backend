@@ -102,6 +102,7 @@ public class RefreshTokenService {
         String accessToken = jwtService.createAccessToken(customer);
 
         return new TokenResponse(
+                customer,
                 accessToken,
                 newRawToken,
                 "Bearer",

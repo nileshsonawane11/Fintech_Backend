@@ -161,22 +161,24 @@ export const AuthProvider = ({ children }) => {
     setLoading(true);
     try {
       const res = await authService.login({ identifier, password: password || 'Str0ngPassw0rd!' });
+
       if (res.mfaRequired) {
         return { mfaRequired: true, mfaReferenceId: res.mfaReferenceId };
       }
       const db = getDb();
-      const matched = db.customers.find(c => 
+      const matched = db.customers?.find(c => 
         (c.email && c.email.toLowerCase() === identifier.toLowerCase()) || 
         c.mobileNumber === identifier || 
         c.customerId === res.customerId
-      ) || db.customers[0];
+      ) || (db.customers && db.customers[0]) || {};
 
+      const custObj = res.customer || {};
       const initialUser = {
-        name: matched.fullName || 'FinEdge Customer',
-        email: matched.email || identifier,
-        mobile: matched.mobileNumber || identifier,
-        customerId: matched.customerId || res.customerId,
-        kycStatus: matched.kycStatus || 'APPROVED',
+        name: custObj.fullName || matched.fullName || 'FinEdge Customer',
+        email: custObj.email || matched.email || identifier,
+        mobile: custObj.mobileNumber || matched.mobileNumber || identifier,
+        customerId: custObj.id || custObj.customerId || matched.customerId || res.customerId,
+        kycStatus: custObj.status || matched.kycStatus || 'APPROVED',
         lastLogin: new Date().toISOString()
       };
       setUser(initialUser);

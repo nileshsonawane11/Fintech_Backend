@@ -8,8 +8,8 @@ spring:
 
   datasource:
     url: ${CARD_DB_URL:jdbc:postgresql://localhost:5432/fintech_card}
-    username: ${CARD_DB_USERNAME}
-    password: ${CARD_DB_PASSWORD}
+    username: ${CARD_DB_USERNAME:postgres}
+    password: ${CARD_DB_PASSWORD:root}
     driver-class-name: org.postgresql.Driver
 
   jpa:

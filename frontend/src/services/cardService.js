@@ -4,7 +4,9 @@ import { apiRequest } from './api.js';
 export const cardService = {
   // Get Customer Cards (Section 7.2)
   async getCards() {
-    return apiRequest('/api/v1/cards');
+    return apiRequest('/api/v1/cards', {
+      method: 'GET'
+    });
   },
 
   // Apply for Card (Section 7.1)
