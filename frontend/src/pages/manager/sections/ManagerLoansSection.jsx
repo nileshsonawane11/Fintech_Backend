@@ -131,6 +131,20 @@ export default function ManagerLoansPage() {
 
   useEffect(() => { load(); }, [load, refreshKey]);
 
+    useEffect(() => {
+    if (!detailId) return undefined;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e) => {
+      if (e.key === 'Escape' && !pendingDecision && !disburseOpen) setDetailId(null);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [detailId, pendingDecision, disburseOpen]);
+
   const detail = useMemo(
     () => (detailId ? allRows.find((r) => r.id === detailId) || rows.find((r) => r.id === detailId) || null : null),
     [detailId, allRows, rows],

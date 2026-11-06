@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, Link } from 'react-router-dom';
+import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getDemoAccounts, resetDemoDb } from '../../services/api.js';
 import {
@@ -44,6 +44,7 @@ function BrandMark() {
 export const PortalLoginPage = () => {
   const { login, verifyMfa, register, verifyOtp } = useAuth();
   const navigate = useNavigate();
+  const location = useLocation();
 
   // Mode: 'login' | 'mfa' | 'register' | 'register_otp' | 'forgot'
   const [mode, setMode] = useState('login');
@@ -121,7 +122,7 @@ export const PortalLoginPage = () => {
         setMode('mfa');
         setSuccessMsg('Two-Factor Authentication required. Security code dispatched.');
       } else {
-        navigate('/portal');
+        navigate(location.state?.from?.pathname || location.state?.from || '/portal');
       }
     } catch (err) {
       const msg = err?.error?.message || err?.detail || err?.title || 'Invalid credentials. Please verify your details.';
@@ -142,7 +143,7 @@ export const PortalLoginPage = () => {
     setLoading(true);
     try {
       await verifyMfa(mfaReferenceId, code);
-      navigate('/portal');
+      navigate(location.state?.from?.pathname || location.state?.from || '/portal');
     } catch (err) {
       const msg = err?.error?.message || err?.detail || 'Invalid or expired OTP code. Use demo code 849201 in simulated mode.';
       setError(msg);
@@ -203,7 +204,7 @@ export const PortalLoginPage = () => {
         email: regEmail.trim(),
         mobileNumber: regMobile.trim()
       });
-      navigate('/portal');
+      navigate(location.state?.from?.pathname || location.state?.from || '/portal');
     } catch (err) {
       const msg = err?.error?.message || err?.detail || 'Invalid OTP code. Use simulated code 849201 in demo mode.';
       setError(msg);

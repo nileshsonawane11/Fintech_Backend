@@ -979,7 +979,10 @@ export async function listAccountApplications({ status } = {}) {
   if (status && status !== 'ALL') {
     list = list.filter(a => a.status === status);
   }
-  return list;
+  return list.map(a => ({
+    ...a,
+    id: a.id || a.accountApplicationId || a.applicationId
+  }));
 }
 
 export async function listMyInvestmentApplications(customerId) {

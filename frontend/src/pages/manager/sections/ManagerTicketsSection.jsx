@@ -53,6 +53,20 @@ export default function ManagerTicketsPage() {
     return tickets.filter((t) => def.statuses.includes(t.status));
   }, [tickets, tab]);
 
+    useEffect(() => {
+    if (!selectedId) return undefined;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e) => {
+      if (e.key === 'Escape') setSelectedId(null);
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [selectedId]);
+
   const selected = useMemo(
     () => (tickets || []).find((t) => t.id === selectedId) || null,
     [tickets, selectedId],

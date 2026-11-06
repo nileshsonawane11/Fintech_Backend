@@ -1,15 +1,16 @@
 import React, { useState } from 'react';
-import { Link, useNavigate } from 'react-router-dom';
+import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { ChevronDown, Eye, EyeOff, ShieldCheck, KeyRound, Lock, Mail, ArrowRight } from 'lucide-react';
 import { Button, Card, Field, FormError, Input, Modal } from '../../components/ui.jsx';
 import { useAuth } from '../../context/AuthContext';
-import { getFirstQueueForRole } from '../../services/managerBridge.js';
+import { getFirstQueueForRole, hasSectionAccess } from '../../services/managerBridge.js';
 import { resetDemoDb, getDemoStaffAccounts } from '../../services/api.js';
 
 export const STAFF_ACCOUNTS = getDemoStaffAccounts();
 
 export const ManagerLoginPage = () => {
   const navigate = useNavigate();
+  const location = useLocation();
   const { managerLogin } = useAuth();
 
   const [email, setEmail] = useState('');
@@ -45,7 +46,12 @@ export const ManagerLoginPage = () => {
     try {
       const res = await managerLogin(trimmed, password);
       const role = res?.managerUser?.role;
-      const target = getFirstQueueForRole(role);
+      const defaultTarget = getFirstQueueForRole(role);
+      const fromPath = location.state?.from?.pathname;
+      const fromSection = fromPath?.replace(/^\/manager\/?/, '');
+      const target = (fromPath && fromPath.startsWith('/manager') && fromSection && hasSectionAccess(fromSection, res?.managerUser))
+        ? fromPath
+        : defaultTarget;
       navigate(target);
     } catch (err) {
       const msg = err?.error?.message || err?.detail || err?.title || 'Authentication failed. Check your staff credentials.';

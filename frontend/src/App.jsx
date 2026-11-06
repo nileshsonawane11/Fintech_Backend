@@ -36,8 +36,9 @@ const ManagerPortalPage = lazy(() => import('./pages/manager/ManagerPortalPage')
 // Customer Protected Route Guard
 const ProtectedRoute = ({ children }) => {
   const { user } = useAuth();
+  const location = useLocation();
   if (!user) {
-    return <Navigate to="/portal/login" replace />;
+    return <Navigate to="/portal/login" state={{ from: location }} replace />;
   }
   return children;
 };
@@ -45,9 +46,10 @@ const ProtectedRoute = ({ children }) => {
 // Manager Protected Route Guard
 const ManagerProtectedRoute = ({ children }) => {
   const { isManagerAuthenticated, managerUser } = useAuth();
+  const location = useLocation();
   const token = typeof localStorage !== 'undefined' ? localStorage.getItem('finedge_manager_token') : null;
   if (!managerUser && !token) {
-    return <Navigate to="/manager/login" replace />;
+    return <Navigate to="/manager/login" state={{ from: location }} replace />;
   }
   return children;
 };

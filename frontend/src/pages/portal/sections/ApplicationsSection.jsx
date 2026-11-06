@@ -79,8 +79,8 @@ export default function ApplicationsPage() {
           />
         ) : (
           <div className="space-y-4">
-            {loans.map((app) => (
-              <Card key={app.id} className="p-5">
+            {loans.map((app, idx) => (
+              <Card key={app.id || app.loanApplicationId || app.applicationId || `loan-${idx}`} className="p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-ink-900">{productDisplayName(app) || 'Loan application'}</p>
@@ -125,8 +125,8 @@ export default function ApplicationsPage() {
           />
         ) : (
           <div className="space-y-3">
-            {cards.map((app) => (
-              <Card key={app.id} className="p-5">
+            {cards.map((app, idx) => (
+              <Card key={app.id || app.cardApplicationId || app.applicationId || `card-${idx}`} className="p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-ink-900">{app.productName || app.variant || productDisplayName(app) || 'Card application'}</p>
@@ -159,8 +159,8 @@ export default function ApplicationsPage() {
           />
         ) : (
           <div className="space-y-3">
-            {accounts.map((app) => (
-              <Card key={app.id} className="p-5">
+            {accounts.map((app, idx) => (
+              <Card key={app.id || app.accountApplicationId || app.applicationId || `account-${idx}`} className="p-5">
                 <div className="flex flex-wrap items-start justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-ink-900">{app.productName || app.accountType || 'Account application'}</p>
@@ -194,7 +194,7 @@ export default function ApplicationsPage() {
           />
         ) : (
           <div className="space-y-4">
-            {investments.map((app) => {
+            {investments.map((app, idx) => {
               const d = app.investmentDetails || {};
               let detailLine = '';
               if (app.kind === 'FD') {
@@ -208,7 +208,7 @@ export default function ApplicationsPage() {
               }
 
               return (
-                <Card key={app.id} className="p-5">
+                <Card key={app.id || app.investmentApplicationId || app.applicationId || `investment-${idx}`} className="p-5">
                   <div className="flex flex-wrap items-start justify-between gap-3">
                     <div>
                       <p className="text-sm font-semibold text-ink-900">{app.productName || 'Investment Application'}</p>
