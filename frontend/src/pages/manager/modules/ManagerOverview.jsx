@@ -101,11 +101,11 @@ export const ManagerOverview = ({
 
         <div className="flex items-center gap-3">
           <div className="px-3.5 py-2 bg-slate-50 rounded-lg border border-slate-200 text-right">
-            <div className="text-[11px] font-medium text-slate-500">System Availability</div>
+            <div className="text-xs font-medium text-slate-500">System Availability</div>
             <div className="text-xs font-bold text-slate-900 font-mono">99.98% uptime (TLS 1.3)</div>
           </div>
           <div className="px-3.5 py-2 bg-slate-50 rounded-lg border border-slate-200 text-right">
-            <div className="text-[11px] font-medium text-slate-500">Core Settlement Batch</div>
+            <div className="text-xs font-medium text-slate-500">Core Settlement Batch</div>
             <div className="text-xs font-bold text-slate-900 font-mono">Real-Time IMPS / RTGS</div>
           </div>
         </div>
@@ -162,12 +162,12 @@ export const ManagerOverview = ({
               <div key={k.kycCaseId} className="px-6 py-3.5 flex items-center justify-between hover:bg-slate-50">
                 <div>
                   <div className="text-xs font-bold text-slate-900">{k.fullName}</div>
-                  <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                  <div className="text-xs text-slate-500 font-mono mt-0.5">
                     Case: {k.kycCaseId} • PAN: {k.panNumberMasked || '••••••••'}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                  <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
                     k.riskCategory === 'HIGH' ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-slate-100 text-slate-700'
                   }`}>
                     {k.riskCategory || 'STANDARD'} RISK
@@ -208,12 +208,12 @@ export const ManagerOverview = ({
               <div key={a.accountApplicationId} className="px-6 py-3.5 flex items-center justify-between hover:bg-slate-50">
                 <div>
                   <div className="text-xs font-bold text-slate-900">{a.customerName}</div>
-                  <div className="text-[11px] text-slate-500 font-mono mt-0.5">
+                  <div className="text-xs text-slate-500 font-mono mt-0.5">
                     {a.productCode} • Initial: ₹{Number(a.initialFundingAmount).toLocaleString()}
                   </div>
                 </div>
                 <div className="flex items-center gap-2">
-                  <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-amber-50 text-amber-700 border border-amber-200">
+                  <span className="px-2 py-0.5 rounded text-xs font-semibold bg-amber-50 text-amber-700 border border-amber-200">
                     PENDING APPROVAL
                   </span>
                   <button

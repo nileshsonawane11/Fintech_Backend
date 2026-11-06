@@ -479,7 +479,7 @@ export const PortalLoginPage = () => {
 
           {demoOpen && (
             <div className="mt-3 space-y-2 border-t border-ink-100 pt-3 text-xs text-ink-700">
-              <p className="text-[11px] text-ink-500 leading-relaxed">
+              <p className="text-xs text-ink-500 leading-relaxed">
                 Click any profile below to populate standard credentials. Simulated OTP code is <span className="font-mono font-bold text-midnight-950">849201</span>.
               </p>
               <div className="space-y-1.5">
@@ -495,9 +495,9 @@ export const PortalLoginPage = () => {
                   >
                     <div>
                       <p className="font-semibold text-midnight-950">{acc.name}</p>
-                      <p className="text-[11px] font-mono text-ink-500">{acc.email}</p>
+                      <p className="text-xs font-mono text-ink-500">{acc.email}</p>
                     </div>
-                    <span className="text-[11px] font-medium text-midnight-700 underline">
+                    <span className="text-xs font-medium text-midnight-700 underline">
                       Use account →
                     </span>
                   </button>
@@ -510,7 +510,7 @@ export const PortalLoginPage = () => {
             <button
               type="button"
               onClick={() => setResetOpen(true)}
-              className="text-[11px] font-medium text-ink-500 hover:text-ink-700 underline transition-colors"
+              className="text-xs font-medium text-ink-500 hover:text-ink-700 underline transition-colors"
             >
               Reset demo data
             </button>

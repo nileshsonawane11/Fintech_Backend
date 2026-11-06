@@ -177,7 +177,7 @@ export function PhotoSlider({ slides = WHY_FINEDGE_SLIDES, className = '' }) {
                   <p className="text-xs sm:text-sm font-medium tracking-wide drop-shadow-sm text-porcelain-100">
                     {slide.caption}
                   </p>
-                  <span className="shrink-0 text-[11px] font-semibold tabular-nums px-2 py-0.5 rounded-full bg-midnight-900/80 backdrop-blur-xs border border-porcelain-50/20 text-porcelain-200">
+                  <span className="shrink-0 text-xs font-semibold tabular-nums px-2 py-0.5 rounded-full bg-midnight-900/80 backdrop-blur-xs border border-porcelain-50/20 text-porcelain-200">
                     {idx + 1} / {total}
                   </span>
                 </div>
@@ -191,7 +191,7 @@ export function PhotoSlider({ slides = WHY_FINEDGE_SLIDES, className = '' }) {
           type="button"
           onClick={handlePrev}
           aria-label="Previous photograph"
-          className="cursor-pointer absolute left-3 top-1/2 -translate-y-1/2 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-midnight-950/70 text-porcelain-50 backdrop-blur-sm border border-porcelain-50/15 shadow-sm transition-all duration-160 hover:bg-midnight-900 hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-gold-500"
+          className="cursor-pointer absolute left-3 top-1/2 -translate-y-1/2 z-20 flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-midnight-950/70 text-porcelain-50 backdrop-blur-sm border border-porcelain-50/15 shadow-sm transition-all duration-160 hover:bg-midnight-900 hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-gold-500"
         >
           <ChevronLeft className="h-5 w-5" aria-hidden="true" />
         </button>
@@ -200,7 +200,7 @@ export function PhotoSlider({ slides = WHY_FINEDGE_SLIDES, className = '' }) {
           type="button"
           onClick={handleNext}
           aria-label="Next photograph"
-          className="cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 z-20 flex h-10 w-10 items-center justify-center rounded-full bg-midnight-950/70 text-porcelain-50 backdrop-blur-sm border border-porcelain-50/15 shadow-sm transition-all duration-160 hover:bg-midnight-900 hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-gold-500"
+          className="cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 z-20 flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-midnight-950/70 text-porcelain-50 backdrop-blur-sm border border-porcelain-50/15 shadow-sm transition-all duration-160 hover:bg-midnight-900 hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-gold-500"
         >
           <ChevronRight className="h-5 w-5" aria-hidden="true" />
         </button>
@@ -220,12 +220,16 @@ export function PhotoSlider({ slides = WHY_FINEDGE_SLIDES, className = '' }) {
                 aria-selected={isActive}
                 aria-label={`Go to slide ${idx + 1}: ${slide.caption}`}
                 onClick={() => setActiveIndex(idx)}
-                className={`cursor-pointer rounded-full transition-all duration-180 focus-visible:outline-2 focus-visible:outline-gold-500 ${
-                  isActive
-                    ? 'h-2 w-6 bg-gold-500'
-                    : 'h-2 w-2 bg-ink-300 hover:bg-ink-400'
-                }`}
-              />
+                className="cursor-pointer min-h-[44px] min-w-[28px] inline-flex items-center justify-center p-1.5 focus-visible:outline-2 focus-visible:outline-gold-500 rounded-full"
+              >
+                <span
+                  className={`block rounded-full transition-all duration-180 ${
+                    isActive
+                      ? 'h-2 w-6 bg-gold-500'
+                      : 'h-2 w-2 bg-ink-300 hover:bg-ink-400'
+                  }`}
+                />
+              </button>
             );
           })}
         </div>

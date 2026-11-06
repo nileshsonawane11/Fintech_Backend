@@ -86,13 +86,13 @@ export const ManagerStaffRbac = ({
                     </td>
                     <td className="px-5 py-4">
                       <div className="font-semibold text-slate-900">{staff.fullName}</div>
-                      <div className="text-[11px] text-slate-500 font-mono">{staff.email}</div>
+                      <div className="text-xs text-slate-500 font-mono">{staff.email}</div>
                     </td>
                     <td className="px-5 py-4 text-slate-600">
                       {staff.department || 'Operations'}
                     </td>
                     <td className="px-5 py-4">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                      <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
                         staff.role === 'BANK_MANAGER'
                           ? 'bg-purple-50 text-purple-700 border border-purple-200'
                           : staff.role === 'KYC_OFFICER'
@@ -103,7 +103,7 @@ export const ManagerStaffRbac = ({
                       </span>
                     </td>
                     <td className="px-5 py-4">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                      <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
                         isActive ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-red-50 text-red-700 border border-red-200'
                       }`}>
                         {staff.status}
@@ -148,7 +148,7 @@ export const ManagerStaffRbac = ({
         <div className="grid grid-cols-1 md:grid-cols-3 gap-4 text-xs">
           <div className="p-4 rounded-xl border border-purple-200 bg-purple-50/30">
             <div className="font-bold text-purple-900">Chief Branch Manager</div>
-            <div className="text-[11px] text-purple-700 mt-1 mb-3">All permissions + Staff provisioning</div>
+            <div className="text-xs text-purple-700 mt-1 mb-3">All permissions + Staff provisioning</div>
             <ul className="space-y-1.5 text-slate-700">
               <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-purple-600" /> Account Underwriting & Creation</li>
               <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-purple-600" /> Card Limits & Sanctions</li>
@@ -159,7 +159,7 @@ export const ManagerStaffRbac = ({
 
           <div className="p-4 rounded-xl border border-blue-200 bg-blue-50/30">
             <div className="font-bold text-blue-900">KYC Verification Officer</div>
-            <div className="text-[11px] text-blue-700 mt-1 mb-3">Statutory identity & AML review only</div>
+            <div className="text-xs text-blue-700 mt-1 mb-3">Statutory identity & AML review only</div>
             <ul className="space-y-1.5 text-slate-700">
               <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-blue-600" /> Customer Due Diligence (CDD)</li>
               <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-blue-600" /> CKYC Document Inspection</li>
@@ -170,7 +170,7 @@ export const ManagerStaffRbac = ({
 
           <div className="p-4 rounded-xl border border-slate-200 bg-slate-50">
             <div className="font-bold text-slate-900">Account & Card Operations Specialist</div>
-            <div className="text-[11px] text-slate-500 mt-1 mb-3">Processing and dispatch fulfillment</div>
+            <div className="text-xs text-slate-500 mt-1 mb-3">Processing and dispatch fulfillment</div>
             <ul className="space-y-1.5 text-slate-700">
               <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-slate-600" /> Initial Funding Verifications</li>
               <li className="flex items-center gap-1.5"><CheckCircle2 className="w-3.5 h-3.5 text-slate-600" /> Card Embossing Queue</li>

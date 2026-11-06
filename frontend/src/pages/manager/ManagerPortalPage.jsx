@@ -127,15 +127,15 @@ export const ManagerPortalPage = () => {
         </div>
 
         <div className="mt-5 mx-2 rounded-lg bg-midnight-950/60 p-3 text-xs leading-relaxed text-midnight-200 border border-midnight-800">
-          <p className="text-[10px] uppercase tracking-wider text-gold-400 font-semibold">Staff Clearance</p>
+          <p className="text-xs uppercase tracking-wider text-gold-400 font-semibold">Staff Clearance</p>
           <p className="mt-0.5 font-semibold text-porcelain-50 truncate">{managerUser?.fullName || managerUser?.name || 'Chief Branch Manager'}</p>
-          <p className="text-[11px] text-porcelain-300 truncate">{managerUser?.roleTitle || managerUser?.role || 'BANK_MANAGER'}</p>
+          <p className="text-xs text-porcelain-300 truncate">{managerUser?.roleTitle || managerUser?.role || 'BANK_MANAGER'}</p>
         </div>
 
         <nav className="mt-4 flex-1 space-y-0.5 overflow-y-auto px-1" aria-label="Staff console">
           {visibleNav.map((n, i) =>
             n.group ? (
-              <p key={i} className="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-midnight-300">
+              <p key={i} className="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-[0.14em] text-midnight-300">
                 {n.group}
               </p>
             ) : (
@@ -180,31 +180,37 @@ export const ManagerPortalPage = () => {
       </aside>
 
       {/* Mobile Top Header */}
-      <header className="sticky top-0 z-40 flex items-center justify-between bg-midnight-900 px-4 py-3 lg:hidden">
-        <Link to="/" className="flex items-center gap-2">
-          <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-midnight-950 text-gold-300">
-            <Landmark className="h-4 w-4" />
+      <header className="sticky top-0 z-40 flex items-center justify-between bg-midnight-900 px-4 py-2.5 lg:hidden border-b border-midnight-950 shadow-xs">
+        <div className="flex items-center gap-2.5 min-w-0">
+          <Link to="/" className="flex items-center gap-2 shrink-0" aria-label="FinEdge Bank Home">
+            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-midnight-950 text-gold-300 shadow-xs">
+              <Landmark className="h-4 w-4" />
+            </span>
+            <span className="font-display font-semibold text-porcelain-50 text-sm">Staff Ops</span>
+          </Link>
+          <span className="inline-block truncate rounded-full bg-midnight-950/80 px-2.5 py-0.5 text-xs font-semibold text-gold-400 border border-midnight-800">
+            {managerUser?.roleTitle || managerUser?.role || 'BANK_MANAGER'}
           </span>
-          <span className="font-display font-semibold text-porcelain-50">Staff Terminal</span>
-        </Link>
+        </div>
         <button
           onClick={handleLogout}
-          className="flex items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-porcelain-200 hover:text-white"
+          className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-porcelain-200 hover:bg-midnight-800 hover:text-white transition-colors"
+          aria-label="Logout Staff Session"
         >
-          <LogOut className="h-4 w-4" /> Logout
+          <LogOut className="h-4 w-4" /> <span>Logout</span>
         </button>
       </header>
 
       {/* Mobile Nav Strip */}
-      <nav className="flex gap-1 overflow-x-auto border-b border-ink-100 bg-porcelain-50 px-3 py-2 lg:hidden" aria-label="Staff mobile nav">
+      <nav className="flex gap-1.5 overflow-x-auto border-b border-ink-200 bg-porcelain-100/90 px-3 py-2 lg:hidden [scrollbar-width:none] touch-pan-x" aria-label="Staff mobile nav">
         {visibleNav.filter((n) => n.to).map((n) => {
           const isCurrent = pathname === n.to || pathname === n.altTo;
           return (
             <Link
               key={n.to}
               to={n.to}
-              className={`whitespace-nowrap rounded-full px-3 py-1.5 text-xs font-medium ${
-                isCurrent ? 'bg-midnight-900 text-porcelain-50 font-semibold' : 'bg-white text-ink-700 border border-ink-200'
+              className={`whitespace-nowrap min-h-[44px] inline-flex items-center rounded-full px-3.5 py-2 text-xs font-semibold transition-colors ${
+                isCurrent ? 'bg-midnight-900 text-porcelain-50 shadow-xs' : 'bg-white text-ink-700 border border-ink-200 hover:border-midnight-400'
               }`}
             >
               {n.label}

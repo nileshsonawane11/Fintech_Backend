@@ -78,7 +78,7 @@ function CalculatorTabs({ tabs, active, onChange }) {
             role="tab"
             aria-selected={isSelected}
             onClick={() => onChange(t.id)}
-            className={`relative -mb-px border-b-2 px-3.5 py-2.5 text-sm font-medium transition-colors cursor-pointer ${
+            className={`relative -mb-px min-h-[44px] inline-flex items-center border-b-2 px-3.5 py-2 text-sm font-medium transition-colors cursor-pointer ${
               isSelected
                 ? 'border-transparent text-midnight-900 font-semibold'
                 : 'border-transparent text-ink-500 hover:text-midnight-800'

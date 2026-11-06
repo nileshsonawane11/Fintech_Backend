@@ -251,7 +251,7 @@ export default function CardsPage() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-ink-100 bg-porcelain-100/80 text-xs font-semibold uppercase tracking-wider text-ink-700">
-                  <th className="px-5 py-3.5">Card</th>
+                  <th className="px-5 py-3.5 sticky left-0 bg-porcelain-100 z-10 shadow-[1px_0_0_0_#e2e8f0]">Card</th>
                   <th className="px-5 py-3.5">Joining Fee</th>
                   <th className="px-5 py-3.5">Annual Fee</th>
                   <th className="px-5 py-3.5">APR</th>
@@ -265,10 +265,10 @@ export default function CardsPage() {
               <tbody className="divide-y divide-ink-100">
                 {CREDIT_CARDS.map((c) => (
                   <tr key={c.slug} className="hover:bg-midnight-50/40 transition-colors">
-                    <td className="px-5 py-4 font-semibold text-midnight-950 whitespace-nowrap">
+                    <td className="px-5 py-4 font-semibold text-midnight-950 whitespace-nowrap sticky left-0 bg-white z-10 shadow-[1px_0_0_0_#e2e8f0]">
                       <div className="flex items-center gap-2.5">
                         <span className="font-semibold">{shortProductName(c.name)}</span>
-                        <span className="text-[11px] px-2 py-0.5 rounded bg-midnight-900 text-porcelain-50 font-bold">
+                        <span className="text-xs px-2 py-0.5 rounded bg-midnight-900 text-porcelain-50 font-bold">
                           {c.network}
                         </span>
                       </div>
@@ -290,7 +290,7 @@ export default function CardsPage() {
                         ? `${formatINRWhole(c.creditLimitRange.min)} – ${formatINRWhole(c.creditLimitRange.max)}`
                         : '—'}
                       {c.limitBasis && (
-                        <span className="block text-[11px] text-ink-500 mt-0.5 font-normal">
+                        <span className="block text-xs text-ink-500 mt-0.5 font-normal">
                           ({c.limitBasis})
                         </span>
                       )}
@@ -331,7 +331,7 @@ export default function CardsPage() {
             <table className="w-full text-left text-sm">
               <thead>
                 <tr className="border-b border-ink-100 bg-porcelain-100/80 text-xs font-semibold uppercase tracking-wider text-ink-700">
-                  <th className="px-5 py-3.5">Card</th>
+                  <th className="px-5 py-3.5 sticky left-0 bg-porcelain-100 z-10 shadow-[1px_0_0_0_#e2e8f0]">Card</th>
                   <th className="px-5 py-3.5">Joining Fee</th>
                   <th className="px-5 py-3.5">Annual Fee</th>
                   <th className="px-5 py-3.5">Daily ATM Limit</th>
@@ -344,10 +344,10 @@ export default function CardsPage() {
               <tbody className="divide-y divide-ink-100">
                 {DEBIT_CARDS.map((c) => (
                   <tr key={c.slug} className="hover:bg-midnight-50/40 transition-colors">
-                    <td className="px-5 py-4 font-semibold text-midnight-950 whitespace-nowrap">
+                    <td className="px-5 py-4 font-semibold text-midnight-950 whitespace-nowrap sticky left-0 bg-white z-10 shadow-[1px_0_0_0_#e2e8f0]">
                       <div className="flex items-center gap-2.5">
                         <span className="font-semibold">{shortProductName(c.name)}</span>
-                        <span className="text-[11px] px-2 py-0.5 rounded bg-gold-100 text-gold-900 border border-gold-200 font-bold">
+                        <span className="text-xs px-2 py-0.5 rounded bg-gold-100 text-gold-900 border border-gold-200 font-bold">
                           {c.network}
                         </span>
                       </div>

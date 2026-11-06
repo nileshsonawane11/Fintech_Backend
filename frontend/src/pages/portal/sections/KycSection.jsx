@@ -325,7 +325,7 @@ export default function KycPage() {
                     <div key={d.type} className="rounded-lg border border-ink-100 bg-porcelain-50 px-3 py-3">
                       <p className="text-sm font-semibold text-ink-900">{d.label}</p>
                       <p className="mt-0.5 text-xs text-ink-500">{d.hint}</p>
-                      <label className="mt-2.5 inline-flex cursor-pointer items-center gap-2 rounded-lg border border-ink-200 bg-white px-3 py-2 text-sm font-medium text-midnight-900 hover:border-midnight-400">
+                      <label className="mt-2.5 inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm font-semibold text-midnight-900 hover:border-midnight-400 shadow-xs">
                         <Upload className="h-4 w-4" aria-hidden />
                         {doc.name ? 'Replace file' : 'Choose file'}
                         <input type="file" className="sr-only" onChange={onDocFile(d.type)} aria-label={`Upload ${d.label}`} />

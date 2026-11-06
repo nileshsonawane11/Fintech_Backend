@@ -139,13 +139,13 @@ export const ManagerAuditLogs = ({
                     </td>
                     <td className="px-5 py-3.5 font-sans whitespace-nowrap">
                       <span className="font-semibold text-slate-900">{log.actorId || 'STF-001'}</span>
-                      <span className="text-[11px] text-slate-400 block font-mono">({log.actorType || 'STAFF'})</span>
+                      <span className="text-xs text-slate-400 block font-mono">({log.actorType || 'STAFF'})</span>
                     </td>
                     <td className="px-5 py-3.5 font-bold text-slate-800 whitespace-nowrap font-mono">
                       {log.action}
                     </td>
                     <td className="px-5 py-3.5 whitespace-nowrap font-sans">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 w-fit ${
+                      <span className={`px-2 py-0.5 rounded text-xs font-semibold flex items-center gap-1 w-fit ${
                         isFailed ? 'bg-red-50 text-red-700 border border-red-200' : 'bg-emerald-50 text-emerald-700 border border-emerald-200'
                       }`}>
                         {isFailed ? <XCircle className="w-3 h-3" /> : <CheckCircle2 className="w-3 h-3" />}

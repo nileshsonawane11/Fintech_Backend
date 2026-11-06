@@ -145,7 +145,7 @@ export const InvestmentFormFields = ({
             <span className="text-xs font-semibold uppercase tracking-wider text-midnight-800">
               Customer Identity (Session Verified)
             </span>
-            <span className="inline-flex items-center gap-1 text-[11px] font-semibold text-success-700 bg-success-50 px-2 py-0.5 rounded border border-success-600/20">
+            <span className="inline-flex items-center gap-1 text-xs font-semibold text-success-700 bg-success-50 px-2 py-0.5 rounded border border-success-600/20">
               <ShieldCheck className="h-3.5 w-3.5" /> KYC On File
             </span>
           </div>
@@ -159,7 +159,7 @@ export const InvestmentFormFields = ({
               <p className="font-mono font-semibold text-midnight-950 mt-0.5">{maskPan(customerRecord?.pan || user?.pan)}</p>
             </div>
           </div>
-          <p className="mt-3 text-[11px] leading-relaxed text-ink-500 border-t border-midnight-100 pt-2">
+          <p className="mt-3 text-xs leading-relaxed text-ink-500 border-t border-midnight-100 pt-2">
             Existing customer profile detected. Booking proceeds directly to investment parameters without re-collecting address or Aadhaar details.
           </p>
         </div>
@@ -197,7 +197,7 @@ export const InvestmentFormFields = ({
                     onChange={(e) => handleChange('dob', e.target.value)}
                     className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
                   />
-                  <p className="text-[11px] text-ink-500 mt-1">Drives eligibility and senior citizen rate (60+).</p>
+                  <p className="text-xs text-ink-500 mt-1">Drives eligibility and senior citizen rate (60+).</p>
                   {errors.dob && <p className="text-xs text-danger-600 mt-1">{errors.dob}</p>}
                 </div>
               </>
@@ -250,7 +250,7 @@ export const InvestmentFormFields = ({
                 placeholder="ABCDE1234F"
                 className="h-[42px] w-full uppercase rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm font-mono text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
               />
-              <p className="text-[11px] text-ink-500 mt-1">10-character alphanumeric PAN format.</p>
+              <p className="text-xs text-ink-500 mt-1">10-character alphanumeric PAN format.</p>
               {errors.panNumber && <p className="text-xs text-danger-600 mt-1">{errors.panNumber}</p>}
             </div>
           </div>
@@ -354,7 +354,7 @@ export const InvestmentFormFields = ({
                     className="h-[42px] w-full rounded-lg border border-ink-200 bg-white pl-8 pr-3.5 py-2 text-sm font-semibold text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
                   />
                 </div>
-                <p className="text-[11px] text-ink-500 mt-1">
+                <p className="text-xs text-ink-500 mt-1">
                   Minimum booking amount is {formatINRWhole(product?.minAmount || 5000)}.
                 </p>
                 {errors.fdDepositAmount && <p className="text-xs text-danger-600 mt-1">{errors.fdDepositAmount}</p>}
@@ -462,7 +462,7 @@ export const InvestmentFormFields = ({
                     </div>
                   )}
                   {formData.fdPayoutOption && !formData.fdPayoutOption.includes('Cumulative') && (
-                    <p className="text-[11px] text-porcelain-400 italic">Paid-out interest does not compound.</p>
+                    <p className="text-xs text-porcelain-400 italic">Paid-out interest does not compound.</p>
                   )}
                 </div>
               ) : (
@@ -470,7 +470,7 @@ export const InvestmentFormFields = ({
               )}
 
               {/* Amendment C: Tax Information Line */}
-              <div className="mt-3 border-t border-white/10 pt-2.5 flex items-start gap-2 text-[11px] leading-relaxed text-porcelain-300">
+              <div className="mt-3 border-t border-white/10 pt-2.5 flex items-start gap-2 text-xs leading-relaxed text-porcelain-300">
                 <Info className="h-3.5 w-3.5 text-gold-400 shrink-0 mt-0.5" />
                 <span>Interest is taxable as per your slab; the bank deducts TDS when interest exceeds the threshold prescribed under the Income-tax Act.</span>
               </div>
@@ -524,7 +524,7 @@ export const InvestmentFormFields = ({
                     className="h-[42px] w-full rounded-lg border border-ink-200 bg-white pl-8 pr-3.5 py-2 text-sm font-semibold text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
                   />
                 </div>
-                <p className="text-[11px] text-ink-500 mt-1">
+                <p className="text-xs text-ink-500 mt-1">
                   Start with {formatINRWhole(product?.minMonthly || 500)}/mo, in multiples of {formatINRWhole(product?.monthlyStep || 100)}.
                 </p>
                 {errors.rdMonthlyAmount && <p className="text-xs text-danger-600 mt-1">{errors.rdMonthlyAmount}</p>}
@@ -582,7 +582,7 @@ export const InvestmentFormFields = ({
                 <p className="text-xs text-danger-600 pl-6">{errors.rdConsentStandingInstruction}</p>
               )}
 
-              <p className="text-[11px] text-ink-600 border-t border-ink-200/50 pt-2 flex items-start gap-1.5">
+              <p className="text-xs text-ink-600 border-t border-ink-200/50 pt-2 flex items-start gap-1.5">
                 <Info className="h-3.5 w-3.5 text-midnight-700 shrink-0 mt-0.5" />
                 <span>One missed instalment per year is tolerated without penalty; later misses cost ₹10 per ₹1,000 of instalment.</span>
               </p>
@@ -621,7 +621,7 @@ export const InvestmentFormFields = ({
               )}
 
               {/* Amendment C: Tax Information Line */}
-              <div className="mt-3 border-t border-white/10 pt-2.5 flex items-start gap-2 text-[11px] leading-relaxed text-porcelain-300">
+              <div className="mt-3 border-t border-white/10 pt-2.5 flex items-start gap-2 text-xs leading-relaxed text-porcelain-300">
                 <Info className="h-3.5 w-3.5 text-gold-400 shrink-0 mt-0.5" />
                 <span>Interest is taxable as per your slab; the bank deducts TDS when interest exceeds the threshold prescribed under the Income-tax Act.</span>
               </div>
@@ -683,7 +683,7 @@ export const InvestmentFormFields = ({
                       <div>
                         <div className="flex flex-wrap items-baseline gap-2">
                           <span className="text-sm font-semibold text-midnight-950">{cat.name}</span>
-                          <span className="text-[11px] font-semibold uppercase tracking-wider text-warning-700">
+                          <span className="text-xs font-semibold uppercase tracking-wider text-warning-700">
                             Risk: {cat.riskLevel}
                           </span>
                         </div>
@@ -715,7 +715,7 @@ export const InvestmentFormFields = ({
                     className="h-[42px] w-full rounded-lg border border-ink-200 bg-white pl-8 pr-3.5 py-2 text-sm font-semibold text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
                   />
                 </div>
-                <p className="text-[11px] text-ink-500 mt-1">Starts at {formatINRWhole(product?.minMonthly || 500)}/mo.</p>
+                <p className="text-xs text-ink-500 mt-1">Starts at {formatINRWhole(product?.minMonthly || 500)}/mo.</p>
                 {errors.sipMonthlyAmount && <p className="text-xs text-danger-600 mt-1">{errors.sipMonthlyAmount}</p>}
               </div>
 
@@ -774,7 +774,7 @@ export const InvestmentFormFields = ({
                 ))}
               </select>
               {formData.sipStepUp && formData.sipStepUp !== 'None' && (
-                <p className="text-[11px] text-ink-500 mt-1 italic">
+                <p className="text-xs text-ink-500 mt-1 italic">
                   Note: The projection panel below computes returns based on the baseline instalment and excludes annual step-up.
                 </p>
               )}
@@ -804,7 +804,7 @@ export const InvestmentFormFields = ({
                   onChange={(e) => handleChange('sipAssumedReturn', parseFloat(e.target.value))}
                   className="w-full h-1.5 bg-midnight-800 rounded-lg appearance-none cursor-pointer accent-gold-400"
                 />
-                <p className="text-[11px] text-porcelain-400 leading-snug">
+                <p className="text-xs text-porcelain-400 leading-snug">
                   An assumption you choose for this illustration — not a rate the bank offers or expects.
                 </p>
               </div>
@@ -828,7 +828,7 @@ export const InvestmentFormFields = ({
                 <p className="mt-3 text-xs text-porcelain-300 italic">Enter a monthly investment amount to view calculated illustration.</p>
               )}
 
-              <p className="mt-3 text-[11px] text-porcelain-400 border-t border-white/10 pt-2 leading-relaxed">
+              <p className="mt-3 text-xs text-porcelain-400 border-t border-white/10 pt-2 leading-relaxed">
                 What the deposits above would grow to IF markets returned exactly the assumed rate every year. They will not.
               </p>
             </div>
@@ -951,7 +951,7 @@ export const InvestmentFormFields = ({
                   onChange={(e) => handleChange('ssyGuardianDob', e.target.value)}
                   className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
                 />
-                <p className="text-[11px] text-ink-500 mt-1">Must be 18+ years of age.</p>
+                <p className="text-xs text-ink-500 mt-1">Must be 18+ years of age.</p>
                 {errors.ssyGuardianDob && <p className="text-xs text-danger-600 mt-1">{errors.ssyGuardianDob}</p>}
               </div>
             </div>
@@ -988,7 +988,7 @@ export const InvestmentFormFields = ({
                   onChange={(e) => handleChange('ssyChildDob', e.target.value)}
                   className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
                 />
-                <p className="text-[11px] text-ink-500 mt-1">
+                <p className="text-xs text-ink-500 mt-1">
                   Scheme rule: Girl child must be under 10 years of age at account opening.
                 </p>
                 {errors.ssyChildDob && <p className="text-xs text-danger-600 mt-1">{errors.ssyChildDob}</p>}
@@ -1026,7 +1026,7 @@ export const InvestmentFormFields = ({
                     className="h-[42px] w-full rounded-lg border border-ink-200 bg-white pl-8 pr-3.5 py-2 text-sm font-semibold text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
                   />
                 </div>
-                <p className="text-[11px] text-ink-500 mt-1">
+                <p className="text-xs text-ink-500 mt-1">
                   Scheme range: {formatINRWhole(product?.minDepositYearly || 250)} to {formatINRWhole(product?.maxDepositYearly || 150000)} per financial year.
                 </p>
                 {errors.ssyAnnualDeposit && <p className="text-xs text-danger-600 mt-1">{errors.ssyAnnualDeposit}</p>}
@@ -1075,7 +1075,7 @@ export const InvestmentFormFields = ({
                 <p className="mt-3 text-xs text-porcelain-300 italic">Enter an annual deposit amount to view calculated scheme projection.</p>
               )}
 
-              <p className="mt-3 text-[11px] text-porcelain-400 border-t border-white/10 pt-2 leading-relaxed">
+              <p className="mt-3 text-xs text-porcelain-400 border-t border-white/10 pt-2 leading-relaxed">
                 {product?.rateNote || 'Illustrative rate for this platform. The actual SSY rate is set by the Government of India and revised periodically.'}
               </p>
             </div>
@@ -1137,7 +1137,7 @@ export const InvestmentFormFields = ({
             <h3 className="text-[13px] font-semibold text-midnight-900">
               Nominee (optional)
             </h3>
-            <span className="text-[11px] font-medium text-ink-500">Optional</span>
+            <span className="text-xs font-medium text-ink-500">Optional</span>
           </div>
           <p className="text-xs text-ink-500 mb-4">
             Person who receives the deposit proceeds if the holder dies.

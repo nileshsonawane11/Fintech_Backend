@@ -166,7 +166,7 @@ export default function ManagerTicketsPage() {
                 </p>
                 <div className="mt-2"><StatusChip status={selected.status} /></div>
               </div>
-              <button onClick={() => setSelectedId(null)} className="rounded-lg p-1.5 text-ink-500 hover:bg-ink-50 hover:text-ink-800" aria-label="Close ticket">
+              <button onClick={() => setSelectedId(null)} className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg p-2.5 text-ink-500 hover:bg-ink-50 hover:text-ink-800 transition-colors" aria-label="Close ticket">
                 <X className="h-5 w-5" aria-hidden />
               </button>
             </div>
@@ -194,7 +194,7 @@ export default function ManagerTicketsPage() {
               )}
             </div>
 
-            <div className="sticky bottom-0 z-10 shrink-0 space-y-3 border-t border-ink-100 bg-porcelain-50 px-5 py-4">
+            <div className="sticky bottom-0 z-10 shrink-0 space-y-3 border-t border-ink-100 bg-porcelain-50 px-5 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
               <div className="flex flex-wrap gap-2">
                 {selected.status === 'OPEN' && (
                   <Button size="sm" variant="secondary" loading={statusBusy} disabled={isAuditor} title={isAuditor ? 'Auditors have read-only access and cannot change ticket status' : undefined} onClick={() => handleStatus('IN_PROGRESS', 'Ticket in progress')}>

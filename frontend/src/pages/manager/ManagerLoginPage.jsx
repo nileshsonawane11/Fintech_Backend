@@ -143,7 +143,7 @@ export const ManagerLoginPage = () => {
 
             {demoOpen && (
               <div className="mt-3 space-y-2 text-xs text-ink-700">
-                <p className="text-[11px] text-ink-500 leading-relaxed">
+                <p className="text-xs text-ink-500 leading-relaxed">
                   Click any clearance role to populate operational login credentials:
                 </p>
                 <div className="space-y-2">
@@ -156,9 +156,9 @@ export const ManagerLoginPage = () => {
                     >
                       <div className="flex items-center justify-between">
                         <span className="font-semibold text-midnight-900">{s.role}</span>
-                        <span className="font-mono text-[10px] text-ink-500">{s.email}</span>
+                        <span className="font-mono text-xs text-ink-500">{s.email}</span>
                       </div>
-                      <p className="mt-0.5 text-[11px] text-ink-600 line-clamp-1">{s.clearance}</p>
+                      <p className="mt-0.5 text-xs text-ink-600 line-clamp-1">{s.clearance}</p>
                     </button>
                   ))}
                 </div>
@@ -169,7 +169,7 @@ export const ManagerLoginPage = () => {
             <button
               type="button"
               onClick={() => setResetOpen(true)}
-              className="text-[11px] font-medium text-ink-500 hover:text-ink-700 underline transition-colors"
+              className="text-xs font-medium text-ink-500 hover:text-ink-700 underline transition-colors"
             >
               Reset demo data
             </button>

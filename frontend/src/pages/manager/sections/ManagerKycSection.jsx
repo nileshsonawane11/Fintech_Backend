@@ -351,7 +351,7 @@ export default function ManagerKycPage() {
               </div>
               <button
                 type="button" onClick={closeDrawer}
-                className="rounded-lg p-1.5 text-ink-500 hover:bg-ink-50 hover:text-ink-800"
+                className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg p-2.5 text-ink-500 hover:bg-ink-50 hover:text-ink-800 transition-colors"
                 aria-label="Close case"
               >
                 <X className="h-5 w-5" aria-hidden />
@@ -435,7 +435,7 @@ export default function ManagerKycPage() {
             </div>
 
             {canDecide ? (
-              <div className="sticky bottom-0 z-10 shrink-0 space-y-3 border-t border-ink-100 bg-porcelain-50 px-5 py-4">
+              <div className="sticky bottom-0 z-10 shrink-0 space-y-3 border-t border-ink-100 bg-porcelain-50 px-5 py-4 pb-[calc(1rem+env(safe-area-inset-bottom))]">
                 <Field label="Reason code" hint="Required for Reject and Request Info." error={decisionError || undefined}>
                   <Select value={reasonCode} onChange={(e) => { setReasonCode(e.target.value); setDecisionError(''); }} error={decisionError || undefined}>
                     <option value="">Select a reason code</option>

@@ -114,7 +114,7 @@ export const ManagerAccountApplications = ({
                     </td>
                     <td className="px-5 py-4">
                       <div className="font-semibold text-slate-900">{app.customerName}</div>
-                      <div className="text-[11px] text-slate-500 font-mono">CIF: {app.customerId}</div>
+                      <div className="text-xs text-slate-500 font-mono">CIF: {app.customerId}</div>
                     </td>
                     <td className="px-5 py-4">
                       <span className="font-semibold text-slate-800">
@@ -125,7 +125,7 @@ export const ManagerAccountApplications = ({
                       ₹{Number(app.initialFundingAmount).toLocaleString('en-IN', { minimumFractionDigits: 2 })}
                     </td>
                     <td className="px-5 py-4">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold flex items-center gap-1 w-fit ${
+                      <span className={`px-2 py-0.5 rounded text-xs font-semibold flex items-center gap-1 w-fit ${
                         isKycApproved ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' : 'bg-amber-50 text-amber-700 border border-amber-200'
                       }`}>
                         {isKycApproved ? <CheckCircle2 className="w-3 h-3" /> : <Clock className="w-3 h-3" />}
@@ -133,7 +133,7 @@ export const ManagerAccountApplications = ({
                       </span>
                     </td>
                     <td className="px-5 py-4">
-                      <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                      <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
                         app.status === 'APPROVED' 
                           ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
                           : app.status === 'REJECTED' 
@@ -181,7 +181,7 @@ export const ManagerAccountApplications = ({
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <div>
-                <span className="text-[11px] font-semibold text-slate-400 uppercase font-mono">
+                <span className="text-xs font-semibold text-slate-400 uppercase font-mono">
                   {selectedApp.accountApplicationId}
                 </span>
                 <h3 className="text-base font-bold text-slate-900">Underwrite Account Application</h3>

@@ -458,7 +458,7 @@ export default function HomePage() {
                       aria-selected={isActive}
                       aria-controls={`home-dir-panel-${tab.key}`}
                       onClick={() => handleTabChange(tab.key)}
-                      className={`relative pb-3 pt-2 px-4 text-sm font-semibold transition-colors duration-150 flex items-center gap-2 shrink-0 ${
+                      className={`relative min-h-[44px] pb-3 pt-2 px-4 text-sm font-semibold transition-colors duration-150 flex items-center gap-2 shrink-0 ${
                         isActive ? 'text-midnight-950 font-bold' : 'text-ink-600 hover:text-midnight-900'
                       }`}
                     >
@@ -664,7 +664,7 @@ export default function HomePage() {
               <button
                 type="button"
                 onClick={() => setExpandedRates((v) => !v)}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-midnight-800 hover:text-midnight-600 transition-colors py-1 px-3 rounded-md hover:bg-porcelain-200"
+                className="inline-flex min-h-[44px] items-center gap-1.5 text-xs font-semibold text-midnight-800 hover:text-midnight-600 transition-colors py-2 px-4 rounded-lg hover:bg-porcelain-200 shadow-xs"
               >
                 {expandedRates ? (
                   <>
@@ -718,7 +718,7 @@ export default function HomePage() {
                       <p className="mt-1.5 flex-1 text-[13px] leading-relaxed text-ink-600">{offer.summary}</p>
 
                       <div className="mt-3 rounded-lg bg-porcelain-50 px-3 py-2 border border-ink-100">
-                        <p className="text-[11px] font-medium text-ink-500 uppercase tracking-wide">Privilege</p>
+                        <p className="text-xs font-medium text-ink-500 uppercase tracking-wide">Privilege</p>
                         <p className="text-xs font-semibold text-midnight-900">{offer.highlight}</p>
                       </div>
 

@@ -152,7 +152,7 @@ function MenuRow({
               </span>
               {chip && (
                 <span
-                  className={`shrink-0 text-[11px] px-2 py-0.5 rounded-md font-semibold tracking-wide ${
+                  className={`shrink-0 text-xs px-2 py-0.5 rounded-md font-semibold tracking-wide ${
                     chip === 'Guaranteed'
                       ? 'bg-midnight-900 text-porcelain-50'
                       : 'border border-gold-500 text-gold-700 bg-gold-50/60'
@@ -189,7 +189,7 @@ function MenuRow({
               </span>
               {chip && (
                 <span
-                  className={`shrink-0 text-[11px] px-2 py-0.5 rounded-md font-semibold tracking-wide ${
+                  className={`shrink-0 text-xs px-2 py-0.5 rounded-md font-semibold tracking-wide ${
                     chip === 'Guaranteed'
                       ? 'bg-midnight-900 text-porcelain-50'
                       : 'border border-gold-500 text-gold-700 bg-gold-50/60'
@@ -816,7 +816,7 @@ export const Header = () => {
             {/* Mobile Hamburger Toggle */}
             <button
               type="button"
-              className="rounded-lg p-2 text-ink-700 transition-colors hover:text-midnight-900 lg:hidden"
+              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg p-2.5 text-ink-700 transition-colors hover:text-midnight-900 lg:hidden"
               onClick={() => setMobileOpen((v) => !v)}
               aria-label="Toggle menu"
             >
@@ -859,7 +859,7 @@ export const Header = () => {
               <Link
                 to="/manager/login"
                 onClick={closeMenu}
-                className="flex w-full items-center justify-center rounded-lg py-2 px-3 text-sm font-medium text-midnight-800 hover:bg-midnight-50/70 transition-colors"
+                className="flex min-h-[44px] w-full items-center justify-center rounded-lg py-2.5 px-3 text-sm font-semibold text-midnight-800 hover:bg-midnight-50/70 transition-colors"
               >
                 Staff Console
               </Link>
@@ -896,8 +896,8 @@ export const Header = () => {
                     })}
                   </div>
                   <div className="pt-2 px-2 flex justify-between font-semibold text-xs border-t border-ink-100 mt-2">
-                    <Link to="/accounts" onClick={closeMenu} className="text-ink-700 hover:text-midnight-900">View all accounts →</Link>
-                    <Link to="/accounts?apply=1" onClick={closeMenu} className="text-midnight-900 hover:text-midnight-700">Open an account</Link>
+                    <Link to="/accounts" onClick={closeMenu} className="min-h-[44px] inline-flex items-center text-ink-700 hover:text-midnight-900 font-semibold">View all accounts →</Link>
+                    <Link to="/accounts?apply=1" onClick={closeMenu} className="min-h-[44px] inline-flex items-center text-midnight-900 hover:text-midnight-700 font-semibold">Open an account</Link>
                   </div>
                 </div>
                 </div>
@@ -953,8 +953,8 @@ export const Header = () => {
                     </div>
                   </div>
                   <div className="pt-2 px-2 flex justify-between font-semibold text-xs border-t border-ink-100 mt-2">
-                    <Link to="/cards" onClick={closeMenu} className="text-ink-700 hover:text-midnight-900">View all cards →</Link>
-                    <Link to="/cards#compare" onClick={closeMenu} className="text-midnight-900 hover:text-midnight-700">Compare cards</Link>
+                    <Link to="/cards" onClick={closeMenu} className="min-h-[44px] inline-flex items-center text-ink-700 hover:text-midnight-900 font-semibold">View all cards →</Link>
+                    <Link to="/cards#compare" onClick={closeMenu} className="min-h-[44px] inline-flex items-center text-midnight-900 hover:text-midnight-700 font-semibold">Compare cards</Link>
                   </div>
                 </div>
                 </div>
@@ -992,8 +992,8 @@ export const Header = () => {
                     })}
                   </div>
                   <div className="pt-2 px-2 flex justify-between font-semibold text-xs border-t border-ink-100 mt-2">
-                    <Link to="/loans" onClick={closeMenu} className="text-ink-700 hover:text-midnight-900">View all 7 loans →</Link>
-                    <Link to="/calculators" onClick={closeMenu} className="text-midnight-900 hover:text-midnight-700">EMI calculator</Link>
+                    <Link to="/loans" onClick={closeMenu} className="min-h-[44px] inline-flex items-center text-ink-700 hover:text-midnight-900 font-semibold">View all 7 loans →</Link>
+                    <Link to="/calculators" onClick={closeMenu} className="min-h-[44px] inline-flex items-center text-midnight-900 hover:text-midnight-700 font-semibold">EMI calculator</Link>
                   </div>
                 </div>
                 </div>
@@ -1032,8 +1032,8 @@ export const Header = () => {
                     })}
                   </div>
                   <div className="pt-2 px-2 flex justify-between font-semibold text-xs border-t border-ink-100 mt-2">
-                    <Link to="/investments" onClick={closeMenu} className="text-ink-700 hover:text-midnight-900">View all investments →</Link>
-                    <Link to="/grievance-redressal" onClick={closeMenu} className="text-midnight-900 hover:text-midnight-700">Talk to us</Link>
+                    <Link to="/investments" onClick={closeMenu} className="min-h-[44px] inline-flex items-center text-ink-700 hover:text-midnight-900 font-semibold">View all investments →</Link>
+                    <Link to="/grievance-redressal" onClick={closeMenu} className="min-h-[44px] inline-flex items-center text-midnight-900 hover:text-midnight-700 font-semibold">Talk to us</Link>
                   </div>
                 </div>
                 </div>

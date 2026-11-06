@@ -20,7 +20,7 @@ const BTN_VARIANTS = {
 };
 
 export function Button({ as: Component = 'button', variant = 'primary', size = 'md', loading = false, disabled, className = '', children, ...props }) {
-  const sizes = { sm: 'min-h-9 px-4 text-xs', md: 'min-h-11 px-5 text-sm', lg: 'min-h-12 px-6 text-sm' };
+  const sizes = { sm: 'min-h-[44px] px-4 text-xs', md: 'min-h-[44px] px-5 text-sm', lg: 'min-h-12 px-6 text-sm' };
   return (
     <Component
       className={`btn-press inline-flex select-none items-center justify-center gap-2 rounded-lg font-semibold transition-[color,background-color,border-color,transform] duration-150 ease-out active:translate-y-px disabled:pointer-events-none disabled:opacity-50 ${sizes[size]} ${BTN_VARIANTS[variant] || BTN_VARIANTS.primary} ${className}`}
@@ -75,7 +75,7 @@ export function Field({ label, error, hint, children, required }) {
 }
 
 const inputCls = (error) =>
-  `w-full h-[42px] rounded-lg border bg-white px-3 py-2 text-sm text-ink-900 placeholder:text-ink-400 transition-colors ${
+  `w-full h-[42px] rounded-lg border bg-white px-3 py-2 text-base sm:text-sm text-ink-900 placeholder:text-ink-400 transition-colors ${
     error ? 'border-danger-600 focus:border-danger-600 focus:ring-1 focus:ring-danger-600' : 'border-line hover:border-ink-300 focus:border-midnight-600 focus:ring-1 focus:ring-midnight-600'
   } outline-none`;
 
@@ -97,9 +97,9 @@ export function Select({ error, className = '', children, ...props }) {
 
 export function Checkbox({ label, error, ...props }) {
   return (
-    <label className="flex cursor-pointer items-start gap-2.5 text-sm text-ink-700">
-      <input type="checkbox" className="mt-0.5 h-4 w-4 shrink-0 accent-midnight-800" {...props} />
-      <span>
+    <label className="flex cursor-pointer items-center min-h-[44px] gap-2.5 text-sm text-ink-700 py-1">
+      <input type="checkbox" className="h-5 w-5 shrink-0 accent-midnight-800" {...props} />
+      <span className="min-w-0 flex-1">
         {label}
         {error && <span className="mt-0.5 block text-xs font-medium text-danger-600" role="alert">{error}</span>}
       </span>
@@ -219,34 +219,75 @@ export function EmptyState({ icon: Icon, title, body, action, variant = 'empty' 
 export function Table({ columns, rows, rowKey, onRowClick, empty, minWidthClass = 'min-w-[640px]' }) {
   if (!rows || rows.length === 0) return empty || null;
   return (
-    <div className="overflow-x-auto rounded-xl border border-line bg-white shadow-card">
-      <table className={`w-full ${minWidthClass} border-collapse text-left text-sm`}>
-        <thead>
-          <tr className="border-b border-line bg-porcelain-100/70">
-            {columns.map((c) => (
-              <th key={c.key} className={`px-4 py-3 text-xs font-semibold uppercase tracking-wide text-ink-500 ${c.align === 'right' ? 'text-right' : ''} ${c.className || ''}`}>
-                {c.label}
-              </th>
-            ))}
-          </tr>
-        </thead>
-        <tbody>
-          {rows.map((row) => (
-            <tr
-              key={rowKey(row)}
-              onClick={onRowClick ? () => onRowClick(row) : undefined}
-              className={`border-b border-line last:border-0 ${onRowClick ? 'cursor-pointer hover:bg-midnight-50/60' : ''}`}
-            >
+    <>
+      {/* Desktop / Tablet Contained Table */}
+      <div className="hidden sm:block overflow-x-auto rounded-xl border border-line bg-white shadow-card">
+        <table className={`w-full ${minWidthClass} border-collapse text-left text-sm`}>
+          <thead>
+            <tr className="border-b border-line bg-porcelain-100/70">
               {columns.map((c) => (
-                <td key={c.key} className={`px-4 py-3 align-top text-ink-800 ${c.align === 'right' ? 'text-right tnum' : ''} ${c.className || ''}`}>
-                  {c.render ? c.render(row) : row[c.key]}
-                </td>
+                <th key={c.key} className={`px-4 py-3 text-xs font-semibold uppercase tracking-wide text-ink-500 ${c.align === 'right' ? 'text-right' : ''} ${c.className || ''}`}>
+                  {c.label}
+                </th>
               ))}
             </tr>
-          ))}
-        </tbody>
-      </table>
-    </div>
+          </thead>
+          <tbody>
+            {rows.map((row) => (
+              <tr
+                key={rowKey(row)}
+                onClick={onRowClick ? () => onRowClick(row) : undefined}
+                className={`border-b border-line last:border-0 ${onRowClick ? 'cursor-pointer hover:bg-midnight-50/60' : ''}`}
+              >
+                {columns.map((c) => (
+                  <td key={c.key} className={`px-4 py-3 align-top text-ink-800 ${c.align === 'right' ? 'text-right tnum' : ''} ${c.className || ''}`}>
+                    {c.render ? c.render(row) : row[c.key]}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+
+      {/* Mobile Stacked Cards (Fix 3.2: Preserving every column label & value pair without column dropping) */}
+      <div className="sm:hidden space-y-3" role="list">
+        {rows.map((row) => (
+          <div
+            key={rowKey(row)}
+            onClick={onRowClick ? () => onRowClick(row) : undefined}
+            className={`rounded-xl border border-line bg-white p-4 shadow-card ${
+              onRowClick ? 'cursor-pointer active:bg-midnight-50/70 hover:border-midnight-300 transition-colors' : ''
+            }`}
+            role={onRowClick ? 'button' : 'listitem'}
+            tabIndex={onRowClick ? 0 : undefined}
+            onKeyDown={onRowClick ? (e) => { if (e.key === 'Enter' || e.key === ' ') { e.preventDefault(); onRowClick(row); } } : undefined}
+          >
+            <div className="space-y-2">
+              {columns.map((c) => {
+                const val = c.render ? c.render(row) : row[c.key];
+                if (val === null || val === undefined) return null;
+                return (
+                  <div key={c.key} className="flex items-start justify-between gap-3 text-sm border-b border-ink-100/50 pb-2 last:border-0 last:pb-0">
+                    <span className="text-xs font-semibold uppercase tracking-wide text-ink-500 shrink-0 mt-0.5">
+                      {c.label}
+                    </span>
+                    <div className={`min-w-0 flex-1 text-right text-ink-900 ${c.align === 'right' ? 'tnum' : ''}`}>
+                      {val}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+            {onRowClick && (
+              <div className="mt-3 pt-2.5 border-t border-ink-100 flex items-center justify-end text-xs font-semibold text-midnight-800">
+                <span>Review details →</span>
+              </div>
+            )}
+          </div>
+        ))}
+      </div>
+    </>
   );
 }
 
@@ -261,8 +302,8 @@ export function Tabs({ tabs, active, onChange }) {
           role="tab"
           aria-selected={active === t.id}
           onClick={() => onChange(t.id)}
-          className={`-mb-px border-b-2 px-3.5 py-2.5 text-sm font-medium transition-colors ${
-            active === t.id ? 'border-gold-500 text-midnight-900' : 'border-transparent text-ink-500 hover:text-midnight-800'
+          className={`-mb-px min-h-[44px] inline-flex items-center border-b-2 px-3.5 py-2 text-sm font-medium transition-colors ${
+            active === t.id ? 'border-gold-500 text-midnight-900 font-semibold' : 'border-transparent text-ink-500 hover:text-midnight-800'
           }`}
         >
           {t.label}
@@ -279,7 +320,37 @@ export function Tabs({ tabs, active, onChange }) {
 
 /* ---------------- Stepper ---------------- */
 
-export function Stepper({ steps }) {
+export function Stepper({ steps, horizontalOnMobile = false }) {
+  if (horizontalOnMobile) {
+    return (
+      <ol className="flex items-center justify-between w-full gap-1 sm:gap-2">
+        {steps.map((step, i) => (
+          <li key={step.id || step.label || i} className="relative flex flex-1 items-center gap-1.5 sm:gap-2">
+            <span
+              className={`relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold ${
+                step.state === 'done'
+                  ? 'border-midnight-700 bg-midnight-700 text-white'
+                  : step.state === 'current'
+                    ? 'border-gold-500 bg-gold-50 text-gold-700 ring-2 ring-gold-200'
+                    : 'border-line bg-white text-ink-400'
+              }`}
+              aria-current={step.state === 'current' ? 'step' : undefined}
+            >
+              {step.state === 'done' ? <CheckCircle2 className="h-4 w-4" aria-hidden /> : i + 1}
+            </span>
+            <span className="min-w-0 flex-1">
+              <span className={`block text-xs font-semibold truncate ${step.state === 'current' ? 'text-midnight-950 font-bold' : 'text-ink-600 max-[420px]:hidden'}`}>
+                {step.label}
+              </span>
+            </span>
+            {i < steps.length - 1 && (
+              <span className={`h-0.5 w-4 sm:w-8 shrink-0 ${step.state === 'done' ? 'bg-midnight-600' : 'bg-line'}`} aria-hidden />
+            )}
+          </li>
+        ))}
+      </ol>
+    );
+  }
   return (
     <ol className="flex flex-col gap-0 sm:flex-row sm:items-start">
       {steps.map((step, i) => (
@@ -349,13 +420,13 @@ export function Modal({ open, onClose, title, children, footer, wide = false, ma
       >
         <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between border-b border-ink-100 bg-white px-6 py-4 rounded-t-2xl">
           <h3 className="text-base font-semibold text-midnight-950 min-w-0 flex-1 pr-3 truncate">{title}</h3>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-ink-500 hover:bg-ink-50 hover:text-ink-800 transition-colors shrink-0" aria-label="Close">
+          <button onClick={onClose} className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg p-2 text-ink-500 hover:bg-ink-50 hover:text-ink-800 transition-colors shrink-0" aria-label="Close">
             <X className="h-5 w-5" aria-hidden />
           </button>
         </div>
         <div className="flex-1 overflow-y-auto px-6 py-5 [scrollbar-width:thin]">{children}</div>
         {footer && (
-          <div className="sticky bottom-0 z-10 shrink-0 flex flex-wrap justify-end gap-3 border-t border-ink-100 bg-porcelain-50 px-6 py-4 rounded-b-2xl">
+          <div className="sticky bottom-0 z-10 shrink-0 flex flex-wrap justify-end gap-3 border-t border-ink-100 bg-porcelain-50 px-6 py-4 rounded-b-2xl pb-[calc(1rem+env(safe-area-inset-bottom))]">
             {footer}
           </div>
         )}

@@ -69,16 +69,22 @@ function Toggle({ checked, onChange, disabled, label }) {
       aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`relative h-6 w-11 shrink-0 rounded-full transition-colors ${
-        checked ? 'bg-midnight-700' : 'bg-ink-200'
-      } ${disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'}`}
+      className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-2 rounded-full focus-visible:outline-2 focus-visible:outline-gold-500 ${
+        disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
+      }`}
     >
       <span
-        className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all ${
-          checked ? 'left-[22px]' : 'left-0.5'
+        className={`relative h-6 w-11 shrink-0 rounded-full transition-colors block ${
+          checked ? 'bg-midnight-700' : 'bg-ink-200'
         }`}
-        aria-hidden
-      />
+      >
+        <span
+          className={`absolute top-0.5 h-5 w-5 rounded-full bg-white shadow transition-all block ${
+            checked ? 'left-[22px]' : 'left-0.5'
+          }`}
+          aria-hidden
+        />
+      </span>
     </button>
   );
 }

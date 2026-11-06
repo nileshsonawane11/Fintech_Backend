@@ -14,8 +14,9 @@ function isoDay(d) {
   return `${y}-${m}-${day}`;
 }
 
-export default function AccountDetailPage() {
-  const { id } = useParams();
+export default function AccountDetailPage({ accountId }) {
+  const { id: paramId } = useParams();
+  const id = accountId || paramId;
   const { toast } = useToast();
   const { user } = useAuth();
   useDbTick();

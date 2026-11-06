@@ -158,7 +158,7 @@ function Eligibility({ product, compact = false }) {
             ))}
           </ul>
         )}
-        {e.note && <p className="text-[11px] leading-relaxed text-ink-500 pt-1 border-t border-ink-100">{e.note}</p>}
+        {e.note && <p className="text-xs leading-relaxed text-ink-500 pt-1 border-t border-ink-100">{e.note}</p>}
       </div>
     );
   }
@@ -474,7 +474,7 @@ function CashbackCalculator({ product }) {
             onChange={(e) => setOnlineSpend(Number(e.target.value))}
             className="w-full accent-midnight-900 cursor-pointer h-2 bg-ink-200 rounded-lg"
           />
-          <div className="flex justify-between text-[11px] text-ink-400 mt-1">
+          <div className="flex justify-between text-xs text-ink-400 mt-1">
             <span>₹1,000</span>
             <span>₹50,000</span>
             <span>₹1,00,000</span>
@@ -489,17 +489,17 @@ function CashbackCalculator({ product }) {
             <div className="flex items-baseline gap-2 mt-1">
               <span className="text-2xl font-bold text-midnight-950 font-mono">{formatINRWhole(totalMonthlyCashback)}</span>
               {isCapped && (
-                <span className="text-[10px] font-semibold text-warning-700 bg-warning-50 px-1.5 py-0.5 rounded border border-warning-200">
+                <span className="text-xs font-semibold text-warning-700 bg-warning-50 px-1.5 py-0.5 rounded border border-warning-200">
                   ₹500 monthly cap applied
                 </span>
               )}
             </div>
-            <span className="text-[11px] text-ink-400 mt-1 block">Credited automatically as statement credit</span>
+            <span className="text-xs text-ink-400 mt-1 block">Credited automatically as statement credit</span>
           </div>
           <div className="rounded-lg bg-white border border-ink-100 p-3.5 shadow-xs">
             <span className="text-xs text-ink-500 block font-medium">Estimated yearly cashback</span>
             <span className="text-2xl font-bold text-midnight-950 font-mono mt-1 block">{formatINRWhole(totalYearlyCashback)}</span>
-            <span className="text-[11px] text-ink-400 mt-1 block">Annualized reward value</span>
+            <span className="text-xs text-ink-400 mt-1 block">Annualized reward value</span>
           </div>
         </div>
 
@@ -581,7 +581,7 @@ function VoyageCalculator({ product }) {
             onChange={(e) => setMonthlySpend(Number(e.target.value))}
             className="w-full accent-midnight-900 cursor-pointer h-2 bg-ink-200 rounded-lg"
           />
-          <div className="flex justify-between text-[11px] text-ink-400 mt-1">
+          <div className="flex justify-between text-xs text-ink-400 mt-1">
             <span>₹1,000</span>
             <span>₹50,000</span>
             <span>₹1,00,000</span>
@@ -606,7 +606,7 @@ function VoyageCalculator({ product }) {
             onChange={(e) => setTravelShare(Number(e.target.value))}
             className="w-full accent-midnight-900 cursor-pointer h-2 bg-ink-200 rounded-lg"
           />
-          <div className="flex justify-between text-[11px] text-ink-400 mt-1">
+          <div className="flex justify-between text-xs text-ink-400 mt-1">
             <span>0% (Retail only)</span>
             <span>50%</span>
             <span>100% (All travel bookings)</span>
@@ -621,7 +621,7 @@ function VoyageCalculator({ product }) {
               <span className="text-2xl font-bold text-midnight-950 font-mono">{formatINRWhole(totalMonthlyValue)}</span>
               <span className="text-xs text-ink-500 font-mono">({totalMonthlyPoints.toLocaleString('en-IN')} pts)</span>
             </div>
-            <span className="text-[11px] text-ink-400 mt-1 block">Redeemable against airline/hotel bookings</span>
+            <span className="text-xs text-ink-400 mt-1 block">Redeemable against airline/hotel bookings</span>
           </div>
           <div className="rounded-lg bg-white border border-ink-100 p-3.5 shadow-xs">
             <span className="text-xs text-ink-500 block font-medium">Yearly reward value</span>
@@ -629,7 +629,7 @@ function VoyageCalculator({ product }) {
               <span className="text-2xl font-bold text-midnight-950 font-mono">{formatINRWhole(totalYearlyValue)}</span>
               <span className="text-xs text-ink-500 font-mono">({totalYearlyPoints.toLocaleString('en-IN')} pts)</span>
             </div>
-            <span className="text-[11px] text-ink-400 mt-1 block">Annualized travel redemption</span>
+            <span className="text-xs text-ink-400 mt-1 block">Annualized travel redemption</span>
           </div>
         </div>
 
@@ -697,7 +697,7 @@ function AssuredCalculator({ product }) {
             onChange={(e) => setFdAmount(Number(e.target.value))}
             className="w-full accent-midnight-900 cursor-pointer h-2 bg-ink-200 rounded-lg"
           />
-          <div className="flex justify-between text-[11px] text-ink-400 mt-1">
+          <div className="flex justify-between text-xs text-ink-400 mt-1">
             <span>{formatINRWhole(minFd)} (Min. FD)</span>
             <span>₹1,00,000</span>
             <span>₹2,50,000</span>
@@ -808,7 +808,7 @@ function DebitLimitsWidget({ product }) {
           </div>
         </div>
       </div>
-      <p className="text-[11px] text-ink-500 mt-4 pt-3 border-t border-ink-100">
+      <p className="text-xs text-ink-500 mt-4 pt-3 border-t border-ink-100">
         Limits can be managed or customized anytime in the customer portal card controls.
       </p>
     </div>
@@ -1051,7 +1051,7 @@ function MoreCardsSection({ currentSlug }) {
                     {rel.tagline}
                   </p>
                 </div>
-                <div className="mt-4 pt-3 border-t border-ink-100 text-[11px] text-ink-600 font-medium">
+                <div className="mt-4 pt-3 border-t border-ink-100 text-xs text-ink-600 font-medium">
                   Joining: <span className="text-midnight-950 font-semibold">{joining}</span> · Annual: <span className="text-midnight-950 font-semibold">{annual}</span>
                 </div>
               </div>
@@ -1202,7 +1202,7 @@ function LoanEmiCalculator({ product }) {
               aria-label="Loan amount slider"
               className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-ink-200 accent-midnight-900"
             />
-            <div className="mt-1 flex justify-between text-[11px] text-ink-500 font-medium">
+            <div className="mt-1 flex justify-between text-xs text-ink-500 font-medium">
               <span>{formatINRWhole(minAmt)}</span>
               <span className="font-semibold text-midnight-950">{formatINRWhole(amount)}</span>
               <span>{formatINRWhole(maxAmt)}</span>
@@ -1230,7 +1230,7 @@ function LoanEmiCalculator({ product }) {
               aria-label="Tenure slider"
               className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-ink-200 accent-midnight-900"
             />
-            <div className="mt-1 flex justify-between text-[11px] text-ink-500 font-medium">
+            <div className="mt-1 flex justify-between text-xs text-ink-500 font-medium">
               <span>{minTenure} mo</span>
               <span className="font-semibold text-midnight-950">{tenure} months</span>
               <span>{maxTenure} mo</span>
@@ -1258,7 +1258,7 @@ function LoanEmiCalculator({ product }) {
               aria-label="Interest rate slider"
               className="h-2 w-full cursor-pointer appearance-none rounded-lg bg-ink-200 accent-midnight-900"
             />
-            <div className="mt-1 flex justify-between text-[11px] text-ink-500 font-medium">
+            <div className="mt-1 flex justify-between text-xs text-ink-500 font-medium">
               <span>{minRate.toFixed(2)}%</span>
               <span className="font-semibold text-midnight-950">{rate.toFixed(2)}% p.a.</span>
               <span>{maxRate.toFixed(2)}%</span>
@@ -1271,7 +1271,7 @@ function LoanEmiCalculator({ product }) {
           {isGold ? (
             <div className="space-y-4">
               <div className="rounded-lg border border-ink-200 bg-white p-3.5 shadow-xs">
-                <span className="text-[11px] font-bold uppercase tracking-wider text-ink-500 block mb-1">
+                <span className="text-xs font-bold uppercase tracking-wider text-ink-500 block mb-1">
                   Option A: Monthly Reducing EMI
                 </span>
                 <div className="text-2xl font-bold font-mono text-midnight-950">
@@ -1286,10 +1286,10 @@ function LoanEmiCalculator({ product }) {
 
               <div className="rounded-lg border border-gold-400 bg-gold-50/40 p-3.5 shadow-xs">
                 <div className="flex items-center justify-between mb-1">
-                  <span className="text-[11px] font-bold uppercase tracking-wider text-midnight-950">
+                  <span className="text-xs font-bold uppercase tracking-wider text-midnight-950">
                     Option B: Bullet Repayment
                   </span>
-                  <span className="text-[10px] font-semibold text-gold-700 bg-white px-1.5 py-0.5 rounded border border-gold-300">
+                  <span className="text-xs font-semibold text-gold-700 bg-white px-1.5 py-0.5 rounded border border-gold-300">
                     Lump-Sum
                   </span>
                 </div>
@@ -1333,12 +1333,12 @@ function LoanEmiCalculator({ product }) {
           )}
 
           {isKrishi && (
-            <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-2.5 text-[11px] text-emerald-900 leading-snug">
+            <div className="mt-3 rounded-lg border border-emerald-200 bg-emerald-50/60 p-2.5 text-xs text-emerald-900 leading-snug">
               <span className="font-bold">Harvest-Aligned Repayments:</span> Bullet and seasonal instalment schedules aligned with Kharif / Rabi harvest realization are sanctioned at branch approval.
             </div>
           )}
 
-          <p className="mt-3 text-[11px] text-ink-500 italic leading-tight">
+          <p className="mt-3 text-xs text-ink-500 italic leading-tight">
             * Figures are indicative based on reducing balance method at {rate.toFixed(2)}% p.a. Final terms determined upon credit underwriting.
           </p>
         </div>
@@ -1370,7 +1370,7 @@ function MoreLoansSection({ currentSlug }) {
               className="group flex flex-col justify-between rounded-xl border border-ink-200 bg-white p-5 shadow-xs transition-all duration-200 hover:border-midnight-500 hover:shadow-md"
             >
               <div>
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-porcelain-100 text-midnight-900 border border-ink-200 mb-2.5">
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-porcelain-100 text-midnight-900 border border-ink-200 mb-2.5">
                   Loan
                 </span>
                 <h3 className="font-display text-base font-semibold text-midnight-950 group-hover:text-midnight-700">
@@ -1421,7 +1421,7 @@ function SliderControl({ label, value, min, max, step = 1, decimals = 0, suffix,
     <div>
       <div className="flex items-center justify-between mb-1.5 text-xs font-semibold text-ink-800">
         <label>{label}</label>
-        {hint && <span className="font-normal text-ink-500 text-[11px]">{hint}</span>}
+        {hint && <span className="font-normal text-ink-500 text-xs">{hint}</span>}
       </div>
       <div className="flex items-center gap-3">
         <input
@@ -1456,7 +1456,7 @@ function SliderControl({ label, value, min, max, step = 1, decimals = 0, suffix,
           {suffix && <span className="whitespace-nowrap text-xs text-ink-500 font-medium">{suffix}</span>}
         </div>
       </div>
-      <div className="mt-1 flex justify-between text-[11px] text-ink-400">
+      <div className="mt-1 flex justify-between text-xs text-ink-400">
         <span>{decimals > 0 ? min.toFixed(decimals) : indianNumber.format(min)}</span>
         <span>{decimals > 0 ? max.toFixed(decimals) : indianNumber.format(max)}</span>
       </div>
@@ -1980,7 +1980,7 @@ function MoreInvestmentsSection({ currentSlug }) {
               className="group flex flex-col justify-between rounded-xl border border-ink-200 bg-white p-5 shadow-xs transition-all duration-200 hover:border-midnight-500 hover:shadow-md cursor-pointer"
             >
               <div>
-                <span className="inline-flex items-center px-2 py-0.5 rounded text-[11px] font-semibold bg-porcelain-100 text-midnight-900 border border-ink-200 mb-2.5">
+                <span className="inline-flex items-center px-2 py-0.5 rounded text-xs font-semibold bg-porcelain-100 text-midnight-900 border border-ink-200 mb-2.5">
                   Investment
                 </span>
                 <h3 className="font-display text-base font-semibold text-midnight-950 group-hover:text-midnight-700">
@@ -2197,7 +2197,7 @@ export default function ProductDetailPage({ category, categoryHint }) {
                 <dl className="mt-5 grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-porcelain-50/15 pt-4">
                   {stats.slice(0, 4).map((s) => (
                     <div key={s.label}>
-                      <dt className="text-[11px] font-semibold uppercase tracking-wider text-porcelain-300">{s.label}</dt>
+                      <dt className="text-xs font-semibold uppercase tracking-wider text-porcelain-300">{s.label}</dt>
                       <dd className="mt-0.5 text-sm sm:text-base font-semibold text-porcelain-50 font-mono">{s.value}</dd>
                     </div>
                   ))}
@@ -2255,7 +2255,7 @@ export default function ProductDetailPage({ category, categoryHint }) {
                   aria-controls={`card-panel-${tab.id}`}
                   onClick={() => handleTabChange(tab.id)}
                   onKeyDown={(e) => handleTabKeyDown(e, idx)}
-                  className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap focus:outline-hidden focus:ring-2 focus:ring-gold-500 ${
+                  className={`min-h-[44px] inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap focus:outline-hidden focus:ring-2 focus:ring-gold-500 ${
                     selected
                       ? 'bg-midnight-900 text-porcelain-50 shadow-xs'
                       : 'text-ink-600 hover:text-midnight-950 hover:bg-porcelain-200'
@@ -2381,7 +2381,7 @@ export default function ProductDetailPage({ category, categoryHint }) {
 
           {/* Fix 1: Sticky Right Rail (Compact Who can apply, Apply button, How to apply) */}
           <div className="min-w-0">
-            <div className="sticky top-24 space-y-5">
+            <div className="static lg:sticky lg:top-24 space-y-5">
               {/* Who can apply */}
               <Card className="p-5 shadow-xs border-ink-200">
                 <h2 className="font-display text-base font-semibold text-midnight-950 mb-3">Who can apply</h2>
@@ -2403,7 +2403,7 @@ export default function ProductDetailPage({ category, categoryHint }) {
                 <ol className="space-y-3">
                   {steps.map((step, i) => (
                     <li key={step} className="flex gap-2.5">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-midnight-900 text-[11px] font-bold text-porcelain-50" aria-hidden>
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-midnight-900 text-xs font-bold text-porcelain-50" aria-hidden>
                         {i + 1}
                       </span>
                       <span className="text-xs leading-relaxed text-ink-700">{step}</span>
@@ -2491,29 +2491,29 @@ export default function ProductDetailPage({ category, categoryHint }) {
                 <div className="w-full lg:col-span-8 order-3 mt-4 border-t border-ink-100 pt-3">
                   <dl className="grid grid-cols-2 lg:grid-cols-4 gap-4 divide-y sm:divide-y-0 sm:divide-x divide-ink-100">
                     <div className="sm:pr-4">
-                      <dt className="text-[11px] font-semibold uppercase tracking-wider text-gold-700">Rate range</dt>
+                      <dt className="text-xs font-semibold uppercase tracking-wider text-gold-700">Rate range</dt>
                       <dd className="mt-0.5 text-base font-semibold text-midnight-950 font-mono tnum">
                         {product.rateMin?.toFixed(2)}% – {product.rateMax?.toFixed(2)}% p.a.
                       </dd>
                     </div>
                     <div className="pt-2 sm:pt-0 sm:px-4">
-                      <dt className="text-[11px] font-semibold uppercase tracking-wider text-gold-700">Maximum amount</dt>
+                      <dt className="text-xs font-semibold uppercase tracking-wider text-gold-700">Maximum amount</dt>
                       <dd className="mt-0.5 text-base font-semibold text-midnight-950 font-mono tnum">
                         Up to {formatINRWhole(product.maxAmount)}
                       </dd>
                     </div>
                     <div className="pt-2 sm:pt-0 sm:px-4">
-                      <dt className="text-[11px] font-semibold uppercase tracking-wider text-gold-700">Tenure</dt>
+                      <dt className="text-xs font-semibold uppercase tracking-wider text-gold-700">Tenure</dt>
                       <dd className="mt-0.5 text-base font-semibold text-midnight-950 font-mono tnum">
                         {tenureLabel(product.tenureMinMonths, product.tenureMaxMonths)}
                       </dd>
                     </div>
                     <div className="pt-2 sm:pt-0 sm:pl-4">
-                      <dt className="text-[11px] font-semibold uppercase tracking-wider text-gold-700">EMI from (per lakh)</dt>
+                      <dt className="text-xs font-semibold uppercase tracking-wider text-gold-700">EMI from (per lakh)</dt>
                       <dd className="mt-0.5 text-base font-semibold text-midnight-950 font-mono tnum">
                         {formatINRWhole(emiFromValue)} / month
                       </dd>
-                      <p className="text-[11px] text-ink-500 leading-tight">at the starting rate, longest tenure</p>
+                      <p className="text-xs text-ink-500 leading-tight">at the starting rate, longest tenure</p>
                     </div>
                   </dl>
                 </div>
@@ -2559,7 +2559,7 @@ export default function ProductDetailPage({ category, categoryHint }) {
                   aria-controls={`loan-panel-${tab.id}`}
                   onClick={() => handleTabChange(tab.id)}
                   onKeyDown={(e) => handleLoanTabKeyDown(e, idx)}
-                  className={`px-4 py-2 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap focus:outline-hidden focus:ring-2 focus:ring-gold-500 ${
+                  className={`min-h-[44px] inline-flex items-center px-4 py-2 text-sm font-semibold rounded-lg transition-colors whitespace-nowrap focus:outline-hidden focus:ring-2 focus:ring-gold-500 ${
                     selected
                       ? 'bg-midnight-900 text-porcelain-50 shadow-xs'
                       : 'text-ink-600 hover:text-midnight-950 hover:bg-porcelain-200'
@@ -2690,7 +2690,7 @@ export default function ProductDetailPage({ category, categoryHint }) {
 
           {/* Fix 4: Sticky Right Rail (Who can apply + Apply + Documents + How to apply) */}
           <div className="min-w-0">
-            <div className="sticky top-24 space-y-5">
+            <div className="static lg:sticky lg:top-24 space-y-5">
               {/* Who can apply */}
               <Card className="p-5 shadow-xs border-ink-200">
                 <h2 className="font-display text-base font-semibold text-midnight-950 mb-3">Who can apply</h2>
@@ -2727,7 +2727,7 @@ export default function ProductDetailPage({ category, categoryHint }) {
                 <ol className="space-y-3">
                   {steps.map((step, i) => (
                     <li key={step} className="flex gap-2.5">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-midnight-900 text-[11px] font-bold text-porcelain-50" aria-hidden>
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-midnight-900 text-xs font-bold text-porcelain-50" aria-hidden>
                         {i + 1}
                       </span>
                       <span className="text-xs leading-relaxed text-ink-700">{step}</span>
@@ -2802,7 +2802,7 @@ export default function ProductDetailPage({ category, categoryHint }) {
             <dl className="mt-4 grid grid-cols-2 sm:grid-cols-4 gap-3 border-t border-porcelain-50/15 pt-3.5">
               {stats.map((s) => (
                 <div key={s.label}>
-                  <dt className="text-[11px] font-semibold uppercase tracking-wider text-porcelain-300">{s.label}</dt>
+                  <dt className="text-xs font-semibold uppercase tracking-wider text-porcelain-300">{s.label}</dt>
                   <dd className="mt-0.5 text-sm sm:text-base font-semibold text-porcelain-50 font-mono">{s.value}</dd>
                 </div>
               ))}
@@ -2830,7 +2830,7 @@ export default function ProductDetailPage({ category, categoryHint }) {
 
           {/* Fix 5: Sticky right rail on desktop, stacked after calculator on mobile */}
           <div className="min-w-0 lg:col-span-1 order-2 lg:order-none lg:row-span-2">
-            <div className="sticky top-24 space-y-5">
+            <div className="static lg:sticky lg:top-24 space-y-5">
               {/* Who can apply */}
               <Card className="p-5 shadow-xs border-ink-200">
                 <h2 className="font-display text-base font-semibold text-midnight-950 mb-3">Who can apply</h2>
@@ -2867,7 +2867,7 @@ export default function ProductDetailPage({ category, categoryHint }) {
                 <ol className="space-y-3">
                   {steps.map((step, i) => (
                     <li key={step} className="flex gap-2.5">
-                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-midnight-900 text-[11px] font-bold text-porcelain-50" aria-hidden>
+                      <span className="flex h-5 w-5 shrink-0 items-center justify-center rounded-full bg-midnight-900 text-xs font-bold text-porcelain-50" aria-hidden>
                         {i + 1}
                       </span>
                       <span className="text-xs leading-relaxed text-ink-700">{step}</span>

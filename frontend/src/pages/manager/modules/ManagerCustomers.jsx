@@ -129,14 +129,14 @@ export const ManagerCustomers = ({
                   </td>
                   <td className="px-5 py-4">
                     <div className="font-semibold text-slate-900">{c.fullName}</div>
-                    <div className="text-[11px] text-slate-400">{c.occupation || 'Salaried'}</div>
+                    <div className="text-xs text-slate-400">{c.occupation || 'Salaried'}</div>
                   </td>
                   <td className="px-5 py-4 text-slate-600">
                     <div>{c.email}</div>
-                    <div className="text-[11px] font-mono text-slate-500 mt-0.5">{c.mobileNumber}</div>
+                    <div className="text-xs font-mono text-slate-500 mt-0.5">{c.mobileNumber}</div>
                   </td>
                   <td className="px-5 py-4">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
                       c.kycStatus === 'APPROVED' 
                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
                         : 'bg-amber-50 text-amber-700 border border-amber-200'
@@ -145,7 +145,7 @@ export const ManagerCustomers = ({
                     </span>
                   </td>
                   <td className="px-5 py-4">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-slate-100 text-slate-700">
+                    <span className="px-2 py-0.5 rounded text-xs font-semibold bg-slate-100 text-slate-700">
                       {c.riskCategory || 'LOW'}
                     </span>
                   </td>
@@ -177,7 +177,7 @@ export const ManagerCustomers = ({
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <div>
-                <span className="text-[11px] font-semibold text-slate-400 uppercase font-mono">
+                <span className="text-xs font-semibold text-slate-400 uppercase font-mono">
                   {selectedCustomer.customerId}
                 </span>
                 <h3 className="text-base font-bold text-slate-900">{selectedCustomer.fullName}</h3>
@@ -205,7 +205,7 @@ export const ManagerCustomers = ({
                   <button
                     type="button"
                     onClick={() => setRevealedPanCustId(revealedPanCustId === selectedCustomer.customerId ? null : selectedCustomer.customerId)}
-                    className="text-midnight-900 hover:underline text-[11px] font-semibold"
+                    className="text-midnight-900 hover:underline text-xs font-semibold"
                   >
                     {revealedPanCustId === selectedCustomer.customerId ? 'Mask' : 'Reveal (Audit)'}
                   </button>

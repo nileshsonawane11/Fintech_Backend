@@ -1858,7 +1858,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                   <CreditCard className="h-4 w-4 text-gold-600" />
                   <span>{cardRequestedNote}</span>
                 </div>
-                <span className="text-[11px] font-normal text-ink-600">Preselected with this account</span>
+                <span className="text-xs font-normal text-ink-600">Preselected with this account</span>
               </div>
             )}
 
@@ -2427,7 +2427,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                                 <strong className="text-sm font-bold text-midnight-950">₹{formatINRWhole(computedBullet.totalPayment)}</strong>{' '}
                                 (Principal ₹{formatINRWhole(numLoanAmount)} + Simple Interest ₹{formatINRWhole(computedBullet.totalInterest)} at {loanRate}% p.a.)
                               </span>
-                              <span className="text-[11px] text-ink-500 italic">
+                              <span className="text-xs text-ink-500 italic">
                                 Bullet repayment: entire principal and accrued interest paid at end of {numLoanTenure} months.
                               </span>
                             </div>
@@ -2438,7 +2438,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                                 <strong className="text-sm font-bold text-midnight-950">₹{formatINRWhole(computedEmi)}/month</strong>{' '}
                                 at {loanRate}% p.a. (reducing balance)
                               </span>
-                              <span className="text-[11px] text-ink-500 italic">
+                              <span className="text-xs text-ink-500 italic">
                                 Labelled indicative — final rate confirmed upon physical branch assay.
                               </span>
                             </div>
@@ -2457,7 +2457,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                             <strong className="text-sm font-bold text-midnight-950">₹{formatINRWhole(computedEmi)}/month</strong>{' '}
                             at {loanRate}% p.a. (starting rate)
                           </span>
-                          <span className="text-[11px] text-ink-500 italic">
+                          <span className="text-xs text-ink-500 italic">
                             Labelled indicative — final rate confirmed after assessment.
                           </span>
                         </div>
@@ -2833,7 +2833,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                         <h4 className="text-xs font-bold text-midnight-950 uppercase tracking-wide">
                           Co-applicant / Financial Guarantor (Mandatory)
                         </h4>
-                        <span className="text-[11px] text-ink-500">Parent / Legal Guardian</span>
+                        <span className="text-xs text-ink-500">Parent / Legal Guardian</span>
                       </div>
                       <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
                         <div>
@@ -2883,7 +2883,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                           {errors.eduCoApplicantIncome && <p className="text-xs text-danger-600 mt-1">{errors.eduCoApplicantIncome}</p>}
                         </div>
                       </div>
-                      <p className="text-[11px] text-ink-600 leading-relaxed pt-1">
+                      <p className="text-xs text-ink-600 leading-relaxed pt-1">
                         Education loans are assessed primarily on the co-applicant’s income profile. Full EMIs begin after the moratorium period (course duration + 12 months).
                       </p>
                     </div>
@@ -2897,7 +2897,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                           <h4 className="text-xs font-bold text-midnight-950 uppercase tracking-wide">
                             Collateral Details (Required for loans exceeding ₹7.5 Lakh)
                           </h4>
-                          <span className="text-[11px] font-medium text-amber-800">Tangible Security Required</span>
+                          <span className="text-xs font-medium text-amber-800">Tangible Security Required</span>
                         </div>
                         <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                           <div>
@@ -2932,7 +2932,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                             {errors.eduCollateralValue && <p className="text-xs text-danger-600 mt-1">{errors.eduCollateralValue}</p>}
                           </div>
                         </div>
-                        <p className="text-[11px] text-ink-600 leading-relaxed">
+                        <p className="text-xs text-ink-600 leading-relaxed">
                           Under FinEdge lending policy and IBA model guidelines, education loans up to ₹7.5 Lakh require zero collateral (only co-obligation of parent/guardian). Loans above ₹7.5 Lakh require tangible collateral security covering 100% of the loan amount.
                         </p>
                       </div>

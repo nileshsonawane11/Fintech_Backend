@@ -216,7 +216,7 @@ export default function AccountsPage() {
   ];
 
   const compareColumns = [
-    { key: 'label', label: 'Feature / Tariff' },
+    { key: 'label', label: 'Feature / Tariff', className: 'sticky left-0 bg-white sm:bg-white z-10 shadow-[1px_0_0_0_#e2e8f0]' },
     ...selected.map((a) => ({
       key: a.slug,
       label: shortProductName(a.name),

@@ -340,7 +340,7 @@ export default function ManagerAccountsPage() {
               </div>
               <div className="flex items-center gap-3">
                 <StatusChip status={detail.status} />
-                <button onClick={() => setDetailId(null)} className="rounded-lg p-1.5 text-ink-500 hover:bg-ink-50 hover:text-ink-800" aria-label="Close review">
+                <button onClick={() => setDetailId(null)} className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg p-2.5 text-ink-500 hover:bg-ink-50 hover:text-ink-800 transition-colors" aria-label="Close review">
                   <X className="h-5 w-5" aria-hidden />
                 </button>
               </div>

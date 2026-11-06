@@ -166,7 +166,7 @@ export default function TransfersPage() {
       <FormError message={loadError} />
 
       <div className="mb-6 px-1">
-        <Stepper steps={[
+        <Stepper horizontalOnMobile steps={[
           { label: 'Fill details', state: stepState('fill') },
           { label: 'Review', state: stepState('review') },
           { label: 'Receipt', state: stepState('receipt') },

@@ -8,15 +8,16 @@
     "build": "vite build",
     "lint": "oxlint",
     "preview": "vite preview",
-    "test": "node tests/audit-verification.test.mjs && node tests/verify_module36.mjs && node tests/verify_module37.mjs && node tests/verify_module39.mjs && node tests/verify_module40.mjs && node tests/verify_module43.mjs && node tests/verify_module45.mjs && node tests/verify_module44.mjs && node tests/verify_module46.mjs",
-    "test:acceptance": "node tests/verify_module36.mjs && node tests/verify_module37.mjs && node tests/verify_module39.mjs && node tests/verify_module40.mjs && node tests/verify_module43.mjs && node tests/verify_module45.mjs && node tests/verify_module44.mjs && node tests/verify_module46.mjs",
+    "test": "node tests/audit-verification.test.mjs && node tests/verify_module36.mjs && node tests/verify_module37.mjs && node tests/verify_module39.mjs && node tests/verify_module40.mjs && node tests/verify_module43.mjs && node tests/verify_module45.mjs && node tests/verify_module44.mjs && node tests/verify_module46.mjs && node tests/verify_module47.mjs",
+    "test:acceptance": "node tests/verify_module36.mjs && node tests/verify_module37.mjs && node tests/verify_module39.mjs && node tests/verify_module40.mjs && node tests/verify_module43.mjs && node tests/verify_module45.mjs && node tests/verify_module44.mjs && node tests/verify_module46.mjs && node tests/verify_module47.mjs",
     "test:m37": "node tests/verify_module37.mjs",
     "test:m39": "node tests/verify_module39.mjs",
     "test:m40": "node tests/verify_module40.mjs",
     "test:m43": "node tests/verify_module43.mjs",
     "test:m45": "node tests/verify_module45.mjs",
     "test:m44": "node tests/verify_module44.mjs",
-    "test:m46": "node tests/verify_module46.mjs"
+    "test:m46": "node tests/verify_module46.mjs",
+    "test:m47": "node tests/verify_module47.mjs"
   },
   "dependencies": {
     "@fontsource-variable/fraunces": "^5.3.0",

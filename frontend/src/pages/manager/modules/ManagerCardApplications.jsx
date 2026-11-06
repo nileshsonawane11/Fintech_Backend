@@ -95,22 +95,22 @@ export const ManagerCardApplications = ({
                   </td>
                   <td className="px-5 py-4">
                     <div className="font-semibold text-slate-900">{c.customerName}</div>
-                    <div className="text-[11px] text-slate-500 font-mono">CIF: {c.customerId}</div>
+                    <div className="text-xs text-slate-500 font-mono">CIF: {c.customerId}</div>
                   </td>
                   <td className="px-5 py-4">
                     <span className="font-semibold text-slate-800">{c.cardName}</span>
-                    <div className="text-[11px] text-slate-400 uppercase">{c.cardType}</div>
+                    <div className="text-xs text-slate-400 uppercase">{c.cardType}</div>
                   </td>
                   <td className="px-5 py-4 font-mono text-slate-600">
                     {c.linkedAccountId}
                   </td>
                   <td className="px-5 py-4">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
+                    <span className="px-2 py-0.5 rounded text-xs font-semibold bg-emerald-50 text-emerald-800 border border-emerald-200">
                       782 (CIBIL Prime)
                     </span>
                   </td>
                   <td className="px-5 py-4">
-                    <span className={`px-2 py-0.5 rounded text-[10px] font-semibold ${
+                    <span className={`px-2 py-0.5 rounded text-xs font-semibold ${
                       c.status === 'APPROVED' 
                         ? 'bg-emerald-50 text-emerald-700 border border-emerald-200' 
                         : c.status === 'REJECTED' 
@@ -157,7 +157,7 @@ export const ManagerCardApplications = ({
           <div className="bg-white rounded-2xl max-w-lg w-full p-6 shadow-2xl border border-slate-200">
             <div className="flex items-center justify-between pb-3 border-b border-slate-200">
               <div>
-                <span className="text-[11px] font-semibold text-slate-400 uppercase font-mono">
+                <span className="text-xs font-semibold text-slate-400 uppercase font-mono">
                   {selectedCardApp.cardApplicationId}
                 </span>
                 <h3 className="text-base font-bold text-slate-900">Credit Card Sanction Review</h3>
