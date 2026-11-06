@@ -337,8 +337,8 @@ export default function ManagerKycPage() {
       {drawerCase && (
         <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label={`KYC case ${drawerCase.id}`}>
           <div className="absolute inset-0 bg-midnight-950/60" onClick={closeDrawer} aria-hidden />
-          <aside className="absolute right-0 top-0 flex h-full w-full max-w-[540px] flex-col bg-white shadow-modal">
-            <div className="flex items-start justify-between gap-3 border-b border-ink-100 px-5 py-4">
+          <aside className="absolute right-0 top-0 flex h-[100dvh] max-h-[100dvh] w-full max-w-[540px] flex-col bg-white shadow-modal overflow-hidden">
+            <div className="sticky top-0 z-10 shrink-0 flex items-start justify-between gap-3 border-b border-ink-100 bg-white px-5 py-4">
               <div>
                 <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-700">KYC case</p>
                 <h2 className="mt-0.5 flex flex-wrap items-center gap-2 text-lg font-semibold text-midnight-950">
@@ -358,7 +358,7 @@ export default function ManagerKycPage() {
               </button>
             </div>
 
-            <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5">
+            <div className="flex-1 space-y-6 overflow-y-auto px-5 py-5 [scrollbar-width:thin]">
               {drawerError && <FormError message={drawerError} />}
               {drawerLoading && <p className="text-sm text-ink-500" role="status">Loading full case…</p>}
 
@@ -435,7 +435,7 @@ export default function ManagerKycPage() {
             </div>
 
             {canDecide ? (
-              <div className="space-y-3 border-t border-ink-100 bg-white px-5 py-4">
+              <div className="sticky bottom-0 z-10 shrink-0 space-y-3 border-t border-ink-100 bg-porcelain-50 px-5 py-4">
                 <Field label="Reason code" hint="Required for Reject and Request Info." error={decisionError || undefined}>
                   <Select value={reasonCode} onChange={(e) => { setReasonCode(e.target.value); setDecisionError(''); }} error={decisionError || undefined}>
                     <option value="">Select a reason code</option>
@@ -460,7 +460,7 @@ export default function ManagerKycPage() {
                 {isAuditor && <p className="text-xs text-ink-500 text-center">Auditor clearance is read-only — decision controls are disabled.</p>}
               </div>
             ) : (
-              <div className="border-t border-ink-100 bg-porcelain-50 px-5 py-4">
+              <div className="sticky bottom-0 z-10 shrink-0 border-t border-ink-100 bg-porcelain-50 px-5 py-4">
                 <p className="text-sm text-ink-600">
                   This case has already been decided ({statusLabel(drawerCase.status)}). Its history above is the record of that decision.
                 </p>

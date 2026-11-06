@@ -168,8 +168,8 @@ export default function ManagerCustomersPage() {
       {selectedId && (
         <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Customer detail">
           <div className="absolute inset-0 bg-midnight-950/60" onClick={() => setSelectedId(null)} aria-hidden />
-          <aside className="absolute right-0 top-0 flex h-full w-full max-w-lg flex-col bg-white shadow-modal">
-            <div className="flex items-center justify-between border-b border-ink-100 px-5 py-4">
+          <aside className="absolute right-0 top-0 flex h-[100dvh] max-h-[100dvh] w-full max-w-lg flex-col bg-white shadow-modal overflow-hidden">
+            <div className="sticky top-0 z-10 shrink-0 flex items-center justify-between border-b border-ink-100 bg-white px-5 py-4">
               <div>
                 <h3 className="text-base font-semibold text-midnight-950">{detail?.customer?.fullName || 'Customer'}</h3>
                 <p className="text-xs text-ink-500">{detail?.customer?.id || selectedId}</p>
@@ -178,7 +178,7 @@ export default function ManagerCustomersPage() {
                 <X className="h-5 w-5" aria-hidden />
               </button>
             </div>
-            <div className="flex-1 overflow-y-auto px-5 py-4">
+            <div className="flex-1 overflow-y-auto px-5 py-4 [scrollbar-width:thin]">
               {detailLoading || !detail ? <PageLoading /> : (
                 <div className="space-y-5">
                   <section>
@@ -282,6 +282,9 @@ export default function ManagerCustomersPage() {
                   {isAuditor && <p className="text-xs text-ink-500">Auditor view is read-only.</p>}
                 </div>
               )}
+            </div>
+            <div className="sticky bottom-0 z-10 shrink-0 border-t border-ink-100 bg-porcelain-50 px-5 py-3 flex justify-end">
+              <Button variant="secondary" onClick={() => setSelected(null)}>Close</Button>
             </div>
           </aside>
         </div>

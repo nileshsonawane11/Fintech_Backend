@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   ScrollText, Landmark, TrendingUp, Sprout, ShieldCheck,
   AlertTriangle, Check, Info, Calendar, Percent, Shield
@@ -7,6 +7,7 @@ import { calculateFD, calculateRD, calculateSIP, calculateSSY } from '../../lib/
 import { FD, RD, SIP, SSY, RATE_DISCLAIMER } from '../../data/products.js';
 import { formatINR, formatINRWhole } from '../../lib/format.js';
 import { Badge } from '../ui.jsx';
+import { getMyProfile } from '../../services/portalBridge.js';
 
 function calculateAge(dobString) {
   if (!dobString) return 0;
@@ -21,7 +22,7 @@ function calculateAge(dobString) {
 }
 
 function maskPan(pan) {
-  if (!pan || pan.length < 10) return 'ABCDE••••F';
+  if (!pan || typeof pan !== 'string' || pan.length < 10) return 'PAN on file';
   return `${pan.slice(0, 5)}••••${pan.slice(-1)}`;
 }
 
@@ -38,6 +39,16 @@ export const InvestmentFormFields = ({
   isSIP,
   isSSY,
 }) => {
+  const [customerRecord, setCustomerRecord] = useState(null);
+
+  useEffect(() => {
+    if (isExpressMode || user) {
+      getMyProfile().then(res => {
+        if (res?.customer) setCustomerRecord(res.customer);
+      }).catch(() => {});
+    }
+  }, [isExpressMode, user]);
+
   const applicantAge = formData.dob ? calculateAge(formData.dob) : null;
   const isSenior = isFD && applicantAge !== null && applicantAge >= 60;
 
@@ -141,11 +152,11 @@ export const InvestmentFormFields = ({
           <div className="mt-3 grid grid-cols-1 sm:grid-cols-2 gap-3 text-xs">
             <div>
               <span className="text-ink-500">Applicant Name</span>
-              <p className="font-semibold text-midnight-950 mt-0.5">{user?.fullName || user?.name || 'Customer'}</p>
+              <p className="font-semibold text-midnight-950 mt-0.5">{customerRecord?.fullName || user?.fullName || user?.name || 'Customer'}</p>
             </div>
             <div>
               <span className="text-ink-500">Permanent Account Number (PAN)</span>
-              <p className="font-mono font-semibold text-midnight-950 mt-0.5">{maskPan(user?.pan || 'ABCDE1234F')}</p>
+              <p className="font-mono font-semibold text-midnight-950 mt-0.5">{maskPan(customerRecord?.pan || user?.pan)}</p>
             </div>
           </div>
           <p className="mt-3 text-[11px] leading-relaxed text-ink-500 border-t border-midnight-100 pt-2">

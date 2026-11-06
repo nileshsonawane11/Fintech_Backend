@@ -385,12 +385,17 @@ export async function transfer({ customerId, fromAccountId, destinationType, des
 }
 
 export async function getMyProfile(customerId) {
+  const effCustId = getEffectiveCustomerId(customerId);
   const db = getDb();
-  let cust = (db.customers || []).find(c => c.customerId === customerId);
+  let cust = (db.customers || []).find(c => c.customerId === effCustId);
   if (!cust && customerId) {
+    cust = (db.customers || []).find(c => c.customerId === customerId);
+  }
+  if (!cust && !customerId) {
     cust = (db.customers || [])[0];
   }
-  const kyc = (db.kycApplications || []).find(k => k.customerId === customerId) || {
+  const targetCustId = cust?.customerId || effCustId || customerId || 'CUS-100234';
+  const kyc = (db.kycApplications || []).find(k => k.customerId === targetCustId) || {
     id: 'KYC-500987',
     kycCaseId: 'KYC-500987',
     status: 'APPROVED',
@@ -401,24 +406,25 @@ export async function getMyProfile(customerId) {
   };
 
   const customer = {
-    customerId: cust?.customerId || customerId || 'CUS-100234',
+    customerId: cust?.customerId || targetCustId,
     fullName: cust?.fullName || cust?.name || 'Vikramaditya Sharma',
     email: cust?.email || 'vikram.sharma@finedge.customer',
-    mobile: cust?.mobileNumber || cust?.mobile || cust?.phone || '9820198402',
-    dob: cust?.dateOfBirth || cust?.dob || '1988-05-14',
-    pan: cust?.pan || cust?.panNumber || 'ABCDE1234F',
+    mobile: cust?.mobileNumber || cust?.mobile || cust?.phone || '9820110023',
+    dob: cust?.dateOfBirth || cust?.dob || '1995-08-14',
+    gender: cust?.gender || 'MALE',
+    pan: cust?.pan || cust?.panNumber || '',
     occupation: cust?.occupation || 'SALARIED',
     annualIncome: cust?.annualIncome || 1200000,
     address: cust?.address ? {
-      line1: cust.address.addressLine1 || cust.address.line1 || 'Flat 402, Sea Crest Towers',
+      line1: cust.address.addressLine1 || cust.address.line1 || '402, FinEdge Horizon Towers',
       city: cust.address.city || 'Mumbai',
       state: cust.address.state || 'Maharashtra',
-      pin: cust.address.postalCode || cust.address.pin || '400050'
+      pin: cust.address.postalCode || cust.address.pin || '400051'
     } : {
-      line1: 'Flat 402, Sea Crest Towers',
+      line1: '402, FinEdge Horizon Towers',
       city: 'Mumbai',
       state: 'Maharashtra',
-      pin: '400050'
+      pin: '400051'
     },
     kycStatus: kyc?.status || cust?.kycStatus || 'APPROVED'
   };

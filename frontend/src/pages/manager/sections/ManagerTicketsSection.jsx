@@ -143,8 +143,8 @@ export default function ManagerTicketsPage() {
       {selected && (
         <div className="fixed inset-0 z-50" role="dialog" aria-modal="true" aria-label="Ticket thread">
           <div className="absolute inset-0 bg-midnight-950/60" onClick={() => setSelectedId(null)} aria-hidden />
-          <aside className="absolute right-0 top-0 flex h-full w-full max-w-lg flex-col bg-white shadow-modal">
-            <div className="flex items-start justify-between gap-3 border-b border-ink-100 px-5 py-4">
+          <aside className="absolute right-0 top-0 flex h-[100dvh] max-h-[100dvh] w-full max-w-lg flex-col bg-white shadow-modal overflow-hidden">
+            <div className="sticky top-0 z-10 shrink-0 flex items-start justify-between gap-3 border-b border-ink-100 bg-white px-5 py-4">
               <div className="min-w-0">
                 <h3 className="truncate text-base font-semibold text-midnight-950">{selected.subject || '—'}</h3>
                 <p className="mt-0.5 text-xs text-ink-500">
@@ -157,7 +157,7 @@ export default function ManagerTicketsPage() {
               </button>
             </div>
 
-            <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
+            <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4 [scrollbar-width:thin]">
               {selected.description && !selected.messages?.some(m => (m.text === selected.description || m.body === selected.description || m.message === selected.description)) && (
                 <div className="rounded-xl bg-porcelain-100 px-3.5 py-3">
                   <p className="text-xs font-semibold text-ink-500">{selected.customer?.fullName || 'Customer'} · {formatDateTime(selected.createdAt)}</p>
@@ -180,7 +180,7 @@ export default function ManagerTicketsPage() {
               )}
             </div>
 
-            <div className="space-y-3 border-t border-ink-100 px-5 py-4">
+            <div className="sticky bottom-0 z-10 shrink-0 space-y-3 border-t border-ink-100 bg-porcelain-50 px-5 py-4">
               <div className="flex flex-wrap gap-2">
                 {selected.status === 'OPEN' && (
                   <Button size="sm" variant="secondary" loading={statusBusy} disabled={isAuditor} title={isAuditor ? 'Auditors have read-only access and cannot change ticket status' : undefined} onClick={() => handleStatus('IN_PROGRESS', 'Ticket in progress')}>

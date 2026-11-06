@@ -3,6 +3,7 @@ import Reveal from './Reveal.jsx';
 // No page should hand-roll a button, input, modal, toast or empty state.
 
 import React, { createContext, useCallback, useContext, useEffect, useRef, useState } from 'react';
+import { createPortal } from 'react-dom';
 import { AlertTriangle, CheckCircle2, Info, Loader2, X, XCircle } from 'lucide-react';
 import { statusLabel } from '../lib/format.js';
 
@@ -63,10 +64,10 @@ export function Field({ label, error, hint, children, required }) {
         {required && <span className="text-danger-600"> *</span>}
       </span>
       {children}
-      {hint && !error && <span className="mt-1 block text-xs text-ink-500">{hint}</span>}
+      {hint && !error && <span className="mt-1 block text-xs text-ink-500 min-h-[18px]">{hint}</span>}
       {error && (
-        <span className="mt-1 flex items-center gap-1 text-xs font-medium text-danger-600" role="alert">
-          <AlertTriangle className="h-3.5 w-3.5" aria-hidden /> {error}
+        <span className="mt-1 flex items-center gap-1 text-xs font-medium text-danger-600 min-h-[18px]" role="alert">
+          <AlertTriangle className="h-3.5 w-3.5 shrink-0" aria-hidden /> {error}
         </span>
       )}
     </label>
@@ -313,10 +314,13 @@ export function Stepper({ steps }) {
 
 /* ---------------- Modal ---------------- */
 
-export function Modal({ open, onClose, title, children, footer, wide = false }) {
+export function Modal({ open, onClose, title, children, footer, wide = false, maxW }) {
   const ref = useRef(null);
+  const openerRef = useRef(null);
+
   useEffect(() => {
     if (!open) return undefined;
+    openerRef.current = document.activeElement;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
@@ -327,25 +331,39 @@ export function Modal({ open, onClose, title, children, footer, wide = false }) 
     return () => {
       document.body.style.overflow = prevOverflow;
       document.removeEventListener('keydown', onKey);
+      if (openerRef.current && typeof openerRef.current.focus === 'function') {
+        openerRef.current.focus();
+      }
     };
   }, [open, onClose]);
 
   if (!open) return null;
-  return (
+  const modalContent = (
     <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label={title}>
       <div className="animate-fade-in absolute inset-0 bg-midnight-950/60" onClick={onClose} aria-hidden />
-      <div ref={ref} className={`animate-scale-in relative flex max-h-[90vh] w-full flex-col rounded-t-2xl bg-white shadow-modal sm:rounded-2xl ${wide ? 'max-w-[720px]' : 'max-w-md'}`}>
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-line bg-white px-6 py-4 rounded-t-2xl">
-          <h3 className="text-base font-semibold text-midnight-950">{title}</h3>
-          <button onClick={onClose} className="rounded-lg p-1.5 text-ink-500 hover:bg-ink-50 hover:text-ink-800 transition-colors" aria-label="Close">
+      <div
+        ref={ref}
+        className={`animate-scale-in relative flex max-h-[94dvh] sm:max-h-[calc(100dvh-3rem)] w-full flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-modal overflow-hidden ${
+          wide ? 'max-w-[720px]' : (maxW || 'max-w-md')
+        }`}
+      >
+        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between border-b border-ink-100 bg-white px-6 py-4 rounded-t-2xl">
+          <h3 className="text-base font-semibold text-midnight-950 min-w-0 flex-1 pr-3 truncate">{title}</h3>
+          <button onClick={onClose} className="rounded-lg p-1.5 text-ink-500 hover:bg-ink-50 hover:text-ink-800 transition-colors shrink-0" aria-label="Close">
             <X className="h-5 w-5" aria-hidden />
           </button>
         </div>
-        <div className="overflow-y-auto px-6 py-5">{children}</div>
-        {footer && <div className="sticky bottom-0 z-10 flex flex-wrap justify-end gap-3 border-t border-line bg-white px-6 py-4 rounded-b-2xl">{footer}</div>}
+        <div className="flex-1 overflow-y-auto px-6 py-5 [scrollbar-width:thin]">{children}</div>
+        {footer && (
+          <div className="sticky bottom-0 z-10 shrink-0 flex flex-wrap justify-end gap-3 border-t border-ink-100 bg-porcelain-50 px-6 py-4 rounded-b-2xl">
+            {footer}
+          </div>
+        )}
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalContent, document.body) : modalContent;
 }
 
 /* ---------------- Toast ---------------- */

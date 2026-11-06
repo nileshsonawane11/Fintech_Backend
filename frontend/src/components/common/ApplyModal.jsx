@@ -1,5 +1,6 @@
 import { ConfirmationCheckmark } from './ConfirmationCheckmark.jsx';
 import React, { useState, useEffect, useRef } from 'react';
+import { createPortal } from 'react-dom';
 import { useAuth } from '../../context/AuthContext';
 import { Button, Badge } from '../ui.jsx';
 import { CheckCircle2, X, AlertCircle, Info, CreditCard, Landmark, Check, TrendingUp, Sprout, ScrollText, ArrowRight, ShieldCheck, AlertTriangle } from 'lucide-react';
@@ -7,6 +8,7 @@ import { shortProductName, formatINRWhole, formatINR } from '../../lib/format.js
 import { calculateEMI, calculateBulletRepayment, calculateFD, calculateRD, calculateSIP, calculateSSY } from '../../lib/finance.js';
 import { getProductBySlug, getProductsByCategory, FD, RD, SIP, SSY } from '../../data/products.js';
 import { InvestmentFormFields } from './InvestmentFormFields.jsx';
+import { getMyProfile } from '../../services/portalBridge.js';
 
 const INDIAN_STATES = [
   'Andhra Pradesh', 'Arunachal Pradesh', 'Assam', 'Bihar', 'Chhattisgarh',
@@ -92,6 +94,8 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
   const { submitApplication, user, accounts = [] } = useAuth();
   const modalRef = useRef(null);
   const firstInputRef = useRef(null);
+  const openerRef = useRef(null);
+  const [customerRecord, setCustomerRecord] = useState(null);
 
   // Active product can be switched (e.g. debit card path b transitions to account product)
   const [activeProduct, setActiveProduct] = useState(initialProduct);
@@ -139,41 +143,44 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
   const isLapLoan = isLoan && slug === 'loan-against-property';
   const isEducationLoan = isLoan && slug === 'education-loan';
 
-  // Fix 0: Clean initial state — empty for logged out; only name/email/mobile for logged in
-  const getInitialFormData = () => ({
-    // Personal details (Module 06 Fix 1: clean open)
-    fullName: user?.fullName || user?.name || '',
-    dob: '',
-    gender: '',
-    mobile: user?.mobileNumber || user?.phone || '',
-    email: user?.email || '',
+  // Fix 0 & Fix 3.2: Clean initial state — empty for logged out; complete prefill from customer record for logged in
+  const getInitialFormData = () => {
+    const isLogged = Boolean(user || (typeof localStorage !== 'undefined' && (localStorage.getItem('finedge_session_id') || localStorage.getItem('finedge_session_customer_id'))));
+    const rec = customerRecord;
+    return {
+      // Personal details (Module 06 Fix 1: clean open; Module 45 complete session prefill)
+      fullName: isLogged ? (rec?.fullName || user?.fullName || user?.name || '') : '',
+      dob: isLogged ? (rec?.dob || user?.dob || user?.dateOfBirth || '') : '',
+      gender: isLogged ? (rec?.gender || user?.gender || '') : '',
+      mobile: isLogged ? (rec?.mobile || user?.mobileNumber || user?.phone || '') : '',
+      email: isLogged ? (rec?.email || user?.email || '') : '',
 
-    // Student & Minor specifics (Accounts)
-    guardianRelationship: '',
-    childName: '',
-    childDob: '',
-    college: '',
-    courseYear: '',
-    studentGuardianName: '',
-    studentGuardianDob: '',
-    studentGuardianMobile: '',
-    studentGuardianRelationship: '',
+      // Student & Minor specifics (Accounts)
+      guardianRelationship: '',
+      childName: '',
+      childDob: '',
+      college: '',
+      courseYear: '',
+      studentGuardianName: '',
+      studentGuardianDob: '',
+      studentGuardianMobile: '',
+      studentGuardianRelationship: '',
 
-    // Business details (Trade Current Account)
-    businessName: '',
-    constitution: '',
-    businessPan: '',
-    annualTurnover: '',
-    gstin: '',
-    requestOverdraft: false,
+      // Business details (Trade Current Account)
+      businessName: '',
+      constitution: '',
+      businessPan: '',
+      annualTurnover: '',
+      gstin: '',
+      requestOverdraft: false,
 
-    // Address & KYC
-    addressLine: '',
-    city: '',
-    state: '',
-    pincode: '',
-    panNumber: '',
-    aadhaarNumber: '',
+      // Address & KYC
+      addressLine: isLogged ? (rec?.address?.line1 || user?.address?.addressLine1 || user?.address?.line1 || '') : '',
+      city: isLogged ? (rec?.address?.city || user?.address?.city || '') : '',
+      state: isLogged ? (rec?.address?.state || user?.address?.state || '') : '',
+      pincode: isLogged ? (rec?.address?.pin || user?.address?.postalCode || user?.address?.pin || '') : '',
+      panNumber: isLogged ? (rec?.pan || user?.pan || '') : '',
+      aadhaarNumber: '',
 
     // Employment & Income (Credit Cards / Accounts / Loans)
     employmentType: isAgriLoan ? 'Agriculturist' : '',
@@ -332,7 +339,8 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
     consentMitc: false,
     consentNach: false,
     optInMarketing: false,
-  });
+  };
+};
 
   const [formData, setFormData] = useState(getInitialFormData);
   const [errors, setErrors] = useState({});
@@ -342,6 +350,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
   // Focus management and Esc key handling
   useEffect(() => {
     if (!isModalOpen) return undefined;
+    openerRef.current = document.activeElement;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
 
@@ -353,14 +362,51 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
     document.addEventListener('keydown', onKey);
 
     setTimeout(() => {
-      if (firstInputRef.current) firstInputRef.current.focus();
+      if (firstInputRef.current) {
+        firstInputRef.current.focus();
+      } else {
+        const el = modalRef.current;
+        const focusables = el?.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
+        if (focusables?.length) focusables[0].focus();
+      }
     }, 50);
 
     return () => {
       document.body.style.overflow = prevOverflow;
       document.removeEventListener('keydown', onKey);
+      if (openerRef.current && typeof openerRef.current.focus === 'function') {
+        openerRef.current.focus();
+      }
     };
   }, [isModalOpen]);
+
+  // Complete session prefill from customer record (Module 45 Fix 3.2)
+  useEffect(() => {
+    if (!isModalOpen) return;
+    const hasSession = Boolean(user || (typeof localStorage !== 'undefined' && (localStorage.getItem('finedge_session_id') || localStorage.getItem('finedge_session_customer_id'))));
+    if (hasSession) {
+      getMyProfile().then(res => {
+        if (res?.customer) {
+          const c = res.customer;
+          setCustomerRecord(c);
+          setFormData(prev => ({
+            ...prev,
+            fullName: prev.fullName || c.fullName || '',
+            dob: prev.dob || c.dob || '',
+            gender: prev.gender || c.gender || '',
+            mobile: prev.mobile || c.mobile || '',
+            email: prev.email || c.email || '',
+            addressLine: prev.addressLine || c.address?.line1 || '',
+            city: prev.city || c.address?.city || '',
+            state: prev.state || c.address?.state || '',
+            pincode: prev.pincode || c.address?.pin || '',
+            panNumber: prev.panNumber || c.pan || '',
+            nameOnCard: prev.nameOnCard || (c.fullName ? c.fullName.slice(0, 21) : '')
+          }));
+        }
+      }).catch(() => {});
+    }
+  }, [isModalOpen, user]);
 
   // Reset form when modal opens or product changes
   useEffect(() => {
@@ -1113,11 +1159,11 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
           productSlug: slug,
           productName: product?.name || 'FinEdge Investment',
           applicant: {
-            fullName: isSSY ? formData.ssyGuardianName : (isExpress ? (user?.fullName || user?.name) : formData.fullName.trim()),
-            dob: isSSY ? formData.ssyGuardianDob : (isExpress ? user?.dob : formData.dob),
-            mobileNumber: isExpress ? (user?.mobileNumber || user?.phone) : formData.mobile.trim(),
-            email: isExpress ? user?.email : formData.email.trim(),
-            panNumber: isExpress ? (user?.pan || 'ABCDE1234F') : formData.panNumber.trim().toUpperCase(),
+            fullName: isSSY ? formData.ssyGuardianName : (isExpress ? (customerRecord?.fullName || user?.fullName || user?.name) : formData.fullName.trim()),
+            dob: isSSY ? formData.ssyGuardianDob : (isExpress ? (customerRecord?.dob || user?.dob || user?.dateOfBirth) : formData.dob),
+            mobileNumber: isExpress ? (customerRecord?.mobile || user?.mobileNumber || user?.phone) : formData.mobile.trim(),
+            email: isExpress ? (customerRecord?.email || user?.email) : formData.email.trim(),
+            panNumber: isExpress ? (customerRecord?.pan || user?.pan || '') : formData.panNumber.trim().toUpperCase(),
           },
           fundingAccount: {
             type: formData.noFinEdgeAccountYet ? 'NO_ACCOUNT_YET' : (isExpress ? 'FINEDGE_ACCOUNT' : 'ACCOUNT_NUMBER'),
@@ -1433,25 +1479,26 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
     onClose();
   };
 
-  return (
+  const modalMarkup = (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6 bg-midnight-950/70 backdrop-blur-sm transition-opacity"
+      className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="apply-modal-title"
     >
+      <div className="animate-fade-in absolute inset-0 bg-midnight-950/60" onClick={handleClose} aria-hidden />
       <div
         ref={modalRef}
-        className="relative w-full max-w-[720px] max-h-[92vh] sm:max-h-[90vh] bg-white rounded-t-2xl sm:rounded-2xl shadow-modal overflow-hidden flex flex-col animate-in fade-in zoom-in-95 duration-200"
+        className="animate-scale-in relative flex max-h-[94dvh] sm:max-h-[calc(100dvh-3rem)] w-full max-w-[720px] flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-modal overflow-hidden"
       >
         {/* Header */}
-        <div className="sticky top-0 z-10 flex items-center justify-between border-b border-ink-100 bg-white/95 px-6 py-4 backdrop-blur-sm">
-          <div>
-            <h2 id="apply-modal-title" className="font-display text-lg font-bold text-midnight-950">
+        <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between border-b border-ink-100 bg-white px-6 py-4 rounded-t-2xl">
+          <div className="min-w-0 flex-1 pr-3">
+            <h2 id="apply-modal-title" className="font-display text-lg font-bold text-midnight-950 truncate">
               {product ? `Apply for ${shortProductName(product.name)}` : 'Product Application'}
             </h2>
             {isLoan ? (
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-ink-100 bg-porcelain-50 px-3 py-1.5 text-xs text-ink-700">
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-ink-100 bg-porcelain-50 px-3 py-1.5 text-xs text-ink-700 max-w-full">
                 <div>
                   <span className="text-ink-500 font-medium">Interest:</span>{' '}
                   <span className="font-semibold text-midnight-950">{product.rateMin?.toFixed(2)}% – {product.rateMax?.toFixed(2)}% p.a.</span>
@@ -1484,7 +1531,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                 </div>
               </div>
             ) : isInvestment ? (
-              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-ink-100 bg-porcelain-50 px-3 py-1.5 text-xs text-ink-700">
+              <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 rounded-md border border-ink-100 bg-porcelain-50 px-3 py-1.5 text-xs text-ink-700 max-w-full">
                 {isFD && (
                   <>
                     <div>
@@ -1566,7 +1613,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
           </div>
           <button
             onClick={handleClose}
-            className="rounded-lg p-1.5 text-ink-400 hover:bg-ink-50 hover:text-ink-700 transition-colors"
+            className="shrink-0 rounded-lg p-1.5 text-ink-400 hover:bg-ink-50 hover:text-ink-700 transition-colors"
             aria-label="Close modal"
           >
             <X className="h-5 w-5" />
@@ -1575,8 +1622,9 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
 
         {/* Modal Body */}
         {submittedApp ? (
-          <div className="p-6 space-y-6 overflow-y-auto flex-1">
-            <div className="flex flex-col items-center text-center space-y-2 py-4">
+          <div className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className="flex-1 space-y-6 overflow-y-auto p-6 [scrollbar-width:thin]">
+              <div className="flex flex-col items-center text-center space-y-2 py-4">
               <ConfirmationCheckmark size={56} className="mb-2" />
               <h3 className="font-display text-xl font-bold text-midnight-950">
                 Application Successfully Submitted
@@ -1769,20 +1817,23 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
               </div>
             )}
 
-            <div className="flex justify-end pt-2">
+            </div>
+
+            <div className="sticky bottom-0 z-10 shrink-0 flex justify-end gap-3 border-t border-ink-100 bg-porcelain-50 px-6 py-4 rounded-b-2xl">
               <Button onClick={handleClose} variant="primary">
                 Done
               </Button>
             </div>
           </div>
         ) : (
-          <form id="apply-product-form" onSubmit={handleSubmit} noValidate className="overflow-y-auto p-6 space-y-6 flex-1">
-            {errors.form && (
-              <div className="flex items-center gap-2 rounded-lg border border-danger-600/30 bg-danger-50 p-3 text-xs text-danger-600" role="alert">
-                <AlertCircle className="h-4 w-4 shrink-0" />
-                <span>{errors.form}</span>
-              </div>
-            )}
+          <form id="apply-product-form" onSubmit={handleSubmit} noValidate className="flex flex-col flex-1 min-h-0 overflow-hidden">
+            <div className="flex-1 space-y-6 overflow-y-auto p-6 [scrollbar-width:thin]">
+              {errors.form && (
+                <div className="flex items-center gap-2 rounded-lg border border-danger-600/30 bg-danger-50 p-3 text-xs text-danger-600" role="alert">
+                  <AlertCircle className="h-4 w-4 shrink-0" />
+                  <span>{errors.form}</span>
+                </div>
+              )}
 
             {isInvestment ? (
               <InvestmentFormFields
@@ -3888,8 +3939,10 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
               </>
             )}
 
+            </div>
+
             {/* Sticky Modal Footer */}
-            <div className="sticky bottom-0 z-10 flex items-center justify-end gap-3 border-t border-ink-100 bg-white/95 px-6 py-4 backdrop-blur-sm -mx-6 -mb-6 mt-6">
+            <div className="sticky bottom-0 z-10 shrink-0 flex items-center justify-end gap-3 border-t border-ink-100 bg-porcelain-50 px-6 py-4 rounded-b-2xl">
               <Button
                 type="button"
                 variant="outline"
@@ -3915,6 +3968,8 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
       </div>
     </div>
   );
+
+  return typeof document !== 'undefined' ? createPortal(modalMarkup, document.body) : modalMarkup;
 };
 
 export default ApplyModal;

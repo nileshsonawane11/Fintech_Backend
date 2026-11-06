@@ -1,0 +1,335 @@
+import http from 'http';
+import { spawn } from 'child_process';
+import fs from 'fs';
+import path from 'path';
+
+const PORT = 5173;
+const ARTIFACT_DIR = 'C:\\Users\\omkar\\.gemini\\antigravity\\brain\\e1eacb2a-5d8c-4034-9844-bebe21ad65a5';
+
+const widths = [1920, 1440, 1024, 768, 640, 480, 390];
+const branches = [
+  { name: 'Accounts', slug: 'accounts', url: `http://localhost:${PORT}/accounts/everyday-savings?apply=true` },
+  { name: 'Cards', slug: 'cards', url: `http://localhost:${PORT}/cards/edge-cashback-credit?apply=true` },
+  { name: 'Loans', slug: 'loans', url: `http://localhost:${PORT}/loans/home-loan?apply=true` },
+  { name: 'Investments', slug: 'investments', url: `http://localhost:${PORT}/investments/fixed-deposit?apply=true` }
+];
+
+function wait(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
+function getJson(url) {
+  return new Promise((resolve, reject) => {
+    http.get(url, res => {
+      let data = '';
+      res.on('data', chunk => data += chunk);
+      res.on('end', () => {
+        try { resolve(JSON.parse(data)); } catch (e) { reject(e); }
+      });
+    }).on('error', reject);
+  });
+}
+
+class CDPClient {
+  constructor(wsUrl) {
+    this.wsUrl = wsUrl;
+    this.id = 1;
+    this.callbacks = new Map();
+  }
+
+  async connect() {
+    const WS = globalThis.WebSocket;
+    return new Promise((resolve, reject) => {
+      this.ws = new WS(this.wsUrl);
+      this.ws.onopen = () => resolve();
+      this.ws.onerror = reject;
+      this.ws.onmessage = event => {
+        const msg = JSON.parse(event.data);
+        if (msg.id && this.callbacks.has(msg.id)) {
+          const cb = this.callbacks.get(msg.id);
+          this.callbacks.delete(msg.id);
+          if (msg.error) cb.reject(msg.error);
+          else cb.resolve(msg.result);
+        }
+      };
+    });
+  }
+
+  send(method, params = {}) {
+    return new Promise((resolve, reject) => {
+      const id = this.id++;
+      this.callbacks.set(id, { resolve, reject });
+      this.ws.send(JSON.stringify({ id, method, params }));
+    });
+  }
+
+  async evaluate(expression) {
+    const res = await this.send('Runtime.evaluate', {
+      expression,
+      returnByValue: true,
+      awaitPromise: true
+    });
+    return res.result ? res.result.value : null;
+  }
+
+  async captureScreenshot(filename) {
+    const res = await this.send('Page.captureScreenshot', { format: 'png' });
+    const buffer = Buffer.from(res.data, 'base64');
+    const fullPath = path.join(ARTIFACT_DIR, filename);
+    fs.writeFileSync(fullPath, buffer);
+    console.log(`Saved screenshot: ${filename} (${buffer.length} bytes)`);
+  }
+
+  close() {
+    if (this.ws) this.ws.close();
+  }
+}
+
+async function run() {
+  const chromePath = 'C:\\Program Files\\Google\\Chrome\\Application\\chrome.exe';
+  const chromeProc = spawn(chromePath, [
+    '--headless=new',
+    '--remote-debugging-port=9232',
+    '--disable-gpu',
+    '--no-sandbox',
+    'about:blank'
+  ]);
+
+  await wait(2000);
+  const targets = await getJson('http://localhost:9232/json');
+  const target = targets.find(t => t.type === 'page');
+  const client = new CDPClient(target.webSocketDebuggerUrl);
+  await client.connect();
+  await client.send('Page.enable');
+  await client.send('DOM.enable');
+
+  const matrixResults = [];
+
+  console.log('=== RUNNING ACCEPTANCE MATRIX (4 branches x 7 widths) ===');
+
+  for (const b of branches) {
+    for (const w of widths) {
+      const h = 900;
+      await client.send('Emulation.setDeviceMetricsOverride', {
+        width: w,
+        height: h,
+        deviceScaleFactor: 1,
+        mobile: w < 640
+      });
+
+      await client.send('Page.navigate', { url: b.url });
+      await wait(1400);
+
+      const metrics = await client.evaluate(`
+        (() => {
+          const dialog = document.querySelector('[role="dialog"]');
+          if (!dialog) return { found: false };
+          const modalBox = dialog.querySelector('.bg-white.shadow-modal') || dialog.querySelector('.relative.w-full') || dialog.children[0];
+          const footer = dialog.querySelector('button[type="submit"]')?.closest('div') || dialog.querySelector('.border-t');
+          const submitBtn = dialog.querySelector('button[type="submit"]');
+
+          const mRect = modalBox ? modalBox.getBoundingClientRect() : null;
+          const fRect = footer ? footer.getBoundingClientRect() : null;
+          const sRect = submitBtn ? submitBtn.getBoundingClientRect() : null;
+
+          const vh = window.innerHeight;
+          const vw = window.innerWidth;
+
+          let anchor = 'centre';
+          if (mRect) {
+            if (vh - mRect.bottom <= 25) anchor = 'bottom';
+            else if (mRect.top <= 25) anchor = 'top';
+            else anchor = 'centre';
+          }
+
+          const fullyOnScreen = mRect ? (mRect.top >= 0 && mRect.bottom <= vh && mRect.left >= 0 && mRect.right <= vw) : false;
+          const footerVisible = fRect ? (fRect.top < vh && fRect.bottom <= vh) : false;
+          const submitClickable = sRect ? (sRect.top < vh && sRect.bottom <= vh && sRect.top >= 0) : false;
+
+          return {
+            found: true,
+            anchor,
+            modalRect: mRect ? { top: Math.round(mRect.top), bottom: Math.round(mRect.bottom), width: Math.round(mRect.width), height: Math.round(mRect.height) } : null,
+            footerRect: fRect ? { top: Math.round(fRect.top), bottom: Math.round(fRect.bottom) } : null,
+            submitRect: sRect ? { top: Math.round(sRect.top), bottom: Math.round(sRect.bottom) } : null,
+            fullyOnScreen,
+            footerVisible,
+            submitClickable,
+            viewport: { width: vw, height: vh }
+          };
+        })()
+      `);
+
+      const res = {
+        branch: b.name,
+        width: w,
+        anchor: metrics?.anchor || 'N/A',
+        fullyOnScreen: metrics?.fullyOnScreen ? 'Y' : 'N',
+        footerVisible: metrics?.footerVisible ? 'Y' : 'N',
+        submitClickable: metrics?.submitClickable ? 'Y' : 'N',
+        modalHeight: metrics?.modalRect?.height,
+        modalTop: metrics?.modalRect?.top,
+        modalBottom: metrics?.modalRect?.bottom,
+        submitTop: metrics?.submitRect?.top,
+        submitBottom: metrics?.submitRect?.bottom
+      };
+      matrixResults.push(res);
+      console.log(`[Matrix] ${b.name} @ ${w}px -> Anchor: ${res.anchor}, FullyOnScreen: ${res.fullyOnScreen}, FooterVisible: ${res.footerVisible}, SubmitClickable: ${res.submitClickable}, Bottom: ${res.modalBottom}px`);
+
+      // Capture screenshot if 1440 or 390
+      if (w === 1440 || w === 390) {
+        await client.captureScreenshot(`m45-apply-${b.slug}-${w}.png`);
+      }
+    }
+  }
+
+  fs.writeFileSync('C:/Users/omkar/.gemini/antigravity/scratch/fintech-backend/frontend/scratch/acceptance_matrix_results.json', JSON.stringify(matrixResults, null, 2), 'utf8');
+
+  // --- Capture View Details Modal (Accounts) at 1440 and 390 ---
+  console.log('\n=== CAPTURING VIEW DETAILS MODAL (Accounts) ===');
+  for (const w of [1440, 390]) {
+    await client.send('Emulation.setDeviceMetricsOverride', {
+      width: w,
+      height: 900,
+      deviceScaleFactor: 1,
+      mobile: w < 640
+    });
+    await client.send('Page.navigate', { url: `http://localhost:${PORT}/accounts?details=everyday-savings` });
+    await wait(1400);
+    await client.captureScreenshot(`m45-viewdetails-account-${w}.png`);
+  }
+
+  // --- Capture Reset Demo Data Dialog at 1440 and 390 ---
+  console.log('\n=== CAPTURING RESET DEMO DATA DIALOG ===');
+  for (const w of [1440, 390]) {
+    await client.send('Emulation.setDeviceMetricsOverride', {
+      width: w,
+      height: 900,
+      deviceScaleFactor: 1,
+      mobile: w < 640
+    });
+    await client.send('Page.navigate', { url: `http://localhost:${PORT}/portal/login` });
+    await wait(1200);
+    // Click "Reset demo data" button
+    await client.evaluate(`
+      (() => {
+        const buttons = Array.from(document.querySelectorAll('button'));
+        const resetBtn = buttons.find(b => b.textContent.includes('Reset demo data'));
+        if (resetBtn) resetBtn.click();
+      })()
+    `);
+    await wait(800);
+    await client.captureScreenshot(`m45-dialog-resetdemo-${w}.png`);
+  }
+
+  // --- Seed customer & Manager auth for Beneficiary remove dialog and KYC drawer ---
+  console.log('\n=== SEEDING SESSIONS & CAPTURING DIALOGS & DRAWERS ===');
+  await client.send('Page.navigate', { url: `http://localhost:${PORT}/portal/login` });
+  await wait(1000);
+
+  // Inject session into localStorage and db for customer and manager
+  await client.evaluate(`
+    (() => {
+      // Customer session
+      localStorage.setItem('finedge_session_id', 'mock-session-vikram');
+      localStorage.setItem('finedge_session_customer_id', 'CUS-100234');
+      localStorage.setItem('finedge_demo_user', JSON.stringify({
+        customerId: 'CUS-100234',
+        fullName: 'Vikramaditya Sharma',
+        email: 'vikram.sharma@finedge.customer',
+        mobile: '9820110023'
+      }));
+      localStorage.setItem('finedge_access_token', 'mock-token-vikram');
+
+      // Manager session
+      localStorage.setItem('finedge_manager_token', 'mock-manager-token');
+      localStorage.setItem('finedge_manager_user', JSON.stringify({
+        staffId: 'STF-001',
+        role: 'BANK_MANAGER',
+        fullName: 'Devendra Singhania',
+        roleTitle: 'Chief Branch Manager',
+        status: 'ACTIVE'
+      }));
+
+      // Update db
+      const rawDb = localStorage.getItem('finedge_persistent_db');
+      if (rawDb) {
+        const db = JSON.parse(rawDb);
+        if (!db.sessions) db.sessions = [];
+        db.sessions = db.sessions.filter(s => s.sessionId !== 'mock-session-vikram' && s.sessionId !== 'mock-manager-token');
+        db.sessions.push({
+          sessionId: 'mock-session-vikram',
+          customerId: 'CUS-100234',
+          role: 'CUSTOMER',
+          issuedAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 86400000).toISOString()
+        });
+        db.sessions.push({
+          sessionId: 'mock-manager-token',
+          staffId: 'STF-001',
+          role: 'BANK_MANAGER',
+          issuedAt: new Date().toISOString(),
+          expiresAt: new Date(Date.now() + 86400000).toISOString()
+        });
+        localStorage.setItem('finedge_persistent_db', JSON.stringify(db));
+      }
+    })()
+  `);
+
+  // --- Capture Beneficiary Remove Dialog at 1440 and 390 ---
+  console.log('\n=== CAPTURING BENEFICIARY REMOVE DIALOG ===');
+  for (const w of [1440, 390]) {
+    await client.send('Emulation.setDeviceMetricsOverride', {
+      width: w,
+      height: 900,
+      deviceScaleFactor: 1,
+      mobile: w < 640
+    });
+    await client.send('Page.navigate', { url: `http://localhost:${PORT}/portal/beneficiaries` });
+    await wait(1400);
+
+    // Click delete/remove icon/button on first beneficiary
+    await client.evaluate(`
+      (() => {
+        const deleteBtn = document.querySelector('button[aria-label*="delete" i], button[aria-label*="remove" i]') ||
+                          Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Remove') || b.querySelector('svg.lucide-trash-2, svg.lucide-trash'));
+        if (deleteBtn) deleteBtn.click();
+      })()
+    `);
+    await wait(800);
+    await client.captureScreenshot(`m45-dialog-beneficiary-${w}.png`);
+  }
+
+  // --- Capture KYC Drawer at 1440 and 390 ---
+  console.log('\n=== CAPTURING KYC DRAWER (Manager) ===');
+  for (const w of [1440, 390]) {
+    await client.send('Emulation.setDeviceMetricsOverride', {
+      width: w,
+      height: 900,
+      deviceScaleFactor: 1,
+      mobile: w < 640
+    });
+    await client.send('Page.navigate', { url: `http://localhost:${PORT}/manager/kyc` });
+    await wait(1500);
+
+    // Click first row or Review button in KYC table
+    await client.evaluate(`
+      (() => {
+        const row = document.querySelector('tbody tr') || Array.from(document.querySelectorAll('button')).find(b => b.textContent.includes('Review'));
+        if (row) row.click();
+      })()
+    `);
+    await wait(1000);
+    await client.captureScreenshot(`m45-drawer-kyc-${w}.png`);
+  }
+
+  console.log('\n=== ALL SCREENSHOTS & ACCEPTANCE MATRIX COMPLETED ===');
+  client.close();
+  chromeProc.kill();
+  process.exit(0);
+}
+
+run().catch(err => {
+  console.error(err);
+  process.exit(1);
+});
