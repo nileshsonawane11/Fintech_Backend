@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ChevronDown, Eye, EyeOff, ShieldCheck, KeyRound, Lock, Mail, ArrowRight } from 'lucide-react';
 import { Button, Card, Field, FormError, Input } from '../../components/ui.jsx';
 import { useAuth } from '../../context/AuthContext';
+import { getFirstQueueForRole } from '../../services/managerBridge.js';
 
 const STAFF_ACCOUNTS = [
   {
@@ -22,6 +23,18 @@ const STAFF_ACCOUNTS = [
     email: 'ops@finedge.bank',
     password: 'Manager@2026',
     clearance: 'Account opening verification & card embossing queue'
+  },
+  {
+    role: 'Senior Internal Auditor',
+    email: 'audit.officer@finedge.bank',
+    password: 'Manager@2026',
+    clearance: 'Read-only inspection of queues, ledger movements & regulatory audit trails'
+  },
+  {
+    role: 'Customer Care Lead',
+    email: 'support@finedge.bank',
+    password: 'Manager@2026',
+    clearance: 'Customer support desk, inquiry resolution & ticket response'
   }
 ];
 
@@ -51,8 +64,10 @@ export const ManagerLoginPage = () => {
 
     setLoading(true);
     try {
-      await managerLogin(trimmed, password);
-      navigate('/manager/dashboard');
+      const res = await managerLogin(trimmed, password);
+      const role = res?.managerUser?.role;
+      const target = getFirstQueueForRole(role);
+      navigate(target);
     } catch (err) {
       const msg = err?.error?.message || err?.detail || err?.title || 'Authentication failed. Check your staff credentials.';
       setError(msg);
@@ -152,28 +167,26 @@ export const ManagerLoginPage = () => {
                       key={s.email}
                       type="button"
                       onClick={() => populateStaff(s)}
-                      className="flex w-full flex-col rounded-lg border border-ink-100 bg-porcelain-50 p-2.5 text-left hover:border-midnight-300 hover:bg-midnight-50/50 transition-colors"
+                      className="w-full rounded-md border border-ink-200 bg-porcelain-50 p-2 text-left transition-colors hover:border-gold-400 hover:bg-gold-50/30"
                     >
-                      <div className="flex w-full items-center justify-between">
-                        <span className="font-semibold text-midnight-950">{s.role}</span>
-                        <span className="text-[11px] font-medium text-midnight-700 underline">Use credentials →</span>
+                      <div className="flex items-center justify-between">
+                        <span className="font-semibold text-midnight-900">{s.role}</span>
+                        <span className="font-mono text-[10px] text-ink-500">{s.email}</span>
                       </div>
-                      <span className="font-mono text-[11px] text-ink-600">{s.email}</span>
-                      <span className="text-[10px] text-ink-500 mt-0.5">{s.clearance}</span>
+                      <p className="mt-0.5 text-[11px] text-ink-600 line-clamp-1">{s.clearance}</p>
                     </button>
                   ))}
                 </div>
               </div>
             )}
           </div>
-        </Card>
 
-        <p className="mt-4 text-center text-xs text-ink-500">
-          Not bank staff?{' '}
-          <Link to="/portal/login" className="font-medium text-midnight-800 underline hover:text-midnight-950">
-            Customer NetBanking Portal →
-          </Link>
-        </p>
+          <div className="mt-6 text-center text-xs text-ink-500">
+            <Link to="/portal/login" className="text-midnight-800 underline hover:text-midnight-950">
+              Return to Customer Online Banking Portal
+            </Link>
+          </div>
+        </Card>
       </div>
     </div>
   );

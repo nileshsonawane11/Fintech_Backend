@@ -26,6 +26,7 @@ import {
   DEBIT_CARDS,
   INVESTMENTS,
   accountRateFact,
+  BRAND,
 } from '../../data/products.js';
 import { ACCOUNT_ICONS, LOAN_ICONS, INVESTMENT_ICONS } from '../../data/productIcons.js';
 import { shortProductName } from '../../lib/format.js';
@@ -773,7 +774,7 @@ export const Header = () => {
                         1800 267 4100
                       </a>
                     </div>
-                    <span className="text-xs text-ink-400">Mon–Sat, 9AM–7PM</span>
+                    <span className="text-xs text-ink-400">{BRAND.support.hours}</span>
                   </div>
                 </MegaMenuPanel>
               )}

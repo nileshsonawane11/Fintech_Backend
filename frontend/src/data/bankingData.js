@@ -630,18 +630,18 @@ export const LOANS_DATA = [
 
 export const CARDS_DATA = [
   {
-    id: 'aurum-metal',
-    slug: 'aurum-metal',
-    title: 'FinEdge Aurum Metal Credit Card',
+    id: 'edge-cashback-credit',
+    slug: 'edge-cashback-credit',
+    title: 'FinEdge Edge Cashback Card',
     category: 'Cards',
     type: 'credit',
     tier: 'Metal Luxury',
     tagline: 'Precision crafted stainless-steel metal card for discerning executives',
-    annualFee: FINEDGE_RATES_CONFIG.cards.aurumMetal.annualFee,
-    joiningFee: FINEDGE_RATES_CONFIG.cards.aurumMetal.joiningFee,
-    rewards: FINEDGE_RATES_CONFIG.cards.aurumMetal.rewardsRate,
-    apr: FINEDGE_RATES_CONFIG.cards.aurumMetal.apr,
-    forexMarkup: FINEDGE_RATES_CONFIG.cards.aurumMetal.forexMarkup,
+    annualFee: FINEDGE_RATES_CONFIG.cards.cashbackCredit.annualFee,
+    joiningFee: FINEDGE_RATES_CONFIG.cards.cashbackCredit.joiningFee,
+    rewards: FINEDGE_RATES_CONFIG.cards.cashbackCredit.rewardsRate,
+    apr: FINEDGE_RATES_CONFIG.cards.cashbackCredit.apr,
+    forexMarkup: FINEDGE_RATES_CONFIG.cards.cashbackCredit.forexMarkup,
     overview: 'Hand-crafted from aerospace-grade stainless steel. Engineered for global travelers and senior executives requiring zero forex markup, dedicated concierge services, and elevated lounge privileges.',
     features: [
       'Zero forex markup on all overseas transactions and international e-commerce',

@@ -1,5 +1,5 @@
 // Account & Transaction Service
-import { apiRequest } from './api';
+import { apiRequest } from './api.js';
 
 export const accountService = {
   // List Customer Accounts (Section 4.3)

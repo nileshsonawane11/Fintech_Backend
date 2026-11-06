@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useLocation, useNavigate, useSearchParams, Link, NavLink, useParams } from 'react-router-dom';
-import { useAuth } from '../../context/AuthContext';
+import { useAuth, useDbTick } from '../../context/AuthContext';
 import {
   ArrowLeftRight,
   Bell,
@@ -21,6 +21,8 @@ import {
 } from 'lucide-react';
 import { Logo } from '../../components/layout/Header';
 import { Button, Input, Modal } from '../../components/ui.jsx';
+import { unreadCount } from '../../services/portalBridge.js';
+import { getDb } from '../../services/api.js';
 
 // Import split section components
 import DashboardSection from './sections/DashboardSection';
@@ -58,11 +60,18 @@ const moreItems = NAV.filter((n) => !BOTTOM.includes(n.to));
 
 export const PortalDashboardPage = () => {
   const { user, logout } = useAuth();
+  useDbTick();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const [moreOpen, setMoreOpen] = useState(false);
   const [unreadN, setUnreadN] = useState(0);
+
+  // Sync sidebar unread badge with unreadCount
+  useEffect(() => {
+    if (!user?.customerId) return;
+    unreadCount(user.customerId).then((c) => setUnreadN(c || 0)).catch(() => {});
+  }, [user?.customerId, location.pathname]);
 
   // 15-Minute Session Inactivity Lock
   const [idleSeconds, setIdleSeconds] = useState(900); // 15 mins
@@ -105,14 +114,22 @@ export const PortalDashboardPage = () => {
       setUnlockError('Password required');
       return;
     }
-    // Demo password or user password
-    if (unlockPassword === 'Password@123' || unlockPassword === user?.password) {
-      setSessionLocked(false);
-      setIdleSeconds(900);
-      setUnlockPassword('');
-      setUnlockError('');
-    } else {
-      setUnlockError('Invalid password. Use your account password to resume.');
+
+    try {
+      const db = getDb();
+      const cust = (db.customers || []).find((c) => c.customerId === user?.customerId);
+      const expectedPw = cust?.password || user?.password;
+
+      if (expectedPw && unlockPassword === expectedPw) {
+        setSessionLocked(false);
+        setIdleSeconds(900);
+        setUnlockPassword('');
+        setUnlockError('');
+      } else {
+        setUnlockError('Invalid password. Use your account password to resume.');
+      }
+    } catch {
+      setUnlockError('Could not verify credentials. Please try again.');
     }
   };
 
@@ -152,13 +169,6 @@ export const PortalDashboardPage = () => {
     activeSection = 'overview';
   }
 
-  const linkCls = ({ isActive }) =>
-    `relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors ${
-      isActive || (n_tab => tabParam === n_tab)
-        ? 'bg-midnight-800 text-porcelain-50'
-        : 'text-midnight-200 hover:bg-midnight-800/60 hover:text-porcelain-50'
-    }`;
-
   return (
     <div className="min-h-screen bg-porcelain-100 lg:flex">
       {/* Sidebar ≥ lg */}
@@ -172,11 +182,13 @@ export const PortalDashboardPage = () => {
           </span>
         </Link>
 
-        <div className="mt-5 rounded-lg bg-midnight-950/60 p-3 text-xs leading-relaxed text-midnight-200 border border-midnight-800">
-          <p className="text-[11px] uppercase tracking-wider text-gold-400 font-semibold">Active Customer</p>
-          <p className="mt-0.5 font-semibold text-porcelain-50 truncate">{user?.fullName || user?.name || 'Vikramaditya Sharma'}</p>
-          <p className="font-mono text-[11px] text-porcelain-300 truncate">ID: {user?.customerId || 'CUS-100234'}</p>
-        </div>
+        {user && (
+          <div className="mt-5 rounded-lg bg-midnight-950/60 p-3 text-xs leading-relaxed text-midnight-200 border border-midnight-800">
+            <p className="text-[11px] uppercase tracking-wider text-gold-400 font-semibold">Active Customer</p>
+            <p className="mt-0.5 font-semibold text-porcelain-50 truncate">{user?.fullName || user?.name || ''}</p>
+            <p className="font-mono text-[11px] text-porcelain-300 truncate">ID: {user?.customerId || ''}</p>
+          </div>
+        )}
 
         <nav className="mt-4 flex-1 space-y-1 overflow-y-auto" aria-label="Customer portal">
           {NAV.map((n) => {
@@ -241,19 +253,19 @@ export const PortalDashboardPage = () => {
       {/* Main Content View */}
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-24 pt-5 sm:px-6 lg:pb-10 lg:pt-7">
         <div key={activeSection} className="animate-portal-crossfade motion-reduce:animate-none">
-        {activeSection === 'overview' && <DashboardSection />}
-        {activeSection === 'accounts' && <AccountsSection />}
-        {activeSection === 'account-detail' && <AccountDetailSection accountId={accountDetailId} />}
-        {activeSection === 'transfers' && <TransfersSection />}
-        {activeSection === 'beneficiaries' && <BeneficiariesSection />}
-        {activeSection === 'loans' && <LoansSection />}
-        {activeSection === 'cards' && <CardsSection />}
-        {activeSection === 'investments' && <InvestmentsSection />}
-        {activeSection === 'kyc' && <KycSection />}
-        {activeSection === 'applications' && <ApplicationsSection />}
-        {activeSection === 'notifications' && <NotificationsSection />}
-        {activeSection === 'profile' && <ProfileSection />}
-        {activeSection === 'support' && <SupportSection />}
+          {activeSection === 'overview' && <DashboardSection />}
+          {activeSection === 'accounts' && <AccountsSection />}
+          {activeSection === 'account-detail' && <AccountDetailSection accountId={accountDetailId} />}
+          {activeSection === 'transfers' && <TransfersSection />}
+          {activeSection === 'beneficiaries' && <BeneficiariesSection />}
+          {activeSection === 'loans' && <LoansSection />}
+          {activeSection === 'cards' && <CardsSection />}
+          {activeSection === 'investments' && <InvestmentsSection />}
+          {activeSection === 'kyc' && <KycSection />}
+          {activeSection === 'applications' && <ApplicationsSection />}
+          {activeSection === 'notifications' && <NotificationsSection />}
+          {activeSection === 'profile' && <ProfileSection />}
+          {activeSection === 'support' && <SupportSection />}
         </div>
       </main>
 

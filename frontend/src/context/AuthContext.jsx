@@ -165,20 +165,21 @@ export const AuthProvider = ({ children }) => {
       if (res.mfaRequired) {
         return { mfaRequired: true, mfaReferenceId: res.mfaReferenceId };
       }
-      // const db = getDb();
-      // const matched = db.customers.find(c =>
-      //   (c.email && c.email.toLowerCase() === identifier.toLowerCase()) ||
-      //   c.mobileNumber === identifier ||
-      //   c.customerId === res.customerId
-      // ) || db.customers[0];
-      //
+      const db = getDb();
+      const matched = db.customers?.find(c => 
+        (c.email && c.email.toLowerCase() === identifier.toLowerCase()) || 
+        c.mobileNumber === identifier || 
+        c.customerId === res.customerId
+      ) || (db.customers && db.customers[0]) || {};
+
+      const custObj = res.customer || {};
       const initialUser = {
-        name: res.customer.fullName || 'FinEdge Customer',
-        email: res.customer.email || identifier,
-        mobile: res.customer.mobileNumber || identifier,
-        customerId: res.customer.id || res.customerId,
-        kycStatus: res.customer.status || 'APPROVED',
-        lastLogin: new Date().toLocaleString('en-IN')
+        name: custObj.fullName || matched.fullName || 'FinEdge Customer',
+        email: custObj.email || matched.email || identifier,
+        mobile: custObj.mobileNumber || matched.mobileNumber || identifier,
+        customerId: custObj.id || custObj.customerId || matched.customerId || res.customerId,
+        kycStatus: custObj.status || matched.kycStatus || 'APPROVED',
+        lastLogin: new Date().toISOString()
       };
       setUser(initialUser);
       return { success: true, user: initialUser };
@@ -201,7 +202,7 @@ export const AuthProvider = ({ children }) => {
         mobile: matched.mobileNumber || '9820198402',
         customerId: matched.customerId || res.customerId,
         kycStatus: matched.kycStatus || 'APPROVED',
-        lastLogin: new Date().toLocaleString('en-IN')
+        lastLogin: new Date().toISOString()
       };
       setUser(initialUser);
       return { success: true, user: initialUser };
@@ -248,7 +249,7 @@ export const AuthProvider = ({ children }) => {
         roleTitle: res.roleTitle || (res.role === 'BANK_MANAGER' ? 'Chief Branch Manager' : res.role === 'KYC_OFFICER' ? 'Senior KYC Verification Officer' : 'Account & Card Operations Specialist'),
         department: res.department || 'Operations',
         permissions: res.permissions || [],
-        lastLogin: new Date().toLocaleString('en-IN')
+        lastLogin: new Date().toISOString()
       };
       setManagerUser(mgr);
       if (typeof localStorage !== 'undefined') {
@@ -410,9 +411,11 @@ export const AuthProvider = ({ children }) => {
       return res;
     } else {
       const res = await cardService.applyForCard({
-        cardType: applicationData.cardType || 'METAL_CREDIT',
-        cardName: applicationData.cardName || applicationData.productName || applicationData.title || 'FinEdge Aurum Metal Card',
-        linkedAccountId: applicationData.linkedAccountId || accounts[0]?.accountId || 'ACC-1001'
+        cardType: applicationData.cardType || 'CREDIT',
+        cardName: applicationData.cardName || applicationData.productName || applicationData.title || 'FinEdge Edge Cashback Card',
+        productSlug: applicationData.productSlug || 'edge-cashback-credit',
+        linkedAccountId: applicationData.linkedAccountId || accounts[0]?.accountId || 'ACC-1001',
+        requestedLimit: applicationData.requestedLimit
       });
       refreshCustomerData();
       return res;

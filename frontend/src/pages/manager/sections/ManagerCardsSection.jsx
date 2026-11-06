@@ -12,9 +12,9 @@ import { useAuth, useDbTick } from '../../../context/AuthContext.jsx';
 
 const TAB_DEFS = [
   { id: 'ALL', label: 'All' },
-  { id: 'PENDING_ISSUANCE', label: 'Pending Issuance' },
-  { id: 'ISSUED', label: 'Issued' },
-  { id: 'DECLINED', label: 'Declined' },
+  { id: 'UNDER_REVIEW', label: 'Pending Issuance' },
+  { id: 'APPROVED', label: 'Issued' },
+  { id: 'REJECTED', label: 'Declined' },
 ];
 
 const DECLINE_CODES = [
@@ -33,6 +33,7 @@ function productFor(app) {
 
 function cardName(app) {
   if (!app) return '—';
+  if (app.cardName) return app.cardName;
   if (app.productName) return app.productName;
   const p = productFor(app);
   if (p) return p.name;
@@ -74,7 +75,9 @@ function DetailRow({ label, children }) {
 }
 
 export default function ManagerCardsPage() {
-  const { user } = useAuth();
+  const { managerUser, user: custUser } = useAuth();
+  const user = managerUser || custUser;
+  const isAuditor = user?.role === 'AUDITOR' || user?.role === 'AUDIT_COMPLIANCE';
   const { toast } = useToast();
   useDbTick();
 
@@ -147,7 +150,13 @@ export default function ManagerCardsPage() {
 
   const tabs = TAB_DEFS.map((t) => ({
     ...t,
-    count: t.id === 'ALL' ? allRows.length : allRows.filter((r) => r.status === t.id).length,
+    count: t.id === 'ALL'
+      ? allRows.length
+      : t.id === 'UNDER_REVIEW'
+        ? allRows.filter((r) => r.status === 'UNDER_REVIEW' || r.status === 'PENDING' || r.status === 'PENDING_APPROVAL').length
+        : t.id === 'APPROVED'
+          ? allRows.filter((r) => r.status === 'APPROVED' || r.status === 'ISSUED').length
+          : allRows.filter((r) => r.status === 'REJECTED' || r.status === 'DECLINED').length,
   }));
 
   const customer = detail?.customer || null;
@@ -177,34 +186,44 @@ export default function ManagerCardsPage() {
   const confirmAction = async () => {
     if (!detail || !pendingAction) return;
     setSubmitting(true);
+    setFormError('');
     try {
       if (pendingAction === 'ISSUE') {
-        const card = await issueCard(detail.id, {
-          actor: user?.name,
-          actorRole: user?.role,
-          limit: credit ? Number(approvedLimit) : undefined,
+        const limitNum = Number(approvedLimit) || (credit ? 250000 : 50000);
+        const prod = productFor(detail);
+        if (prod?.limitMax && limitNum > prod.limitMax) {
+          setFormError(`Limit cannot exceed card maximum of ${formatINR(prod.limitMax)}.`);
+          setSubmitting(false);
+          return;
+        }
+        const res = await issueCard(detail.id, {
+          limit: limitNum,
+          actor: user?.fullName || user?.name || 'Card Ops Officer',
+          actorRole: user?.role || 'ACCOUNT_OPS',
+          actorEmail: user?.email
         });
-        setIssueResult(card || null);
+        setIssueResult(res);
+        setPendingAction(null);
+        setRefreshKey((k) => k + 1);
         toast({
           title: 'Card issued',
-          body: card?.dispatchRef
-            ? `${cardName(detail)} issued · dispatch reference ${card.dispatchRef}.`
-            : `${cardName(detail)} has been issued.`,
+          body: `Card application ${detail.id} approved with limit ${formatINR(limitNum)}. Card materialized in active ledger.`,
         });
       } else {
         await declineCardApplication(detail.id, {
-          reasonCode,
+          reasonCode: reasonCode || undefined,
           note: note.trim() || undefined,
-          actor: user?.name,
-          actorRole: user?.role,
+          actor: user?.fullName || user?.name || 'Card Ops Officer',
+          actorRole: user?.role || 'ACCOUNT_OPS',
+          actorEmail: user?.email
         });
+        setPendingAction(null);
+        setRefreshKey((k) => k + 1);
         toast({ title: 'Application declined', body: `${detail.id} has been declined and the customer notified.`, tone: 'info' });
       }
-      setPendingAction(null);
-      setRefreshKey((k) => k + 1);
     } catch (err) {
       setPendingAction(null);
-      setFormError(err?.message || 'The action could not be completed.');
+      setFormError(err?.message || 'The action could not be recorded.');
     } finally {
       setSubmitting(false);
     }
@@ -379,16 +398,16 @@ export default function ManagerCardsPage() {
             </div>
 
             <div className="border-t border-ink-100 px-5 py-4">
-              {detail.status === 'DECLINED' ? (
+              {detail.status === 'REJECTED' ? (
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-[13px] text-ink-500">This application was declined. No further actions are available.</p>
                   <Button variant="secondary" disabled title="Reopen workflow is not part of this prototype">Reopen</Button>
                 </div>
-              ) : detail.status === 'ISSUED' ? (
+              ) : (detail.status === 'APPROVED' || detail.status === 'ISSUED') ? (
                 <p className="text-[13px] text-ink-500">
                   This card has been issued{detail.dispatchRef ? ` · dispatch reference ${detail.dispatchRef}` : ''}. No further actions are available.
                 </p>
-              ) : detail.status === 'PENDING_ISSUANCE' ? (
+              ) : (detail.status === 'UNDER_REVIEW' || detail.status === 'PENDING' || detail.status === 'PENDING_APPROVAL') ? (
                 <div className="space-y-3">
                   <FormError message={formError} />
                   {credit && (
@@ -413,9 +432,10 @@ export default function ManagerCardsPage() {
                     <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note recorded with a decline" />
                   </Field>
                   <div className="flex flex-wrap justify-end gap-2">
-                    <Button variant="danger" onClick={() => openAction('DECLINE')}>Decline</Button>
-                    <Button variant="primary" onClick={() => openAction('ISSUE')}>Issue Card</Button>
+                    <Button variant="danger" disabled={isAuditor} title={isAuditor ? 'Auditor access is read-only' : undefined} onClick={() => openAction('DECLINE')}>Decline</Button>
+                    <Button variant="primary" disabled={isAuditor} title={isAuditor ? 'Auditor access is read-only' : undefined} onClick={() => openAction('ISSUE')}>Issue Card</Button>
                   </div>
+                  {isAuditor && <p className="text-xs text-ink-500 text-right mt-1">Auditor clearance is read-only — action controls are disabled.</p>}
                 </div>
               ) : (
                 <p className="text-[13px] text-ink-500">No actions are available for this status.</p>

@@ -11,10 +11,13 @@ import {
   LogOut,
   Receipt,
   ShieldCheck,
+  ShieldAlert,
   TrendingUp,
   Users,
   Landmark
 } from 'lucide-react';
+import { Button } from '../../components/ui.jsx';
+import { hasSectionAccess } from '../../services/managerBridge.js';
 
 // Import split manager section components
 import ManagerDashboardSection from './sections/ManagerDashboardSection';
@@ -29,22 +32,24 @@ import ManagerAuditSection from './sections/ManagerAuditSection';
 import ManagerReportsSection from './sections/ManagerReportsSection';
 import ManagerTicketsSection from './sections/ManagerTicketsSection';
 
-const NAV = [
+const NAV_ITEMS = [
   { group: 'Work queues' },
-  { to: '/manager/dashboard', label: 'Dashboard', icon: LayoutDashboard },
-  { to: '/manager/kyc', label: 'KYC Queue', icon: ShieldCheck },
-  { to: '/manager/account-applications', altTo: '/manager/accounts', label: 'Account Applications', icon: FileText },
-  { to: '/manager/loans', label: 'Loan Applications', icon: Receipt },
-  { to: '/manager/investments', altTo: '/manager/investment-applications', label: 'Investment Applications', icon: TrendingUp },
-  { to: '/manager/card-applications', altTo: '/manager/cards', label: 'Card Applications', icon: CreditCard },
-  { to: '/manager/tickets', altTo: '/manager/support', label: 'Support Tickets', icon: LifeBuoy },
+  { section: 'dashboard', to: '/manager/dashboard', label: 'Dashboard', icon: LayoutDashboard },
+  { section: 'kyc', to: '/manager/kyc', label: 'KYC Queue', icon: ShieldCheck },
+  { section: 'accounts', to: '/manager/account-applications', altTo: '/manager/accounts', label: 'Account Applications', icon: FileText },
+  { section: 'loans', to: '/manager/loans', label: 'Loan Applications', icon: Receipt },
+  { section: 'investments', to: '/manager/investments', altTo: '/manager/investment-applications', label: 'Investment Applications', icon: TrendingUp },
+  { section: 'cards', to: '/manager/card-applications', altTo: '/manager/cards', label: 'Card Applications', icon: CreditCard },
+  { section: 'tickets', to: '/manager/tickets', altTo: '/manager/support', label: 'Support Tickets', icon: LifeBuoy },
   { group: 'Records' },
-  { to: '/manager/customers', label: 'Customers', icon: Users },
-  { to: '/manager/audit-logs', altTo: '/manager/audit', label: 'Audit Log', icon: FileSearch },
-  { to: '/manager/reports', label: 'Reports', icon: BarChart3 },
+  { section: 'customers', to: '/manager/customers', label: 'Customers', icon: Users },
+  { section: 'audit', to: '/manager/audit-logs', altTo: '/manager/audit', label: 'Audit Log', icon: FileSearch },
+  { section: 'reports', to: '/manager/reports', label: 'Reports', icon: BarChart3 },
   { group: 'Admin' },
-  { to: '/manager/users', altTo: '/manager/staff', label: 'Staff & Roles', icon: ShieldCheck },
+  { section: 'staff', to: '/manager/users', altTo: '/manager/staff', label: 'Staff & Roles', icon: ShieldCheck },
 ];
+
+
 
 export const ManagerPortalPage = () => {
   const { managerUser, managerLogout } = useAuth();
@@ -84,6 +89,28 @@ export const ManagerPortalPage = () => {
     navigate('/manager/login');
   };
 
+  const isAllowed = hasSectionAccess(activeSection, managerUser);
+
+  // Filter NAV items based on current staff role permissions
+  const visibleNav = [];
+  let currentGroup = null;
+  let currentGroupItems = [];
+
+  NAV_ITEMS.forEach((item) => {
+    if (item.group) {
+      if (currentGroup && currentGroupItems.length > 0) {
+        visibleNav.push(currentGroup, ...currentGroupItems);
+      }
+      currentGroup = item;
+      currentGroupItems = [];
+    } else if (hasSectionAccess(item.section, managerUser)) {
+      currentGroupItems.push(item);
+    }
+  });
+  if (currentGroup && currentGroupItems.length > 0) {
+    visibleNav.push(currentGroup, ...currentGroupItems);
+  }
+
   return (
     <div className="min-h-screen bg-porcelain-100 lg:flex">
       {/* Desktop Sidebar */}
@@ -101,12 +128,12 @@ export const ManagerPortalPage = () => {
 
         <div className="mt-5 mx-2 rounded-lg bg-midnight-950/60 p-3 text-xs leading-relaxed text-midnight-200 border border-midnight-800">
           <p className="text-[10px] uppercase tracking-wider text-gold-400 font-semibold">Staff Clearance</p>
-          <p className="mt-0.5 font-semibold text-porcelain-50 truncate">{managerUser?.name || 'Chief Branch Manager'}</p>
+          <p className="mt-0.5 font-semibold text-porcelain-50 truncate">{managerUser?.fullName || managerUser?.name || 'Chief Branch Manager'}</p>
           <p className="text-[11px] text-porcelain-300 truncate">{managerUser?.roleTitle || managerUser?.role || 'BANK_MANAGER'}</p>
         </div>
 
         <nav className="mt-4 flex-1 space-y-0.5 overflow-y-auto px-1" aria-label="Staff console">
-          {NAV.map((n, i) =>
+          {visibleNav.map((n, i) =>
             n.group ? (
               <p key={i} className="px-3 pb-1 pt-4 text-[11px] font-semibold uppercase tracking-[0.14em] text-midnight-300">
                 {n.group}
@@ -170,7 +197,7 @@ export const ManagerPortalPage = () => {
 
       {/* Mobile Nav Strip */}
       <nav className="flex gap-1 overflow-x-auto border-b border-ink-100 bg-porcelain-50 px-3 py-2 lg:hidden" aria-label="Staff mobile nav">
-        {NAV.filter((n) => n.to).map((n) => {
+        {visibleNav.filter((n) => n.to).map((n) => {
           const isCurrent = pathname === n.to || pathname === n.altTo;
           return (
             <Link
@@ -188,17 +215,34 @@ export const ManagerPortalPage = () => {
 
       {/* Main Operations Container */}
       <main className="w-full flex-1 px-4 py-5 sm:px-6 lg:py-7 overflow-x-auto">
-        {activeSection === 'dashboard' && <ManagerDashboardSection />}
-        {activeSection === 'customers' && <ManagerCustomersSection />}
-        {activeSection === 'kyc' && <ManagerKycSection />}
-        {activeSection === 'accounts' && <ManagerAccountsSection />}
-        {activeSection === 'cards' && <ManagerCardsSection />}
-        {activeSection === 'loans' && <ManagerLoansSection />}
-        {activeSection === 'investments' && <ManagerInvestmentsSection />}
-        {activeSection === 'staff' && <ManagerStaffSection />}
-        {activeSection === 'audit' && <ManagerAuditSection />}
-        {activeSection === 'reports' && <ManagerReportsSection />}
-        {activeSection === 'tickets' && <ManagerTicketsSection />}
+        {!isAllowed ? (
+          <div className="mx-auto max-w-lg rounded-xl border border-danger-200 bg-white p-8 text-center shadow-card mt-12">
+            <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-danger-50 text-danger-600">
+              <ShieldAlert className="h-6 w-6" aria-hidden="true" />
+            </div>
+            <h2 className="font-display text-xl font-semibold text-midnight-950">Access Denied</h2>
+            <p className="mt-2 text-sm text-ink-600 leading-relaxed">
+              Your staff clearance level ({managerUser?.roleTitle || managerUser?.role || 'Staff'}) lacks permissions for this section. Direct operational actions are prohibited.
+            </p>
+            <div className="mt-6 flex justify-center gap-3">
+              <Button variant="secondary" onClick={() => navigate('/manager/dashboard')}>Return to Dashboard</Button>
+            </div>
+          </div>
+        ) : (
+          <>
+            {activeSection === 'dashboard' && <ManagerDashboardSection />}
+            {activeSection === 'customers' && <ManagerCustomersSection />}
+            {activeSection === 'kyc' && <ManagerKycSection />}
+            {activeSection === 'accounts' && <ManagerAccountsSection />}
+            {activeSection === 'cards' && <ManagerCardsSection />}
+            {activeSection === 'loans' && <ManagerLoansSection />}
+            {activeSection === 'investments' && <ManagerInvestmentsSection />}
+            {activeSection === 'staff' && <ManagerStaffSection />}
+            {activeSection === 'audit' && <ManagerAuditSection />}
+            {activeSection === 'reports' && <ManagerReportsSection />}
+            {activeSection === 'tickets' && <ManagerTicketsSection />}
+          </>
+        )}
       </main>
     </div>
   );

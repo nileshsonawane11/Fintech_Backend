@@ -1,14 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarClock, Info, Landmark, PiggyBank, ShieldCheck, TrendingUp } from 'lucide-react';
 import {
-  Button, Card, Checkbox, EmptyState, Field, FormError, Input, PageLoading,
+  Button, Card, EmptyState, Field, FormError, Input, PageLoading,
   SectionHeader, Select, StatusChip, Table, Tabs, useToast,
 } from '../../../components/ui.jsx';
 import { useAuth, useDbTick } from '../../../context/AuthContext.jsx';
 import { formatDate, formatINR, maskAccount } from '../../../lib/format.js';
 import { calculateFD, calculateRD, calculateSIP, calculateSSY } from '../../../lib/finance.js';
 import { FD, RD, SIP, SSY } from '../../../data/products.js';
-import { listAccounts } from '../../../services/portalBridge.js';
+import { listAccounts, getMyProfile } from '../../../services/portalBridge.js';
 import { bookFd, bookRd, listHoldings, openSsy, startSip } from '../../../services/portalBridge.js';
 
 const KIND_META = {
@@ -63,19 +63,29 @@ function PreviewBox({ rows, note }) {
 
 /* ------------------------------ FD form ------------------------------ */
 
-function FdForm({ customerId, accounts, onBooked }) {
+function FdForm({ customerId, accounts, profile, onBooked }) {
   const { toast } = useToast();
   const [accountId, setAccountId] = useState('');
   const [amount, setAmount] = useState('100000');
   const [gridIdx, setGridIdx] = useState(3);
-  const [senior, setSenior] = useState(false);
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   useFirstAccount(accounts, accountId, setAccountId);
 
+  // Senior rate is derived from customer DOB in profile
+  const customerAge = useMemo(() => {
+    const dob = profile?.customer?.dob;
+    if (!dob) return null;
+    const d = new Date(dob);
+    if (isNaN(d.getTime())) return null;
+    const diff = Date.now() - d.getTime();
+    return Math.floor(diff / (365.25 * 24 * 3600 * 1000));
+  }, [profile?.customer?.dob]);
+
+  const isSenior = customerAge !== null && customerAge >= 60;
   const entry = FD.rateGrid[gridIdx] || FD.rateGrid[0];
-  const rate = senior ? entry.senior : entry.general;
+  const rate = isSenior ? entry.senior : entry.general;
   const tenureMonths = FD_TENURE_MONTHS[gridIdx] || 12;
   const amt = Number(amount) || 0;
 
@@ -96,7 +106,16 @@ function FdForm({ customerId, accounts, onBooked }) {
     setSubmitting(true);
     setFormError('');
     try {
-      const inv = await bookFd(customerId, { accountId, amount: amt, tenureMonths, rate, productName: FD.name });
+      const inv = await bookFd(customerId, {
+        accountId,
+        amount: amt,
+        tenureMonths,
+        rate,
+        seniorCitizen: isSenior,
+        productName: FD.name,
+        maturityAmount: preview?.maturityValue,
+        maturityDate: new Date(Date.now() + tenureMonths * 30 * 24 * 3600 * 1000).toISOString()
+      });
       toast({ title: 'Fixed deposit booked', body: `${formatINR(amt)} for ${tenureMonths} months at ${rate.toFixed(2)}% p.a. · Ref ${inv.id}` });
       onBooked();
     } catch (err) {
@@ -119,10 +138,12 @@ function FdForm({ customerId, accounts, onBooked }) {
         <Field label="Deposit amount" required error={errors.amount} hint={`Minimum ${formatINR(FD.minAmount)}`}>
           <Input type="number" min={FD.minAmount} step="100" value={amount} onChange={(e) => setAmount(e.target.value)} error={errors.amount} />
         </Field>
-        <Field label="Tenure" required hint="Rate is locked at booking for the chosen tenure.">
+        <Field label="Tenure" required hint="Exact tenure locked at booking.">
           <Select value={gridIdx} onChange={(e) => setGridIdx(Number(e.target.value))}>
             {FD.rateGrid.map((g, i) => (
-              <option key={g.tenure} value={i}>{g.tenure} — {(senior ? g.senior : g.general).toFixed(2)}% p.a.</option>
+              <option key={g.tenure} value={i}>
+                {FD_TENURE_MONTHS[i]} months — {g.tenure} band — {(isSenior ? g.senior : g.general).toFixed(2)}% p.a.
+              </option>
             ))}
           </Select>
         </Field>
@@ -132,7 +153,23 @@ function FdForm({ customerId, accounts, onBooked }) {
           </div>
         </Field>
       </div>
-      <Checkbox label="Senior citizen (60+) — the senior-citizen rate for this tenure applies" checked={senior} onChange={(e) => setSenior(e.target.checked)} />
+
+      {customerAge !== null && isSenior && (
+        <div className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2 text-[13px] text-emerald-800">
+          Senior citizen rate applied automatically based on your verified age ({customerAge} years, 60+).
+        </div>
+      )}
+      {customerAge !== null && !isSenior && (
+        <p className="text-[13px] text-ink-500">
+          General citizen rate applied based on your verified date of birth ({customerAge} years).
+        </p>
+      )}
+      {customerAge === null && (
+        <p className="text-[13px] text-ink-500">
+          Standard rate applied. Complete your KYC to verify date of birth for senior citizen rates.
+        </p>
+      )}
+
       {preview && (
         <PreviewBox
           rows={[
@@ -177,12 +214,22 @@ function RdForm({ customerId, accounts, onBooked }) {
     const next = {};
     if (!accountId) next.accountId = 'Choose a funding account.';
     if (!(m >= RD.minMonthly)) next.monthly = `Minimum monthly deposit is ${formatINR(RD.minMonthly)}.`;
+    else if (m % 100 !== 0) next.monthly = 'Monthly deposit must be a multiple of ₹100.';
     setErrors(next);
     if (Object.keys(next).length) return;
     setSubmitting(true);
     setFormError('');
     try {
-      const inv = await bookRd(customerId, { accountId, monthly: m, tenureMonths, rate, productName: RD.name });
+      const inv = await bookRd(customerId, {
+        accountId,
+        monthly: m,
+        monthlyAmount: m,
+        tenureMonths,
+        rate,
+        productName: RD.name,
+        maturityAmount: preview?.maturityValue,
+        maturityDate: new Date(Date.now() + tenureMonths * 30 * 24 * 3600 * 1000).toISOString()
+      });
       toast({ title: 'Recurring deposit started', body: `${formatINR(m)} per month for ${tenureMonths} months at ${rate.toFixed(2)}% p.a. · Ref ${inv.id}` });
       onBooked();
     } catch (err) {
@@ -205,10 +252,12 @@ function RdForm({ customerId, accounts, onBooked }) {
         <Field label="Monthly deposit" required error={errors.monthly} hint={`Minimum ${formatINR(RD.minMonthly)}, in multiples of ${formatINR(RD.monthlyStep)}`}>
           <Input type="number" min={RD.minMonthly} step={RD.monthlyStep} value={monthly} onChange={(e) => setMonthly(e.target.value)} error={errors.monthly} />
         </Field>
-        <Field label="Tenure" required>
+        <Field label="Tenure" required hint="Exact tenure locked at booking.">
           <Select value={bandIdx} onChange={(e) => setBandIdx(Number(e.target.value))}>
             {RD.rateBands.map((b, i) => (
-              <option key={b.tenure} value={i}>{b.tenure} — {b.rate.toFixed(2)}% p.a.</option>
+              <option key={b.tenure} value={i}>
+                {RD_TENURE_MONTHS[i]} months — {b.tenure} band — {b.rate.toFixed(2)}% p.a.
+              </option>
             ))}
           </Select>
         </Field>
@@ -243,6 +292,7 @@ function SipForm({ customerId, accounts, onBooked }) {
   const [fundName, setFundName] = useState(SIP.fundCategories[0]?.name || '');
   const [assumed, setAssumed] = useState('12');
   const [tenure, setTenure] = useState('60');
+  const [debitDate, setDebitDate] = useState('5');
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -271,8 +321,20 @@ function SipForm({ customerId, accounts, onBooked }) {
     setSubmitting(true);
     setFormError('');
     try {
-      const inv = await startSip(customerId, { accountId, monthly: m, rate, productName: SIP.name, fundName });
-      toast({ title: 'SIP started', body: `${formatINR(m)} per month in ${fundName}. Market-linked — returns are not guaranteed. · Ref ${inv.id}` });
+      const inv = await startSip(customerId, {
+        accountId,
+        monthly: m,
+        monthlyAmount: m,
+        rate,
+        productName: SIP.name,
+        fundName,
+        fundCategory: fundName,
+        tenureMonths,
+        debitDate: Number(debitDate) || 5,
+        maturityAmount: preview?.maturityValue,
+        maturityDate: new Date(Date.now() + tenureMonths * 30 * 24 * 3600 * 1000).toISOString()
+      });
+      toast({ title: 'SIP started', body: `${formatINR(m)} per month in ${fundName} (Debit day: ${debitDate}). Market-linked — returns are not guaranteed. · Ref ${inv.id}` });
       onBooked();
     } catch (err) {
       setFormError(err?.message || 'We could not start this SIP. Please try again.');
@@ -305,6 +367,15 @@ function SipForm({ customerId, accounts, onBooked }) {
         <Field label="Monthly investment" required error={errors.monthly} hint={`Minimum ${formatINR(SIP.minMonthly)}`}>
           <Input type="number" min={SIP.minMonthly} step="100" value={monthly} onChange={(e) => setMonthly(e.target.value)} error={errors.monthly} />
         </Field>
+        <Field label="Monthly debit date" hint="Day of the month for regular SIP deductions">
+          <Select value={debitDate} onChange={(e) => setDebitDate(e.target.value)}>
+            {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
+              <option key={d} value={String(d)}>
+                {d}{d === 1 ? 'st' : d === 2 ? 'nd' : d === 3 ? 'rd' : 'th'} of every month
+              </option>
+            ))}
+          </Select>
+        </Field>
         <Field label="Investment horizon (months)" required error={errors.tenure}>
           <Input type="number" min="12" step="12" value={tenure} onChange={(e) => setTenure(e.target.value)} error={errors.tenure} />
         </Field>
@@ -333,15 +404,24 @@ function SipForm({ customerId, accounts, onBooked }) {
 
 /* ------------------------------ SSY form ------------------------------ */
 
-function SsyForm({ customerId, accounts, onBooked }) {
+function SsyForm({ customerId, accounts, profile, onBooked }) {
   const { toast } = useToast();
   const [accountId, setAccountId] = useState('');
   const [amount, setAmount] = useState('25000');
-  const [beneficiaryName, setBeneficiaryName] = useState('');
+  const [childName, setChildName] = useState('');
+  const [childDob, setChildDob] = useState('');
+  const [guardianName, setGuardianName] = useState(profile?.customer?.fullName || '');
+  const [guardianRelationship, setGuardianRelationship] = useState('Father');
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
   useFirstAccount(accounts, accountId, setAccountId);
+
+  useEffect(() => {
+    if (profile?.customer?.fullName && !guardianName) {
+      setGuardianName(profile.customer.fullName);
+    }
+  }, [profile?.customer?.fullName]);
 
   const amt = Number(amount) || 0;
   const rate = SSY.rate;
@@ -359,14 +439,38 @@ function SsyForm({ customerId, accounts, onBooked }) {
     if (!accountId) next.accountId = 'Choose a funding account.';
     if (!(amt >= SSY.minDepositYearly)) next.amount = `Minimum yearly deposit is ${formatINR(SSY.minDepositYearly)}.`;
     else if (amt > SSY.maxDepositYearly) next.amount = `The scheme caps deposits at ${formatINR(SSY.maxDepositYearly)} per financial year.`;
-    if (!beneficiaryName.trim()) next.beneficiaryName = 'Enter the girl child’s full name.';
+    
+    if (!childName.trim()) next.childName = 'Enter the girl child’s full name.';
+    if (!childDob) {
+      next.childDob = 'Enter the girl child’s date of birth.';
+    } else {
+      const birth = new Date(childDob);
+      const ageYears = (Date.now() - birth.getTime()) / (365.25 * 24 * 3600 * 1000);
+      if (isNaN(birth.getTime()) || ageYears < 0 || ageYears >= 10) {
+        next.childDob = 'The girl child must be under 10 years of age to open an SSY account.';
+      }
+    }
+    if (!guardianName.trim()) next.guardianName = 'Enter guardian full name.';
+
     setErrors(next);
     if (Object.keys(next).length) return;
     setSubmitting(true);
     setFormError('');
     try {
-      const inv = await openSsy(customerId, { accountId, amount: amt, beneficiaryName: beneficiaryName.trim(), productName: SSY.name });
-      toast({ title: 'SSY account opened', body: `${formatINR(amt)} deposited for ${beneficiaryName.trim()} at ${rate.toFixed(2)}% p.a. · Ref ${inv.id}` });
+      const inv = await openSsy(customerId, {
+        accountId,
+        amount: amt,
+        annualDeposit: amt,
+        childName: childName.trim(),
+        girlChildName: childName.trim(),
+        childDob,
+        guardianName: guardianName.trim(),
+        guardianRelationship,
+        productName: SSY.name,
+        rate,
+        maturityAmount: preview?.maturityValue
+      });
+      toast({ title: 'SSY account opened', body: `${formatINR(amt)} deposited for ${childName.trim()} at ${rate.toFixed(2)}% p.a. · Ref ${inv.id}` });
       onBooked();
     } catch (err) {
       setFormError(err?.message || 'We could not open this SSY account. Please try again.');
@@ -385,8 +489,21 @@ function SsyForm({ customerId, accounts, onBooked }) {
             <AccountOptions accounts={accounts} />
           </Select>
         </Field>
-        <Field label="Beneficiary (girl child)" required error={errors.beneficiaryName}>
-          <Input type="text" value={beneficiaryName} onChange={(e) => setBeneficiaryName(e.target.value)} placeholder="Full name of the girl child" error={errors.beneficiaryName} />
+        <Field label="Girl child’s full name" required error={errors.childName}>
+          <Input type="text" value={childName} onChange={(e) => setChildName(e.target.value)} placeholder="Full name of the girl child" error={errors.childName} />
+        </Field>
+        <Field label="Girl child date of birth" required error={errors.childDob} hint="Child must be under 10 years of age">
+          <Input type="date" value={childDob} onChange={(e) => setChildDob(e.target.value)} error={errors.childDob} />
+        </Field>
+        <Field label="Guardian full name" required error={errors.guardianName}>
+          <Input type="text" value={guardianName} onChange={(e) => setGuardianName(e.target.value)} placeholder="Full name of parent/guardian" error={errors.guardianName} />
+        </Field>
+        <Field label="Relationship with child" required>
+          <Select value={guardianRelationship} onChange={(e) => setGuardianRelationship(e.target.value)}>
+            <option value="Father">Father</option>
+            <option value="Mother">Mother</option>
+            <option value="Legal Guardian">Legal Guardian</option>
+          </Select>
         </Field>
         <Field label="Deposit for this year" required error={errors.amount} hint={`${formatINR(SSY.minDepositYearly)} to ${formatINR(SSY.maxDepositYearly)} per financial year`}>
           <Input type="number" min={SSY.minDepositYearly} max={SSY.maxDepositYearly} step="250" value={amount} onChange={(e) => setAmount(e.target.value)} error={errors.amount} />
@@ -421,6 +538,7 @@ export default function InvestmentsPage() {
   const customerId = user?.customerId;
   const [holdings, setHoldings] = useState([]);
   const [accounts, setAccounts] = useState([]);
+  const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
   const [tab, setTab] = useState('FD');
@@ -430,11 +548,16 @@ export default function InvestmentsPage() {
     if (!customerId) return undefined;
     let live = true;
     setLoading(true);
-    Promise.all([listHoldings(customerId), listAccounts(customerId)])
-      .then(([h, a]) => {
+    Promise.all([
+      listHoldings(customerId),
+      listAccounts(customerId),
+      getMyProfile(customerId).catch(() => null)
+    ])
+      .then(([h, a, p]) => {
         if (!live) return;
         setHoldings(h || []);
         setAccounts(a || []);
+        setProfile(p);
         setError('');
       })
       .catch((err) => { if (live) setError(err?.message || 'We could not load your investments.'); })
@@ -463,7 +586,7 @@ export default function InvestmentsPage() {
         ...base,
         { key: 'principal', label: 'Principal', align: 'right', render: (h) => <span className="tnum">{formatINR(h.principal)}</span> },
         { key: 'rate', label: 'Rate', align: 'right', render: (h) => <span className="tnum">{h.rate != null ? `${Number(h.rate).toFixed(2)}% p.a.` : '—'}</span> },
-        { key: 'start', label: 'Start date', render: (h) => formatDate(h.startDate) },
+        { key: 'start', label: 'Start date', render: (h) => formatDate(h.startDate || h.bookingDate) },
         { key: 'mat', label: 'Maturity date', render: (h) => formatDate(h.maturityDate) },
         { key: 'matVal', label: 'Maturity value', align: 'right', render: (h) => <span className="tnum font-semibold">{formatINR(h.maturityValue ?? h.maturityAmount)}</span> },
         { key: 'status', label: 'Status', render: (h) => <StatusChip status={h.status} /> },
@@ -474,7 +597,7 @@ export default function InvestmentsPage() {
         ...base,
         { key: 'monthly', label: 'Monthly', align: 'right', render: (h) => <span className="tnum">{formatINR(monthlyOf(h))}</span> },
         { key: 'rate', label: 'Rate', align: 'right', render: (h) => <span className="tnum">{h.rate != null ? `${Number(h.rate).toFixed(2)}% p.a.` : '—'}</span> },
-        { key: 'start', label: 'Start date', render: (h) => formatDate(h.startDate) },
+        { key: 'start', label: 'Start date', render: (h) => formatDate(h.startDate || h.bookingDate) },
         { key: 'mat', label: 'Maturity date', render: (h) => formatDate(h.maturityDate) },
         { key: 'matVal', label: 'Maturity value', align: 'right', render: (h) => <span className="tnum font-semibold">{formatINR(h.maturityValue ?? h.maturityAmount)}</span> },
         { key: 'status', label: 'Status', render: (h) => <StatusChip status={h.status} /> },
@@ -483,10 +606,10 @@ export default function InvestmentsPage() {
     if (kind === 'SSY') {
       return [
         ...base,
-        { key: 'bene', label: 'Beneficiary', render: (h) => h.beneficiaryName || '—' },
-        { key: 'principal', label: 'Deposited', align: 'right', render: (h) => <span className="tnum">{formatINR(h.principal)}</span> },
+        { key: 'child', label: 'Child Name', render: (h) => h.childName || h.girlChildName || h.name || '—' },
+        { key: 'principal', label: 'Deposited', align: 'right', render: (h) => <span className="tnum">{formatINR(h.principal || h.depositAmount || h.annualDeposit)}</span> },
         { key: 'rate', label: 'Rate', align: 'right', render: (h) => <span className="tnum">{h.rate != null ? `${Number(h.rate).toFixed(2)}% p.a.` : '—'}</span> },
-        { key: 'start', label: 'Start date', render: (h) => formatDate(h.startDate) },
+        { key: 'start', label: 'Start date', render: (h) => formatDate(h.startDate || h.bookingDate) },
         { key: 'mat', label: 'Maturity date', render: (h) => formatDate(h.maturityDate) },
         { key: 'status', label: 'Status', render: (h) => <StatusChip status={h.status} /> },
       ];
@@ -495,8 +618,8 @@ export default function InvestmentsPage() {
     return [
       ...base,
       { key: 'monthly', label: 'Monthly', align: 'right', render: (h) => <span className="tnum">{formatINR(monthlyOf(h))}</span> },
-      { key: 'invested', label: 'Invested so far', align: 'right', render: (h) => <span className="tnum">{formatINR(h.investedToDate ?? h.principal)}</span> },
-      { key: 'start', label: 'Start date', render: (h) => formatDate(h.startDate) },
+      { key: 'invested', label: 'Invested so far', align: 'right', render: (h) => <span className="tnum">{formatINR(h.investedToDate ?? h.principal ?? monthlyOf(h))}</span> },
+      { key: 'start', label: 'Start date', render: (h) => formatDate(h.startDate || h.bookingDate) },
       { key: 'status', label: 'Status', render: (h) => <StatusChip status={h.status} /> },
     ];
   };
@@ -556,10 +679,10 @@ export default function InvestmentsPage() {
                 You need an active FinEdge account to fund an investment. Your accounts will appear here once opened.
               </p>
             )}
-            {tab === 'FD' && <FdForm customerId={customerId} accounts={accounts} onBooked={() => setRefresh((r) => r + 1)} />}
+            {tab === 'FD' && <FdForm customerId={customerId} accounts={accounts} profile={profile} onBooked={() => setRefresh((r) => r + 1)} />}
             {tab === 'RD' && <RdForm customerId={customerId} accounts={accounts} onBooked={() => setRefresh((r) => r + 1)} />}
             {tab === 'SIP' && <SipForm customerId={customerId} accounts={accounts} onBooked={() => setRefresh((r) => r + 1)} />}
-            {tab === 'SSY' && <SsyForm customerId={customerId} accounts={accounts} onBooked={() => setRefresh((r) => r + 1)} />}
+            {tab === 'SSY' && <SsyForm customerId={customerId} accounts={accounts} profile={profile} onBooked={() => setRefresh((r) => r + 1)} />}
           </div>
         </Card>
       </section>

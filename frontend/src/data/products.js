@@ -35,7 +35,7 @@ export const BRAND = {
   support: {
     phone: '1800 267 4100 (toll-free, demo)',
     email: 'care@finedgebank.example',
-    hours: '24 x 7 phone support; branches Mon–Sat, 9:30 am – 4:30 pm',
+    hours: 'Mon–Sat, 9:00 AM – 7:00 PM IST',
   },
 };
 

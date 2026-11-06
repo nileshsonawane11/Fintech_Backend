@@ -9,6 +9,7 @@ import {
   FileText,
   Landmark,
   Receipt,
+  ShieldCheck,
   Wallet,
 } from 'lucide-react';
 import {
@@ -26,7 +27,7 @@ import {
   Table,
   useToast,
 } from '../../../components/ui.jsx';
-import { formatDate, formatINR, maskAccount } from '../../../lib/format.js';
+import { formatDate, formatINR, formatINRWhole, maskAccount } from '../../../lib/format.js';
 import { LOANS, getLoanBySlug } from '../../../data/products.js';
 import { calculateEMI } from '../../../lib/finance.js';
 import { applyLoan, listMyLoanApplications, listMyLoans } from '../../../services/portalBridge.js';
@@ -45,8 +46,8 @@ function feeLine(product) {
   const fee = product?.processingFee;
   if (!fee) return null;
   const parts = [`${fee.pct}% of the sanctioned amount`];
-  if (fee.min != null) parts.push(`minimum ${formatINR(fee.min)}`);
-  if (fee.max != null) parts.push(`maximum ${formatINR(fee.max)}`);
+  if (fee.min != null) parts.push(`minimum ${fee.min === 0 ? 'Nil' : formatINRWhole(fee.min)}`);
+  if (fee.max != null) parts.push(`maximum ${formatINRWhole(fee.max)}`);
   return `Processing fee: ${parts.join(', ')}${fee.note ? ` · ${fee.note}` : ''}. Rates are illustrative for this demonstration platform.`;
 }
 
@@ -68,14 +69,23 @@ export default function LoansPage() {
   const [loans, setLoans] = useState([]);
   const dataKeyRef = useRef('');
 
-  // ---- apply form state ----
-  const [productSlug, setProductSlug] = useState(LOANS[0]?.slug || '');
-  const [amount, setAmount] = useState('');
-  const [tenure, setTenure] = useState('');
-  const [purpose, setPurpose] = useState('');
-  const [monthlyIncome, setMonthlyIncome] = useState('');
+  // Form default product is Home Loan (catalogue lead)
+  const [productSlug, setProductSlug] = useState('home-loan');
+  const [amount, setAmount] = useState('2500000');
+  const [tenure, setTenure] = useState('120');
+  const [purpose, setPurpose] = useState('Residential apartment purchase');
+  const [monthlyIncome, setMonthlyIncome] = useState('95000');
   const [employmentType, setEmploymentType] = useState(EMPLOYMENT_TYPES[0]);
+  const [employerName, setEmployerName] = useState('Tata Consultancy Services');
+  const [existingEmis, setExistingEmis] = useState('0');
   const [accountId, setAccountId] = useState('');
+
+  // Mandatory consents
+  const [cicConsent, setCicConsent] = useState(false);
+  const [mitcConsent, setMitcConsent] = useState(false);
+  const [taxResidentIndia, setTaxResidentIndia] = useState(true);
+  const [notPep, setNotPep] = useState(true);
+
   const [fieldErrors, setFieldErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -89,9 +99,6 @@ export default function LoansPage() {
     [productSlug],
   );
 
-  // Live reload: re-fetch after every render only when the data actually
-  // changed, so cross-portal decisions (approval / disbursement) appear
-  // here without a manual refresh and without a fetch loop.
   useEffect(() => {
     let live = true;
     if (!customerId) {
@@ -135,12 +142,11 @@ export default function LoansPage() {
     if (!product) return;
     setTenure((prev) => {
       const n = Number(prev);
-      if (!prev || Number.isNaN(n)) return String(Math.min(60, product.tenureMaxMonths));
+      if (!prev || Number.isNaN(n)) return String(Math.min(120, product.tenureMaxMonths));
       const clamped = Math.max(product.tenureMinMonths, Math.min(product.tenureMaxMonths, Math.round(n)));
       return String(clamped);
     });
-    setFieldErrors((prev) => ({ ...prev, amount: undefined, tenure: undefined }));
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    setFieldErrors((prev) => ({ ...prev, amount: undefined, tenure: undefined, monthlyIncome: undefined }));
   }, [productSlug]);
 
   const emiPreview = useMemo(() => {
@@ -161,23 +167,45 @@ export default function LoansPage() {
     const amt = Number(amount);
     const months = Number(tenure);
     const income = Number(monthlyIncome);
+
     if (!product) errors.product = 'Choose a loan product.';
     if (!amount || Number.isNaN(amt) || amt <= 0) {
       errors.amount = 'Enter the amount you want to borrow.';
     } else if (product && amt > product.maxAmount) {
       errors.amount = `This product supports up to ${formatINR(product.maxAmount)}.`;
     }
+
     if (!tenure || Number.isNaN(months) || !Number.isInteger(months)) {
       errors.tenure = 'Enter the tenure in whole months.';
     } else if (product && (months < product.tenureMinMonths || months > product.tenureMaxMonths)) {
       errors.tenure = `Tenure for this product is ${product.tenureMinMonths}–${product.tenureMaxMonths} months.`;
     }
+
     if (!purpose.trim()) errors.purpose = 'Tell us what the loan is for.';
+
     if (!monthlyIncome || Number.isNaN(income) || income <= 0) {
       errors.monthlyIncome = 'Enter your monthly income.';
+    } else if (product?.eligibility?.minMonthlyIncome && income < product.eligibility.minMonthlyIncome) {
+      errors.monthlyIncome = `Minimum monthly income for ${product.name} is ${formatINR(product.eligibility.minMonthlyIncome)}.`;
     }
+
     if (!employmentType) errors.employmentType = 'Choose your employment type.';
+    if (!employerName.trim()) errors.employerName = 'Enter employer or business name.';
     if (!accountId) errors.accountId = 'Choose the account to credit on disbursement.';
+
+    if (!cicConsent) {
+      errors.cicConsent = 'Credit bureau authorization is required to apply.';
+    }
+    if (!mitcConsent) {
+      errors.mitcConsent = 'You must agree to the Most Important Terms & Conditions (MITC).';
+    }
+    if (!taxResidentIndia) {
+      errors.taxResidentIndia = 'Confirmation of Indian tax residency is required.';
+    }
+    if (!notPep) {
+      errors.notPep = 'Confirmation of non-PEP status is required.';
+    }
+
     setFieldErrors(errors);
     return Object.keys(errors).length === 0;
   }
@@ -196,8 +224,13 @@ export default function LoansPage() {
         tenureMonths: Number(tenure),
         purpose: purpose.trim(),
         accountId,
+        disbursementAccountId: accountId,
         monthlyIncome: Number(monthlyIncome),
         employmentType,
+        employerName: employerName.trim(),
+        existingEmis: Number(existingEmis) || 0,
+        cicConsent: true,
+        mitcConsent: true,
       });
       setSuccessApp(app);
       setApplications((prev) => [app, ...prev.filter((a) => a.id !== app.id)]);
@@ -235,6 +268,11 @@ export default function LoansPage() {
           Apply for a loan
         </h3>
         <Card className="p-5 sm:p-6">
+          <div className="mb-4 flex items-center gap-2 rounded-lg border border-midnight-200 bg-midnight-50 px-3.5 py-2.5 text-xs text-midnight-800">
+            <ShieldCheck className="h-4 w-4 shrink-0 text-midnight-700" />
+            <span>Express loan application — verified KYC records on file for your logged-in customer account are applied automatically.</span>
+          </div>
+
           <form onSubmit={handleSubmit} noValidate className="space-y-5">
             <div className="grid gap-5 sm:grid-cols-2">
               <Field label="Loan product" required error={fieldErrors.product}>
@@ -250,6 +288,7 @@ export default function LoansPage() {
                   ))}
                 </Select>
               </Field>
+
               <Field label="Employment type" required error={fieldErrors.employmentType}>
                 <Select
                   value={employmentType}
@@ -261,6 +300,45 @@ export default function LoansPage() {
                   ))}
                 </Select>
               </Field>
+
+              <Field label="Employer / Business name" required error={fieldErrors.employerName}>
+                <Input
+                  type="text"
+                  placeholder="e.g. Tata Consultancy Services"
+                  value={employerName}
+                  onChange={(e) => setEmployerName(e.target.value)}
+                  error={fieldErrors.employerName}
+                />
+              </Field>
+
+              <Field
+                label="Monthly income (₹)"
+                required
+                error={fieldErrors.monthlyIncome}
+                hint={product?.eligibility?.minMonthlyIncome ? `Minimum ${formatINR(product.eligibility.minMonthlyIncome)} for this product` : 'Net in-hand income'}
+              >
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min="1"
+                  placeholder="e.g. 95000"
+                  value={monthlyIncome}
+                  onChange={(e) => setMonthlyIncome(e.target.value)}
+                  error={fieldErrors.monthlyIncome}
+                />
+              </Field>
+
+              <Field label="Existing monthly EMIs (₹)" hint="Total monthly commitment across all existing loans (0 if none)">
+                <Input
+                  type="number"
+                  inputMode="numeric"
+                  min="0"
+                  placeholder="0"
+                  value={existingEmis}
+                  onChange={(e) => setExistingEmis(e.target.value)}
+                />
+              </Field>
+
               <Field
                 label="Amount (₹)"
                 required
@@ -271,12 +349,13 @@ export default function LoansPage() {
                   type="number"
                   inputMode="numeric"
                   min="1"
-                  placeholder="e.g. 500000"
+                  placeholder="e.g. 2500000"
                   value={amount}
                   onChange={(e) => setAmount(e.target.value)}
                   error={fieldErrors.amount}
                 />
               </Field>
+
               <Field
                 label="Tenure (months)"
                 required
@@ -288,23 +367,13 @@ export default function LoansPage() {
                   inputMode="numeric"
                   min={product?.tenureMinMonths}
                   max={product?.tenureMaxMonths}
-                  placeholder="e.g. 60"
+                  placeholder="e.g. 120"
                   value={tenure}
                   onChange={(e) => setTenure(e.target.value)}
                   error={fieldErrors.tenure}
                 />
               </Field>
-              <Field label="Monthly income (₹)" required error={fieldErrors.monthlyIncome}>
-                <Input
-                  type="number"
-                  inputMode="numeric"
-                  min="1"
-                  placeholder="e.g. 85000"
-                  value={monthlyIncome}
-                  onChange={(e) => setMonthlyIncome(e.target.value)}
-                  error={fieldErrors.monthlyIncome}
-                />
-              </Field>
+
               <Field label="Disbursement account" required error={fieldErrors.accountId}>
                 <Select
                   value={accountId}
@@ -322,7 +391,7 @@ export default function LoansPage() {
             <Field label="Purpose of the loan" required error={fieldErrors.purpose}>
               <Input
                 type="text"
-                placeholder="e.g. Purchase of a new car"
+                placeholder="e.g. Residential apartment purchase"
                 value={purpose}
                 onChange={(e) => setPurpose(e.target.value)}
                 error={fieldErrors.purpose}
@@ -371,11 +440,74 @@ export default function LoansPage() {
               )}
             </div>
 
+            {/* Mandatory Consents */}
+            <div className="space-y-3 rounded-lg border border-ink-200 bg-porcelain-50 p-4">
+              <div>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={cicConsent}
+                    onChange={(e) => setCicConsent(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                  />
+                  <span className="text-xs leading-relaxed text-ink-700">
+                    I authorize FinEdge Bank to pull and assess my credit information report from CIBIL, Experian, Equifax, or CRIF High Mark for credit underwriting.<span className="text-danger-600"> *</span>
+                  </span>
+                </label>
+                {fieldErrors.cicConsent && <p className="text-xs text-danger-600 pl-7">{fieldErrors.cicConsent}</p>}
+              </div>
+
+              <div>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={mitcConsent}
+                    onChange={(e) => setMitcConsent(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                  />
+                  <span className="text-xs leading-relaxed text-ink-700">
+                    I have read and agree to the Most Important Terms &amp; Conditions (MITC) for the <strong className="text-midnight-950">{product?.name}</strong>: interest rates {product?.rateMin?.toFixed(2)}% – {product?.rateMax?.toFixed(2)}% p.a., processing fee {product?.processingFee?.pct}% (min {product?.processingFee?.min === 0 ? 'Nil' : formatINRWhole(product?.processingFee?.min || 0)}). Floating-rate loans carry zero prepayment penalty.<span className="text-danger-600"> *</span>
+                  </span>
+                </label>
+                {fieldErrors.mitcConsent && <p className="text-xs text-danger-600 pl-7">{fieldErrors.mitcConsent}</p>}
+              </div>
+
+              <div>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={taxResidentIndia}
+                    onChange={(e) => setTaxResidentIndia(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                  />
+                  <span className="text-xs leading-relaxed text-ink-700">
+                    I confirm that I am a tax resident of India and not a tax resident of any other country.<span className="text-danger-600"> *</span>
+                  </span>
+                </label>
+                {fieldErrors.taxResidentIndia && <p className="text-xs text-danger-600 pl-7">{fieldErrors.taxResidentIndia}</p>}
+              </div>
+
+              <div>
+                <label className="flex items-start gap-3 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={notPep}
+                    onChange={(e) => setNotPep(e.target.checked)}
+                    className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                  />
+                  <span className="text-xs leading-relaxed text-ink-700">
+                    I confirm that I am not a Politically Exposed Person (PEP) or related to one.<span className="text-danger-600"> *</span>
+                  </span>
+                </label>
+                {fieldErrors.notPep && <p className="text-xs text-danger-600 pl-7">{fieldErrors.notPep}</p>}
+              </div>
+            </div>
+
             <FormError message={formError} />
 
             <div className="flex flex-wrap items-center gap-3">
               <Button type="submit" variant="primary" loading={submitting} disabled={accounts.length === 0}>
-                Submit application
+                Submit loan application
               </Button>
               {accounts.length === 0 && (
                 <p className="text-[13px] text-ink-500">You need an active FinEdge account before you can apply.</p>
@@ -395,7 +527,7 @@ export default function LoansPage() {
                       {' · '}{successApp.productName}
                       {' · '}{formatINR(successApp.amount)} over {successApp.tenureMonths} months
                       {successApp.emi ? <> · Indicative EMI {formatINR(successApp.emi)}</> : null}
-                      . Our team will review your documents next — no action is needed from you right now.
+                      . Our team will review your application next — no additional action is needed.
                     </p>
                   </div>
                 </div>
@@ -425,6 +557,7 @@ export default function LoansPage() {
               const appProduct = getLoanBySlug(app.productSlug);
               const productName = app.productName || appProduct?.name || 'Loan';
               const rate = app.rate ?? appProduct?.rateMin;
+              const isGold = app.productSlug === 'gold-loan';
               const steps = (app.steps || []).map((s) => ({
                 ...s,
                 date: s.date ? formatDate(s.date) : '—',
@@ -435,7 +568,7 @@ export default function LoansPage() {
                     <div>
                       <p className="text-base font-semibold text-midnight-950">{productName}</p>
                       <p className="mt-0.5 text-[13px] text-ink-500">
-                        Reference {app.id} · Applied {formatDate(app.submittedAt || app.appliedAt)}
+                        Reference {app.id} · Applied {formatDate(app.submittedAt || app.appliedAt || app.createdAt)}
                       </p>
                     </div>
                     <StatusChip status={app.status} />
@@ -453,9 +586,9 @@ export default function LoansPage() {
                       </dd>
                     </div>
                     <div>
-                      <dt className="text-xs text-ink-500">Indicative EMI</dt>
+                      <dt className="text-xs text-ink-500">{isGold ? 'Repayment' : 'Indicative EMI'}</dt>
                       <dd className="tnum mt-0.5 text-sm font-semibold text-ink-800">
-                        {app.emi ? formatINR(app.emi) : '—'}
+                        {isGold ? 'Bullet repayment at maturity' : (app.emi ? formatINR(app.emi) : '—')}
                       </dd>
                     </div>
                     <div>

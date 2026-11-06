@@ -1,5 +1,5 @@
 // Card Applications & Card Controls Service
-import { apiRequest } from './api';
+import { apiRequest } from './api.js';
 
 export const cardService = {
   // Get Customer Cards (Section 7.2)
@@ -10,13 +10,15 @@ export const cardService = {
   },
 
   // Apply for Card (Section 7.1)
-  async applyForCard({ cardType, cardName, linkedAccountId, deliveryAddressId = 'ADDR-1001' }) {
+  async applyForCard({ cardType, cardName, productSlug, linkedAccountId, requestedLimit, deliveryAddressId = 'ADDR-1001' }) {
     return apiRequest('/api/v1/cards/applications', {
       method: 'POST',
       body: JSON.stringify({
         cardType,
         cardName,
+        productSlug,
         linkedAccountId,
+        requestedLimit,
         deliveryAddressId
       })
     });

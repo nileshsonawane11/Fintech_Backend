@@ -189,7 +189,7 @@ export default function GrievanceRedressal() {
             className="inline-flex items-center gap-2 font-medium text-midnight-900 hover:text-gold-700 transition-colors"
           >
             <Phone className="h-4 w-4 text-midnight-700" aria-hidden />
-            <span>Toll-free 1800 267 4100 (Mon–Sat, 9 AM–7 PM IST)</span>
+            <span>Toll-free 1800 267 4100 ({BRAND.support.hours})</span>
           </a>
           <a
             href={`mailto:${BRAND.support.email}`}

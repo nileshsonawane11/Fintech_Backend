@@ -52,7 +52,7 @@ export default function ManagerAuditPage() {
     const q = search.trim().toLowerCase();
     return allRows.filter((r) => {
       if (q) {
-        const hay = [r.actor, r.actorName, r.entity, r.entityType, r.entityId, r.detail].map((v) => (v || '').toLowerCase());
+        const hay = [r.actor, r.actorName, r.entity, r.entityType, r.entityId, r.target, r.detail, r.details].map((v) => (v || '').toLowerCase());
         if (!hay.some((v) => v.includes(q))) return false;
       }
       if (action !== 'ALL' && r.action !== action) return false;
@@ -134,6 +134,10 @@ export default function ManagerAuditPage() {
         <Field label="Outcome">
           <Select value={outcome} onChange={(e) => setOutcome(e.target.value)} aria-label="Filter by outcome">
             <option value="ALL">All outcomes</option>
+            <option value="APPROVED">Approved</option>
+            <option value="REJECTED">Rejected</option>
+            <option value="INFO REQUIRED">Info Required</option>
+            <option value="COMPLETED">Completed</option>
             <option value="SUCCESS">Success</option>
             <option value="FAILED">Failed</option>
           </Select>

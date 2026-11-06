@@ -28,6 +28,15 @@ export default function AccountDetailPage() {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
 
+  // Preference-driven format default (Fix 78)
+  const preferredFormat = (() => {
+    try {
+      const raw = window.localStorage.getItem('finedge-prefs');
+      if (raw) return JSON.parse(raw).statementFormat || 'PDF';
+    } catch {}
+    return 'PDF';
+  })();
+
   useEffect(() => {
     let alive = true;
     getAccount(id)
@@ -127,7 +136,7 @@ export default function AccountDetailPage() {
     { key: 'reference', label: 'Reference', render: (t) => <span className="tnum text-[13px] text-ink-600">{t.reference || '—'}</span> },
     { key: 'debit', label: 'Debit', align: 'right', render: (t) => (t.type === 'DEBIT' ? <span className="tnum">{formatINR(t.amount)}</span> : <span className="text-ink-300">—</span>) },
     { key: 'credit', label: 'Credit', align: 'right', render: (t) => (t.type === 'CREDIT' ? <span className="tnum text-success-600">{formatINR(t.amount)}</span> : <span className="text-ink-300">—</span>) },
-    { key: 'balance', label: 'Balance', align: 'right', render: (t) => <span className="tnum font-medium">{formatINR(t.balance)}</span> },
+    { key: 'balance', label: 'Balance', align: 'right', render: (t) => <span className="tnum font-medium">{t.balance != null ? formatINR(t.balance) : '—'}</span> },
   ];
 
   return (
@@ -171,12 +180,25 @@ export default function AccountDetailPage() {
         description="Your account statement for the selected period. Download a PDF or CSV copy for your records."
         action={(
           <div className="flex flex-wrap gap-2">
-            <Button variant="secondary" onClick={downloadPdf} loading={pdfBusy} disabled={!transactions || transactions.length === 0}>
-              <FileText className="h-4 w-4" aria-hidden /> Download PDF
-            </Button>
-            <Button variant="secondary" onClick={downloadCsv} disabled={!transactions || transactions.length === 0}>
-              <Download className="h-4 w-4" aria-hidden /> Download CSV
-            </Button>
+            {preferredFormat === 'CSV' ? (
+              <>
+                <Button variant="primary" onClick={downloadCsv} disabled={!transactions || transactions.length === 0}>
+                  <Download className="h-4 w-4" aria-hidden /> Download CSV
+                </Button>
+                <Button variant="secondary" onClick={downloadPdf} loading={pdfBusy} disabled={!transactions || transactions.length === 0}>
+                  <FileText className="h-4 w-4" aria-hidden /> Download PDF
+                </Button>
+              </>
+            ) : (
+              <>
+                <Button variant="primary" onClick={downloadPdf} loading={pdfBusy} disabled={!transactions || transactions.length === 0}>
+                  <FileText className="h-4 w-4" aria-hidden /> Download PDF
+                </Button>
+                <Button variant="secondary" onClick={downloadCsv} disabled={!transactions || transactions.length === 0}>
+                  <Download className="h-4 w-4" aria-hidden /> Download CSV
+                </Button>
+              </>
+            )}
           </div>
         )}
       />
