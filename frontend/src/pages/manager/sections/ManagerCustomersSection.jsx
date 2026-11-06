@@ -2,7 +2,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { Download, Eye, EyeOff, Search, Users, X } from 'lucide-react';
 import { Button, Card, EmptyState, Input, PageLoading, SectionHeader, StatusChip, Table, useToast } from '../../../components/ui.jsx';
 import { formatDate, formatINR, maskAccount, maskPan, productDisplayName, statusLabel } from '../../../lib/format.js';
-import { getCustomerDetail, listCustomers } from '../../../services/managerBridge.js';
+import { getCustomerDetail, listCustomers, revealCustomerPan } from '../../../services/managerBridge.js';
 import { useAuth, useDbTick } from '../../../context/AuthContext.jsx';
 
 function downloadCsv(filename, csv) {
@@ -298,7 +298,7 @@ export default function ManagerCustomersPage() {
               )}
             </div>
             <div className="sticky bottom-0 z-10 shrink-0 border-t border-ink-100 bg-porcelain-50 px-5 py-3 flex justify-end">
-              <Button variant="secondary" onClick={() => setSelected(null)}>Close</Button>
+              <Button variant="secondary" onClick={() => setSelectedId(null)}>Close</Button>
             </div>
           </aside>
         </div>

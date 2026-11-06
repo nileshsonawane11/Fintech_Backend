@@ -30,8 +30,25 @@ function slaNote(iso) {
   return '';
 }
 
-function QueueCell({ icon: Icon, label, queue, to, onOpen }) {
+function QueueCell({ icon: Icon, label, queue, to, onOpen, canAccess }) {
   const note = slaNote(queue?.oldestAt);
+
+  if (!canAccess) {
+    return (
+      <div className="bg-white px-5 py-4 text-left cursor-default">
+        <span className="flex items-center justify-between gap-2">
+          <span className="flex items-center gap-2 text-sm font-medium text-ink-500">
+            <Icon className="h-4 w-4 text-ink-400" aria-hidden /> {label}
+          </span>
+        </span>
+        <span className="tnum mt-3 block text-3xl font-semibold text-midnight-950">{queue?.count ?? '—'}</span>
+        <span className="mt-1 block text-[13px] text-ink-500">
+          Oldest: {queue?.oldestAt ? ageOf(queue.oldestAt) : '—'}
+        </span>
+      </div>
+    );
+  }
+
   return (
     <button
       type="button"
