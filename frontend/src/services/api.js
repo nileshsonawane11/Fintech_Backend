@@ -787,8 +787,12 @@ export const getDefaultDb = () => {
           'customers.read', 'customers.update',
           'kyc.read', 'kyc.review', 'kyc.approve',
           'accounts.read', 'accounts.review', 'accounts.approve',
-          'cards.read', 'cards.review', 'cards.approve', 'cards.block',
+          'cards.read', 'cards.review', 'cards.approve', 'cards.issue', 'cards.block',
           'staff.read', 'staff.create', 'staff.update',
+          'loans.read', 'loans.review', 'loans.disburse',
+          'investments.read', 'investments.review', 'investments.book',
+          'support.reply',
+          'staff.manage',
           'roles.read', 'roles.manage', 'permissions.assign',
           'audit.read', 'reports.read'
         ],
@@ -822,8 +826,8 @@ export const getDefaultDb = () => {
         permissions: [
           'customers.read',
           'accounts.read', 'accounts.review', 'accounts.approve',
-          'cards.read', 'cards.review', 'cards.approve', 'cards.block',
-          'audit.read'
+          'cards.read', 'cards.review', 'cards.approve', 'cards.issue', 'cards.block',
+          'loans.read', 'loans.review', 'investments.read', 'investments.review', 'audit.read'
         ],
         lastLogin: '2026-09-27T10:15:00Z'
       },
@@ -837,8 +841,7 @@ export const getDefaultDb = () => {
         department: 'Risk & Audit',
         status: 'ACTIVE',
         permissions: [
-          'customers.read',
-          'audit.read',
+          'customers.read', 'kyc.read', 'accounts.read', 'cards.read', 'loans.read', 'investments.read', 'audit.read',
           'reports.read'
         ],
         lastLogin: '2026-09-27T09:00:00Z'
@@ -856,7 +859,7 @@ export const getDefaultDb = () => {
           'customers.read',
           'kyc.read',
           'accounts.read',
-          'cards.read'
+          'cards.read', 'support.reply'
         ],
         lastLogin: '2026-09-27T08:45:00Z'
       }
@@ -1041,10 +1044,21 @@ export const getDb = () => {
 
     // Auto-merge seeded staff users
     defaults.staffUsers.forEach(ds => {
-      if (!db.staffUsers?.some(s => s.staffId === ds.staffId)) {
+      const existing = db.staffUsers?.find(s => s.staffId === ds.staffId);
+      if (!existing) {
         db.staffUsers = db.staffUsers || [];
         db.staffUsers.push(ds);
         dirty = true;
+      } else {
+        const curPerms = new Set(existing.permissions || []);
+        let permAdded = false;
+        (ds.permissions || []).forEach(p => {
+          if (!curPerms.has(p)) {
+            existing.permissions.push(p);
+            permAdded = true;
+          }
+        });
+        if (permAdded) dirty = true;
       }
     });
 
@@ -1428,6 +1442,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
     const staff = db.staffUsers.find(s => s.email.toLowerCase() === ident);
 
     if (!staff) {
+      appendAuditLog(ident || 'UNKNOWN', 'STAFF', 'STAFF_LOGIN_FAILED', 'STAFF_AUTH', 'FAILED', 'Unknown staff corporate email: ' + ident);
       throw {
         status: 401,
         code: 'STAFF_NOT_FOUND',
@@ -1437,6 +1452,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
     }
 
     if (staff.status === 'DISABLED' || staff.status === 'DEACTIVATED') {
+      appendAuditLog(staff.email, staff.role, 'STAFF_LOGIN_FAILED', staff.staffId, 'FAILED', 'Deactivated staff account access attempted');
       throw {
         status: 403,
         code: 'STAFF_ACCOUNT_DEACTIVATED',
@@ -1447,6 +1463,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
 
     const validPasswords = [staff.password, 'Manager@2026', 'Officer@2026', 'Operations@2026'].filter(Boolean);
     if (staff.password && !validPasswords.includes(body.password)) {
+      appendAuditLog(staff.email, staff.role, 'STAFF_LOGIN_FAILED', staff.staffId, 'FAILED', 'Incorrect staff password');
       throw {
         status: 401,
         code: 'INVALID_CREDENTIALS',
@@ -1464,7 +1481,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
       fullName: staff.fullName,
       email: staff.email,
       role: staff.role,
-      roleTitle: staff.roleTitle || (staff.role === 'BANK_MANAGER' ? 'Chief Branch Manager' : staff.role === 'KYC_OFFICER' ? 'Senior KYC Verification Officer' : 'Account & Card Operations Specialist'),
+      roleTitle: staff.roleTitle || (staff.role === 'BANK_MANAGER' ? 'Chief Branch Manager' : staff.role === 'KYC_OFFICER' ? 'Senior KYC Verification Officer' : staff.role === 'AUDIT_COMPLIANCE' ? 'Senior Internal Auditor' : staff.role === 'CUSTOMER_SUPPORT' ? 'Customer Care Lead' : 'Account & Card Operations Specialist'),
       department: staff.department || 'Operations',
       permissions: staff.permissions || []
     };
@@ -2181,7 +2198,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
   const opsApproveAccountMatch = endpoint.match(/\/ops\/api\/v1\/accounts\/applications\/([^/]+)\/approve/);
   if (opsApproveAccountMatch && method === 'POST') {
     const staff = verifyStaffPermission(db, 'accounts.approve', options);
-    const app = db.accountApplications.find(a => a.accountApplicationId === opsApproveAccountMatch[1]);
+    const app = db.accountApplications.find(a => a.accountApplicationId === opsApproveAccountMatch[1] || a.id === opsApproveAccountMatch[1]);
     if (!app) {
       throw { status: 404, code: 'APPLICATION_NOT_FOUND', detail: 'Account application not found.' };
     }
@@ -2195,34 +2212,89 @@ export const handleLocalFallback = (endpoint, options = {}) => {
       };
     }
 
-    app.status = 'APPROVED';
-    app.approvedAt = new Date().toISOString();
     const generatedAccId = 'ACC-' + Math.floor(1003 + Math.random() * 8000);
     const generatedNumber = Math.floor(1000 + Math.random() * 9000);
 
-    db.accounts.push({
+    app.status = 'APPROVED';
+    app.approvedAt = new Date().toISOString();
+    app.createdAccountId = generatedAccId;
+
+    let interestRate = 7.00;
+    const pCode = (app.productCode || '').toUpperCase();
+    const pName = (app.productName || '').toLowerCase();
+    if (pCode.includes('CURRENT') || pName.includes('current')) {
+      interestRate = 0;
+    } else if (pName.includes('savings plus')) {
+      interestRate = 7.25;
+    } else if (pName.includes('prime wealth') || pName.includes('wealth')) {
+      interestRate = 7.50;
+    } else if (pName.includes('medical')) {
+      interestRate = 0;
+    }
+
+    const fundingAmt = Number(app.initialFundingAmount) || 10000;
+
+    const newAccount = {
       accountId: generatedAccId,
+      id: generatedAccId,
       accountNumber: `************${generatedNumber}`,
       rawAccountNumber: `9820110000${generatedNumber}`,
-      accountType: app.productCode.includes('CURRENT') ? 'CURRENT' : 'SAVINGS',
+      accountType: pCode.includes('CURRENT') || pName.includes('current') ? 'CURRENT' : 'SAVINGS',
       productCode: app.productCode,
       productName: app.productName,
+      productSlug: app.productSlug,
       customerId: app.customerId,
       status: 'ACTIVE',
       currency: 'INR',
       openedAt: new Date().toISOString(),
-      interestRate: app.productCode.includes('CURRENT') ? 0 : 7.00,
+      interestRate,
       balance: {
-        ledgerBalance: Number(app.initialFundingAmount) || 10000,
-        availableBalance: Number(app.initialFundingAmount) || 10000,
+        ledgerBalance: fundingAmt,
+        availableBalance: fundingAmt,
         holdBalance: 0,
         currency: 'INR'
       }
+    };
+    db.accounts.push(newAccount);
+
+    if (!db.transactions) db.transactions = [];
+    const txnId = 'TXN-' + Math.floor(500000 + Math.random() * 500000);
+    db.transactions.unshift({
+      transactionId: txnId,
+      id: txnId,
+      accountId: generatedAccId,
+      transactionType: 'INITIAL_DEPOSIT',
+      direction: 'CREDIT',
+      type: 'CREDIT',
+      amount: fundingAmt,
+      currency: 'INR',
+      status: 'SUCCESS',
+      description: 'Initial Account Funding Deposit',
+      referenceNumber: 'DEP-' + Math.floor(100000 + Math.random() * 900000),
+      runningBalance: fundingAmt,
+      valueDate: new Date().toISOString().split('T')[0],
+      createdAt: new Date().toISOString()
     });
 
     saveDb(db);
     appendAuditLog(staff.email, staff.role, 'ACCOUNT_APPLICATION_APPROVED', app.accountApplicationId, 'SUCCESS', `Activated new account ${generatedAccId} for ${app.customerId}`);
-    return { success: true, accountApplicationId: app.accountApplicationId, accountId: generatedAccId };
+    return { success: true, accountApplicationId: app.accountApplicationId, accountId: generatedAccId, createdAccountId: generatedAccId };
+  }
+
+  // Ops: Account Application Request Info (requires accounts.review or accounts.approve)
+  const opsRequestInfoAccountMatch = endpoint.match(/\/ops\/api\/v1\/accounts\/applications\/([^/]+)\/request-info/);
+  if (opsRequestInfoAccountMatch && method === 'POST') {
+    const staff = verifyStaffPermission(db, 'accounts.review', options);
+    const app = db.accountApplications.find(a => a.accountApplicationId === opsRequestInfoAccountMatch[1] || a.id === opsRequestInfoAccountMatch[1]);
+    if (!app) {
+      throw { status: 404, code: 'APPLICATION_NOT_FOUND', detail: 'Account application not found.' };
+    }
+    app.status = 'INFO_REQUIRED';
+    app.infoRequiredAt = new Date().toISOString();
+    app.infoRequestReason = body.remarks || body.reason || 'Additional documents / details required';
+    saveDb(db);
+    appendAuditLog(staff.email, staff.role, 'ACCOUNT_APPLICATION_INFO_REQUIRED', app.accountApplicationId, 'SUCCESS', `Info required: ${app.infoRequestReason}`);
+    return { success: true, accountApplicationId: app.accountApplicationId, status: 'INFO_REQUIRED' };
   }
 
   // Ops: Account Application Reject (requires accounts.review or accounts.approve)
@@ -2251,7 +2323,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
   const opsApproveCardMatch = endpoint.match(/\/ops\/api\/v1\/cards\/applications\/([^/]+)\/approve/);
   if (opsApproveCardMatch && method === 'POST') {
     const staff = verifyStaffPermission(db, 'cards.approve', options);
-    const cardApp = db.cardApplications.find(c => c.cardApplicationId === opsApproveCardMatch[1]);
+    const cardApp = db.cardApplications.find(c => c.cardApplicationId === opsApproveCardMatch[1] || c.id === opsApproveCardMatch[1]);
     if (!cardApp) {
       throw { status: 404, code: 'APPLICATION_NOT_FOUND', detail: 'Card application not found.' };
     }
@@ -2265,32 +2337,56 @@ export const handleLocalFallback = (endpoint, options = {}) => {
       };
     }
 
+    const approvedLimit = Number(body.limit || body.approvedLimit) || 250000;
     cardApp.status = 'APPROVED';
+    cardApp.approvedLimit = approvedLimit;
     const newCardId = 'CARD-' + Math.floor(3003 + Math.random() * 6000);
     const cardNum = Math.floor(1000 + Math.random() * 9000);
+    const dispatchRef = 'DSP-' + Math.floor(100000 + Math.random() * 900000);
+    const issuedAt = new Date().toISOString();
+
+    const isCredit = (cardApp.cardType || '').toUpperCase() === 'CREDIT';
+    const cName = cardApp.cardName || '';
+    let network = 'Visa';
+    if (cName.includes('Cashback') || cName.includes('RuPay')) network = 'RuPay';
+    else if (cName.includes('Mastercard')) network = 'Mastercard';
 
     db.cards.push({
       cardId: newCardId,
-      cardType: cardApp.cardType,
+      id: newCardId,
+      cardType: cardApp.cardType || 'CREDIT',
       cardName: cardApp.cardName,
       maskedCardNumber: `************${cardNum}`,
+      network,
       expiryMonth: 10,
       expiryYear: 2031,
       status: 'ACTIVE',
+      pinSet: false,
+      totalLimit: approvedLimit,
+      availableLimit: approvedLimit,
       linkedAccountId: cardApp.linkedAccountId || 'ACC-1001',
       customerId: cardApp.customerId,
+      dispatchRef,
+      issuedAt,
       controls: {
         onlineEnabled: true,
         internationalEnabled: true,
         contactlessEnabled: true,
         atmWithdrawalEnabled: true,
-        dailyLimit: 50000.00
+        dailyLimit: isCredit ? approvedLimit : 50000.00
       }
     });
 
     saveDb(db);
-    appendAuditLog(staff.email, staff.role, 'CARD_APPLICATION_APPROVED', cardApp.cardApplicationId, 'SUCCESS', `Issued new card ${newCardId} for ${cardApp.customerId}`);
-    return { success: true, cardApplicationId: cardApp.cardApplicationId, cardId: newCardId };
+    appendAuditLog(staff.email, staff.role, 'CARD_APPLICATION_APPROVED', cardApp.cardApplicationId, 'SUCCESS', `Issued new card ${newCardId} with limit ₹${approvedLimit}`);
+    return {
+      success: true,
+      cardApplicationId: cardApp.cardApplicationId,
+      cardId: newCardId,
+      issuedAt,
+      dispatchRef,
+      limit: approvedLimit
+    };
   }
 
   // Ops: Card Application Reject (requires cards.review or cards.approve)
@@ -2386,7 +2482,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
     }
     targetStaff.permissions = body.permissions || [];
     saveDb(db);
-    appendAuditLog(staff.email, staff.role, 'STAFF_PERMISSIONS_UPDATED', targetStaff.staffId, 'SUCCESS', `Updated permissions to ${targetStaff.permissions.length} items`);
+    appendAuditLog(staff.email, staff.role, 'STAFF_PERMISSIONS_UPDATED', targetStaff.staffId, 'SUCCESS', body.reason || `Updated permissions to ${targetStaff.permissions.length} items`);
     return targetStaff;
   }
 

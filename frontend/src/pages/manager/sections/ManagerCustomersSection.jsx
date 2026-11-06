@@ -22,7 +22,7 @@ const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
 function customersCsv(rows) {
   return [
     ['Customer', 'CIF', 'Email', 'Mobile', 'PAN', 'KYC Status', 'Risk', 'Created'].map(esc).join(','),
-    ...rows.map((c) => [c.fullName, c.id, c.email, c.mobile, c.pan, c.kycStatus, c.riskCategory, c.createdAt].map(esc).join(',')),
+    ...rows.map((c) => [c.fullName, c.id, c.email, c.mobile, maskPan(c.pan), c.kycStatus, c.riskCategory, c.createdAt].map(esc).join(',')),
   ].join('\n');
 }
 
@@ -34,7 +34,9 @@ function addressText(address) {
 
 export default function ManagerCustomersPage() {
   useDbTick();
-  const { user } = useAuth();
+  const { managerUser, user: custUser } = useAuth();
+  const user = managerUser || custUser;
+  const isAuditor = user?.role === 'AUDITOR' || user?.role === 'AUDIT_COMPLIANCE';
   const { toast } = useToast();
   const [query, setQuery] = useState('');
   const [rows, setRows] = useState(null);
@@ -264,7 +266,7 @@ export default function ManagerCustomersPage() {
                       </div>
                     )}
                   </section>
-                  {user?.role === 'AUDITOR' && <p className="text-xs text-ink-500">Auditor view is read-only.</p>}
+                  {isAuditor && <p className="text-xs text-ink-500">Auditor view is read-only.</p>}
                 </div>
               )}
             </div>

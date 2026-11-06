@@ -39,7 +39,7 @@ const DOC_CODES = [
 ];
 
 const ALL_CODES = [...REJECT_CODES, ...DOC_CODES.filter((c) => !REJECT_CODES.some((r) => r.value === c.value))];
-const ACTIONABLE = ['SUBMITTED', 'DOCUMENT_VERIFICATION', 'UNDER_REVIEW', 'INFO_REQUIRED'];
+const ACTIONABLE = ['SUBMITTED', 'DOCUMENT_VERIFICATION', 'UNDER_REVIEW', 'INFO_REQUIRED', 'DOCS_REQUESTED'];
 
 function productFor(app) {
   if (!app?.productSlug) return null;
@@ -85,7 +85,9 @@ function DetailRow({ label, children }) {
 }
 
 export default function ManagerLoansPage() {
-  const { user } = useAuth();
+  const { managerUser, user: custUser } = useAuth();
+  const user = managerUser || custUser;
+  const isAuditor = user?.role === 'AUDITOR' || user?.role === 'AUDIT_COMPLIANCE';
   const { toast } = useToast();
   useDbTick();
 
@@ -100,6 +102,9 @@ export default function ManagerLoansPage() {
   const [detailId, setDetailId] = useState(null);
   const [reasonCode, setReasonCode] = useState('');
   const [remarks, setRemarks] = useState('');
+  const [sanctionedAmount, setSanctionedAmount] = useState('');
+  const [sanctionedRate, setSanctionedRate] = useState('');
+  const [confirmError, setConfirmError] = useState('');
   const [formError, setFormError] = useState('');
   const [pendingDecision, setPendingDecision] = useState(null); // 'APPROVED' | 'REJECTED' | 'REQUEST_DOCS'
   const [disburseOpen, setDisburseOpen] = useState(false);
@@ -135,6 +140,10 @@ export default function ManagerLoansPage() {
     setReasonCode('');
     setRemarks('');
     setFormError('');
+    setConfirmError('');
+    setSanctionedAmount(detail?.sanctionedAmount != null ? String(detail.sanctionedAmount) : (detail?.amount != null ? String(detail.amount) : ''));
+    const defaultRate = detail?.sanctionedRate != null ? detail.sanctionedRate : (detail?.rate != null ? detail.rate : (productFor(detail)?.rateMin || 8.75));
+    setSanctionedRate(String(defaultRate));
     setPendingDecision(null);
     setDisburseOpen(false);
     setDisburseResult(null);
@@ -158,7 +167,9 @@ export default function ManagerLoansPage() {
 
   const tabs = TAB_DEFS.map((t) => ({
     ...t,
-    count: t.id === 'ALL' ? allRows.length : allRows.filter((r) => r.status === t.id).length,
+    count: t.id === 'ALL'
+      ? allRows.length
+      : allRows.filter((r) => r.status === t.id || (t.id === 'INFO_REQUIRED' && r.status === 'DOCS_REQUESTED') || (t.id === 'APPROVED' && r.status === 'SANCTIONED')).length,
   }));
 
   const customer = detail?.customer || null;
@@ -180,14 +191,51 @@ export default function ManagerLoansPage() {
   const confirmDecision = async () => {
     if (!detail || !pendingDecision) return;
     setSubmitting(true);
+    setConfirmError('');
     try {
       const decision = pendingDecision;
+      let sAmt = detail.amount;
+      let sRt = detail.rate || 8.75;
+      if (decision === 'APPROVED') {
+        sAmt = Number(sanctionedAmount);
+        sRt = Number(sanctionedRate);
+        const prod = productFor(detail);
+        if (!sAmt || isNaN(sAmt) || sAmt <= 0) {
+          setConfirmError('Sanctioned amount must be a positive number.');
+          setSubmitting(false);
+          return;
+        }
+        if (prod?.amountMax && sAmt > prod.amountMax) {
+          setConfirmError(`Sanctioned amount cannot exceed product maximum of ${formatINR(prod.amountMax)}.`);
+          setSubmitting(false);
+          return;
+        }
+        if (!sRt || isNaN(sRt) || sRt <= 0) {
+          setConfirmError('Sanctioned rate must be a positive number.');
+          setSubmitting(false);
+          return;
+        }
+        if (prod?.rateMin && sRt < prod.rateMin) {
+          setConfirmError(`Sanctioned rate cannot be below product minimum of ${prod.rateMin}%.`);
+          setSubmitting(false);
+          return;
+        }
+        if (prod?.rateMax && sRt > prod.rateMax) {
+          setConfirmError(`Sanctioned rate cannot exceed product maximum of ${prod.rateMax}%.`);
+          setSubmitting(false);
+          return;
+        }
+      }
+
       await decideLoanApplication(detail.id, {
         decision,
         reasonCode: reasonCode || undefined,
         note: remarks.trim() || undefined,
-        actor: user?.name,
-        actorRole: user?.role,
+        actor: user?.fullName || user?.name || 'Chief Branch Manager',
+        actorRole: user?.role || 'BANK_MANAGER',
+        actorEmail: user?.email,
+        sanctionedAmount: sAmt,
+        sanctionedRate: sRt,
       });
       setPendingDecision(null);
       setRefreshKey((k) => k + 1);
@@ -195,10 +243,10 @@ export default function ManagerLoansPage() {
         title: decision === 'APPROVED' ? 'Loan approved' : decision === 'REJECTED' ? 'Loan rejected' : 'Documents requested',
         body:
           decision === 'APPROVED'
-            ? `${detail.id} is approved and ready for disbursement.`
+            ? `${detail.id} is approved with sanctioned amount ${formatINR(Number(sanctionedAmount) || detail.amount)}.`
             : decision === 'REJECTED'
               ? `${detail.id} has been rejected and the customer notified.`
-              : `${detail.id} is marked Info Required and the customer notified.`,
+              : `${detail.id} marked Documents Requested and customer notified.`,
         tone: decision === 'APPROVED' ? 'success' : 'info',
       });
     } catch (err) {
@@ -213,7 +261,11 @@ export default function ManagerLoansPage() {
     if (!detail) return;
     setSubmitting(true);
     try {
-      const loan = await disburseLoan(detail.id, { actor: user?.name, actorRole: user?.role });
+      const loan = await disburseLoan(detail.id, {
+        actor: user?.fullName || user?.name || 'Chief Branch Manager',
+        actorRole: user?.role || 'BANK_MANAGER',
+        actorEmail: user?.email
+      });
       setDisburseResult(loan);
       setDisburseOpen(false);
       setRefreshKey((k) => k + 1);
@@ -405,7 +457,7 @@ export default function ManagerLoansPage() {
                         This application is approved. Disbursing credits {formatINR(detail.amount)} to the customer&apos;s account and starts the EMI schedule.
                       </p>
                       <div className="flex justify-end">
-                        <Button onClick={() => setDisburseOpen(true)}>Disburse Loan</Button>
+                        <Button disabled={isAuditor} title={isAuditor ? 'Auditor access is read-only' : undefined} onClick={() => setDisburseOpen(true)}>Disburse Loan</Button>
                       </div>
                     </>
                   )}
@@ -423,10 +475,11 @@ export default function ManagerLoansPage() {
                     <Textarea rows={2} value={remarks} onChange={(e) => setRemarks(e.target.value)} placeholder="Optional remarks recorded with the decision" />
                   </Field>
                   <div className="flex flex-wrap justify-end gap-2">
-                    <Button variant="danger" onClick={() => openDecision('REJECTED')}>Reject</Button>
-                    <Button variant="secondary" onClick={() => openDecision('REQUEST_DOCS')}>Request Documents</Button>
-                    <Button variant="primary" onClick={() => openDecision('APPROVED')}>Approve</Button>
+                    <Button variant="danger" disabled={isAuditor} title={isAuditor ? 'Auditor access is read-only' : undefined} onClick={() => openDecision('REJECTED')}>Reject</Button>
+                    <Button variant="secondary" disabled={isAuditor} title={isAuditor ? 'Auditor access is read-only' : undefined} onClick={() => openDecision('REQUEST_DOCS')}>Request Documents</Button>
+                    <Button variant="primary" disabled={isAuditor} title={isAuditor ? 'Auditor access is read-only' : undefined} onClick={() => openDecision('APPROVED')}>Approve</Button>
                   </div>
+                  {isAuditor && <p className="text-xs text-ink-500 text-right mt-1">Auditor clearance is read-only — decision controls are disabled.</p>}
                 </div>
               ) : (
                 <p className="text-[13px] text-ink-500">No decision actions are available for this status.</p>
@@ -459,7 +512,29 @@ export default function ManagerLoansPage() {
             <strong className="text-ink-900">{customer?.fullName || '—'}</strong> — {productName(detail || {})},{' '}
             {formatINR(detail?.amount)} over {detail?.tenureMonths ? `${detail.tenureMonths} months` : '—'}.
           </p>
-          {pendingDecision === 'APPROVED' && <p>Approval moves the application to Approved. Disbursement is a separate step.</p>}
+          {confirmError && <div className="mb-2"><FormError message={confirmError} /></div>}
+          {pendingDecision === 'APPROVED' && (
+            <div className="space-y-3 pt-2">
+              <p>Approval sets the sanction terms and moves the application to Approved. Disbursement is a separate step.</p>
+              <div className="grid grid-cols-2 gap-3">
+                <Field label="Sanctioned Amount (₹)" hint={`Max: ${productFor(detail)?.amountMax ? formatINR(productFor(detail).amountMax) : '₹10,00,00,000'}`}>
+                  <Input
+                    type="number"
+                    value={sanctionedAmount}
+                    onChange={(e) => setSanctionedAmount(e.target.value)}
+                  />
+                </Field>
+                <Field label="Sanctioned Rate (% p.a.)" hint={`Range: ${productFor(detail)?.rateMin ?? 8.5}% – ${productFor(detail)?.rateMax ?? 15}%`}>
+                  <Input
+                    type="number"
+                    step="0.05"
+                    value={sanctionedRate}
+                    onChange={(e) => setSanctionedRate(e.target.value)}
+                  />
+                </Field>
+              </div>
+            </div>
+          )}
           {(pendingDecision === 'REJECTED' || pendingDecision === 'REQUEST_DOCS') && (
             <p>Reason: {ALL_CODES.find((c) => c.value === reasonCode)?.label || reasonCode}. The customer will be notified.</p>
           )}

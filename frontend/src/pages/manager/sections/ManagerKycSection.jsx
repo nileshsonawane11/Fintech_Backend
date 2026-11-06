@@ -11,7 +11,7 @@ import { decideKycCase, getKycCase, listKycCases } from '../../../services/manag
 import { useAuth } from '../../../context/AuthContext.jsx';
 
 const PAGE_SIZE = 10;
-const PENDING_STATUSES = ['PENDING', 'UNDER_REVIEW'];
+const PENDING_STATUSES = ['PENDING', 'UNDER_REVIEW', 'SUBMITTED', 'INFO_REQUIRED'];
 
 const REASON_CODES = [
   'DOCUMENT_ILLEGIBLE',
@@ -60,7 +60,9 @@ function formatAddress(customer) {
 }
 
 export default function ManagerKycPage() {
-  const { user } = useAuth();
+  const { managerUser, user: custUser } = useAuth();
+  const user = managerUser || custUser;
+  const isAuditor = user?.role === 'AUDITOR' || user?.role === 'AUDIT_COMPLIANCE';
   const { toast } = useToast();
 
   const [allCases, setAllCases] = useState([]);
@@ -158,8 +160,8 @@ export default function ManagerKycPage() {
   }, [drawerCase, confirmDecision, submitting]);
 
   const requestDecision = (decision) => {
-    if (!reasonCode) {
-      setDecisionError('Select a reason code before recording a decision.');
+    if ((decision === 'REJECTED' || decision === 'INFO_REQUIRED') && !reasonCode) {
+      setDecisionError('Select a reason code before recording this decision.');
       return;
     }
     setDecisionError('');
@@ -177,13 +179,15 @@ export default function ManagerKycPage() {
       await decideKycCase(decidedId, {
         decision,
         reasonCode,
-        note: remarks.trim(),
-        actor: user?.name,
-        actorRole: user?.role,
+        note: remarks.trim() || (decision === 'APPROVED' ? 'All documents verified' : undefined),
+        actor: user?.fullName || user?.name || 'Senior KYC Officer',
+        actorRole: user?.role || 'KYC_OFFICER',
+        actorEmail: user?.email,
       });
       toast({
-        title: 'Decision recorded',
+        title: decision === 'APPROVED' ? 'KYC approved' : decision === 'REJECTED' ? 'KYC rejected' : 'Information requested',
         body: `Case ${decidedId} — ${statusLabel(decision)}. The customer has been notified in this prototype.`,
+        tone: decision === 'APPROVED' ? 'success' : 'info',
       });
       setConfirmDecision(null);
 
@@ -427,7 +431,7 @@ export default function ManagerKycPage() {
 
             {canDecide ? (
               <div className="space-y-3 border-t border-ink-100 bg-white px-5 py-4">
-                <Field label="Reason code" required error={decisionError || undefined}>
+                <Field label="Reason code" hint="Required for Reject and Request Info." error={decisionError || undefined}>
                   <Select value={reasonCode} onChange={(e) => { setReasonCode(e.target.value); setDecisionError(''); }} error={decisionError || undefined}>
                     <option value="">Select a reason code</option>
                     {REASON_CODES.map((code) => (
@@ -444,10 +448,11 @@ export default function ManagerKycPage() {
                   />
                 </Field>
                 <div className="flex flex-wrap gap-2">
-                  <Button variant="danger" className="flex-1" onClick={() => requestDecision('REJECTED')}>Reject</Button>
-                  <Button variant="secondary" className="flex-1" onClick={() => requestDecision('INFO_REQUIRED')}>Request Info</Button>
-                  <Button variant="primary" className="flex-1" onClick={() => requestDecision('APPROVED')}>Approve</Button>
+                  <Button variant="danger" className="flex-1" disabled={isAuditor} title={isAuditor ? 'Auditor access is read-only' : undefined} onClick={() => requestDecision('REJECTED')}>Reject</Button>
+                  <Button variant="secondary" className="flex-1" disabled={isAuditor} title={isAuditor ? 'Auditor access is read-only' : undefined} onClick={() => requestDecision('INFO_REQUIRED')}>Request Info</Button>
+                  <Button variant="primary" className="flex-1" disabled={isAuditor} title={isAuditor ? 'Auditor access is read-only' : undefined} onClick={() => requestDecision('APPROVED')}>Approve</Button>
                 </div>
+                {isAuditor && <p className="text-xs text-ink-500 text-center">Auditor clearance is read-only — decision controls are disabled.</p>}
               </div>
             ) : (
               <div className="border-t border-ink-100 bg-porcelain-50 px-5 py-4">

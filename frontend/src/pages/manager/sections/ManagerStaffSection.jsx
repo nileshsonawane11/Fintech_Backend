@@ -12,11 +12,11 @@ import { useAuth, useDbTick } from '../../../context/AuthContext.jsx';
 
 export default function ManagerStaffPage() {
   useDbTick();
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const isAuditor = user?.role === 'AUDITOR';
-  const actor = user?.name || '—';
-  const actorRole = user?.role || '—';
+  const { managerUser, user: custUser } = useAuth();
+  const user = managerUser || custUser;
+  const isAuditor = user?.role === 'AUDITOR' || user?.role === 'AUDIT_COMPLIANCE';
+  const actor = user?.fullName || user?.name || 'Chief Branch Manager';
+  const actorRole = user?.role || 'BANK_MANAGER';
 
   const [staff, setStaff] = useState(null);
   const [error, setError] = useState('');
@@ -86,12 +86,12 @@ export default function ManagerStaffPage() {
   const labelFor = (code) => PERMISSION_CATALOGUE.find((p) => p.code === code)?.label || code;
 
   const isActive = (s) => (s.active !== undefined ? !!s.active : String(s.status || '').toUpperCase() === 'ACTIVE');
-  const isSelf = (s) => user && (s.id === user.id || s.email === user.email);
+  const isSelf = (s) => Boolean(user && ((s.id && (user.id === s.id || user.staffId === s.id)) || (s.email && user.email && s.email.toLowerCase() === user.email.toLowerCase())));
 
   async function handleActivate(s) {
     setActivatingId(s.id);
     try {
-      await setStaffActive(s.id, true, { actor, actorRole });
+      await setStaffActive(s.id, true, { actor, actorRole, actorEmail: user?.email });
       toast({ title: 'Staff account activated', body: `${s.name} can sign in again.` });
       load();
     } catch (e) {
@@ -106,7 +106,7 @@ export default function ManagerStaffPage() {
     if (!deactivateReason.trim()) { setDeactivateError('A reason is required to deactivate a staff account.'); return; }
     setDeactivating(true);
     try {
-      await setStaffActive(deactivateTarget.id, false, { actor, actorRole });
+      await setStaffActive(deactivateTarget.id, false, { actor, actorRole, actorEmail: user?.email, reason: deactivateReason.trim() });
       toast({ title: 'Staff account deactivated', body: `${deactivateTarget.name} can no longer sign in. Reason recorded in the audit log.` });
       setDeactivateTarget(null);
       setDeactivateReason('');
@@ -124,7 +124,7 @@ export default function ManagerStaffPage() {
     if (!applyReason.trim()) { setApplyError('A reason is required for every permission change.'); return; }
     setApplying(true);
     try {
-      await updateStaffPermissions(selected.id, [...staged], { actor, actorRole, reason: applyReason.trim() });
+      await updateStaffPermissions(selected.id, [...staged], { actor, actorRole, actorEmail: user?.email, reason: applyReason.trim() });
       toast({ title: 'Permissions updated', body: `${changeCount} change${changeCount === 1 ? '' : 's'} applied for ${selected.name}. The change has been written to the audit log.` });
       setReviewOpen(false);
       setApplyReason('');

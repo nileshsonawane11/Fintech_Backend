@@ -36,7 +36,9 @@ function DetailRow({ label, children }) {
 }
 
 export default function ManagerInvestmentsSection() {
-  const { user } = useAuth();
+  const { managerUser, user: custUser } = useAuth();
+  const user = managerUser || custUser;
+  const isAuditor = user?.role === 'AUDITOR' || user?.role === 'AUDIT_COMPLIANCE';
   const { toast } = useToast();
   useDbTick();
 
@@ -99,7 +101,9 @@ export default function ManagerInvestmentsSection() {
         decision,
         reasonCode: reasonCode || undefined,
         note: decisionNote || undefined,
-        actor: user?.name || 'Branch Manager',
+        actor: user?.fullName || user?.name || 'Chief Branch Manager',
+        actorRole: user?.role || 'BANK_MANAGER',
+        actorEmail: user?.email,
       });
       setRefreshKey((k) => k + 1);
       setPendingDecision(null);
@@ -125,7 +129,9 @@ export default function ManagerInvestmentsSection() {
     setSubmitting(true);
     setFormError('');
     try {
-      await bookInvestmentApplication(detail.id, { actor: user?.name || 'Branch Manager' });
+      await bookInvestmentApplication(detail.id, { actor: user?.fullName || user?.name || 'Chief Branch Manager',
+        actorRole: user?.role || 'BANK_MANAGER',
+        actorEmail: user?.email });
       setRefreshKey((k) => k + 1);
       toast({
         title: 'Investment booked',
@@ -308,7 +314,7 @@ export default function ManagerInvestmentsSection() {
               <h4 className="font-display text-sm font-semibold text-midnight-950 mb-3">Applicant & Funding</h4>
               <dl className="divide-y divide-ink-100/50">
                 <DetailRow label="Full Name">{detail.applicant?.fullName || detail.fullName}</DetailRow>
-                <DetailRow label="Mobile Number">{detail.applicant?.mobileNumber || detail.mobileNumber}</DetailRow>
+                <DetailRow label="Mobile Number">{detail.applicant?.mobile || detail.mobile}</DetailRow>
                 <DetailRow label="Email Address">{detail.applicant?.email || detail.email}</DetailRow>
                 <DetailRow label="Date of Birth">{detail.applicant?.dob || 'On file'}</DetailRow>
                 <DetailRow label="PAN">{detail.applicant?.panNumber || 'On file'}</DetailRow>
@@ -327,7 +333,7 @@ export default function ManagerInvestmentsSection() {
                 <dl className="divide-y divide-ink-100/50">
                   <DetailRow label="Nominee Name">{detail.nominee.fullName}</DetailRow>
                   <DetailRow label="Relationship">{detail.nominee.relationship}</DetailRow>
-                  {detail.nominee.dateOfBirth && <DetailRow label="Date of Birth">{detail.nominee.dateOfBirth}</DetailRow>}
+                  {detail.nominee.dob && <DetailRow label="Date of Birth">{detail.nominee.dob}</DetailRow>}
                 </dl>
               </div>
             )}
@@ -339,7 +345,8 @@ export default function ManagerInvestmentsSection() {
               <div className="flex flex-wrap items-center justify-end gap-3 pt-4 border-t border-ink-100">
                 <Button
                   variant="secondary"
-                  disabled={submitting}
+                  disabled={submitting || isAuditor}
+                  title={isAuditor ? 'Auditor access is read-only' : undefined}
                   onClick={() => setPendingDecision('REJECTED')}
                   className="text-danger-700 hover:bg-danger-50 hover:text-danger-800"
                 >
@@ -347,7 +354,8 @@ export default function ManagerInvestmentsSection() {
                 </Button>
                 <Button
                   variant="primary"
-                  disabled={submitting}
+                  disabled={submitting || isAuditor}
+                  title={isAuditor ? 'Auditor access is read-only' : undefined}
                   onClick={() => handleDecision('APPROVED')}
                 >
                   Approve Application
@@ -360,7 +368,8 @@ export default function ManagerInvestmentsSection() {
                 <span className="text-xs text-ink-600">Application approved. Ready for core system booking.</span>
                 <Button
                   variant="primary"
-                  disabled={submitting}
+                  disabled={submitting || isAuditor}
+                  title={isAuditor ? 'Auditor access is read-only' : undefined}
                   onClick={handleBook}
                 >
                   Book Investment

@@ -59,7 +59,9 @@ function QueueCell({ icon: Icon, label, queue, to, onOpen }) {
 
 export default function ManagerDashboardPage() {
   const navigate = useNavigate();
-  const { user } = useAuth();
+  const { managerUser, user: custUser } = useAuth();
+  const user = managerUser || custUser;
+
   const [summary, setSummary] = useState(null);
   const [kycPreview, setKycPreview] = useState([]);
   const [loanPreview, setLoanPreview] = useState([]);
@@ -77,7 +79,7 @@ export default function ManagerDashboardPage() {
           reportsSummary(),
           listKycCases({}),
           listLoanApplications({}),
-          user?.name ? listMyDecisions(user.name) : Promise.resolve([]),
+          user?.email ? listMyDecisions(user.email, user.name || user.fullName) : Promise.resolve([]),
         ]);
         if (cancelled) return;
         setSummary(sum);
@@ -91,7 +93,7 @@ export default function ManagerDashboardPage() {
       }
     })();
     return () => { cancelled = true; };
-  }, [user?.name]);
+  }, [user?.email, user?.name, user?.fullName]);
 
   if (loading) return <PageLoading />;
 
@@ -118,6 +120,7 @@ export default function ManagerDashboardPage() {
     { label: 'Customers', value: summary ? String(summary.customers) : '—' },
     { label: 'Accounts', value: summary ? String(summary.accounts) : '—' },
     { label: 'Total deposits', value: summary ? formatINR(summary.totalDeposits) : '—' },
+    { label: 'Active loans', value: summary ? String(summary.activeLoans) : '—' },
     { label: 'Loan book', value: summary ? formatINR(summary.loanBook) : '—' },
     { label: 'Cards issued', value: summary ? String(summary.cardsIssued) : '—' },
     { label: 'Investments', value: summary ? String(summary.investments) : '—' },
@@ -125,44 +128,46 @@ export default function ManagerDashboardPage() {
 
   const kycColumns = [
     { key: 'id', label: 'Ref', render: (r) => <span className="font-medium text-midnight-900">{r.id}</span> },
-    { key: 'customer', label: 'Customer', render: (r) => r.customer?.fullName || '—' },
-    { key: 'submittedAt', label: 'Submitted', render: (r) => formatDate(r.submittedAt) },
-    { key: 'age', label: 'Age', render: (r) => ageOf(r.submittedAt) },
+    { key: 'customerName', label: 'Customer', render: (r) => r.customerName || r.applicantName || '—' },
     { key: 'status', label: 'Status', render: (r) => <StatusChip status={r.status} /> },
+    { key: 'submittedAt', label: 'Age', render: (r) => ageOf(r.submittedAt) },
   ];
 
   const loanColumns = [
     { key: 'id', label: 'Ref', render: (r) => <span className="font-medium text-midnight-900">{r.id}</span> },
-    { key: 'customer', label: 'Customer', render: (r) => r.customer?.fullName || '—' },
-    { key: 'productName', label: 'Product', render: (r) => productDisplayName(r) || '—' },
-    { key: 'amount', label: 'Amount', align: 'right', render: (r) => <span className="tnum">{formatINR(r.amount)}</span> },
+    { key: 'customerName', label: 'Customer', render: (r) => r.customerName || r.applicantName || '—' },
+    { key: 'amount', label: 'Amount', align: 'right', render: (r) => formatINR(r.amount) },
+    { key: 'status', label: 'Status', render: (r) => <StatusChip status={r.status} /> },
+    { key: 'submittedAt', label: 'Age', render: (r) => ageOf(r.submittedAt) },
   ];
 
   return (
     <div>
-      <SectionHeader
-        titleAs="h1"
+      <SectionHeader titleAs="h1"
         eyebrow="Staff Console"
         title="Dashboard"
-        description="Start with the oldest work. Queues whose oldest item is over 24 or 72 hours are flagged in the summary."
+        description="Work queues and today's operating picture across deposits, cards and loans."
       />
 
-      <Card className="overflow-hidden">
-        <div className="grid gap-px bg-ink-100 sm:grid-cols-2 xl:grid-cols-5">
-          {tiles.map((tile) => (
-            <QueueCell key={tile.label} {...tile} onOpen={navigate} />
-          ))}
-        </div>
-        <div className="flex flex-wrap gap-x-8 gap-y-2 border-t border-ink-100 px-5 py-3.5" aria-label="Bank at a glance">
-          {referenceStats.map((stat) => (
-            <span key={stat.label} className="text-sm text-ink-500">
-              <span className="tnum font-semibold text-ink-900">{stat.value}</span> {stat.label}
-            </span>
-          ))}
-        </div>
-      </Card>
+      <div className="grid divide-y divide-ink-100 overflow-hidden rounded-xl border border-ink-100 bg-white shadow-card sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-5">
+        {tiles.map((t) => (
+          <QueueCell key={t.label} icon={t.icon} label={t.label} queue={t.queue} to={t.to} onOpen={navigate} />
+        ))}
+      </div>
 
-      <div className="mt-8 grid gap-8 lg:grid-cols-2">
+      <div className="mt-8">
+        <h2 className="mb-3 text-base font-semibold text-midnight-950">Operating picture</h2>
+        <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4 xl:grid-cols-7">
+          {referenceStats.map((s) => (
+            <Card key={s.label} className="p-4">
+              <span className="text-xs font-medium uppercase tracking-wide text-ink-500">{s.label}</span>
+              <span className="tnum mt-1 block font-display text-xl font-semibold text-midnight-950">{s.value}</span>
+            </Card>
+          ))}
+        </div>
+      </div>
+
+      <div className="mt-8 grid gap-6 lg:grid-cols-2">
         <section className="min-w-0" aria-label="KYC queue preview">
           <div className="mb-3 flex items-center justify-between gap-3">
             <h2 className="text-base font-semibold text-midnight-950">KYC queue — oldest pending</h2>
@@ -171,7 +176,7 @@ export default function ManagerDashboardPage() {
             </Button>
           </div>
           {kycPreview.length === 0 ? (
-            <EmptyState icon={Inbox} title="No pending KYC cases" body="New customer KYC submissions will appear here, oldest first." />
+            <EmptyState icon={Inbox} title="No pending KYC cases" body="Customer identity verifications awaiting action will appear here, oldest first." />
           ) : (
             <Table columns={kycColumns} rows={kycPreview} rowKey={(r) => r.id} onRowClick={() => navigate('/manager/kyc')} minWidthClass="min-w-0" />
           )}

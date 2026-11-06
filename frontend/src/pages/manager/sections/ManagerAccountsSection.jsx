@@ -11,7 +11,7 @@ import { useAuth, useDbTick } from '../../../context/AuthContext.jsx';
 
 const TAB_DEFS = [
   { id: 'ALL', label: 'All' },
-  { id: 'PENDING', label: 'Pending' },
+  { id: 'UNDER_REVIEW', label: 'Pending' },
   { id: 'APPROVED', label: 'Approved' },
   { id: 'REJECTED', label: 'Rejected' },
   { id: 'INFO_REQUIRED', label: 'Info Required' },
@@ -46,7 +46,7 @@ const DECISION_CODES = [
 ];
 
 const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
-const ACTIONABLE = ['PENDING', 'INFO_REQUIRED'];
+const ACTIONABLE = ['UNDER_REVIEW', 'PENDING', 'INFO_REQUIRED'];
 
 function productFor(app) {
   if (!app) return null;
@@ -77,7 +77,7 @@ function buildChecks(app, customer, product) {
       check: 'KYC verified',
       expected: 'VERIFIED',
       actual: customer.kycStatus || '—',
-      result: customer.kycStatus === 'VERIFIED' ? 'Pass' : 'Fail',
+      result: (customer.kycStatus === 'VERIFIED' || customer.kycStatus === 'APPROVED') ? 'Pass' : 'Fail',
     });
   }
 
@@ -130,7 +130,9 @@ function DetailRow({ label, children }) {
 }
 
 export default function ManagerAccountsPage() {
-  const { user } = useAuth();
+  const { managerUser, user: custUser } = useAuth();
+  const user = managerUser || custUser;
+  const isAuditor = user?.role === 'AUDITOR' || user?.role === 'AUDIT_COMPLIANCE';
   const { toast } = useToast();
   useDbTick();
 
@@ -189,7 +191,7 @@ export default function ManagerAccountsPage() {
       getCustomerDetail(detail.customerId)
         .then(({ accounts }) => {
           if (cancelled) return;
-          setCreatedAccount((accounts || []).find((a) => a.id === detail.createdAccountId) || null);
+          setCreatedAccount((accounts || []).find((a) => a.id === detail.createdAccountId || a.accountId === detail.createdAccountId) || null);
         })
         .catch(() => { if (!cancelled) setCreatedAccount(null); });
     }
@@ -198,7 +200,11 @@ export default function ManagerAccountsPage() {
 
   const tabs = TAB_DEFS.map((t) => ({
     ...t,
-    count: t.id === 'ALL' ? allRows.length : allRows.filter((r) => r.status === t.id).length,
+    count: t.id === 'ALL'
+      ? allRows.length
+      : t.id === 'UNDER_REVIEW'
+        ? allRows.filter((r) => r.status === 'UNDER_REVIEW' || r.status === 'PENDING').length
+        : allRows.filter((r) => r.status === t.id).length,
   }));
 
   const product = useMemo(() => productFor(detail), [detail]);
@@ -207,7 +213,7 @@ export default function ManagerAccountsPage() {
     () => (detail ? buildChecks(detail, customer, product) : []),
     [detail, customer, product],
   );
-  const needsOverride = !!customer && customer.kycStatus !== 'VERIFIED';
+  const needsOverride = !!customer && customer.kycStatus !== 'VERIFIED' && customer.kycStatus !== 'APPROVED';
   const actionable = detail ? ACTIONABLE.includes(detail.status) : false;
 
   const openDecision = (decision) => {
@@ -232,8 +238,9 @@ export default function ManagerAccountsPage() {
         decision,
         reasonCode: decision === 'APPROVED' ? (needsOverride ? overrideReason : reasonCode || undefined) : reasonCode,
         note: note.trim() || undefined,
-        actor: user?.name,
-        actorRole: user?.role,
+        actor: user?.fullName || user?.name || 'Ops Officer',
+        actorRole: user?.role || 'ACCOUNT_OPS',
+        actorEmail: user?.email,
       });
       setPendingDecision(null);
       setRefreshKey((k) => k + 1);

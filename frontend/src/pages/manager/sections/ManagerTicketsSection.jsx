@@ -17,11 +17,11 @@ const TAB_DEFS = [
 
 export default function ManagerTicketsPage() {
   useDbTick();
-  const { user } = useAuth();
-  const { toast } = useToast();
-  const isAuditor = user?.role === 'AUDITOR';
-  const actor = user?.name || '—';
-  const actorRole = user?.role || '—';
+  const { managerUser, user: custUser } = useAuth();
+  const user = managerUser || custUser;
+  const isAuditor = user?.role === 'AUDITOR' || user?.role === 'AUDIT_COMPLIANCE';
+  const actor = user?.fullName || user?.name || 'Customer Support Specialist';
+  const actorRole = user?.role || 'CUSTOMER_SUPPORT';
 
   const [tickets, setTickets] = useState(null);
   const [error, setError] = useState('');
@@ -64,7 +64,7 @@ export default function ManagerTicketsPage() {
     if (!selected || !reply.trim()) return;
     setSending(true);
     try {
-      await replyTicket(selected.id, { from: 'STAFF', body: reply.trim(), actor, actorRole });
+      await replyTicket(selected.id, { from: 'STAFF', body: reply.trim(), actor, actorRole, actorEmail: user?.email });
       toast({ title: 'Reply sent', body: `Your reply was added to ticket ${selected.id}.` });
       setReply('');
       load();
@@ -79,7 +79,7 @@ export default function ManagerTicketsPage() {
     if (!selected) return;
     setStatusBusy(true);
     try {
-      await setTicketStatus(selected.id, status, { actor, actorRole });
+      await setTicketStatus(selected.id, status, { actor, actorRole, actorEmail: user?.email });
       toast({ title: successTitle, body: `Ticket ${selected.id} is now ${status === 'RESOLVED' ? 'resolved' : 'in progress'}.` });
       load();
     } catch (e) {

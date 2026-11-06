@@ -69,15 +69,24 @@ export const managerService = {
     });
   },
 
+  async requestInfoAccountApplication(accountApplicationId, { remarks = 'Additional details required' } = {}) {
+    return apiRequest(`/ops/api/v1/accounts/applications/${accountApplicationId}/request-info`, {
+      method: 'POST',
+      isManager: true,
+      body: JSON.stringify({ remarks })
+    });
+  },
+
   // Card Applications Review
   async getCardApplications() {
     return apiRequest('/ops/api/v1/cards/applications', { isManager: true });
   },
 
-  async approveCardApplication(cardApplicationId) {
+  async approveCardApplication(cardApplicationId, { limit, approvedLimit } = {}) {
     return apiRequest(`/ops/api/v1/cards/applications/${cardApplicationId}/approve`, {
       method: 'POST',
-      isManager: true
+      isManager: true,
+      body: JSON.stringify({ limit: limit || approvedLimit, approvedLimit: limit || approvedLimit })
     });
   },
 
@@ -102,20 +111,11 @@ export const managerService = {
     });
   },
 
-  async updateStaffPermissions(staffId, permissions) {
+  async updateStaffPermissions(staffId, permissions, { reason = '' } = {}) {
     return apiRequest(`/admin/api/v1/staff/${staffId}/permissions`, {
       method: 'PUT',
       isManager: true,
-      body: JSON.stringify({ permissions })
-    }).catch(() => {
-      const db = getDb();
-      const staff = db.staffUsers.find(s => s.staffId === staffId);
-      if (staff) {
-        staff.permissions = permissions;
-        saveDb(db);
-        appendAuditLog('manager@finedge.bank', 'BANK_MANAGER', 'STAFF_PERMISSIONS_UPDATED', staffId, 'SUCCESS', `Updated permissions to ${permissions.length} items`);
-      }
-      return staff;
+      body: JSON.stringify({ permissions, reason })
     });
   },
 
