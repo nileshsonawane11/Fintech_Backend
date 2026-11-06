@@ -3,6 +3,7 @@ import { Link, useNavigate } from 'react-router-dom';
 import { ChevronDown, Eye, EyeOff, ShieldCheck, KeyRound, Lock, Mail, ArrowRight } from 'lucide-react';
 import { Button, Card, Field, FormError, Input } from '../../components/ui.jsx';
 import { useAuth } from '../../context/AuthContext';
+import { getFirstQueueForRole } from '../../services/managerBridge.js';
 
 const STAFF_ACCOUNTS = [
   {
@@ -63,8 +64,10 @@ export const ManagerLoginPage = () => {
 
     setLoading(true);
     try {
-      await managerLogin(trimmed, password);
-      navigate('/manager/dashboard');
+      const res = await managerLogin(trimmed, password);
+      const role = res?.managerUser?.role;
+      const target = getFirstQueueForRole(role);
+      navigate(target);
     } catch (err) {
       const msg = err?.error?.message || err?.detail || err?.title || 'Authentication failed. Check your staff credentials.';
       setError(msg);

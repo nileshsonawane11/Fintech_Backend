@@ -158,12 +158,12 @@ export default function ManagerTicketsPage() {
             </div>
 
             <div className="flex-1 space-y-3 overflow-y-auto px-5 py-4">
-              {(selected.messages || []).length === 0 && selected.description ? (
+              {selected.description && !selected.messages?.some(m => (m.text === selected.description || m.body === selected.description || m.message === selected.description)) && (
                 <div className="rounded-xl bg-porcelain-100 px-3.5 py-3">
                   <p className="text-xs font-semibold text-ink-500">{selected.customer?.fullName || 'Customer'} · {formatDateTime(selected.createdAt)}</p>
                   <p className="mt-1 whitespace-pre-wrap text-sm leading-relaxed text-ink-800">{selected.description}</p>
                 </div>
-              ) : null}
+              )}
               {(selected.messages || []).map((m, i) => {
                 const staffSide = m.from === 'STAFF' || m.from === 'SUPPORT' || m.senderType === 'STAFF';
                 return (

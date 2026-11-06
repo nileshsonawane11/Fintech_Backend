@@ -412,7 +412,8 @@ export const AuthProvider = ({ children }) => {
         cardType: applicationData.cardType || 'CREDIT',
         cardName: applicationData.cardName || applicationData.productName || applicationData.title || 'FinEdge Edge Cashback Card',
         productSlug: applicationData.productSlug || 'edge-cashback-credit',
-        linkedAccountId: applicationData.linkedAccountId || accounts[0]?.accountId || 'ACC-1001'
+        linkedAccountId: applicationData.linkedAccountId || accounts[0]?.accountId || 'ACC-1001',
+        requestedLimit: applicationData.requestedLimit
       });
       refreshCustomerData();
       return res;

@@ -519,13 +519,14 @@ export async function blockCard(cardId, actorName) {
   return cardService.blockCard(cardId, { reason: 'CUSTOMER_REQUEST', remarks: `Card blocked by ${actorName || 'cardholder'}` });
 }
 
-export async function applyCard(customerId, { productSlug, productName, kind, accountId }) {
+export async function applyCard(customerId, { productSlug, productName, kind, accountId, requestedLimit }) {
   try {
     const res = await cardService.applyForCard({
       cardType: kind ? kind.toUpperCase() : 'CREDIT',
       cardName: productName,
       productSlug,
-      linkedAccountId: accountId
+      linkedAccountId: accountId,
+      requestedLimit: requestedLimit != null ? Number(requestedLimit) : undefined
     });
     return {
       id: res.cardApplicationId || res.reference || res.id,

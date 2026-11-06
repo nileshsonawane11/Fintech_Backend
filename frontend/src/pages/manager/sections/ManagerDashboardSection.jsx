@@ -7,7 +7,7 @@ import {
   Button, Card, EmptyState, FormError, PageLoading, SectionHeader, StatusChip, Table,
 } from '../../../components/ui.jsx';
 import { ageOf, formatDate, formatDateTime, formatINR, productDisplayName, statusLabel } from '../../../lib/format.js';
-import { reportsSummary, listMyDecisions } from '../../../services/managerBridge.js';
+import { reportsSummary, listMyDecisions, hasSectionAccess } from '../../../services/managerBridge.js';
 import { listKycCases } from '../../../services/managerBridge.js';
 import { listLoanApplications } from '../../../services/managerBridge.js';
 import { useAuth } from '../../../context/AuthContext.jsx';
@@ -109,11 +109,11 @@ export default function ManagerDashboardPage() {
 
   const queues = summary?.queues || {};
   const tiles = [
-    { icon: ShieldCheck, label: 'KYC pending', queue: queues.kycPending, to: '/manager/kyc' },
-    { icon: FileText, label: 'Account apps', queue: queues.accountAppsPending, to: '/manager/accounts' },
-    { icon: Receipt, label: 'Loan apps', queue: queues.loanAppsPending, to: '/manager/loans' },
-    { icon: CreditCard, label: 'Card apps', queue: queues.cardAppsPending, to: '/manager/cards' },
-    { icon: LifeBuoy, label: 'Open tickets', queue: queues.ticketsOpen, to: '/manager/support' },
+    { icon: ShieldCheck, label: 'KYC pending', queue: queues.kycPending, to: '/manager/kyc', section: 'kyc' },
+    { icon: FileText, label: 'Account apps', queue: queues.accountAppsPending, to: '/manager/accounts', section: 'accounts' },
+    { icon: Receipt, label: 'Loan apps', queue: queues.loanAppsPending, to: '/manager/loans', section: 'loans' },
+    { icon: CreditCard, label: 'Card apps', queue: queues.cardAppsPending, to: '/manager/cards', section: 'cards' },
+    { icon: LifeBuoy, label: 'Open tickets', queue: queues.ticketsOpen, to: '/manager/support', section: 'tickets' },
   ];
 
   const referenceStats = [
@@ -151,7 +151,7 @@ export default function ManagerDashboardPage() {
 
       <div className="grid divide-y divide-ink-100 overflow-hidden rounded-xl border border-ink-100 bg-white shadow-card sm:grid-cols-2 sm:divide-x sm:divide-y-0 lg:grid-cols-5">
         {tiles.map((t) => (
-          <QueueCell key={t.label} icon={t.icon} label={t.label} queue={t.queue} to={t.to} onOpen={navigate} />
+          <QueueCell key={t.label} icon={t.icon} label={t.label} queue={t.queue} to={t.to} onOpen={navigate} canAccess={hasSectionAccess(t.section, user)} />
         ))}
       </div>
 

@@ -33,6 +33,7 @@ function productFor(app) {
 
 function cardName(app) {
   if (!app) return '—';
+  if (app.cardName) return app.cardName;
   if (app.productName) return app.productName;
   const p = productFor(app);
   if (p) return p.name;

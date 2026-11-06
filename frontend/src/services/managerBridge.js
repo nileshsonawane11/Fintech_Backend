@@ -3,19 +3,24 @@
 import { managerService } from './managerService.js';
 import { getDb, saveDb, appendAuditLog } from './api.js';
 import { calculateEMI } from '../lib/finance.js';
+import { maskPan } from '../lib/format.js';
 
 export const PERMISSION_CATALOGUE = [
   { code: 'customers.read', label: 'View customer directory', module: 'Customers' },
   { code: 'customers.update', label: 'Edit customer records', module: 'Customers' },
   { code: 'kyc.read', label: 'View KYC queue', module: 'KYC Operations' },
   { code: 'kyc.review', label: 'Decide KYC cases', module: 'KYC Operations' },
+  { code: 'kyc.approve', label: 'Approve KYC cases', module: 'KYC Operations' },
   { code: 'accounts.read', label: 'View account applications', module: 'Account Operations' },
   { code: 'accounts.review', label: 'Decide account applications', module: 'Account Operations' },
+  { code: 'accounts.approve', label: 'Approve account applications', module: 'Account Operations' },
   { code: 'loans.read', label: 'View loan applications', module: 'Loan Operations' },
   { code: 'loans.review', label: 'Decide loan applications', module: 'Loan Operations' },
   { code: 'loans.disburse', label: 'Disburse approved loans', module: 'Loan Operations' },
   { code: 'cards.read', label: 'View card applications', module: 'Card Operations' },
   { code: 'cards.issue', label: 'Issue and decline cards', module: 'Card Operations' },
+  { code: 'cards.approve', label: 'Approve card applications', module: 'Card Operations' },
+  { code: 'cards.block', label: 'Block cards', module: 'Card Operations' },
   { code: 'investments.read', label: 'View investment applications', module: 'Investment Operations' },
   { code: 'investments.review', label: 'Decide investment applications', module: 'Investment Operations' },
   { code: 'investments.book', label: 'Book approved investments', module: 'Investment Operations' },
@@ -32,67 +37,65 @@ export const ROLE_TEMPLATES = {
   ACCOUNT_OPS: [
     'customers.read',
     'accounts.read', 'accounts.review', 'accounts.approve',
-    'cards.read', 'cards.review', 'cards.approve', 'cards.issue', 'cards.block',
-    'loans.read', 'loans.review',
-    'investments.read', 'investments.review',
+    'cards.read', 'cards.issue', 'cards.approve', 'cards.block',
     'audit.read'
   ],
   AUDIT_COMPLIANCE: [
     'customers.read',
-    'kyc.read',
-    'accounts.read',
-    'cards.read',
-    'loans.read',
-    'investments.read',
     'audit.read',
     'reports.read'
   ],
   CUSTOMER_SUPPORT: [
     'customers.read',
-    'kyc.read',
-    'accounts.read',
-    'cards.read',
     'support.reply'
   ],
   // Legacy aliases
-  OFFICER: ['customers.read', 'kyc.read', 'kyc.review', 'accounts.review', 'loans.read', 'loans.review', 'cards.issue', 'support.reply'],
+  AUDITOR: ['customers.read', 'audit.read', 'reports.read'],
+  OFFICER: ['customers.read', 'kyc.read', 'kyc.review', 'kyc.approve', 'audit.read'],
   MANAGER: PERMISSION_CATALOGUE.map((p) => p.code),
   ADMIN: PERMISSION_CATALOGUE.map((p) => p.code),
-  AUDITOR: ['customers.read', 'kyc.read', 'loans.read', 'audit.read', 'reports.read'],
 };
+
+export const ROLE_ALLOWED_SECTIONS = {
+  BANK_MANAGER: ['dashboard', 'kyc', 'accounts', 'loans', 'investments', 'cards', 'tickets', 'customers', 'audit', 'reports', 'staff'],
+  KYC_OFFICER: ['dashboard', 'kyc', 'customers', 'audit'],
+  ACCOUNT_OPS: ['dashboard', 'accounts', 'cards', 'customers', 'audit'],
+  AUDIT_COMPLIANCE: ['dashboard', 'customers', 'audit', 'reports'],
+  CUSTOMER_SUPPORT: ['dashboard', 'tickets', 'customers'],
+  // Legacy aliases
+  AUDITOR: ['dashboard', 'customers', 'audit', 'reports'],
+  OFFICER: ['dashboard', 'kyc', 'customers', 'audit'],
+  MANAGER: ['dashboard', 'kyc', 'accounts', 'loans', 'investments', 'cards', 'tickets', 'customers', 'audit', 'reports', 'staff'],
+  ADMIN: ['dashboard', 'kyc', 'accounts', 'loans', 'investments', 'cards', 'tickets', 'customers', 'audit', 'reports', 'staff']
+};
+
+export const ROLE_DEFAULT_SECTION = {
+  CUSTOMER_SUPPORT: 'tickets',
+  KYC_OFFICER: 'kyc',
+  ACCOUNT_OPS: 'accounts',
+  AUDIT_COMPLIANCE: 'dashboard',
+  BANK_MANAGER: 'dashboard'
+};
+
+export function getFirstQueueForRole(role) {
+  switch (role) {
+    case 'CUSTOMER_SUPPORT': return '/manager/support';
+    case 'KYC_OFFICER': return '/manager/kyc';
+    case 'ACCOUNT_OPS': return '/manager/accounts';
+    case 'AUDIT_COMPLIANCE': return '/manager/dashboard';
+    case 'BANK_MANAGER': return '/manager/dashboard';
+    default: return '/manager/dashboard';
+  }
+}
 
 export function hasSectionAccess(sectionKey, managerUser) {
   if (!managerUser) return false;
-  if (managerUser.role === 'BANK_MANAGER') return true;
-  const perms = new Set(managerUser.permissions || []);
-  if (perms.has('admin') || perms.has('*')) return true;
-
-  switch (sectionKey) {
-    case 'dashboard':
-      return true;
-    case 'kyc':
-      return perms.has('kyc.read') || perms.has('kyc.review') || perms.has('kyc.approve');
-    case 'accounts':
-      return perms.has('accounts.read') || perms.has('accounts.review') || perms.has('accounts.approve');
-    case 'loans':
-      return perms.has('loans.read') || perms.has('loans.review') || perms.has('loans.disburse');
-    case 'investments':
-      return perms.has('investments.read') || perms.has('investments.review') || perms.has('investments.book');
-    case 'cards':
-      return perms.has('cards.read') || perms.has('cards.issue') || perms.has('cards.review') || perms.has('cards.approve');
-    case 'tickets':
-      return perms.has('support.reply');
-    case 'customers':
-      return perms.has('customers.read');
-    case 'audit':
-      return perms.has('audit.read');
-    case 'reports':
-      return perms.has('reports.read');
-    case 'staff':
-      return perms.has('staff.manage') || perms.has('staff.read') || perms.has('roles.manage');
-    default:
-      return true;
+  const role = managerUser.role;
+  const allowed = ROLE_ALLOWED_SECTIONS[role];
+  if (allowed) {
+    return allowed.includes(sectionKey);
   }
+  return false;
 }
 
 // ============================================================================
@@ -144,6 +147,39 @@ export function assertStaffPermission(requiredPerm, actorOverride = {}) {
   }
   if (actor.role === 'BANK_MANAGER') return actor;
 
+  // Strict role remit checks (Fix 1)
+  if (actor.role === 'KYC_OFFICER') {
+    if (!requiredPerm.startsWith('kyc.') && requiredPerm !== 'customers.read') {
+      throw {
+        status: 403,
+        code: 'INSUFFICIENT_PERMISSIONS',
+        title: 'Access Forbidden',
+        message: `Senior KYC Officer (${actor.email}) is restricted to KYC decisions only.`,
+        detail: `Senior KYC Officer (${actor.email}) is restricted to KYC decisions only.`
+      };
+    }
+  } else if (actor.role === 'ACCOUNT_OPS') {
+    if (!requiredPerm.startsWith('accounts.') && !requiredPerm.startsWith('cards.') && requiredPerm !== 'customers.read') {
+      throw {
+        status: 403,
+        code: 'INSUFFICIENT_PERMISSIONS',
+        title: 'Access Forbidden',
+        message: `Account & Card Operations (${actor.email}) is restricted to account and card decisions only.`,
+        detail: `Account & Card Operations (${actor.email}) is restricted to account and card decisions only.`
+      };
+    }
+  } else if (actor.role === 'CUSTOMER_SUPPORT') {
+    if (!requiredPerm.startsWith('support.') && !requiredPerm.startsWith('tickets.') && requiredPerm !== 'customers.read') {
+      throw {
+        status: 403,
+        code: 'INSUFFICIENT_PERMISSIONS',
+        title: 'Access Forbidden',
+        message: `Customer Care Lead (${actor.email}) is restricted to ticket replies and status updates only.`,
+        detail: `Customer Care Lead (${actor.email}) is restricted to ticket replies and status updates only.`
+      };
+    }
+  }
+
   const db = getDb();
   let staff = null;
   if (actor.email) {
@@ -154,7 +190,6 @@ export function assertStaffPermission(requiredPerm, actorOverride = {}) {
   }
 
   const perms = staff?.permissions || [];
-  // Also recognize alias permissions (e.g. kyc.approve for kyc.review)
   const effectivePerms = new Set(perms);
   if (effectivePerms.has('kyc.approve')) effectivePerms.add('kyc.review');
   if (effectivePerms.has('accounts.approve')) effectivePerms.add('accounts.review');
@@ -302,7 +337,7 @@ export function normalizeAccountApplication(a, db) {
 }
 
 export function normalizeCardApplication(c, db) {
-  const cust = (db?.customers || []).find(c => c.customerId === c.customerId);
+  const cust = (db?.customers || []).find(custRecord => (c.customerId && (custRecord.customerId === c.customerId || custRecord.id === c.customerId)));
   const id = c.cardApplicationId || c.id;
   const custObj = cust ? {
     id: cust.customerId,
@@ -571,14 +606,14 @@ export async function listAccountApplications({ status } = {}) {
   return normalized.filter(a => a.status === target);
 }
 
-export async function decideAccountApplication(appId, { decision, reasonCode, note, overrideReason, actor, actorRole, actorEmail }) {
-  assertStaffPermission('accounts.review', { actor, actorRole, actorEmail });
+export async function decideAccountApplication(appId, { decision, reasonCode, note, overrideReason, actor, actorRole, actorEmail } = {}) {
+  const staff = assertStaffPermission('accounts.review', { actor, actorRole, actorEmail });
   if (decision === 'APPROVED') {
-    return managerService.approveAccountApplication(appId);
+    return managerService.approveAccountApplication(appId, { actor: staff.name, actorRole: staff.role, actorEmail: staff.email });
   } else if (decision === 'INFO_REQUIRED') {
-    return managerService.requestInfoAccountApplication(appId, { remarks: note || reasonCode || 'Additional information required' });
+    return managerService.requestInfoAccountApplication(appId, { remarks: note || reasonCode || 'Additional information required', actor: staff.name, actorRole: staff.role, actorEmail: staff.email });
   } else {
-    return managerService.rejectAccountApplication(appId, { remarks: note || reasonCode || 'Application rejected' });
+    return managerService.rejectAccountApplication(appId, { remarks: note || reasonCode || 'Application rejected', actor: staff.name, actorRole: staff.role, actorEmail: staff.email });
   }
 }
 
@@ -623,8 +658,8 @@ export async function listCardApplications({ status, query } = {}) {
 }
 
 export async function issueCard(appId, { actor, actorRole, actorEmail, limit = 250000 } = {}) {
-  assertStaffPermission('cards.issue', { actor, actorRole, actorEmail });
-  return managerService.approveCardApplication(appId, { limit });
+  const staff = assertStaffPermission('cards.issue', { actor, actorRole, actorEmail });
+  return managerService.approveCardApplication(appId, { limit, actor: staff.name, actorRole: staff.role, actorEmail: staff.email });
 }
 
 export async function declineCardApplication(appId, { reasonCode, note, actor, actorRole, actorEmail } = {}) {
@@ -1178,7 +1213,29 @@ export async function setTicketStatus(ticketId, status, options = {}) {
   return t;
 }
 
+
+export function customersCsv(rows = []) {
+  const esc = (v) => `"${String(v ?? '').replace(/"/g, '""')}"`;
+  return [
+    ['Customer', 'CIF', 'Email', 'Mobile', 'PAN', 'KYC Status', 'Risk', 'Created'].map(esc).join(','),
+    ...rows.map((c) => [
+      c.fullName || c.name || '',
+      c.id || c.customerId || '',
+      c.email || '',
+      c.mobile || c.mobileNumber || '',
+      maskPan(c.pan),
+      c.kycStatus || 'NOT_STARTED',
+      c.riskCategory || 'UNASSESSED',
+      c.createdAt || ''
+    ].map(esc).join(',')),
+  ].join('\n');
+}
+
 export const managerBridge = {
+  ROLE_ALLOWED_SECTIONS,
+  ROLE_DEFAULT_SECTION,
+  getFirstQueueForRole,
+  customersCsv,
   hasSectionAccess,
   PERMISSION_CATALOGUE,
   ROLE_TEMPLATES,

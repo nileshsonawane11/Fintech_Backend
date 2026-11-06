@@ -1,3 +1,5 @@
+import { FINEDGE_RATES_CONFIG } from '../data/ratesConfig.js';
+import { SAVINGS_TOP_RATE } from '../data/products.js';
 // FinBank / FinEdge REST API Client
 // Implements RFC 9457 problem details, OAuth 2.0 / JWT bearer authorization,
 // Idempotency-Key headers, Correlation-IDs, granular RBAC, and seamless offline-persistence fallback.
@@ -826,8 +828,7 @@ export const getDefaultDb = () => {
         permissions: [
           'customers.read',
           'accounts.read', 'accounts.review', 'accounts.approve',
-          'cards.read', 'cards.review', 'cards.approve', 'cards.issue', 'cards.block',
-          'loans.read', 'loans.review', 'investments.read', 'investments.review', 'audit.read'
+          'cards.read', 'cards.review', 'cards.approve', 'cards.issue', 'cards.block', 'audit.read'
         ],
         lastLogin: '2026-09-27T10:15:00Z'
       },
@@ -841,8 +842,7 @@ export const getDefaultDb = () => {
         department: 'Risk & Audit',
         status: 'ACTIVE',
         permissions: [
-          'customers.read', 'kyc.read', 'accounts.read', 'cards.read', 'loans.read', 'investments.read', 'audit.read',
-          'reports.read'
+          'customers.read', 'audit.read', 'reports.read'
         ],
         lastLogin: '2026-09-27T09:00:00Z'
       },
@@ -856,10 +856,7 @@ export const getDefaultDb = () => {
         department: 'Customer Care',
         status: 'ACTIVE',
         permissions: [
-          'customers.read',
-          'kyc.read',
-          'accounts.read',
-          'cards.read', 'support.reply'
+          'customers.read', 'support.reply'
         ],
         lastLogin: '2026-09-27T08:45:00Z'
       }
@@ -1045,6 +1042,18 @@ export const getDb = () => {
     // Auto-merge seeded staff users
     defaults.staffUsers.forEach(ds => {
       const existing = db.staffUsers?.find(s => s.staffId === ds.staffId);
+      if (existing) {
+        if (ds.staffId === 'STF-005' && existing.permissions?.includes('kyc.read')) {
+          existing.permissions = [...ds.permissions];
+          dirty = true;
+        } else if (ds.staffId === 'STF-004' && existing.permissions?.includes('loans.read')) {
+          existing.permissions = [...ds.permissions];
+          dirty = true;
+        } else if (ds.staffId === 'STF-003' && existing.permissions?.includes('loans.read')) {
+          existing.permissions = [...ds.permissions];
+          dirty = true;
+        }
+      }
       if (!existing) {
         db.staffUsers = db.staffUsers || [];
         db.staffUsers.push(ds);
@@ -1129,6 +1138,12 @@ export const getAuthenticatedCustomerId = (db) => {
 
 export const verifyStaffPermission = (db, requiredPermission, options = {}) => {
   let staffUser = null;
+  try {
+    const b = typeof options.body === 'string' ? JSON.parse(options.body || '{}') : (options.body || {});
+    if (b.actorEmail) {
+      staffUser = db.staffUsers.find(s => s.email && s.email.toLowerCase() === b.actorEmail.toLowerCase());
+    }
+  } catch {}
   const token = options.headers?.['Authorization'] || (options.isManager ? getManagerToken() : null);
 
   if (typeof localStorage !== 'undefined') {
@@ -1888,6 +1903,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
       productName: body.cardName || 'FinEdge Edge Cashback Card',
       productSlug: prodSlug,
       linkedAccountId: body.linkedAccountId || 'ACC-1001',
+      requestedLimit: body.requestedLimit != null ? Number(body.requestedLimit) : undefined,
       status: 'PENDING_APPROVAL',
       submittedAt: new Date().toISOString()
     };
@@ -2219,7 +2235,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
     app.approvedAt = new Date().toISOString();
     app.createdAccountId = generatedAccId;
 
-    let interestRate = 7.00;
+    let interestRate = FINEDGE_RATES_CONFIG?.savings?.peakRateValue || SAVINGS_TOP_RATE;
     const pCode = (app.productCode || '').toUpperCase();
     const pName = (app.productName || '').toLowerCase();
     if (pCode.includes('CURRENT') || pName.includes('current')) {
@@ -2278,7 +2294,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
 
     saveDb(db);
     appendAuditLog(staff.email, staff.role, 'ACCOUNT_APPLICATION_APPROVED', app.accountApplicationId, 'SUCCESS', `Activated new account ${generatedAccId} for ${app.customerId}`);
-    return { success: true, accountApplicationId: app.accountApplicationId, accountId: generatedAccId, createdAccountId: generatedAccId };
+    return { success: true, status: 'APPROVED', accountApplicationId: app.accountApplicationId, accountId: generatedAccId, createdAccountId: generatedAccId };
   }
 
   // Ops: Account Application Request Info (requires accounts.review or accounts.approve)

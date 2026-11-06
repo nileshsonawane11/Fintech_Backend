@@ -54,10 +54,11 @@ export const managerService = {
     return apiRequest('/ops/api/v1/accounts/applications', { isManager: true });
   },
 
-  async approveAccountApplication(accountApplicationId) {
+  async approveAccountApplication(accountApplicationId, payload = {}) {
     return apiRequest(`/ops/api/v1/accounts/applications/${accountApplicationId}/approve`, {
       method: 'POST',
-      isManager: true
+      isManager: true,
+      body: JSON.stringify(payload)
     });
   },
 

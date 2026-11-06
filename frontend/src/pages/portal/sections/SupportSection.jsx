@@ -193,6 +193,15 @@ export default function SupportPage() {
                     <div className="mt-4 border-t border-ink-100 pt-4">
                       {/* Thread messages */}
                       <div className="space-y-3">
+                        {t.description && !t.messages?.some(m => (m.body === t.description || m.text === t.description || m.message === t.description)) && (
+                          <div className="rounded-lg p-3 text-sm leading-relaxed bg-midnight-50/60 border border-midnight-100">
+                            <div className="flex items-center justify-between text-xs text-ink-500">
+                              <span className="font-semibold text-ink-800">You</span>
+                              <span>{formatDateTime(t.createdAt)}</span>
+                            </div>
+                            <p className="mt-1 text-ink-800 whitespace-pre-wrap">{t.description}</p>
+                          </div>
+                        )}
                         {(t.messages || []).map((m, idx) => {
                           const isCustomer = m.from === 'CUSTOMER' || m.actorRole === 'CUSTOMER';
                           return (

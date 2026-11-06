@@ -23,7 +23,6 @@ const REASON_CODES = [
 
 const TAB_DEFS = [
   { id: 'ALL', label: 'All' },
-  { id: 'PENDING', label: 'Pending' },
   { id: 'UNDER_REVIEW', label: 'Under Review' },
   { id: 'APPROVED', label: 'Approved' },
   { id: 'REJECTED', label: 'Rejected' },
@@ -103,7 +102,13 @@ export default function ManagerKycPage() {
   useEffect(() => { loadList(); }, [loadList]);
 
   const counts = TAB_DEFS.reduce((acc, tab) => {
-    acc[tab.id] = tab.id === 'ALL' ? allCases.length : allCases.filter((c) => c.status === tab.id).length;
+    if (tab.id === 'ALL') {
+      acc[tab.id] = allCases.length;
+    } else if (tab.id === 'UNDER_REVIEW') {
+      acc[tab.id] = allCases.filter((c) => ['UNDER_REVIEW', 'PENDING', 'SUBMITTED'].includes(c.status)).length;
+    } else {
+      acc[tab.id] = allCases.filter((c) => c.status === tab.id).length;
+    }
     return acc;
   }, {});
   const tabs = TAB_DEFS.map((t) => ({ ...t, count: counts[t.id] }));
