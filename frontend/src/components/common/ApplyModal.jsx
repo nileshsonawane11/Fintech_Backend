@@ -1402,9 +1402,9 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
           }
         }),
         nominee: {
-          name: formData.nomineeName.trim(),
+          fullName: formData.nomineeName.trim(),
           relationship: formData.nomineeRelationship,
-          dob: formData.nomineeDob
+          dateOfBirth: formData.nomineeDob
         },
         preferences: {
           requestDebitCard: formData.requestDebitCard || Boolean(cardRequestedNote)
