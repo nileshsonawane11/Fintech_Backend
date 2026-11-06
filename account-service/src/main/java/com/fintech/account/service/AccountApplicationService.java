@@ -80,7 +80,7 @@ public class AccountApplicationService {
     @Transactional
     protected AccountApplicationResponse executeApply(String identitySubject, AccountApplicationRequest request) {
         // 1. Verify KYC and Customer existence
-        CustomerProfileDto customer = customerServiceClient.verifyKycApproved(identitySubject);
+        CustomerProfileDto customer = customerServiceClient.getCustomerProfile(identitySubject);
         String customerId = customer.customerId();
 
         // 2. Verify Product existence and active status

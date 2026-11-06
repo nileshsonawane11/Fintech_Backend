@@ -16,7 +16,7 @@ public record NomineeRequest(
         @Past(message = "Date of birth must be in the past")
         LocalDate dateOfBirth,
 
-        @NotBlank(message = "Mobile number is required")
+
         @Pattern(regexp = "^[0-9]{10}$", message = "Mobile number must be exactly 10 digits")
         String mobileNumber,
 
