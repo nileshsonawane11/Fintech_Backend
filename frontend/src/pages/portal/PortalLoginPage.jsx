@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { getDemoAccounts, resetDemoDb } from '../../services/api.js';
 import {
   Card,
   Button,
@@ -8,7 +9,8 @@ import {
   Input,
   FormError,
   OtpInput,
-  ResendOtp
+  ResendOtp,
+  Modal
 } from '../../components/ui.jsx';
 import {
   Lock,
@@ -25,10 +27,7 @@ import {
   ArrowRight
 } from 'lucide-react';
 
-const DEMO_ACCOUNTS = [
-  { name: 'Vikramaditya Sharma', email: 'vikram.sharma@finedge.customer', password: 'Password@123', note: 'KYC Verified · Savings & Credit Cards' },
-  { name: 'Aarav Patel', email: 'aarav.patel@finedge-mail.in', password: 'Password@123', note: 'KYC Under Review · Active Accounts' }
-];
+const DEMO_ACCOUNTS = getDemoAccounts();
 
 function BrandMark() {
   return (
@@ -49,12 +48,21 @@ export const PortalLoginPage = () => {
   // Mode: 'login' | 'mfa' | 'register' | 'register_otp' | 'forgot'
   const [mode, setMode] = useState('login');
 
+  const handleResetConfirm = () => {
+    resetDemoDb();
+    setResetOpen(false);
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
+  };
+
   // Form states - completely empty on open
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [mfaReferenceId, setMfaReferenceId] = useState('');
   const [mfaOtp, setMfaOtp] = useState('');
+  const [resetOpen, setResetOpen] = useState(false);
 
   // Registration states
   const [regFullName, setRegFullName] = useState('');
@@ -496,6 +504,16 @@ export const PortalLoginPage = () => {
               </div>
             </div>
           )}
+
+          <div className="mt-3 text-center border-t border-ink-100 pt-2.5">
+            <button
+              type="button"
+              onClick={() => setResetOpen(true)}
+              className="text-[11px] font-medium text-ink-500 hover:text-ink-700 underline transition-colors"
+            >
+              Reset demo data
+            </button>
+          </div>
         </div>
 
         <p className="mt-6 text-center text-xs text-ink-500">
@@ -504,6 +522,23 @@ export const PortalLoginPage = () => {
             Staff Operations Terminal →
           </Link>
         </p>
+      <Modal
+        open={resetOpen}
+        onClose={() => setResetOpen(false)}
+        title="Reset demo data?"
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setResetOpen(false)}>Cancel</Button>
+            <Button variant="danger" onClick={handleResetConfirm}>Reset demo data</Button>
+          </>
+        )}
+      >
+        <p className="text-sm leading-relaxed text-ink-700">
+          This clears everything this prototype has stored in your browser — accounts, applications,
+          transfers, KYC decisions and preferences — and restores the original seeded demo data.
+          You will be signed out, and the reset cannot be undone.
+        </p>
+      </Modal>
       </div>
     </div>
   );

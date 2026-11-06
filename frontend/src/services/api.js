@@ -49,10 +49,51 @@ export const clearManagerToken = () => {
 };
 
 // ============================================================================
+// SEED VERSION & ALIASES (Module 40)
+// ============================================================================
+// SEED_VERSION: Stored inside the persisted db.
+// Rule: bump it whenever a seed identity/contact field changes.
+export const SEED_VERSION = 1;
+
+// Explicit alias map keyed by customerId for seeded demo customers.
+// Covers current seed email and historical/legacy identifiers.
+// Aliases apply to seed customerIds only, never to registered customers.
+export const SEED_CUSTOMER_ALIASES = {
+  'CUS-100234': [
+    'vikram.sharma@finedge.customer',
+    'vikram@example.com',
+    'vikram@finedge-mail.in',
+    '9820110023'
+  ],
+  'CUS-100235': [
+    'aarav.patel@finedge-mail.in',
+    'aarav.patel@example.com',
+    '9844001122'
+  ],
+  'CUS-100236': [
+    'priya.nair@finedge-mail.in',
+    '9820123456'
+  ],
+  'CUS-100237': [
+    'rajesh.kulkarni@finedge-mail.in',
+    '9765432109'
+  ],
+  'CUS-100238': [
+    'arjun.singhal@finedge-mail.in',
+    '9911223344'
+  ],
+  'CUS-100239': [
+    'meera.iyer@finedge-mail.in',
+    '9819988776'
+  ]
+};
+
+// ============================================================================
 // INITIAL PERSISTENT STORE (Mirrors FinBank API Data Model)
 // ============================================================================
 export const getDefaultDb = () => {
   return {
+    seedVersion: SEED_VERSION,
     customers: [
       {
         customerId: 'CUS-100234',
@@ -68,6 +109,7 @@ export const getDefaultDb = () => {
         annualIncomeRange: '1000000_1500000',
         kycStatus: 'APPROVED',
         riskCategory: 'LOW',
+        note: 'KYC Verified · Savings & Credit Cards',
         createdAt: '2026-10-01T06:30:00Z',
         address: {
           addressLine1: '402, FinEdge Horizon Towers',
@@ -93,6 +135,7 @@ export const getDefaultDb = () => {
         annualIncomeRange: '1500000_2500000',
         kycStatus: 'UNDER_REVIEW',
         riskCategory: 'MEDIUM',
+        note: 'KYC Under Review · Active Accounts',
         createdAt: '2026-09-27T09:00:00Z',
         address: {
           addressLine1: 'Flat 12B, Ocean View',
@@ -952,10 +995,35 @@ export const getDefaultDb = () => {
   };
 };
 
+export const getDemoAccounts = () => {
+  const defaults = getDefaultDb();
+  const demoIds = ['CUS-100234', 'CUS-100235'];
+  return demoIds.map(id => {
+    const cust = defaults.customers.find(c => c.customerId === id);
+    if (!cust) return null;
+    return {
+      customerId: cust.customerId,
+      name: cust.fullName,
+      email: cust.email,
+      password: cust.password,
+      note: cust.note || (cust.kycStatus === 'APPROVED' ? 'KYC Verified · Savings & Credit Cards' : 'KYC Under Review · Active Accounts')
+    };
+  }).filter(Boolean);
+};
+
+export const DEMO_ACCOUNTS = getDemoAccounts();
+
 export const resetDemoDb = () => {
   const defaults = getDefaultDb();
   if (typeof localStorage !== 'undefined') {
     localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(defaults));
+    localStorage.removeItem(TOKEN_KEY);
+    localStorage.removeItem(REFRESH_TOKEN_KEY);
+    localStorage.removeItem(SESSION_CUST_KEY);
+    localStorage.removeItem(MANAGER_TOKEN_KEY);
+    localStorage.removeItem('finedge_demo_user');
+    localStorage.removeItem('finedge_manager_user');
+    localStorage.removeItem('finedge_user_prefs');
   }
   return defaults;
 };
@@ -973,8 +1041,39 @@ export const getDb = () => {
     return defaults;
   }
   try {
-    const db = JSON.parse(existingStr);
+        const db = JSON.parse(existingStr);
     let dirty = false;
+
+    // Fix 2: Seed-version identity re-sync in getDb
+    // When stored version is lower than code's SEED_VERSION, re-sync seeded customers
+    // (matched by customerId) from the defaults for identity/contact fields only.
+    const storedVersion = typeof db.seedVersion === 'number' ? db.seedVersion : 0;
+    if (storedVersion < SEED_VERSION) {
+      const seedCustomerMap = new Map(defaults.customers.map(c => [c.customerId, c]));
+      if (Array.isArray(db.customers)) {
+        db.customers.forEach(cust => {
+          const defaultCust = seedCustomerMap.get(cust.customerId);
+          if (defaultCust) {
+            // Re-sync identity/contact fields ONLY:
+            cust.fullName = defaultCust.fullName;
+            cust.email = defaultCust.email;
+            cust.mobileNumber = defaultCust.mobileNumber;
+            cust.pan = defaultCust.pan;
+            cust.dateOfBirth = defaultCust.dateOfBirth;
+            cust.kycStatus = defaultCust.kycStatus;
+            cust.riskCategory = defaultCust.riskCategory;
+            cust.address = defaultCust.address ? JSON.parse(JSON.stringify(defaultCust.address)) : cust.address;
+            if (defaultCust.note) cust.note = defaultCust.note;
+            // CRITICAL INVARIANT: The re-sync must never overwrite:
+            // 1. the stored password (Module 36 change-password persists there)
+            // 2. any record whose id is not a seed id (registered customers are untouched)
+            // 3. any non-customer collection
+          }
+        });
+      }
+      db.seedVersion = SEED_VERSION;
+      dirty = true;
+    }
 
     // Auto-merge seeded customers if missing
     defaults.customers.forEach(dc => {
@@ -1394,13 +1493,32 @@ export const handleLocalFallback = (endpoint, options = {}) => {
     };
   }
 
-  // 3. /api/v1/auth/login
+    // 3. /api/v1/auth/login
   if (endpoint === '/api/v1/auth/login' && method === 'POST') {
-    const ident = (body.identifier || '').trim().toLowerCase();
-    const customer = db.customers.find(c => 
-      (c.email && c.email.toLowerCase() === ident) || 
-      c.mobileNumber === ident || (ident === 'vikram@finedge-mail.in' && c.customerId === 'CUS-100234')
-    );
+    const rawIdent = (body.identifier || '').trim();
+    const identLower = rawIdent.toLowerCase();
+
+    // Fix 1.2: Resolve identifiers for seeded demo customers through explicit alias map
+    let matchedSeedCustomerId = null;
+    for (const [cid, aliases] of Object.entries(SEED_CUSTOMER_ALIASES)) {
+      if (aliases.some(alias => alias.toLowerCase() === identLower || alias === rawIdent)) {
+        matchedSeedCustomerId = cid;
+        break;
+      }
+    }
+
+    let customer = null;
+    if (matchedSeedCustomerId) {
+      customer = db.customers.find(c => c.customerId === matchedSeedCustomerId);
+    }
+
+    // If not resolved via seed alias, match by current record email or mobile (e.g. for registered customers)
+    if (!customer) {
+      customer = db.customers.find(c => 
+        (c.email && c.email.toLowerCase() === identLower) || 
+        c.mobileNumber === rawIdent
+      );
+    }
 
     if (!customer) {
       throw {

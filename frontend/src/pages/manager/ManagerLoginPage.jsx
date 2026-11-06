@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate } from 'react-router-dom';
 import { ChevronDown, Eye, EyeOff, ShieldCheck, KeyRound, Lock, Mail, ArrowRight } from 'lucide-react';
-import { Button, Card, Field, FormError, Input } from '../../components/ui.jsx';
+import { Button, Card, Field, FormError, Input, Modal } from '../../components/ui.jsx';
 import { useAuth } from '../../context/AuthContext';
 import { getFirstQueueForRole } from '../../services/managerBridge.js';
+import { resetDemoDb } from '../../services/api.js';
 
 const STAFF_ACCOUNTS = [
   {
@@ -48,6 +49,15 @@ export const ManagerLoginPage = () => {
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
   const [demoOpen, setDemoOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+
+  const handleResetConfirm = () => {
+    resetDemoDb();
+    setResetOpen(false);
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -179,6 +189,16 @@ export const ManagerLoginPage = () => {
                 </div>
               </div>
             )}
+
+          <div className="mt-3 text-center border-t border-ink-100 pt-2.5">
+            <button
+              type="button"
+              onClick={() => setResetOpen(true)}
+              className="text-[11px] font-medium text-ink-500 hover:text-ink-700 underline transition-colors"
+            >
+              Reset demo data
+            </button>
+          </div>
           </div>
 
           <div className="mt-6 text-center text-xs text-ink-500">
@@ -186,6 +206,23 @@ export const ManagerLoginPage = () => {
               Return to Customer Online Banking Portal
             </Link>
           </div>
+      <Modal
+        open={resetOpen}
+        onClose={() => setResetOpen(false)}
+        title="Reset demo data?"
+        footer={(
+          <>
+            <Button variant="secondary" onClick={() => setResetOpen(false)}>Cancel</Button>
+            <Button variant="danger" onClick={handleResetConfirm}>Reset demo data</Button>
+          </>
+        )}
+      >
+        <p className="text-sm leading-relaxed text-ink-700">
+          This clears everything this prototype has stored in your browser — accounts, applications,
+          transfers, KYC decisions and preferences — and restores the original seeded demo data.
+          You will be signed out, and the reset cannot be undone.
+        </p>
+      </Modal>
         </Card>
       </div>
     </div>
