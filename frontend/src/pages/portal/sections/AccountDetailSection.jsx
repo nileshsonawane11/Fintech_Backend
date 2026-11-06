@@ -225,7 +225,12 @@ export default function AccountDetailPage() {
 
       <FormError message={txnError} />
 
-      {transactions === null && !txnError ? (
+      {txnError ? (
+        <Card className="p-6 text-center my-4">
+          <p className="text-sm text-danger-600 mb-3">{txnError}</p>
+          <Button variant="secondary" size="sm" onClick={loadTransactions}>Retry loading transactions</Button>
+        </Card>
+      ) : transactions === null ? (
         <PageLoading />
       ) : (
         <Table

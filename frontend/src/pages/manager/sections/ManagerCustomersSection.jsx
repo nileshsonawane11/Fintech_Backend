@@ -89,13 +89,26 @@ export default function ManagerCustomersPage() {
     {
       key: 'pan', label: 'PAN',
       render: (c) => {
-        const shown = !!revealed[c.id];
+        const fullPan = revealed[c.id];
+        const shown = Boolean(fullPan);
         return (
           <span className="inline-flex items-center gap-1.5">
-            <span className="font-mono text-[13px]">{shown ? (c.pan || '—') : maskPan(c.pan)}</span>
+            <span className="font-mono text-[13px]">{shown ? fullPan : (c.panMasked || maskPan(c.pan))}</span>
             <button
               type="button"
-              onClick={(e) => { e.stopPropagation(); setRevealed((r) => ({ ...r, [c.id]: !r[c.id] })); }}
+              onClick={async (e) => {
+                e.stopPropagation();
+                if (shown) {
+                  setRevealed((r) => { const copy = { ...r }; delete copy[c.id]; return copy; });
+                } else {
+                  try {
+                    const res = await revealCustomerPan(c.id);
+                    setRevealed((r) => ({ ...r, [c.id]: res.pan }));
+                  } catch (err) {
+                    toast({ tone: 'error', title: 'Reveal Failed', body: err?.message || 'Could not reveal PAN.' });
+                  }
+                }
+              }}
               className="rounded p-1 text-ink-500 hover:bg-midnight-50 hover:text-midnight-800"
               aria-label={shown ? `Hide PAN for ${c.fullName}` : `Reveal PAN for ${c.fullName}`}
               title={shown ? 'Hide PAN' : 'Reveal PAN for this session only'}
@@ -174,7 +187,7 @@ export default function ManagerCustomersPage() {
                       <p><span className="text-ink-500">Email:</span> {detail.customer.email || '—'}</p>
                       <p><span className="text-ink-500">Mobile:</span> {detail.customer.mobile || '—'}</p>
                       <p><span className="text-ink-500">Date of birth:</span> {formatDate(detail.customer.dob)}</p>
-                      <p><span className="text-ink-500">PAN:</span> <span className="font-mono text-[13px]">{maskPan(detail.customer.pan)}</span></p>
+                      <p><span className="text-ink-500">PAN:</span> <span className="font-mono text-[13px]">{revealed[detail.customer.id] || detail.customer.panMasked || maskPan(detail.customer.pan)}</span></p>
                       <p><span className="text-ink-500">Address:</span> {addressText(detail.customer.address)}</p>
                       <p><span className="text-ink-500">Customer since:</span> {formatDate(detail.customer.createdAt)}</p>
                     </Card>

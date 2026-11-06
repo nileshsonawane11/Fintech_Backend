@@ -61,6 +61,7 @@ export function maskAccount(acc) {
 export function maskPan(pan) {
   if (!pan) return '—';
   const s = String(pan).toUpperCase();
+  if (s.includes('••')) return s;
   if (s.length < 7) return s;
   return `${s.slice(0, 3)}••${s.slice(5)}`;
 }

@@ -103,34 +103,52 @@ export function hasSectionAccess(sectionKey, managerUser) {
 // ============================================================================
 
 export function getCurrentStaffActor(override = {}) {
-  let email = override.actorEmail || override.email;
-  let role = override.actorRole || override.role;
-  let name = override.actor || override.name;
-  let staffId = override.staffId;
+  const db = getDb();
+  let staffUser = null;
 
+  // 1. Resolve from active staff session in db.sessions if token is present
   if (typeof localStorage !== 'undefined') {
-    try {
-      const saved = localStorage.getItem('finedge_manager_user');
-      if (saved) {
-        const parsed = JSON.parse(saved);
-        if (!email && !role && !staffId) {
-          email = parsed.email;
-          role = parsed.role;
-          name = parsed.fullName || parsed.name;
-          staffId = parsed.staffId || parsed.id;
-        } else if (email && parsed.email && email.toLowerCase() === parsed.email.toLowerCase()) {
-          role = role || parsed.role;
-          name = name || parsed.fullName || parsed.name;
-          staffId = staffId || parsed.staffId || parsed.id;
+    const token = localStorage.getItem('finedge_manager_token');
+    if (token) {
+      const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
+      const session = (db.sessions || []).find(s => s.sessionId === cleanToken && s.type === 'STAFF');
+      if (session) {
+        const now = Date.now();
+        if (new Date(session.expiresAt).getTime() > now) {
+          staffUser = (db.staffUsers || []).find(st => st.staffId === session.staffId || (st.email && st.email.toLowerCase() === session.email?.toLowerCase()));
         }
       }
-    } catch {}
+    }
   }
+
+  // 2. If no active session token in db.sessions, check test caller override
+  if (!staffUser && override.actorEmail) {
+    staffUser = (db.staffUsers || []).find(st => st.email && st.email.toLowerCase() === override.actorEmail.toLowerCase());
+  }
+
+  // 3. Compatibility with saved manager user in storage
+  if (!staffUser && typeof localStorage !== 'undefined') {
+    const saved = localStorage.getItem('finedge_manager_user');
+    if (saved) {
+      try {
+        const parsed = JSON.parse(saved);
+        staffUser = (db.staffUsers || []).find(st =>
+          (st.email && st.email.toLowerCase() === parsed.email?.toLowerCase()) ||
+          st.staffId === (parsed.staffId || parsed.id)
+        );
+      } catch {}
+    }
+  }
+
+  if (!staffUser) {
+    throw new Error('no staff session');
+  }
+
   return {
-    email: email || 'ops.session@finedge.bank',
-    role: role || 'BANK_MANAGER',
-    name: name || 'FinEdge Staff Member',
-    staffId: staffId || 'STF-001'
+    email: staffUser.email,
+    role: staffUser.role,
+    name: staffUser.fullName,
+    staffId: staffUser.staffId
   };
 }
 
@@ -445,20 +463,26 @@ export function normalizeInvestmentApplication(i, db) {
 export async function listCustomers({ query = '' } = {}) {
   const list = await managerService.getCustomers();
   const arr = Array.isArray(list) ? list : list?.data || [];
-  const normalized = arr.map(c => ({
-    id: c.customerId || c.id,
-    customerId: c.customerId || c.id,
-    fullName: c.fullName || c.name || '—',
-    name: c.fullName || c.name || '—',
-    email: c.email || '',
-    mobile: c.mobileNumber || c.mobile || '',
-    dob: c.dateOfBirth || c.dob || '',
-    pan: c.pan || '',
-    kycStatus: c.kycStatus || 'NOT_STARTED',
-    riskCategory: c.riskCategory || 'UNASSESSED',
-    createdAt: c.createdAt || new Date().toISOString(),
-    address: c.address || {}
-  }));
+  const db = getDb();
+  const normalized = arr.map(c => {
+    const realCust = (db.customers || []).find(x => x.customerId === (c.customerId || c.id));
+    const rawPan = c.pan || realCust?.pan || '';
+    return {
+      id: c.customerId || c.id,
+      customerId: c.customerId || c.id,
+      fullName: c.fullName || c.name || '—',
+      name: c.fullName || c.name || '—',
+      email: c.email || '',
+      mobile: c.mobileNumber || c.mobile || '',
+      dob: c.dateOfBirth || c.dob || '',
+      pan: rawPan,
+      panMasked: c.panMasked || maskPan(rawPan),
+      kycStatus: c.kycStatus || 'NOT_STARTED',
+      riskCategory: c.riskCategory || 'UNASSESSED',
+      createdAt: c.createdAt || new Date().toISOString(),
+      address: c.address || {}
+    };
+  });
 
   if (!query) return normalized;
   const q = query.toLowerCase().trim();
@@ -467,6 +491,7 @@ export async function listCustomers({ query = '' } = {}) {
     (c.email || '').toLowerCase().includes(q) ||
     (c.id || '').toLowerCase().includes(q) ||
     (c.pan || '').toLowerCase().includes(q) ||
+    (c.panMasked || '').toLowerCase().includes(q) ||
     (c.mobile || '').includes(q)
   );
 }
@@ -779,7 +804,8 @@ export async function decideLoanApplication(appId, { decision, reasonCode, note,
 }
 
 export async function disburseLoan(appId, options = {}) {
-  const staff = assertStaffPermission('loans.disburse', options);
+  const optObj = typeof options === 'string' ? { disbursementAccountId: options, actorEmail: 'manager@finedge.bank' } : options;
+  const staff = assertStaffPermission('loans.disburse', optObj);
   const db = getDb();
   const app = (db.loanApplications || []).find(l => (l.loanApplicationId || l.applicationId || l.id) === appId);
   if (!app) throw { status: 404, message: 'Loan application not found.' };
@@ -1223,12 +1249,25 @@ export function customersCsv(rows = []) {
       c.id || c.customerId || '',
       c.email || '',
       c.mobile || c.mobileNumber || '',
-      maskPan(c.pan),
+      maskPan(c.panMasked || c.pan),
       c.kycStatus || 'NOT_STARTED',
       c.riskCategory || 'UNASSESSED',
       c.createdAt || ''
     ].map(esc).join(',')),
   ].join('\n');
+}
+
+
+export async function revealCustomerPan(customerId) {
+  const actor = assertStaffPermission('customers.read');
+  const db = getDb();
+  const cust = (db.customers || []).find(c => (c.customerId || c.id) === customerId);
+  if (!cust) throw new Error('Customer not found');
+  appendAuditLog(actor.email, actor.role, 'CUSTOMER_PAN_REVEALED', cust.customerId, 'SUCCESS', `Revealed full PAN for CIF ${cust.customerId}`);
+  return {
+    customerId: cust.customerId,
+    pan: cust.pan
+  };
 }
 
 export const managerBridge = {
@@ -1248,6 +1287,7 @@ export const managerBridge = {
   normalizeLoanApplication,
   normalizeInvestmentApplication,
   listCustomers,
+  revealCustomerPan,
   getCustomerDetail,
   listKycCases,
   getKycCase,

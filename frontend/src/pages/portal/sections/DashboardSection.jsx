@@ -131,7 +131,7 @@ export default function DashboardPage() {
 
       const perAccount = await Promise.all(
         (accs || []).map(async (a) => {
-          const txns = await accountsApi.listTransactions(a.id).catch(() => []);
+          const txns = await accountsApi.listTransactions(a.id);
           return txns.map((t) => ({ ...t, account: a }));
         }),
       );

@@ -158,9 +158,12 @@ export const AuthProvider = ({ children }) => {
 
   // Customer Login with Two-Factor / MFA support
   const login = async (identifier, password) => {
+    if (!password) {
+      throw new Error('Password is required.');
+    }
     setLoading(true);
     try {
-      const res = await authService.login({ identifier, password: password || 'Str0ngPassw0rd!' });
+      const res = await authService.login({ identifier, password });
 
       if (res.mfaRequired) {
         return { mfaRequired: true, mfaReferenceId: res.mfaReferenceId };
@@ -170,7 +173,7 @@ export const AuthProvider = ({ children }) => {
         (c.email && c.email.toLowerCase() === identifier.toLowerCase()) || 
         c.mobileNumber === identifier || 
         c.customerId === res.customerId
-      ) || (db.customers && db.customers[0]) || {};
+      ) || {};
 
       const custObj = res.customer || {};
       const initialUser = {
@@ -194,7 +197,7 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await authService.verifyMfa({ mfaReferenceId, otp });
       const db = getDb();
-      const matched = db.customers.find(c => c.customerId === res.customerId) || db.customers[0];
+      const matched = db.customers?.find(c => c.customerId === res.customerId) || {};
 
       const initialUser = {
         name: matched.fullName || 'FinEdge Customer',

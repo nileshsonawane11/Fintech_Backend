@@ -196,7 +196,18 @@ async function run() {
   it('Vikram password change survives version bump and re-sync', () => {
     // Vikram changes password via API
     storageMap.set('finedge_session_customer_id', 'CUS-100234');
-    storageMap.set('finedge_access_token', 'mock_token_for_vikram');
+    const sessId = 'ses_cust_test_vikram';
+    const initDb = getDb();
+    initDb.sessions = [{
+      sessionId: sessId,
+      customerId: 'CUS-100234',
+      type: 'CUSTOMER',
+      role: 'CUSTOMER',
+      issuedAt: new Date().toISOString(),
+      expiresAt: new Date(Date.now() + 30 * 60 * 1000).toISOString()
+    }];
+    saveDb(initDb);
+    storageMap.set('finedge_access_token', sessId);
     handleLocalFallback('/api/v1/customers/password', {
       method: 'PUT',
       body: JSON.stringify({ currentPassword: 'Password@123', newPassword: 'NewSecur3P@ss!2026' })

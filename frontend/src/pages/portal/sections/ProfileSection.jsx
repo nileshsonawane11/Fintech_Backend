@@ -85,7 +85,7 @@ export default function ProfilePage() {
     const next = {};
     if (!pw.current) next.current = 'Enter your current password.';
     if (!pw.next) next.next = 'Enter a new password.';
-    else if (pw.next.length < 8) next.next = 'Use at least 8 characters for the new password.';
+    else if (pw.next.length < 10 || !/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{10,}$/.test(pw.next)) next.next = 'New password must be at least 10 characters with uppercase, lowercase, and a number.';
     else if (pw.next === pw.current) next.next = 'The new password must be different from the current one.';
     if (!pw.confirm) next.confirm = 'Re-enter the new password.';
     else if (pw.next && pw.confirm !== pw.next) next.confirm = 'The new passwords do not match.';
@@ -200,7 +200,7 @@ export default function ProfilePage() {
                 error={pwErrors.current}
               />
             </Field>
-            <Field label="New password" required error={pwErrors.next} hint="At least 8 characters">
+            <Field label="New password" required error={pwErrors.next} hint="At least 10 characters with uppercase, lowercase, and a number">
               <Input
                 type="password" autoComplete="new-password" value={pw.next}
                 onChange={(e) => { setPw((p) => ({ ...p, next: e.target.value })); setPwErrors((x) => ({ ...x, next: undefined })); }}

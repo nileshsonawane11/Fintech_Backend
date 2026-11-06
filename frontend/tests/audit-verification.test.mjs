@@ -317,7 +317,7 @@ async function runTestSuite() {
       method: 'POST',
       body: JSON.stringify({
         identifier: 'kyc.officer@finedge.bank',
-        password: 'Manager@2026'
+        password: 'KycOfficer@2026#Sec'
       })
     });
     assert(kycOfficer.role === 'KYC_OFFICER' && kycOfficer.permissions.includes('kyc.approve'), 'KYC Officer authenticated with compliance permissions');

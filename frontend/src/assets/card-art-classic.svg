@@ -11,8 +11,8 @@
     <rect fill="#0A1E35" x="44" y="36" width="7" height="14"/>
     <rect fill="#0A1E35" x="10" y="54" width="44" height="3.5" rx="1.75"/>
   </g>
-  <text x="372" y="48" text-anchor="end" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="15" font-weight="600" letter-spacing="4" fill="#0A1E35">CLASSIC</text>
-  <text x="372" y="68" text-anchor="end" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="9" letter-spacing="3" fill="#8C6D2F">DEBIT</text>
+  <text x="372" y="48" text-anchor="end" class="font-sans" font-size="15" font-weight="600" letter-spacing="4" fill="#0A1E35">CLASSIC</text>
+  <text x="372" y="68" text-anchor="end" class="font-sans" font-size="9" letter-spacing="3" fill="#8C6D2F">DEBIT</text>
   <g>
     <rect x="30" y="98" width="54" height="40" rx="7" fill="#B8933F"/>
     <path d="M30 112 H47 M30 124 H47 M84 112 H67 M84 124 H67 M47 98 V138 M67 98 V138" stroke="#8C6D2F" stroke-width="1.6" fill="none"/>
@@ -22,8 +22,8 @@
     <path d="M116 105 A15 15 0 0 1 116 133"/>
     <path d="M122 99 A22 22 0 0 1 122 139"/>
   </g>
-  <text x="30" y="186" font-family="'Courier New', monospace" font-size="20" letter-spacing="2" fill="#0A1E35">•••• •••• •••• 1964</text>
-  <text x="30" y="240" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="11" letter-spacing="1.5" fill="#F7F3EA">YOUR NAME</text>
-  <text x="372" y="214" text-anchor="end" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="8" letter-spacing="2.5" fill="#0A1E35" opacity="0.6">VALID THRU</text>
-  <text x="372" y="240" text-anchor="end" font-family="'Courier New', monospace" font-size="12" fill="#F7F3EA">03/30</text>
+  <text x="30" y="186" class="font-mono" font-size="20" letter-spacing="2" fill="#0A1E35">•••• •••• •••• 1964</text>
+  <text x="30" y="240" class="font-sans" font-size="11" letter-spacing="1.5" fill="#F7F3EA">YOUR NAME</text>
+  <text x="372" y="214" text-anchor="end" class="font-sans" font-size="8" letter-spacing="2.5" fill="#0A1E35" opacity="0.6">VALID THRU</text>
+  <text x="372" y="240" text-anchor="end" class="font-mono" font-size="12" fill="#F7F3EA">03/30</text>
 </svg>

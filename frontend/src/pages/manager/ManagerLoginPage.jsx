@@ -4,40 +4,9 @@ import { ChevronDown, Eye, EyeOff, ShieldCheck, KeyRound, Lock, Mail, ArrowRight
 import { Button, Card, Field, FormError, Input, Modal } from '../../components/ui.jsx';
 import { useAuth } from '../../context/AuthContext';
 import { getFirstQueueForRole } from '../../services/managerBridge.js';
-import { resetDemoDb } from '../../services/api.js';
+import { resetDemoDb, getDemoStaffAccounts } from '../../services/api.js';
 
-const STAFF_ACCOUNTS = [
-  {
-    role: 'Chief Branch Manager',
-    email: 'manager@finedge.bank',
-    password: 'Manager@2026',
-    clearance: 'Full administrative control: accounts, cards, staff provisioning & audit'
-  },
-  {
-    role: 'Senior KYC Officer',
-    email: 'kyc.officer@finedge.bank',
-    password: 'Manager@2026',
-    clearance: 'Statutory KYC queue, document inspection & AML risk profiling'
-  },
-  {
-    role: 'Account & Card Ops',
-    email: 'ops@finedge.bank',
-    password: 'Manager@2026',
-    clearance: 'Account opening verification & card embossing queue'
-  },
-  {
-    role: 'Senior Internal Auditor',
-    email: 'audit.officer@finedge.bank',
-    password: 'Manager@2026',
-    clearance: 'Read-only inspection of queues, ledger movements & regulatory audit trails'
-  },
-  {
-    role: 'Customer Care Lead',
-    email: 'support@finedge.bank',
-    password: 'Manager@2026',
-    clearance: 'Customer support desk, inquiry resolution & ticket response'
-  }
-];
+export const STAFF_ACCOUNTS = getDemoStaffAccounts();
 
 export const ManagerLoginPage = () => {
   const navigate = useNavigate();

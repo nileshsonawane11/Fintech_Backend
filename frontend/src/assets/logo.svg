@@ -9,6 +9,6 @@
     <rect fill="#0A1E35" x="44" y="36" width="7" height="14"/>
     <rect fill="#0A1E35" x="10" y="54" width="44" height="3.5" rx="1.75"/>
   </g>
-  <text id="brand-name" x="78" y="36" font-family="Georgia, 'Playfair Display', 'Times New Roman', serif" font-size="27" font-weight="700" letter-spacing="0.5" fill="#0A1E35">FinEdge Bank</text>
-  <text id="brand-tagline" x="79" y="54" font-family="'Segoe UI', 'Helvetica Neue', Arial, sans-serif" font-size="10" letter-spacing="2.5" fill="#8C6D2F">BANKING WITH A FINER EDGE</text>
+  <text id="brand-name" x="78" y="36" class="font-display" font-size="27" font-weight="700" letter-spacing="0.5" fill="#0A1E35">FinEdge Bank</text>
+  <text id="brand-tagline" x="79" y="54" class="font-sans" font-size="10" letter-spacing="2.5" fill="#8C6D2F">BANKING WITH A FINER EDGE</text>
 </svg>

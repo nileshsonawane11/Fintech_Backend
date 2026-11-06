@@ -9,9 +9,7 @@ export const managerService = {
 
   // Customer List
   async getCustomers() {
-    return apiRequest('/admin/api/v1/customers', { isManager: true }).catch(() => {
-      return getDb().customers;
-    });
+    return apiRequest('/admin/api/v1/customers', { isManager: true });
   },
 
   // Create Customer Profile
