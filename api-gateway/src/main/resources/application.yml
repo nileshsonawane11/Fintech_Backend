@@ -23,42 +23,23 @@ spring:
                   /api/v1/consents/**,
                   /api/v1/admin/**,
 
-#              filters:
-#                - name: CircuitBreaker
-#                  args:
-#                    name: identityServiceCircuitBreaker
-#                    fallbackUri: forward:/fallback/identity
-#                    statusCodes:
-#                      - 502
-#                      - 503
-#                      - 504
-
             # Customer and KYC Service
             - id: customer-service
               uri: lb://CUSTOMER-SERVICE
               predicates:
                 - Path=/api/v1/customers/**,/ops/api/v1/kyc/**
-#              filters:
-#                - name: CircuitBreaker
-#                  args:
-#                    name: customerServiceCircuitBreaker
-#                    fallbackUri: forward:/fallback/customer
-#                    statusCodes:
-#                      - 502
-#                      - 503
-#                      - 504
+
+            # Ledger and Transaction Service (Account specific ledger endpoints routed first)
+            - id: ledger-service
+              uri: lb://LEDGER-TRANSACTION-SERVICE
+              predicates:
+                - Path=/api/v1/accounts/*/balance,/api/v1/accounts/*/balance-history,/api/v1/accounts/balances,/api/v1/accounts/*/transactions,/api/v1/accounts/*/holds,/api/v1/transactions/**,/api/v1/transfers/**,/api/v1/deposits/**,/api/v1/withdrawals/**,/api/v1/balances/**,/ops/api/v1/transactions/**,/ops/api/v1/deposits/**,/ops/api/v1/withdrawals/**,/ops/api/v1/ledger/**,/ops/api/v1/holds/**,/ops/api/v1/reconciliation/**,/ops/api/v1/reversals/**,/ops/api/v1/accounts/*/balance
 
             # Account Service
             - id: account-service
               uri: lb://ACCOUNT-SERVICE
               predicates:
                 - Path=/api/v1/accounts/**,/ops/api/v1/accounts/**,/api/v1/account-products/**,/ops/api/v1/account-products/**,/ops/api/v1/account-applications/**,/ops/api/v1/holds/**
-
-            # Ledger and Transaction Service
-            - id: ledger-service
-              uri: lb://LEDGER-SERVICE
-              predicates:
-                - Path=/api/v1/transactions/**,/api/v1/balances/**
 
             # Payment Service
             - id: payment-service

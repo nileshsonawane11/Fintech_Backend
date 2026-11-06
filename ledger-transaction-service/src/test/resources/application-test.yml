@@ -1,0 +1,61 @@
+server:
+  port: 0
+
+spring:
+  application:
+    name: LEDGER-TRANSACTION-SERVICE
+
+  datasource:
+    url: jdbc:h2:mem:fintech_ledger;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERINGS=HIGH;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        format_sql: false
+
+  flyway:
+    enabled: false
+
+  kafka:
+    bootstrap-servers: localhost:9092
+
+  jackson:
+    time-zone: UTC
+    serialization:
+      write-dates-as-timestamps: false
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
+security:
+  jwt:
+    public-key-location: classpath:keys/public.pem
+    issuer: identity-service
+  internal:
+    secret-token: finbank-internal-secret-token
+
+app:
+  kafka:
+    topics:
+      transaction-events: ledger.transaction-events.v1
+      posting-events: ledger.posting-events.v1
+      balance-events: ledger.balance-events.v1
+      hold-events: ledger.hold-events.v1
+      reconciliation-events: ledger.reconciliation-events.v1
+      account-lifecycle: account.lifecycle-events.v1
+      account-holds: account.hold-events.v1
+  services:
+    account-service:
+      url: http://localhost:8082
+      mock-enabled: true
+    customer-service:
+      url: http://localhost:8084
