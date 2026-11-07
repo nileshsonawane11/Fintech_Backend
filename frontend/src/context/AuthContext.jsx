@@ -165,16 +165,16 @@ export const AuthProvider = ({ children }) => {
     try {
       const res = await authService.login({ identifier, password });
 
-      if (res.mfaRequired) {
-        return { mfaRequired: true, mfaReferenceId: res.mfaReferenceId };
-      }
-      const db = getDb();
-      const matched = db.customers?.find(c => 
-        (c.email && c.email.toLowerCase() === identifier.toLowerCase()) || 
-        c.mobileNumber === identifier || 
-        c.customerId === res.customerId
-      ) || {};
-
+      // if (res.mfaRequired) {
+      //   return { mfaRequired: true, mfaReferenceId: res.mfaReferenceId };
+      // }
+      // const db = getDb();
+      // const matched = db.customers?.find(c =>
+      //   (c.email && c.email.toLowerCase() === identifier.toLowerCase()) ||
+      //   c.mobileNumber === identifier ||
+      //   c.customerId === res.customerId
+      // ) || {};
+      //
       const custObj = res.customer || {};
       const initialUser = {
         name: custObj.fullName || matched.fullName || 'FinEdge Customer',

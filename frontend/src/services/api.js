@@ -1069,7 +1069,8 @@ export const getDefaultDb = () => {
         createdAt: '2026-09-27T09:50:00Z',
         updatedAt: '2026-09-27T09:50:00Z'
       }
-    ],
+    ]
+,
     loans: [],
     loanApplications: [],
     investmentHoldings: [],
@@ -1679,29 +1680,13 @@ export const apiRequest = async (endpoint, options = {}) => {
     }
 
     if (!response.ok) {
-      const errCode = data?.error?.code || data?.code || 'API_ERROR';
-      const errDetail = data?.error?.message || data?.detail || data?.title || response.statusText;
-      const errDetails = data?.error?.details || data?.details || data?.errors || [];
-      const reqId = data?.error?.requestId || headers['X-Correlation-Id'];
       throw {
-        status: response.status,
-        code: errCode,
-        title: data?.title || 'Request Failed',
-        detail: errDetail,
-        message: errDetail,
-        details: errDetails,
-        errors: errDetails,
-        requestId: reqId,
-        error: {
-          code: errCode,
-          message: errDetail,
-          details: errDetails,
-          requestId: reqId
-        }
+        ...JSON.parse(data)
       };
     }
 
     return data;
+
   } catch (err) {
     if (err.name === 'TypeError' || err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
       return handleLocalFallback(endpoint, options);
