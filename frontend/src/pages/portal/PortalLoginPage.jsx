@@ -125,7 +125,7 @@ export const PortalLoginPage = () => {
         navigate(location.state?.from?.pathname || location.state?.from || '/portal');
       }
     } catch (err) {
-      const msg = err?.error?.message || err?.detail || err?.title || 'Invalid credentials. Please verify your details.';
+      const msg = err?.errors[0]?.message || err?.detail || err?.title || 'Invalid credentials. Please verify your details.';
       setError(msg);
     } finally {
       setLoading(false);
@@ -178,10 +178,10 @@ export const PortalLoginPage = () => {
         password: regPassword
       });
       setOtpReferenceId(res?.otpReferenceId || 'REF-' + Date.now());
-      setMode('register_otp');
+      setMode('login');
       setSuccessMsg(`Verification OTP sent to ${getMaskedTarget(regMobile)}.`);
     } catch (err) {
-      const msg = err?.error?.message || err?.detail || 'Registration failed. Please check your details.';
+      const msg = err?.errors[0]?.message || err?.detail || 'Registration failed. Please check your details.';
       setError(msg);
     } finally {
       setLoading(false);
