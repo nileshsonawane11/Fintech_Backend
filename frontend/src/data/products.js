@@ -108,7 +108,7 @@ export const STANDARD_APPLY_STEPS = [
 // ACCOUNTS
 // ---------------------------------------------------------------------------
 
-export const ACCOUNTS = [
+export const FACTORY_ACCOUNTS = [
   {
     slug: 'everyday-savings',
     category: 'account',
@@ -438,7 +438,7 @@ export const ACCOUNTS = [
 // processingFee: { pct } is a % of the sanctioned amount, bounded by min/max.
 // ---------------------------------------------------------------------------
 
-export const LOANS = [
+export const FACTORY_LOANS = [
   {
     slug: 'home-loan',
     category: 'loan',
@@ -845,7 +845,7 @@ export const LOANS = [
     howToApply: STANDARD_APPLY_STEPS,
   },
 ];
-export const CARDS = [
+export const FACTORY_CARDS = [
   {
     slug: 'edge-cashback-credit',
     category: 'card',
@@ -1039,8 +1039,8 @@ export const CARDS = [
   },
 ];
 
-export const CREDIT_CARDS = CARDS.filter((c) => c.cardType === 'credit');
-export const DEBIT_CARDS = CARDS.filter((c) => c.cardType === 'debit');
+export const FACTORY_CREDIT_CARDS = FACTORY_CARDS.filter((c) => c.cardType === 'credit');
+export const FACTORY_DEBIT_CARDS = FACTORY_CARDS.filter((c) => c.cardType === 'debit');
 
 // ---------------------------------------------------------------------------
 // INVESTMENTS — guaranteed (deposit) products and market-linked products are
@@ -1212,7 +1212,8 @@ export const SSY = {
   ],
 };
 
-export const INVESTMENTS = [FD, RD, SIP, SSY];
+export const FACTORY_INVESTMENTS = [FD, RD, SIP, SSY];
+export const FACTORY_ALL_PRODUCTS = [...FACTORY_ACCOUNTS, ...FACTORY_LOANS, ...FACTORY_CARDS, ...FACTORY_INVESTMENTS];
 
 // ---------------------------------------------------------------------------
 // Derived views + lookup helpers. RATES_AT_A_GLANCE is COMPUTED from the
@@ -1220,53 +1221,133 @@ export const INVESTMENTS = [FD, RD, SIP, SSY];
 // can never disagree with the product pages.
 // ---------------------------------------------------------------------------
 
-export const ALL_PRODUCTS = [...ACCOUNTS, ...LOANS, ...CARDS, ...INVESTMENTS];
 
-const fdTopGeneral = Math.max(...FD.rateGrid.map((r) => r.general));
-const fdTopSenior = Math.max(...FD.rateGrid.map((r) => r.senior));
-const rdTopRate = Math.max(...RD.rateBands.map((b) => b.rate));
-const loanFrom = (slug) => LOANS.find((l) => l.slug === slug).rateMin;
+function getLiveProducts(category, options = {}) {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem('finedge_persistent_db') || localStorage.getItem('finedge_mock_db');
+      if (stored) {
+        const db = JSON.parse(stored);
+        if (Array.isArray(db.products) && db.products.length > 0) {
+          let list = db.products;
+          if (category) {
+            list = list.filter((p) => p.category === category);
+          }
+          if (!options.includeInactive) {
+            list = list.filter((p) => p.status !== 'INACTIVE');
+          }
+          return list;
+        }
+      }
+    }
+  } catch (e) {}
 
-/** Headline rates for the home page / rates table. Values are % p.a. */
-export const RATES_AT_A_GLANCE = [
-  { label: 'Savings account (highest slab)', value: SAVINGS_TOP_RATE, display: `Up to ${SAVINGS_TOP_RATE.toFixed(2)}% p.a.`, productSlug: 'everyday-savings' },
-  { label: 'Fixed deposit (up to)', value: fdTopGeneral, display: `Up to ${fdTopGeneral.toFixed(2)}% p.a.`, productSlug: 'fixed-deposit' },
-  { label: 'Fixed deposit — senior citizens (up to)', value: fdTopSenior, display: `Up to ${fdTopSenior.toFixed(2)}% p.a.`, productSlug: 'fixed-deposit' },
-  { label: 'Recurring deposit (up to)', value: rdTopRate, display: `Up to ${rdTopRate.toFixed(2)}% p.a.`, productSlug: 'recurring-deposit' },
-  { label: 'Sukanya Samriddhi Yojana', value: SSY.rate, display: `${SSY.rate.toFixed(2)}% p.a.`, productSlug: 'sukanya-samriddhi' },
-  { label: 'Home loan (from)', value: loanFrom('home-loan'), display: `From ${loanFrom('home-loan').toFixed(2)}% p.a.`, productSlug: 'home-loan' },
-  { label: 'Gold loan (from)', value: loanFrom('gold-loan'), display: `From ${loanFrom('gold-loan').toFixed(2)}% p.a.`, productSlug: 'gold-loan' },
-  { label: 'Vehicle loan (from)', value: loanFrom('vehicle-loan'), display: `From ${loanFrom('vehicle-loan').toFixed(2)}% p.a.`, productSlug: 'vehicle-loan' },
-  { label: 'Education loan (from)', value: loanFrom('education-loan'), display: `From ${loanFrom('education-loan').toFixed(2)}% p.a.`, productSlug: 'education-loan' },
-  { label: 'Loan against property (from)', value: loanFrom('loan-against-property'), display: `From ${loanFrom('loan-against-property').toFixed(2)}% p.a.`, productSlug: 'loan-against-property' },
-];
-
-/**
- * Find any product in the catalogue by its slug.
- * Returns the product object (with its `category`) or null.
- */
-export function getProductBySlug(slug) {
-  if (!slug) return null;
-  return ALL_PRODUCTS.find((p) => p.slug === slug) ?? null;
+  let factory = [...FACTORY_ACCOUNTS, ...FACTORY_LOANS, ...FACTORY_CARDS, ...FACTORY_INVESTMENTS];
+  if (category) factory = factory.filter((p) => p.category === category);
+  if (!options.includeInactive) factory = factory.filter((p) => p.status !== 'INACTIVE');
+  return factory;
 }
 
-/** All products of one category: 'account' | 'loan' | 'card' | 'investment'. */
+function createLiveArray(fetcher) {
+  return new Proxy([], {
+    get(target, prop, receiver) {
+      const live = fetcher();
+      if (prop === 'length') return live.length;
+      if (prop === Symbol.iterator) return live[Symbol.iterator].bind(live);
+      if (typeof prop === 'string' && !isNaN(prop)) return live[prop];
+      if (typeof live[prop] === 'function') return live[prop].bind(live);
+      return live[prop];
+    },
+    has(target, prop) {
+      return prop in fetcher();
+    },
+    ownKeys(target) {
+      return Reflect.ownKeys(fetcher());
+    },
+    getOwnPropertyDescriptor(target, prop) {
+      return Object.getOwnPropertyDescriptor(fetcher(), prop);
+    }
+  });
+}
+
+export const ACCOUNTS = createLiveArray(() => getLiveProducts('account'));
+export const LOANS = createLiveArray(() => getLiveProducts('loan'));
+export const CARDS = createLiveArray(() => getLiveProducts('card'));
+export const INVESTMENTS = createLiveArray(() => getLiveProducts('investment'));
+export const CREDIT_CARDS = createLiveArray(() => getLiveProducts('card').filter((c) => c.cardType === 'credit'));
+export const DEBIT_CARDS = createLiveArray(() => getLiveProducts('card').filter((c) => c.cardType === 'debit'));
+export const ALL_PRODUCTS = createLiveArray(() => getLiveProducts(null));
+
+export function getProducts(options = {}) {
+  return getLiveProducts(options.category, options);
+}
+
+export function getProduct(slug, options = {}) {
+  if (!slug) return null;
+  const list = getLiveProducts(null, { ...options, includeInactive: true });
+  return list.find((p) => p.slug === slug) || null;
+}
+
+function computeRatesAtAGlance() {
+  const accounts = getLiveProducts('account');
+  const loans = getLiveProducts('loan');
+  const investments = getLiveProducts('investment');
+
+  const everydaySavings = accounts.find((a) => a.slug === 'everyday-savings') || accounts[0];
+  const topSavingsRate = everydaySavings?.rateSlabs ? Math.max(...everydaySavings.rateSlabs.map((s) => s.rate)) : SAVINGS_TOP_RATE;
+
+  const fd = investments.find((i) => i.kind === 'FD' || i.slug === 'fixed-deposit');
+  const fdTopGen = fd?.rateGrid ? Math.max(...fd.rateGrid.map((r) => r.general)) : 7.25;
+  const fdTopSen = fd?.rateGrid ? Math.max(...fd.rateGrid.map((r) => r.senior)) : 7.75;
+
+  const rd = investments.find((i) => i.kind === 'RD' || i.slug === 'recurring-deposit');
+  const rdTop = rd?.rateBands ? Math.max(...rd.rateBands.map((b) => b.rate)) : 7.10;
+
+  const ssy = investments.find((i) => i.kind === 'SSY' || i.slug === 'sukanya-samriddhi');
+  const ssyRate = ssy?.rate ?? 8.20;
+
+  const loanRate = (slug, fallback) => {
+    const l = loans.find((x) => x.slug === slug);
+    return l ? l.rateMin : fallback;
+  };
+
+  return [
+    { label: 'Savings account (highest slab)', value: topSavingsRate, display: `Up to ${topSavingsRate.toFixed(2)}% p.a.`, productSlug: 'everyday-savings' },
+    { label: 'Fixed deposit (up to)', value: fdTopGen, display: `Up to ${fdTopGen.toFixed(2)}% p.a.`, productSlug: 'fixed-deposit' },
+    { label: 'Fixed deposit — senior citizens (up to)', value: fdTopSen, display: `Up to ${fdTopSen.toFixed(2)}% p.a.`, productSlug: 'fixed-deposit' },
+    { label: 'Recurring deposit (up to)', value: rdTop, display: `Up to ${rdTop.toFixed(2)}% p.a.`, productSlug: 'recurring-deposit' },
+    { label: 'Sukanya Samriddhi Yojana', value: ssyRate, display: `${ssyRate.toFixed(2)}% p.a.`, productSlug: 'sukanya-samriddhi' },
+    { label: 'Home loan (from)', value: loanRate('home-loan', 8.4), display: `From ${loanRate('home-loan', 8.4).toFixed(2)}% p.a.`, productSlug: 'home-loan' },
+    { label: 'Gold loan (from)', value: loanRate('gold-loan', 8.85), display: `From ${loanRate('gold-loan', 8.85).toFixed(2)}% p.a.`, productSlug: 'gold-loan' },
+    { label: 'Vehicle loan (from)', value: loanRate('vehicle-loan', 8.7), display: `From ${loanRate('vehicle-loan', 8.7).toFixed(2)}% p.a.`, productSlug: 'vehicle-loan' },
+    { label: 'Education loan (from)', value: loanRate('education-loan', 9.25), display: `From ${loanRate('education-loan', 9.25).toFixed(2)}% p.a.`, productSlug: 'education-loan' },
+    { label: 'Loan against property (from)', value: loanRate('loan-against-property', 9.5), display: `From ${loanRate('loan-against-property', 9.5).toFixed(2)}% p.a.`, productSlug: 'loan-against-property' },
+  ];
+}
+
+export const RATES_AT_A_GLANCE = createLiveArray(() => computeRatesAtAGlance());
+
+export function getProductBySlug(slug) {
+  if (!slug) return null;
+  return getProduct(slug);
+}
+
 export function getProductsByCategory(category) {
-  return ALL_PRODUCTS.filter((p) => p.category === category);
+  return getProducts({ category });
 }
 
 export function getAccountBySlug(slug) {
-  return ACCOUNTS.find((a) => a.slug === slug) ?? null;
+  return getProduct(slug) || FACTORY_ACCOUNTS.find((a) => a.slug === slug) || null;
 }
 
 export function getLoanBySlug(slug) {
-  return LOANS.find((l) => l.slug === slug) ?? null;
+  return getProduct(slug) || FACTORY_LOANS.find((l) => l.slug === slug) || null;
 }
 
 export function getCardBySlug(slug) {
-  return CARDS.find((c) => c.slug === slug) ?? null;
+  return getProduct(slug) || FACTORY_CARDS.find((c) => c.slug === slug) || null;
 }
 
 export function getInvestmentBySlug(slug) {
-  return INVESTMENTS.find((i) => i.slug === slug) ?? null;
+  return getProduct(slug) || FACTORY_INVESTMENTS.find((i) => i.slug === slug) || null;
 }

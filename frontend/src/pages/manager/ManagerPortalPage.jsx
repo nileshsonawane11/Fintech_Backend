@@ -14,7 +14,8 @@ import {
   ShieldAlert,
   TrendingUp,
   Users,
-  Landmark
+  Landmark,
+  KeyRound
 } from 'lucide-react';
 import { Button } from '../../components/ui.jsx';
 import { hasSectionAccess } from '../../services/managerBridge.js';
@@ -31,6 +32,10 @@ import ManagerStaffSection from './sections/ManagerStaffSection';
 import ManagerAuditSection from './sections/ManagerAuditSection';
 import ManagerReportsSection from './sections/ManagerReportsSection';
 import ManagerTicketsSection from './sections/ManagerTicketsSection';
+import ManagerUserManagementSection from './sections/ManagerUserManagementSection';
+import ManagerRolesPermissionsSection from './sections/ManagerRolesPermissionsSection';
+import ManagerProductCatalogueSection from './sections/ManagerProductCatalogueSection';
+import { Package } from 'lucide-react';
 
 const NAV_ITEMS = [
   { group: 'Work queues' },
@@ -46,7 +51,11 @@ const NAV_ITEMS = [
   { section: 'audit', to: '/manager/audit-logs', altTo: '/manager/audit', label: 'Audit Log', icon: FileSearch },
   { section: 'reports', to: '/manager/reports', label: 'Reports', icon: BarChart3 },
   { group: 'Admin' },
-  { section: 'staff', to: '/manager/users', altTo: '/manager/staff', label: 'Staff & Roles', icon: ShieldCheck },
+  { section: 'staff', to: '/manager/users', altTo: '/manager/staff', label: 'Staff & Roles', icon: ShieldCheck, hideForAdmin: true },
+  { group: 'Administration', adminOnly: true },
+  { section: 'user-management', to: '/manager/user-management', label: 'User Management', icon: Users, adminOnly: true },
+  { section: 'roles-permissions', to: '/manager/roles-permissions', label: 'Roles & Permissions', icon: KeyRound, adminOnly: true },
+  { section: 'product-catalogue', to: '/manager/product-catalogue', label: 'Product Catalogue', icon: Package, adminOnly: true },
 ];
 
 
@@ -82,6 +91,12 @@ export const ManagerPortalPage = () => {
     activeSection = 'reports';
   } else if (pathname === '/manager/tickets' || pathname === '/manager/support') {
     activeSection = 'tickets';
+  } else if (pathname === '/manager/user-management') {
+    activeSection = 'user-management';
+  } else if (pathname === '/manager/roles-permissions') {
+    activeSection = 'roles-permissions';
+  } else if (pathname === '/manager/product-catalogue') {
+    activeSection = 'product-catalogue';
   }
 
   const handleLogout = async () => {
@@ -92,19 +107,25 @@ export const ManagerPortalPage = () => {
   const isAllowed = hasSectionAccess(activeSection, managerUser);
 
   // Filter NAV items based on current staff role permissions
+  const isAdmin = managerUser?.role === 'ADMIN';
   const visibleNav = [];
   let currentGroup = null;
   let currentGroupItems = [];
 
   NAV_ITEMS.forEach((item) => {
     if (item.group) {
+      if (item.adminOnly && !isAdmin) return;
       if (currentGroup && currentGroupItems.length > 0) {
         visibleNav.push(currentGroup, ...currentGroupItems);
       }
       currentGroup = item;
       currentGroupItems = [];
-    } else if (hasSectionAccess(item.section, managerUser)) {
-      currentGroupItems.push(item);
+    } else {
+      if (item.hideForAdmin && isAdmin) return;
+      if (item.adminOnly && !isAdmin) return;
+      if (hasSectionAccess(item.section, managerUser)) {
+        currentGroupItems.push(item);
+      }
     }
   });
   if (currentGroup && currentGroupItems.length > 0) {
@@ -247,6 +268,9 @@ export const ManagerPortalPage = () => {
             {activeSection === 'audit' && <ManagerAuditSection />}
             {activeSection === 'reports' && <ManagerReportsSection />}
             {activeSection === 'tickets' && <ManagerTicketsSection />}
+            {activeSection === 'user-management' && <ManagerUserManagementSection />}
+            {activeSection === 'roles-permissions' && <ManagerRolesPermissionsSection />}
+            {activeSection === 'product-catalogue' && <ManagerProductCatalogueSection />}
           </>
         )}
       </main>

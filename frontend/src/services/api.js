@@ -1,5 +1,5 @@
 import { FINEDGE_RATES_CONFIG } from '../data/ratesConfig.js';
-import { SAVINGS_TOP_RATE } from '../data/products.js';
+import { SAVINGS_TOP_RATE, ALL_PRODUCTS } from '../data/products.js';
 // FinBank / FinEdge REST API Client
 // Implements RFC 9457 problem details, OAuth 2.0 / JWT bearer authorization,
 // Idempotency-Key headers, Correlation-IDs, granular RBAC, and seamless offline-persistence fallback.
@@ -959,6 +959,29 @@ export const getDefaultDb = () => {
           'customers.read', 'support.reply'
         ],
         lastLogin: '2026-09-27T08:45:00Z'
+      },
+      {
+        staffId: 'STF-006',
+        fullName: 'Ishita Rao',
+        email: 'admin@finedge.bank',
+        password: 'Admin@2026#Sec',
+        role: 'ADMIN',
+        roleTitle: 'System Administrator',
+        department: 'Platform Administration',
+        status: 'ACTIVE',
+        permissions: [
+          'customers.read', 'customers.update',
+          'kyc.read', 'kyc.review', 'kyc.approve',
+          'accounts.read', 'accounts.review', 'accounts.approve',
+          'loans.read', 'loans.review', 'loans.disburse',
+          'cards.read', 'cards.issue', 'cards.approve', 'cards.block',
+          'investments.read', 'investments.review', 'investments.book',
+          'support.reply',
+          'staff.read', 'staff.create', 'staff.update', 'staff.manage',
+          'roles.read', 'roles.manage', 'permissions.assign',
+          'audit.read', 'reports.read'
+        ],
+        lastLogin: '2026-09-27T15:00:00Z'
       }
     ],
     auditLogs: [
@@ -1048,7 +1071,9 @@ export const getDefaultDb = () => {
     loans: [],
     loanApplications: [],
     investmentHoldings: [],
-    investmentApplications: []
+    investmentApplications: [],
+    products: (ALL_PRODUCTS || []).map(p => ({ ...p, status: 'ACTIVE' })),
+    customRoles: []
   };
 };
 
@@ -1251,6 +1276,14 @@ export const getDb = () => {
     if (!Array.isArray(db.investmentHoldings)) { db.investmentHoldings = []; dirty = true; }
     if (!Array.isArray(db.investmentApplications)) { db.investmentApplications = []; dirty = true; }
     if (!Array.isArray(db.beneficiaries)) { db.beneficiaries = []; dirty = true; }
+    if (!Array.isArray(db.products) || db.products.length === 0) {
+      db.products = (defaults.products || []).map(p => ({ ...p, status: 'ACTIVE' }));
+      dirty = true;
+    }
+    if (!Array.isArray(db.customRoles)) {
+      db.customRoles = [];
+      dirty = true;
+    }
 
     if (dirty) {
       localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(db));
@@ -1268,7 +1301,7 @@ export const saveDb = (db) => {
   }
 };
 
-export const appendAuditLog = (actor, actorRole, action, target, status, details) => {
+export const appendAuditLog = (actor, actorRole, action, target, status, details, previousValue = null, newValue = null) => {
   const db = getDb();
   const logEntry = {
     logId: 'AUD-' + Math.floor(1000 + Math.random() * 9000),
@@ -1280,7 +1313,9 @@ export const appendAuditLog = (actor, actorRole, action, target, status, details
     entityId: target || 'N/A',
     status: status || 'SUCCESS',
     ipAddress: '127.0.0.1',
-    details: details || ''
+    details: details || '',
+    previousValue: previousValue !== undefined ? previousValue : null,
+    newValue: newValue !== undefined ? newValue : null
   };
   db.auditLogs.unshift(logEntry);
   saveDb(db);
@@ -1405,6 +1440,68 @@ export const getAuthenticatedCustomerId = (db, options = {}) => {
   };
 };
 
+
+export const computeEffectivePermissions = (user, db) => {
+  if (!user) return [];
+  const grants = new Set(user.permissions || []);
+  if (user.role === 'ADMIN') {
+    [
+      'customers.read', 'customers.update',
+      'kyc.read', 'kyc.review', 'kyc.approve',
+      'accounts.read', 'accounts.review', 'accounts.approve',
+      'loans.read', 'loans.review', 'loans.disburse',
+      'cards.read', 'cards.issue', 'cards.approve', 'cards.block',
+      'investments.read', 'investments.review', 'investments.book',
+      'support.reply',
+      'staff.read', 'staff.create', 'staff.update', 'staff.manage',
+      'roles.read', 'roles.manage', 'permissions.assign',
+      'audit.read', 'reports.read'
+    ].forEach(p => grants.add(p));
+  } else if (user.role === 'BANK_MANAGER') {
+    [
+      'customers.read', 'customers.update',
+      'kyc.read', 'kyc.review', 'kyc.approve',
+      'accounts.read', 'accounts.review', 'accounts.approve',
+      'loans.read', 'loans.review', 'loans.disburse',
+      'cards.read', 'cards.issue', 'cards.approve', 'cards.block',
+      'investments.read', 'investments.review', 'investments.book',
+      'support.reply',
+      'staff.read', 'staff.create', 'staff.update', 'staff.manage',
+      'roles.read', 'roles.manage', 'permissions.assign',
+      'audit.read', 'reports.read'
+    ].forEach(p => grants.add(p));
+  } else if (user.role === 'KYC_OFFICER') {
+    ['customers.read', 'kyc.read', 'kyc.review', 'kyc.approve', 'audit.read'].forEach(p => grants.add(p));
+  } else if (user.role === 'ACCOUNT_OPS') {
+    ['customers.read', 'accounts.read', 'accounts.review', 'accounts.approve', 'cards.read', 'cards.issue', 'cards.approve', 'cards.block', 'audit.read'].forEach(p => grants.add(p));
+  } else if (user.role === 'AUDIT_COMPLIANCE' || user.role === 'AUDITOR') {
+    ['customers.read', 'audit.read', 'reports.read'].forEach(p => grants.add(p));
+  } else if (user.role === 'CUSTOMER_SUPPORT') {
+    ['customers.read', 'support.reply'].forEach(p => grants.add(p));
+  }
+
+  if (db?.customRoles && user.role) {
+    const custom = db.customRoles.find(cr => cr.id === user.role || cr.name === user.role);
+    if (custom?.permissions) custom.permissions.forEach(p => grants.add(p));
+  }
+  if (Array.isArray(user.roles) && db?.customRoles) {
+    user.roles.forEach(r => {
+      const custom = db.customRoles.find(cr => cr.id === r || cr.name === r);
+      if (custom?.permissions) custom.permissions.forEach(p => grants.add(p));
+    });
+  }
+
+  const overrides = user.permissionOverrides || {};
+  Object.entries(overrides).forEach(([perm, val]) => {
+    if (val === 'ALLOW') grants.add(perm);
+  });
+  Object.entries(overrides).forEach(([perm, val]) => {
+    if (val === 'DENY') grants.delete(perm);
+  });
+
+  return Array.from(grants);
+};
+
 export const verifyStaffPermission = (db, requiredPermission, options = {}) => {
   let staffUser = null;
   const token = options.headers?.['Authorization'] || (options.isManager ? getManagerToken() : null);
@@ -1472,7 +1569,8 @@ export const verifyStaffPermission = (db, requiredPermission, options = {}) => {
     };
   }
 
-  if (requiredPermission && !staffUser.permissions.includes(requiredPermission)) {
+  const effectivePerms = computeEffectivePermissions(staffUser, db);
+  if (requiredPermission && !effectivePerms.includes(requiredPermission)) {
     throw {
       status: 403,
       code: 'INSUFFICIENT_PERMISSIONS',
@@ -1487,6 +1585,25 @@ export const verifyStaffPermission = (db, requiredPermission, options = {}) => {
 // ============================================================================
 // MAIN HTTP REQUEST WRAPPER
 // ============================================================================
+
+export const getProducts = (options = {}) => {
+  const db = getDb();
+  let list = db.products || [];
+  if (options.category) {
+    list = list.filter(p => p.category === options.category);
+  }
+  if (!options.includeInactive) {
+    list = list.filter(p => p.status !== 'INACTIVE');
+  }
+  return list;
+};
+
+export const getProduct = (slug, options = {}) => {
+  if (!slug) return null;
+  const list = getProducts({ ...options, includeInactive: true });
+  return list.find(p => p.slug === slug) || null;
+};
+
 export const apiRequest = async (endpoint, options = {}) => {
   const url = `${BASE_URL}${endpoint}`;
   const token = options.isManager ? getManagerToken() : getAccessToken();
@@ -3004,6 +3121,126 @@ export const handleLocalFallback = (endpoint, options = {}) => {
       activeStaffCount: db.staffUsers.filter(s => s.status === 'ACTIVE').length,
       totalAuditLogs: db.auditLogs.length
     };
+  }
+
+
+  // Admin: Product Catalogue Management
+  if (endpoint === '/admin/api/v1/products' && method === 'GET') {
+    verifyStaffPermission(db, null, options);
+    return db.products || [];
+  }
+
+  if (endpoint === '/admin/api/v1/products' && method === 'POST') {
+    const staff = verifyStaffPermission(db, 'roles.manage', options);
+    if (staff.role !== 'ADMIN') {
+      throw { status: 403, code: 'INSUFFICIENT_PERMISSIONS', title: 'Admin Clearance Required', detail: 'Only System Administrators can manage the product catalogue.' };
+    }
+    const slug = body.slug || (body.name || '').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
+    if (!slug) throw { status: 422, code: 'VALIDATION_ERROR', detail: 'Product name and valid slug are required.' };
+    if ((db.products || []).some(p => p.slug === slug)) {
+      throw { status: 409, code: 'PRODUCT_EXISTS', detail: 'A product with this slug already exists.' };
+    }
+    const newProduct = { ...body, slug, status: body.status || 'ACTIVE' };
+    db.products = db.products || [];
+    db.products.push(newProduct);
+    saveDb(db);
+    appendAuditLog(staff.email, staff.role, 'PRODUCT_CREATED', newProduct.slug, 'SUCCESS', `Created product ${newProduct.name} (${newProduct.slug})`, null, newProduct);
+    return newProduct;
+  }
+
+  const productStatusMatch = endpoint.match(/\/admin\/api\/v1\/products\/([^/]+)\/status$/);
+  if (productStatusMatch && method === 'PUT') {
+    const staff = verifyStaffPermission(db, 'roles.manage', options);
+    if (staff.role !== 'ADMIN') {
+      throw { status: 403, code: 'INSUFFICIENT_PERMISSIONS', title: 'Admin Clearance Required', detail: 'Only System Administrators can activate/deactivate products.' };
+    }
+    const slug = productStatusMatch[1];
+    const product = (db.products || []).find(p => p.slug === slug);
+    if (!product) throw { status: 404, code: 'PRODUCT_NOT_FOUND', detail: 'Product not found.' };
+    const prevStatus = product.status || 'ACTIVE';
+    product.status = body.status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE';
+    saveDb(db);
+    const action = product.status === 'ACTIVE' ? 'PRODUCT_ACTIVATED' : 'PRODUCT_DEACTIVATED';
+    appendAuditLog(staff.email, staff.role, action, product.slug, 'SUCCESS', body.reason || `Product ${product.slug} status changed to ${product.status}`, prevStatus, product.status);
+    return product;
+  }
+
+  const productSlugMatch = endpoint.match(/\/admin\/api\/v1\/products\/([^/]+)$/);
+  if (productSlugMatch && method === 'PUT') {
+    const staff = verifyStaffPermission(db, 'roles.manage', options);
+    if (staff.role !== 'ADMIN') {
+      throw { status: 403, code: 'INSUFFICIENT_PERMISSIONS', title: 'Admin Clearance Required', detail: 'Only System Administrators can edit products.' };
+    }
+    const slug = productSlugMatch[1];
+    const product = (db.products || []).find(p => p.slug === slug);
+    if (!product) throw { status: 404, code: 'PRODUCT_NOT_FOUND', detail: 'Product not found.' };
+    const prevVal = JSON.parse(JSON.stringify(product));
+    delete body.slug; // slug is immutable
+    Object.assign(product, body);
+    saveDb(db);
+    appendAuditLog(staff.email, staff.role, 'PRODUCT_UPDATED', product.slug, 'SUCCESS', body.reason || `Updated product ${product.name}`, prevVal, product);
+    return product;
+  }
+
+  if (productSlugMatch && method === 'DELETE') {
+    const staff = verifyStaffPermission(db, 'roles.manage', options);
+    if (staff.role !== 'ADMIN') {
+      throw { status: 403, code: 'INSUFFICIENT_PERMISSIONS', title: 'Admin Clearance Required', detail: 'Only System Administrators can delete products.' };
+    }
+    const slug = productSlugMatch[1];
+    const product = (db.products || []).find(p => p.slug === slug);
+    if (!product) throw { status: 404, code: 'PRODUCT_NOT_FOUND', detail: 'Product not found.' };
+
+    // Reference counts check
+    const accountsCount = (db.accounts || []).filter(a => a.accountTypeSlug === slug || a.productSlug === slug).length;
+    const accountAppsCount = (db.accountApplications || []).filter(a => a.accountTypeSlug === slug || a.productSlug === slug).length;
+    const cardsCount = (db.cards || []).filter(c => c.cardTypeSlug === slug || c.productSlug === slug).length;
+    const cardAppsCount = (db.cardApplications || []).filter(c => c.cardTypeSlug === slug || c.cardSlug === slug || c.productSlug === slug).length;
+    const loansCount = (db.loans || []).filter(l => l.loanTypeSlug === slug || l.loanType === slug || l.productSlug === slug).length;
+    const loanAppsCount = (db.loanApplications || []).filter(l => l.loanTypeSlug === slug || l.loanType === slug || l.productSlug === slug).length;
+    const invCount = (db.investmentHoldings || []).filter(i => i.schemeSlug === slug || i.productSlug === slug).length;
+    const invAppsCount = (db.investmentApplications || []).filter(i => i.schemeSlug === slug || i.productSlug === slug).length;
+    const totalRefs = accountsCount + accountAppsCount + cardsCount + cardAppsCount + loansCount + loanAppsCount + invCount + invAppsCount;
+
+    if (totalRefs > 0) {
+      throw {
+        status: 409,
+        code: 'PRODUCT_IN_USE',
+        title: 'Product References Active Records',
+        detail: `Cannot delete product "${product.name}": ${totalRefs} active records or applications reference it. Deactivate the product instead to discontinue new offerings.`
+      };
+    }
+
+    db.products = db.products.filter(p => p.slug !== slug);
+    saveDb(db);
+    appendAuditLog(staff.email, staff.role, 'PRODUCT_DELETED', slug, 'SUCCESS', `Deleted unused product ${product.name}`, product, null);
+    return { success: true, deletedSlug: slug };
+  }
+
+  // Admin: Custom Roles Management
+  if (endpoint === '/admin/api/v1/roles' && method === 'GET') {
+    verifyStaffPermission(db, 'roles.read', options);
+    return db.customRoles || [];
+  }
+
+  if (endpoint === '/admin/api/v1/roles' && method === 'POST') {
+    const staff = verifyStaffPermission(db, 'roles.manage', options);
+    if (staff.role !== 'ADMIN') {
+      throw { status: 403, code: 'INSUFFICIENT_PERMISSIONS', title: 'Admin Clearance Required', detail: 'Only System Administrators can create custom roles.' };
+    }
+    const roleId = body.id || (body.name || '').toUpperCase().replace(/[^A-Z0-9]+/g, '_');
+    const newRole = {
+      id: roleId,
+      name: body.name,
+      description: body.description || '',
+      permissions: body.permissions || [],
+      isSystem: false
+    };
+    db.customRoles = db.customRoles || [];
+    db.customRoles.push(newRole);
+    saveDb(db);
+    appendAuditLog(staff.email, staff.role, 'ROLE_CREATED', newRole.id, 'SUCCESS', `Created custom role ${newRole.name}`, null, newRole);
+    return newRole;
   }
 
   return { status: 'OK' };

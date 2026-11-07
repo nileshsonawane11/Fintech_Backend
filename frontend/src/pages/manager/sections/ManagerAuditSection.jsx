@@ -168,6 +168,18 @@ export default function ManagerAuditPage() {
                 Detail · {expandedRow.action || '—'} · {expandedRow.actor || expandedRow.actorName || '—'} · {formatDateTime(expandedRow.at || expandedRow.timestamp)}
               </p>
               <p className="mt-1.5 whitespace-pre-wrap text-sm leading-relaxed text-ink-800">{expandedRow.detail || '—'}</p>
+              {((expandedRow.previousValue !== null && expandedRow.previousValue !== undefined) || (expandedRow.newValue !== null && expandedRow.newValue !== undefined)) && (
+                <div className="mt-3 grid grid-cols-1 md:grid-cols-2 gap-3 text-xs">
+                  <div className="p-3 rounded-lg bg-white border border-ink-200">
+                    <p className="font-semibold text-ink-500 uppercase tracking-wider mb-1">Previous Value</p>
+                    <pre className="font-mono text-ink-800 whitespace-pre-wrap max-h-48 overflow-y-auto">{typeof expandedRow.previousValue === 'object' && expandedRow.previousValue !== null ? JSON.stringify(expandedRow.previousValue, null, 2) : String(expandedRow.previousValue ?? 'None')}</pre>
+                  </div>
+                  <div className="p-3 rounded-lg bg-emerald-50/50 border border-emerald-200">
+                    <p className="font-semibold text-emerald-800 uppercase tracking-wider mb-1">New Value</p>
+                    <pre className="font-mono text-emerald-950 whitespace-pre-wrap max-h-48 overflow-y-auto">{typeof expandedRow.newValue === 'object' && expandedRow.newValue !== null ? JSON.stringify(expandedRow.newValue, null, 2) : String(expandedRow.newValue ?? 'None')}</pre>
+                  </div>
+                </div>
+              )}
             </div>
           )}
         </>
