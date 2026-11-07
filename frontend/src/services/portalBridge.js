@@ -26,7 +26,9 @@ import {
   saveDb,
   resetDemoDb,
   generateUUID,
-  getAccessToken
+  getAccessToken,
+  getSetting,
+  FACTORY_SETTINGS
 } from './api.js';
 import { accountService } from './accountService.js';
 import { customerService } from './customerService.js';
@@ -35,12 +37,40 @@ import { maskAccount } from '../lib/format.js';
 import { calculateEMI, calculateFD, calculateRD, calculateSSY, calculateSIP } from '../lib/finance.js';
 import { CARDS, getCardBySlug, SSY, RD, FD, SIP } from '../data/products.js';
 
-export const RAILS = [
-  { id: 'INTERNAL', label: 'Within FinEdge (Instant)', charge: 0, limit: 1000000, simulated: false },
-  { id: 'UPI', label: 'UPI (Instant) — Simulation', charge: 0, limit: 100000, simulated: true },
-  { id: 'IMPS', label: 'IMPS (Instant) — Simulation', charge: 5, limit: 500000, simulated: true },
-  { id: 'NEFT', label: 'NEFT (2–4 hrs) — Simulation', charge: 0, limit: 1000000, simulated: true },
-];
+export function getLiveRails() {
+  let settingsRails = null;
+  try {
+    settingsRails = getSetting('transferRails');
+  } catch {}
+  if (!settingsRails) {
+    settingsRails = FACTORY_SETTINGS.transferRails;
+  }
+  const order = ['INTERNAL', 'UPI', 'IMPS', 'NEFT'];
+  return order.map((key) => {
+    const r = settingsRails[key] || FACTORY_SETTINGS.transferRails[key];
+    const feeVal = r.fee !== undefined ? Number(r.fee) : (r.charge !== undefined ? Number(r.charge) : 0);
+    const limitVal = r.dailyLimit !== undefined ? Number(r.dailyLimit) : (r.limit !== undefined ? Number(r.limit) : 1000000);
+    return {
+      ...r,
+      fee: feeVal,
+      charge: feeVal,
+      dailyLimit: limitVal,
+      limit: limitVal,
+    };
+  });
+}
+
+export const RAILS = new Proxy([], {
+  get(target, prop, receiver) {
+    const live = getLiveRails();
+    if (prop === 'length') return live.length;
+    if (prop === Symbol.iterator) return live[Symbol.iterator].bind(live);
+    if (typeof prop === 'string' && !isNaN(prop)) return live[Number(prop)];
+    const val = live[prop];
+    if (typeof val === 'function') return val.bind(live);
+    return Reflect.get(live, prop, receiver);
+  }
+});
 
 function normaliseError(e) {
   if (!e) return new Error('An unexpected error occurred.');
@@ -363,8 +393,11 @@ export async function transfer({ customerId, fromAccountId, destinationType, des
     });
 
     const rail = railId.toUpperCase();
-    const charge = rail === 'IMPS' ? 5 : 0;
-    const totalDebit = Math.round((Number(amount) + charge) * 100) / 100;
+    const liveRails = getLiveRails();
+    const railObj = liveRails.find(r => r.id === rail) || liveRails[0];
+    const fallbackCharge = railObj ? railObj.fee : (rail === 'IMPS' ? 5 : 0);
+    const charge = res.charges !== undefined ? Number(res.charges) : (res.charge !== undefined ? Number(res.charge) : fallbackCharge);
+    const totalDebit = res.totalDebit !== undefined ? Number(res.totalDebit) : Math.round((Number(amount) + charge) * 100) / 100;
 
     return {
       reference: res.reference || res.referenceNumber || res.paymentId || 'PAY-' + Math.floor(100000 + Math.random() * 900000),

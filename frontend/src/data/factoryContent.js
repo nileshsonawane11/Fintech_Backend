@@ -1,0 +1,380 @@
+// ============================================================================
+// FinEdge Bank — Factory Site Content & Platform Settings (Module 49)
+// Seeded verbatim from currently shipped platform words and configuration.
+// ============================================================================
+
+export const FACTORY_SITE_CONTENT = {
+  hero: {
+    headline: 'Banking that grows with you — accounts, cards, loans and investments in one place.',
+    subtext: 'Open an account in minutes, borrow with the rate shown before you apply, and grow your savings with deposits and investments whose charges are stated up front. FinEdge Bank is a demonstration platform — every workflow works end to end, with simulations labelled honestly.',
+    primaryCtaLabel: 'Open an account',
+    primaryCtaTo: '/accounts',
+    secondaryCtaLabel: 'Try the calculators',
+    secondaryCtaTo: '/calculators',
+  },
+  offers: [
+    {
+      id: 'offer-travel-card-joining-waiver',
+      title: 'Edge Voyage Card: joining fee credited back',
+      category: 'Cards',
+      productSlug: 'edge-voyage-credit',
+      summary: 'Apply for the Edge Voyage Card and spend ₹1,25,000 within the first 60 days — the joining fee is credited back to your card account in the next statement cycle.',
+      terms: [
+        'Valid for applications submitted on or before 31 December 2026',
+        'Cashback of the joining fee appears as statement credit within 30 days of meeting the spend condition',
+        'FinEdge Payroll Salary account holders are eligible without the spend condition',
+      ],
+      validTill: '2026-12-31',
+      highlight: 'Joining fee back on ₹1,25,000 spends in 60 days',
+      active: true,
+    },
+    {
+      id: 'offer-home-loan-processing',
+      title: 'Home loan processing fee at half price',
+      category: 'Loans',
+      productSlug: 'home-loan',
+      summary: 'Festive-season offer: 50% off the standard processing fee on FinEdge Home Loan applications, including balance transfers from other lenders.',
+      terms: [
+        'Valid for applications submitted on or before 31 January 2027',
+        'The discount applies to the processing fee in the product schedule; taxes and third-party charges are unaffected',
+        'One offer per application; cannot be combined with staff or payroll pricing',
+      ],
+      validTill: '2027-01-31',
+      highlight: '50% off processing fee',
+      active: true,
+    },
+    {
+      id: 'offer-sip-first-year',
+      title: 'Start a SIP: zero distribution charges for the first year',
+      category: 'Investments',
+      productSlug: 'systematic-investment-plan',
+      summary: 'New SIP registrations through FinEdge carry no distribution or transaction charge for the first 12 months. Investments remain market-linked — see the SIP product page for the full risk disclosure before you invest.',
+      terms: [
+        'Valid for SIPs registered on or before 31 March 2027',
+        'AMC expense ratios and exit loads of the chosen scheme still apply, as per the scheme documents',
+        'This offer does not change the risk profile of any scheme',
+      ],
+      validTill: '2027-03-31',
+      highlight: 'Zero distribution charges, year one',
+      active: true,
+    },
+    {
+      id: 'offer-savings-welcome',
+      title: 'New Everyday Savings account: ₹250 welcome credit',
+      category: 'Accounts',
+      productSlug: 'everyday-savings',
+      summary: 'Open an Everyday Savings Account online and make your first debit-card purchase of ₹2,000 or more within 45 days to receive a ₹250 welcome credit.',
+      terms: [
+        'Valid for accounts opened on or before 31 December 2026',
+        'Welcome credit is paid within 15 days of the qualifying purchase',
+        'One welcome credit per customer across all FinEdge accounts',
+      ],
+      validTill: '2026-12-31',
+      highlight: '₹250 welcome credit',
+      active: true,
+    },
+    {
+      id: 'offer-gold-loan-appraisal',
+      title: 'Gold loan: appraisal and valuation charges waived',
+      category: 'Loans',
+      productSlug: 'gold-loan',
+      summary: 'Branch gold-loan applications this quarter carry no separate appraisal or valuation charge — it is absorbed within the processing fee shown in the product schedule.',
+      terms: [
+        'Valid for applications submitted on or before 31 December 2026',
+        'Applies at all FinEdge branches listed on this site',
+        'Safe-custody and insurance terms of the loan agreement are unchanged',
+      ],
+      validTill: '2026-12-31',
+      highlight: 'No separate valuation charge',
+      active: true,
+    },
+    {
+      id: 'offer-education-processing',
+      title: 'Education loans up to ₹20 lakh: no processing fee',
+      category: 'Loans',
+      productSlug: 'education-loan',
+      summary: 'Supporting students this admission season: education loan applications up to ₹20 lakh carry no processing fee at all — this is already reflected in the product schedule.',
+      terms: [
+        'Valid for applications submitted on or before 28 February 2027',
+        'Standard eligibility and co-applicant requirements of the product apply',
+      ],
+      validTill: '2027-02-28',
+      highlight: 'Nil processing fee up to ₹20 lakh',
+      active: true,
+    },
+  ],
+  faqs: [
+    {
+      id: 'faq-real-bank',
+      q: 'Is FinEdge Bank a real bank?',
+      a: 'No. FinEdge Bank is a demonstration brand built for an industry training project. Accounts, balances and transactions on this platform are simulated records — no real money is held, moved or invested.',
+      order: 1,
+      active: true,
+    },
+    {
+      id: 'faq-open-account',
+      q: 'How do I open an account?',
+      a: 'Pick the account that fits you on the Accounts page, start the application, verify your mobile number, and submit your KYC documents. Your application appears in your account tracker, and a bank officer reviews it — on this platform you can watch it move through the staff queue in real time.',
+      order: 2,
+      active: true,
+    },
+    {
+      id: 'faq-kyc-docs',
+      q: 'What documents do I need for KYC?',
+      a: 'A PAN card and one address proof (Aadhaar, passport, driving licence or voter ID) cover most products. Loans and business accounts need additional income or business documents — each product page lists exactly what it requires.',
+      order: 3,
+      active: true,
+    },
+    {
+      id: 'faq-transfer-limits',
+      q: 'How are transfer charges and limits handled?',
+      a: 'Transfers between FinEdge accounts are instant in this simulation. External transfers are modelled on NEFT, IMPS and UPI rails and are labelled "simulated" wherever they appear, because this platform is not connected to real payment networks.',
+      order: 4,
+      active: true,
+    },
+    {
+      id: 'faq-data-safety',
+      q: 'Is my data safe on this platform?',
+      a: 'This demonstration runs entirely in your browser with locally stored demo data. Do not enter real passwords, real card numbers or real identity documents — use the demo accounts described in the project README.',
+      order: 5,
+      active: true,
+    },
+    {
+      id: 'faq-raise-complaint',
+      q: 'How do I raise a complaint or a service request?',
+      a: 'Once signed in, raise a support ticket from your account — it goes to the staff support queue and you can track its status. The Grievance Redressal page explains the escalation levels and illustrative response timelines.',
+      order: 6,
+      active: true,
+    },
+    {
+      id: 'faq-rates-charges',
+      q: 'Where can I see all rates and charges together?',
+      a: 'The Rates & Charges section brings together the headline rates from every product, and the Schedule of Charges page lists service fees. Both are generated from the same product data, so they always match the product pages.',
+      order: 7,
+      active: true,
+    },
+  ],
+  whyPoints: [
+    {
+      id: 'why-single-schedule',
+      title: 'One published schedule',
+      body: 'Every rate and fee comes from a single published schedule; product pages and the Schedule of Charges can never disagree.',
+      badge: 'Single Schedule',
+      linkText: 'Schedule of Charges',
+      linkTo: '/schedule-of-charges',
+      order: 1,
+      active: true,
+    },
+    {
+      id: 'why-upfront-charges',
+      title: 'Charges before you apply',
+      body: 'The full fee table is published on every product page before any form. No surprise maintenance fees or unannounced processing deductions.',
+      badge: 'Upfront Pricing',
+      linkText: 'Explore our accounts',
+      linkTo: '/accounts',
+      order: 2,
+      active: true,
+    },
+    {
+      id: 'why-human-care',
+      title: 'A human when you need one',
+      body: 'Direct phone support at 1800 267 4100 (Mon–Sat, 9:00 AM – 7:00 PM IST), along with a transparent multi-level Grievance Redressal framework.',
+      badge: 'Accountable Care',
+      linkText: 'Grievance Redressal',
+      linkTo: '/grievance-redressal',
+      extraLinkText: 'Call 1800 267 4100',
+      extraHref: 'tel:18002674100',
+      order: 3,
+      active: true,
+    },
+  ],
+  footer: {
+    brandTagline: 'A demonstration digital bank with original products, slab-based qualified rates, and honest operational controls. Deposits and loan approvals in this prototype are simulated.',
+    supportPhone: '1800 267 4100',
+    supportEmail: 'care@finedge.bank',
+    supportHours: 'Mon–Sat, 9:00 AM – 7:00 PM IST',
+    addressLines: [
+      'FinEdge Bank Tower, Level 14',
+      'Bandra-Kurla Complex (BKC), G Block',
+      'Mumbai, Maharashtra 400051',
+    ],
+    grievanceOfficerName: 'Rajeshwari Iyer',
+    grievanceOfficerEmail: 'grievance.officer@finedge.bank',
+  },
+  support: {
+    introLine: 'Need help with your account, a transaction, or a banking service? Reach our dedicated customer care team or visit one of our flagship experience centres.',
+    contactRows: [
+      { id: 'toll-free', label: 'Toll-Free Phone', value: '1800 267 4100', note: 'Available Mon-Sat 9AM-7PM IST', type: 'phone' },
+      { id: 'email-care', label: 'Customer Care Email', value: 'care@finedge.bank', note: 'Response within 24 hours', type: 'email' },
+      { id: 'grievance-desk', label: 'Grievance Redressal Desk', value: 'grievance.officer@finedge.bank', note: 'Escalations and formal complaints', type: 'email' },
+      { id: 'bkc-flagship', label: 'Headquarters Desk', value: 'FinEdge Tower, BKC, Mumbai', note: 'Mon-Fri 10AM-5PM', type: 'address' },
+    ],
+  },
+  charges: {
+    accountServices: [
+      { id: 'svc-opening', service: 'Account opening (all account types)', charge: 'Nil', note: 'Standard' },
+      { id: 'svc-kit', service: 'Passbook / account welcome kit', charge: 'Nil', note: 'Standard' },
+      { id: 'svc-alerts', service: 'SMS and email transaction alerts', charge: 'Nil', note: 'Mandatory' },
+      { id: 'svc-netbanking', service: 'Mobile and internet banking', charge: 'Nil', note: 'Standard' },
+      { id: 'svc-close-30', service: 'Account closure within 30 days of opening', charge: 'Nil', note: 'Free window' },
+      { id: 'svc-close-12m', service: 'Account closure after 30 days and within 12 months', charge: '₹400', note: 'Administrative fee' },
+      { id: 'svc-reactivate', service: 'Reactivation of an inoperative account', charge: 'Nil', note: 'Free' },
+      { id: 'svc-si-digital', service: 'Standing instruction set-up / amendment (digital)', charge: 'Nil', note: 'Digital banking' },
+      { id: 'svc-si-branch', service: 'Standing instruction set-up at a branch', charge: '₹50 per instruction', note: 'Branch assisted' },
+      { id: 'svc-si-fail', service: 'Failed standing instruction / auto-debit (insufficient funds)', charge: '₹250 per instance', note: 'Penal charge' },
+    ],
+    debitCardMisc: [
+      { id: 'card-issue-1', service: 'Issuance — first card on an account', charge: 'Nil', note: 'Welcome privilege' },
+      { id: 'card-replacement', service: 'Replacement of a lost or damaged card', charge: '₹150', note: 'Reissuance' },
+      { id: 'card-pin-branch', service: 'PIN regeneration (branch request)', charge: '₹50 (Nil in the app)', note: 'Branch fee' },
+      { id: 'card-intl-activate', service: 'International usage activation', charge: 'Nil', note: 'Digital self-service' },
+      { id: 'card-slip-retrieve', service: 'Charge slip / transaction retrieval request', charge: '₹100 per slip', note: 'Investigation' },
+    ],
+    paymentsMisc: [
+      { id: 'pay-own-acct', channel: 'Between your own FinEdge accounts', appFee: 'Nil', branchFee: 'Nil', note: 'Instant' },
+      { id: 'pay-other-finedge', channel: 'To another FinEdge account', appFee: 'Nil', branchFee: '₹25', note: 'Instant' },
+      { id: 'pay-upi', channel: 'UPI', appFee: 'Nil', branchFee: 'Not offered at branches', note: 'Instant' },
+      { id: 'pay-imps-25k', channel: 'IMPS up to ₹25,000', appFee: '₹3', branchFee: '₹5', note: 'Instant' },
+      { id: 'pay-imps-1l', channel: 'IMPS ₹25,001 – ₹1,00,000', appFee: '₹6', branchFee: '₹10', note: 'Instant' },
+      { id: 'pay-imps-5l', channel: 'IMPS ₹1,00,001 – ₹5,00,000', appFee: '₹12', branchFee: '₹15', note: 'Instant' },
+      { id: 'pay-neft-10k', channel: 'NEFT up to ₹10,000', appFee: 'Nil', branchFee: '₹2.50', note: '2-4 hrs' },
+      { id: 'pay-neft-1l', channel: 'NEFT ₹10,001 – ₹1,00,000', appFee: 'Nil', branchFee: '₹5', note: '2-4 hrs' },
+      { id: 'pay-neft-2l', channel: 'NEFT ₹1,00,001 – ₹2,00,000', appFee: 'Nil', branchFee: '₹15', note: '2-4 hrs' },
+      { id: 'pay-neft-above', channel: 'NEFT above ₹2,00,000', appFee: 'Nil', branchFee: '₹25', note: '2-4 hrs' },
+      { id: 'pay-returned', channel: 'Returned transfer (beneficiary bank rejection)', appFee: 'Nil — full refund', branchFee: 'Nil', note: 'Automated credit' },
+    ],
+    atmCashMisc: [
+      { id: 'atm-finedge', item: 'FinEdge ATMs — financial and non-financial transactions', charge: 'Nil, unlimited', note: 'All cards' },
+      { id: 'atm-other-free', item: 'Other-bank ATMs — first 5 transactions a month (metro: 3)', charge: 'Nil', note: 'RBI mandate' },
+      { id: 'atm-other-cash', item: 'Other-bank ATM cash withdrawal beyond free limit', charge: '₹20 per transaction', note: 'Financial' },
+      { id: 'atm-other-bal', item: 'Other-bank ATM balance enquiry beyond free limit', charge: '₹8 per transaction', note: 'Non-financial' },
+      { id: 'atm-intl', item: 'International ATM cash withdrawal', charge: '₹125 + 3% currency conversion', note: 'Cross-border' },
+      { id: 'cash-dep-savings', item: 'Cash deposit — Savings accounts', charge: 'Free up to ₹2,00,000 per month; ₹3 per ₹1,000 thereafter', note: 'Monthly quota' },
+      { id: 'cash-dep-current', item: 'Cash deposit — Current accounts', charge: 'Free up to ₹10,00,000 per month; ₹2.50 per ₹1,000 thereafter', note: 'Monthly quota' },
+    ],
+    chequesDdMisc: [
+      { id: 'chq-first-25', item: 'Cheque book — first 25 leaves a year (savings)', charge: 'Nil', note: 'Annual quota' },
+      { id: 'chq-extra', item: 'Cheque book — additional leaves', charge: '₹4 per leaf', note: 'Incremental' },
+      { id: 'chq-current-50', item: 'Cheque book — current accounts (50 leaves)', charge: '₹150 per book', note: 'Current tariff' },
+      { id: 'chq-stop', item: 'Stop-payment instruction (per cheque)', charge: '₹100 in the app, ₹150 at a branch', note: 'Service fee' },
+      { id: 'chq-bounce-funds', item: 'Cheque returned — insufficient funds', charge: '₹350 per instance', note: 'Penal charge' },
+      { id: 'chq-bounce-tech', item: 'Cheque returned — technical reasons on our side', charge: 'Nil', note: 'Bank error' },
+      { id: 'chq-outstation', item: 'Outstation cheque collection', charge: '₹50 + actual courier/postal cost', note: 'Third party' },
+      { id: 'dd-under-10k', item: 'Demand draft / pay order up to ₹10,000', charge: '₹40', note: 'Standard' },
+      { id: 'dd-above-10k', item: 'Demand draft / pay order above ₹10,000', charge: '₹4 per ₹1,000, maximum ₹1,500', note: 'Capped tariff' },
+      { id: 'dd-revalidate', item: 'DD cancellation / revalidation / duplicate', charge: '₹100', note: 'Administrative' },
+    ],
+  },
+  legalPages: {
+    'privacy-policy': {
+      title: 'Privacy Policy',
+      subtitle: 'How FinEdge Bank collects, uses, stores and shares your personal information when you open an account or use our digital banking channels — written in plain language, without legal padding.',
+      sections: [
+        {
+          id: 'who-we-are',
+          heading: '1. Who we are',
+          paragraphs: [
+            'FinEdge Bank ("FinEdge", "we", "us") provides savings, current, salary, student and minor accounts, loans, cards and investment services through its branches and digital channels. This policy explains our handling of personal information across all of those channels. It applies to customers, joint holders, nominees, guardians, authorised signatories and anyone who applies for a product with us, whether or not the application is completed.',
+            'We treat the information you entrust to us as a responsibility, not an asset. We collect only what a banking relationship genuinely requires, we use it for the purposes described below, and we do not sell personal information to anyone, for any purpose, ever.',
+          ],
+        },
+        {
+          id: 'what-we-collect',
+          heading: '2. Information we collect',
+          paragraphs: [
+            'The information we hold depends on the products you use. Main categories include identity and KYC information (name, date of birth, PAN, Aadhaar e-KYC), contact details, transaction records, and device metadata for digital fraud mitigation.',
+            'Every category of data collected is tied directly to a statutory compliance requirement or a customer-initiated banking instruction.',
+          ],
+        },
+        {
+          id: 'how-we-use',
+          heading: '3. How we use it',
+          paragraphs: [
+            'We use your information exclusively to administer accounts, process payments, conduct underwriting and risk assessment, detect unauthorised activity, and meet Reserve Bank of India statutory reporting mandates.',
+            'We never profile customers for third-party marketing or share identifiable information with external commercial entities without explicit transactional consent.',
+          ],
+        },
+      ],
+    },
+    'terms-and-conditions': {
+      title: 'Terms & Conditions',
+      subtitle: 'The general terms that govern your relationship with FinEdge Bank, opening accounts, accessing digital banking, and using our credit, deposit and card facilities.',
+      sections: [
+        {
+          id: 'general-terms',
+          heading: '1. General Relationship Terms',
+          paragraphs: [
+            'By applying for or operating any account, card, loan or digital service with FinEdge Bank Limited, you agree to these Master Terms and Conditions alongside the product-specific schedule of charges and features.',
+            'FinEdge Bank is licensed under the Banking Regulation Act to conduct retail and commercial banking operations. All deposit products are insured by DICGC up to statutory ceilings.',
+          ],
+        },
+        {
+          id: 'digital-channels',
+          heading: '2. Digital Banking & Security',
+          paragraphs: [
+            'You are responsible for preserving the confidentiality of your login credentials, MPIN, and one-time authentication factors. FinEdge officers will never solicit your full password, OTP or card CVV through any channel.',
+            'Transactions authenticated via multi-factor credentials are presumed valid instructions of the account holder until an unauthorized compromise is formally reported.',
+          ],
+        },
+      ],
+    },
+    'fair-practice-code': {
+      title: 'Fair Practice Code',
+      subtitle: 'Our formal code of conduct in customer relations, loan sanctioning, transparent recovery procedures, and non-discriminatory banking access.',
+      sections: [
+        {
+          id: 'lending-ethics',
+          heading: '1. Responsible Lending Commitments',
+          paragraphs: [
+            'FinEdge Bank evaluates loan applications with fair, objective criteria that do not discriminate by gender, religion, caste, or age. Terms, loan tenures, interest slabs, and processing fees are published upfront with zero undisclosed loadings.',
+            'Borrowers receive written sanction letters detailing the approved limit, annual percentage rate (APR), amortization schedule, and any applicable prepayment conditions.',
+          ],
+        },
+        {
+          id: 'recovery-standards',
+          heading: '2. Dignified Recovery & Remediation',
+          paragraphs: [
+            'In the event of loan delinquency, recovery interactions adhere strictly to RBI Fair Practices Code guidelines. Contact occurs only during designated business hours, through respectful communication, with documented resolution pathways.',
+            'Harassment, intimidation, or privacy violations by bank representatives or authorized collection associates are strictly prohibited under penalty of disciplinary and regulatory sanction.',
+          ],
+        },
+      ],
+    },
+    'disclosures': {
+      title: 'Regulatory Disclosures',
+      subtitle: 'Statutory capital adequacy disclosures, liquidity ratios, corporate governance charters, and customer grievance performance metrics.',
+      sections: [
+        {
+          id: 'statutory-charter',
+          heading: '1. Corporate & Regulatory Status',
+          paragraphs: [
+            'FinEdge Bank Limited is a scheduled commercial bank governed by directives issued periodically by the Reserve Bank of India. The bank maintains liquidity coverage ratios and Basel III capital tiers well in excess of prudential minimums.',
+            'Public disclosures under Pillar 3 of the Basel framework and audited annual financial statements are available for download across all public transparency portals.',
+          ],
+        },
+        {
+          id: 'deposit-insurance',
+          heading: '2. Deposit Protection & Solvency',
+          paragraphs: [
+            'All qualifying deposits including savings accounts, current accounts, and fixed deposits are insured under the Deposit Insurance and Credit Guarantee Corporation (DICGC) up to ₹5,00,000 per depositor across all branch offices.',
+            'Detailed information regarding deposit protection cover and claim modalities is posted prominently across every physical branch banking hall.',
+          ],
+        },
+      ],
+    },
+  },
+};
+
+export const FACTORY_SETTINGS = {
+  transferRails: {
+    INTERNAL: { id: 'INTERNAL', label: 'Within FinEdge (Instant)', fee: 0, dailyLimit: 1000000, simulated: false },
+    UPI: { id: 'UPI', label: 'UPI (Instant) — Simulation', fee: 0, dailyLimit: 100000, simulated: true },
+    IMPS: { id: 'IMPS', label: 'IMPS (Instant) — Simulation', fee: 5, dailyLimit: 500000, simulated: true },
+    NEFT: { id: 'NEFT', label: 'NEFT (2–4 hrs) — Simulation', fee: 0, dailyLimit: 1000000, simulated: true },
+  },
+  inactivityLockMinutes: 15,
+  slaThresholds: {
+    amberHours: 24,
+    redHours: 72,
+  },
+};

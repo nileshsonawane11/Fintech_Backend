@@ -22,7 +22,7 @@ import {
 import { Logo } from '../../components/layout/Header';
 import { Button, Input, Modal } from '../../components/ui.jsx';
 import { unreadCount } from '../../services/portalBridge.js';
-import { getDb } from '../../services/api.js';
+import { getDb, getSetting } from '../../services/api.js';
 
 // Import split section components
 import DashboardSection from './sections/DashboardSection';
@@ -75,7 +75,9 @@ export const PortalDashboardPage = () => {
   }, [user?.customerId, location.pathname]);
 
   // 15-Minute Session Inactivity Lock
-  const [idleSeconds, setIdleSeconds] = useState(900); // 15 mins
+  const lockMinutes = Number(getSetting('inactivityLockMinutes')) || 15;
+  const lockSeconds = lockMinutes * 60;
+  const [idleSeconds, setIdleSeconds] = useState(lockSeconds);
   const [sessionLocked, setSessionLocked] = useState(false);
   const [unlockPassword, setUnlockPassword] = useState('');
   const [unlockError, setUnlockError] = useState('');
@@ -83,7 +85,7 @@ export const PortalDashboardPage = () => {
   useEffect(() => {
     const handleActivity = () => {
       if (!sessionLocked) {
-        setIdleSeconds(900);
+        setIdleSeconds(lockSeconds);
       }
     };
 
@@ -123,7 +125,7 @@ export const PortalDashboardPage = () => {
 
       if (expectedPw && unlockPassword === expectedPw) {
         setSessionLocked(false);
-        setIdleSeconds(900);
+        setIdleSeconds(lockSeconds);
         setUnlockPassword('');
         setUnlockError('');
       } else {
@@ -403,7 +405,7 @@ export const PortalDashboardPage = () => {
               <Lock className="h-6 w-6" />
             </div>
             <p className="text-xs text-ink-600 leading-relaxed">
-              Your NetBanking session was paused after 15 minutes of inactivity to protect your account. Enter your password to resume where you left off.
+              Your NetBanking session was paused after {lockMinutes} minutes of inactivity to protect your account. Enter your password to resume where you left off.
             </p>
             {unlockError && <p className="text-xs text-danger-600 font-medium">{unlockError}</p>}
             <form onSubmit={handleUnlockSession} className="space-y-3">

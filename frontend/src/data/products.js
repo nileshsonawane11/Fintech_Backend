@@ -1,3 +1,29 @@
+import { FACTORY_SITE_CONTENT } from './factoryContent.js';
+
+export const getBrandSupport = () => {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const dbStr = localStorage.getItem('finedge_persistent_db');
+      if (dbStr) {
+        const parsed = JSON.parse(dbStr);
+        if (parsed && parsed.siteContent && parsed.siteContent.footer) {
+          const f = parsed.siteContent.footer;
+          return {
+            phone: f.supportPhone ? (f.supportPhone + ' (toll-free, demo)') : '1800 267 4100 (toll-free, demo)',
+            email: f.supportEmail || FACTORY_SITE_CONTENT.footer.supportEmail,
+            hours: f.supportHours || FACTORY_SITE_CONTENT.footer.supportHours,
+          };
+        }
+      }
+    }
+  } catch {}
+  return {
+    phone: '1800 267 4100 (toll-free, demo)',
+    email: FACTORY_SITE_CONTENT.footer.supportEmail,
+    hours: FACTORY_SITE_CONTENT.footer.supportHours,
+  };
+};
+
 // ============================================================================
 // FinEdge Bank — product catalogue (single source of truth for the public site)
 //
@@ -32,10 +58,8 @@ export const BRAND = {
     gold: '#B8933F',
     ink: '#131A1F',
   },
-  support: {
-    phone: '1800 267 4100 (toll-free, demo)',
-    email: 'care@finedgebank.example',
-    hours: 'Mon–Sat, 9:00 AM – 7:00 PM IST',
+  get support() {
+    return getBrandSupport();
   },
 };
 

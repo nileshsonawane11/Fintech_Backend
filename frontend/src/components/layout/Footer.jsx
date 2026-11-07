@@ -2,15 +2,17 @@ import React from 'react';
 import { Link } from 'react-router-dom';
 import { Logo } from './Header';
 import { BRAND } from '../../data/products.js';
+import { getContent } from '../../services/api.js';
 
 export const Footer = () => {
+  const footer = typeof getContent === 'function' ? getContent('footer') : null;
   return (
     <footer className="bg-midnight-950 text-porcelain-200 mt-auto border-t border-midnight-900">
       <div className="mx-auto grid max-w-7xl gap-10 px-4 py-12 sm:grid-cols-2 sm:px-6 lg:grid-cols-4">
         <div>
           <Logo light />
           <p className="mt-4 text-[13px] leading-relaxed text-porcelain-200/80">
-            A demonstration digital bank with original products, slab-based qualified rates, and honest operational controls. Deposits and loan approvals in this prototype are simulated.
+            {footer?.brandTagline || 'A demonstration digital bank with original products, slab-based qualified rates, and honest operational controls. Deposits and loan approvals in this prototype are simulated.'}
           </p>
         </div>
         <nav aria-label="Products">
@@ -37,7 +39,8 @@ export const Footer = () => {
         <div>
           <h3 className="mb-3 text-[13px] font-semibold text-porcelain-50">Reach Us &amp; Access</h3>
           <ul className="space-y-2 text-[13px]">
-            <li><a className="transition-colors hover:text-gold-300" href="tel:18002674100">Toll free: 1800 267 4100</a></li>
+            <li><a className="transition-colors hover:text-gold-300" href={`tel:${(footer?.supportPhone || '1800 267 4100').replace(/[^0-9+]/g, '')}`}>Toll free: {footer?.supportPhone || '1800 267 4100'}</a></li>
+            <li><a className="transition-colors hover:text-gold-300" href={`mailto:${footer?.supportEmail || BRAND.support.email}`}>Email: {footer?.supportEmail || BRAND.support.email}</a></li>
             <li><span className="text-porcelain-300">{BRAND.support.hours}</span></li>
             <li className="pt-2"><Link className="transition-colors text-gold-300 hover:text-gold-200" to="/portal/login">Customer NetBanking Portal →</Link></li>
             <li><Link className="transition-colors text-porcelain-400 hover:text-porcelain-200" to="/manager/login">Bank Staff Operations Terminal →</Link></li>

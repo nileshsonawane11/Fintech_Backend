@@ -34,6 +34,7 @@ import {
 } from '../data/products.js';
 import { OFFERS, GENERAL_FAQS } from '../data/content.js';
 import { ACCOUNT_ICONS, LOAN_ICONS, INVESTMENT_ICONS } from '../data/productIcons.js';
+import { getContent } from '../services/api.js';
 
 const CATEGORY_PATH = {
   account: '/accounts',
@@ -135,6 +136,13 @@ const HOMEPAGE_FAQ_QUESTIONS = [
 ];
 
 function HomeHero({ savingsRow, homeLoanRow, edgeGoldDebit }) {
+  const heroContent = typeof getContent === 'function' ? getContent('hero') : null;
+  const headline = heroContent?.headline || 'Banking that grows with you — accounts, cards, loans and investments in one place.';
+  const subtext = heroContent?.subtext || `Open an account in minutes, borrow with the rate shown before you apply, and grow your savings with deposits and investments whose charges are stated up front. ${BRAND.name} is a demonstration platform — every workflow works end to end, with simulations labelled honestly.`;
+  const primaryCtaLabel = heroContent?.primaryCtaLabel || 'Open an account';
+  const primaryCtaTo = heroContent?.primaryCtaTo || '/accounts';
+  const secondaryCtaLabel = heroContent?.secondaryCtaLabel || 'Try the calculators';
+  const secondaryCtaTo = heroContent?.secondaryCtaTo || '/calculators';
   const heroRef = useRef(null);
   const bgPhotoRef = useRef(null);
   const parallaxRafId = useRef(null);
@@ -269,28 +277,26 @@ function HomeHero({ savingsRow, homeLoanRow, edgeGoldDebit }) {
             </div>
 
             <h1 className="hero-enter-headline mt-4 font-display text-4xl font-semibold leading-tight text-porcelain-50 sm:text-5xl">
-              Banking that grows with you — accounts, cards, loans and investments in one place.
+              {headline}
             </h1>
 
             <p className="hero-enter-subtext mt-5 text-base leading-relaxed text-porcelain-200/90 sm:text-lg">
-              Open an account in minutes, borrow with the rate shown before you apply, and grow your savings with
-              deposits and investments whose charges are stated up front. {BRAND.name} is a demonstration platform —
-              every workflow works end to end, with simulations labelled honestly.
+              {subtext}
             </p>
 
             {/* CTAs: Porcelain primary button on midnight band */}
             <div className="hero-enter-cta mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
               <Link
-                to="/accounts"
+                to={primaryCtaTo}
                 className="inline-flex select-none items-center justify-center gap-2 rounded-lg font-semibold transition-[color,background-color,border-color,transform] duration-150 ease-out active:translate-y-px min-h-11 px-5 text-sm bg-porcelain-50 text-midnight-950 border border-transparent shadow-sm hover:bg-porcelain-200"
               >
-                Open an account <ArrowRight className="h-4 w-4 text-midnight-900" aria-hidden />
+                {primaryCtaLabel} <ArrowRight className="h-4 w-4 text-midnight-900" aria-hidden />
               </Link>
               <Link
-                to="/calculators"
+                to={secondaryCtaTo}
                 className="text-sm font-medium text-porcelain-50 underline decoration-porcelain-50/50 underline-offset-4 transition-colors hover:decoration-porcelain-50"
               >
-                Try the calculators
+                {secondaryCtaLabel}
               </Link>
             </div>
 
@@ -393,12 +399,21 @@ export default function HomePage() {
   const visibleDepositRates = expandedRates ? depositRates : depositRates.slice(0, 2);
   const visibleBorrowingRates = expandedRates ? borrowingRates : borrowingRates.slice(0, 2);
 
-  // Offers: 6 -> 3 by nearest validity date (Fix 1)
-  const sortedOffers = [...OFFERS].sort((a, b) => new Date(a.validTill) - new Date(b.validTill));
+  // Store-backed Site Content (Module 49)
+  const rawOffers = (typeof getContent === 'function' ? getContent('offers') : null) || OFFERS;
+  const activeOffers = (Array.isArray(rawOffers) ? rawOffers : OFFERS).filter((o) => o.active !== false);
+  const sortedOffers = [...activeOffers].sort((a, b) => new Date(a.validTill || a.validity || '2099-12-31') - new Date(b.validTill || b.validity || '2099-12-31'));
   const visibleOffers = expandedOffers ? sortedOffers : sortedOffers.slice(0, 3);
 
-  // 5 FAQs for the homepage
-  const homepageFaqs = GENERAL_FAQS.filter((f) => HOMEPAGE_FAQ_QUESTIONS.includes(f.q));
+  const rawWhy = typeof getContent === 'function' ? getContent('whyPoints') : null;
+  const whyPointsList = (Array.isArray(rawWhy) && rawWhy.length > 0)
+    ? rawWhy.filter((w) => w.active !== false).sort((a, b) => (a.order || 0) - (b.order || 0))
+    : TRUST_POINTS;
+
+  const rawFaqs = (typeof getContent === 'function' ? getContent('faqs') : null) || GENERAL_FAQS;
+  const homepageFaqs = (Array.isArray(rawFaqs) ? rawFaqs : GENERAL_FAQS)
+    .filter((f) => f.active !== false)
+    .sort((a, b) => (a.order || 0) - (b.order || 0));
 
   // Products for active category tab (one row of 3)
   const activeProducts = getProductsByCategory(activeTab);
@@ -687,6 +702,7 @@ export default function HomePage() {
       {/* ====================================================================== */}
       {/* (d) CURRENT OFFERS (White background - Fix 1) */}
       {/* ====================================================================== */}
+      {visibleOffers.length > 0 && (
       <section className="bg-white py-20 sm:py-24 border-b border-ink-100" aria-label="Current seasonal offers">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             {/* Header — Treatment A */}
@@ -700,7 +716,7 @@ export default function HomePage() {
             {/* Fix 1: 3 offers visible by default, expander reveals the remaining 3 */}
             <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {visibleOffers.map((offer, idx) => {
-                const product = getProductBySlug(offer.productSlug);
+                const product = getProductBySlug(offer.productSlug || offer.linkedProductSlug);
                 return (
                   <Reveal key={offer.id} treatment="B" staggerIndex={idx}>
                     <Card className="flex h-full flex-col p-5 shadow-xs transition-all duration-180 hover:-translate-y-0.5 hover:shadow-card">
@@ -750,7 +766,7 @@ export default function HomePage() {
                   </>
                 ) : (
                   <>
-                    <span>View all offers ({OFFERS.length})</span>
+                    <span>View all offers ({sortedOffers.length})</span>
                     <ChevronDown className="h-4 w-4" />
                   </>
                 )}
@@ -758,6 +774,7 @@ export default function HomePage() {
             </div>
           </div>
         </section>
+      )}
 
       {/* ====================================================================== */}
       {/* (e) WHY FINEDGE (Porcelain background - Fix 4) */}
@@ -784,8 +801,8 @@ export default function HomePage() {
 
               {/* Trust Points Half — Preserves all 3 customer-facing cards and facts verbatim */}
               <div className="lg:col-span-5 flex flex-col gap-4">
-                {TRUST_POINTS.map((point, idx) => {
-                  const Icon = point.icon;
+                {whyPointsList.map((point, idx) => {
+                  const Icon = point.icon || ShieldCheck;
                   return (
                     <Reveal key={point.title} treatment="B" staggerIndex={idx}>
                       <Card className="flex flex-col p-5 sm:p-6 shadow-xs border-ink-200 bg-white transition-all duration-180 hover:-translate-y-0.5 hover:shadow-card">
@@ -825,6 +842,7 @@ export default function HomePage() {
       {/* ====================================================================== */}
       {/* (f) FREQUENTLY ASKED QUESTIONS (White background - Fix 1 & Fix 5) */}
       {/* ====================================================================== */}
+      {homepageFaqs.length > 0 && (
       <section id="faq" className="bg-white py-20 sm:py-24 border-b border-ink-100" aria-label="Frequently asked questions">
           <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
             {/* Header — Treatment A */}
@@ -893,6 +911,7 @@ export default function HomePage() {
             </p>
           </div>
         </section>
+      )}
 
       {/* ====================================================================== */}
       {/* (g) CALL TO ACTION STRIP & RELOCATED DEMO DISCLOSURE (Midnight - Fix 0 & Fix 4) */}

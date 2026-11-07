@@ -1,5 +1,7 @@
 import { FINEDGE_RATES_CONFIG } from '../data/ratesConfig.js';
 import { SAVINGS_TOP_RATE, ALL_PRODUCTS } from '../data/products.js';
+import { FACTORY_SITE_CONTENT, FACTORY_SETTINGS } from '../data/factoryContent.js';
+export { FACTORY_SITE_CONTENT, FACTORY_SETTINGS } from '../data/factoryContent.js';
 // FinBank / FinEdge REST API Client
 // Implements RFC 9457 problem details, OAuth 2.0 / JWT bearer authorization,
 // Idempotency-Key headers, Correlation-IDs, granular RBAC, and seamless offline-persistence fallback.
@@ -1073,7 +1075,9 @@ export const getDefaultDb = () => {
     investmentHoldings: [],
     investmentApplications: [],
     products: (ALL_PRODUCTS || []).map(p => ({ ...p, status: 'ACTIVE' })),
-    customRoles: []
+    customRoles: [],
+    siteContent: JSON.parse(JSON.stringify(FACTORY_SITE_CONTENT)),
+    settings: JSON.parse(JSON.stringify(FACTORY_SETTINGS))
   };
 };
 
@@ -1282,6 +1286,14 @@ export const getDb = () => {
     }
     if (!Array.isArray(db.customRoles)) {
       db.customRoles = [];
+      dirty = true;
+    }
+    if (!db.siteContent || typeof db.siteContent !== 'object' || !db.siteContent.hero) {
+      db.siteContent = JSON.parse(JSON.stringify(defaults.siteContent || FACTORY_SITE_CONTENT));
+      dirty = true;
+    }
+    if (!db.settings || typeof db.settings !== 'object' || !db.settings.transferRails) {
+      db.settings = JSON.parse(JSON.stringify(defaults.settings || FACTORY_SETTINGS));
       dirty = true;
     }
 
@@ -1602,6 +1614,25 @@ export const getProduct = (slug, options = {}) => {
   if (!slug) return null;
   const list = getProducts({ ...options, includeInactive: true });
   return list.find(p => p.slug === slug) || null;
+};
+
+export const getContent = (key = null, options = {}) => {
+  const db = getDb();
+  const siteContent = db.siteContent || FACTORY_SITE_CONTENT;
+  if (!key) return siteContent;
+  return siteContent[key] ?? FACTORY_SITE_CONTENT[key] ?? null;
+};
+
+export const getSettings = (options = {}) => {
+  const db = getDb();
+  return db.settings || FACTORY_SETTINGS;
+};
+
+export const getSetting = (key, options = {}) => {
+  if (!key) return null;
+  const db = getDb();
+  const settings = db.settings || FACTORY_SETTINGS;
+  return settings[key] ?? FACTORY_SETTINGS[key] ?? null;
 };
 
 export const apiRequest = async (endpoint, options = {}) => {
@@ -2243,7 +2274,16 @@ export const handleLocalFallback = (endpoint, options = {}) => {
     }
 
     const rail = (body.rail || body.transferMode || body.railId || 'IMPS').toUpperCase();
-    const charge = rail === 'IMPS' ? 5 : 0;
+    const charge = (db.settings?.transferRails?.[rail]?.fee !== undefined) ? Number(db.settings.transferRails[rail].fee) : (rail === 'IMPS' ? 5 : 0);
+    const railLimit = (db.settings?.transferRails?.[rail]?.dailyLimit !== undefined) ? Number(db.settings.transferRails[rail].dailyLimit) : 1000000;
+    if (amount > railLimit) {
+      throw {
+        status: 422,
+        code: 'TRANSFER_LIMIT_EXCEEDED',
+        title: 'Daily Rail Limit Exceeded',
+        detail: `Transfer amount (₹${amount.toLocaleString('en-IN')}) exceeds the configured daily limit (₹${railLimit.toLocaleString('en-IN')}) for ${rail}.`
+      };
+    }
     const totalDebit = Math.round((amount + charge) * 100) / 100;
 
     if (debitAcc.balance.availableBalance < totalDebit) {
@@ -2303,6 +2343,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
       transactionType: 'TRANSFER',
       direction: 'DEBIT',
       amount: totalDebit,
+      charges: charge,
       balanceAfter: debitAcc.balance.availableBalance,
       currency: 'INR',
       status: 'SUCCESS',
@@ -2331,6 +2372,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
       status: 'SUCCESS',
       amount,
       charge,
+      charges: charge,
       totalDebit,
       balanceAfter: debitAcc.balance.availableBalance,
       currency: 'INR',
@@ -3221,6 +3263,53 @@ export const handleLocalFallback = (endpoint, options = {}) => {
   if (endpoint === '/admin/api/v1/roles' && method === 'GET') {
     verifyStaffPermission(db, 'roles.read', options);
     return db.customRoles || [];
+  }
+
+  // Admin: Site Content Management (Module 49)
+  if (endpoint === '/admin/api/v1/content' && method === 'GET') {
+    const staff = verifyStaffPermission(db, 'roles.manage', options);
+    if (staff.role !== 'ADMIN') {
+      throw { status: 403, code: 'INSUFFICIENT_PERMISSIONS', title: 'Admin Clearance Required', detail: 'Only System Administrators can manage site content.' };
+    }
+    return db.siteContent || FACTORY_SITE_CONTENT;
+  }
+
+  const contentKeyMatch = endpoint.match(/\/admin\/api\/v1\/content\/([^/]+)$/);
+  if (contentKeyMatch && method === 'PUT') {
+    const staff = verifyStaffPermission(db, 'roles.manage', options);
+    if (staff.role !== 'ADMIN') {
+      throw { status: 403, code: 'INSUFFICIENT_PERMISSIONS', title: 'Admin Clearance Required', detail: 'Only System Administrators can update site content.' };
+    }
+    const key = contentKeyMatch[1];
+    db.siteContent = db.siteContent || JSON.parse(JSON.stringify(FACTORY_SITE_CONTENT));
+    const prevVal = JSON.parse(JSON.stringify(db.siteContent[key] ?? FACTORY_SITE_CONTENT[key] ?? null));
+    db.siteContent[key] = body.content !== undefined ? body.content : body;
+    saveDb(db);
+    appendAuditLog(staff.email, staff.role, 'SITE_CONTENT_UPDATED', key, 'SUCCESS', body.reason || `Updated site content block ${key}`, prevVal, db.siteContent[key]);
+    return { success: true, key, content: db.siteContent[key] };
+  }
+
+  // Admin: Platform Settings Management (Module 49)
+  if (endpoint === '/admin/api/v1/settings' && method === 'GET') {
+    const staff = verifyStaffPermission(db, 'roles.manage', options);
+    if (staff.role !== 'ADMIN') {
+      throw { status: 403, code: 'INSUFFICIENT_PERMISSIONS', title: 'Admin Clearance Required', detail: 'Only System Administrators can access platform settings.' };
+    }
+    return db.settings || FACTORY_SETTINGS;
+  }
+
+  if (endpoint === '/admin/api/v1/settings' && method === 'PUT') {
+    const staff = verifyStaffPermission(db, 'roles.manage', options);
+    if (staff.role !== 'ADMIN') {
+      throw { status: 403, code: 'INSUFFICIENT_PERMISSIONS', title: 'Admin Clearance Required', detail: 'Only System Administrators can update platform settings.' };
+    }
+    db.settings = db.settings || JSON.parse(JSON.stringify(FACTORY_SETTINGS));
+    const prevVal = JSON.parse(JSON.stringify(db.settings));
+    const updates = body.settings !== undefined ? body.settings : body;
+    Object.assign(db.settings, updates);
+    saveDb(db);
+    appendAuditLog(staff.email, staff.role, 'PLATFORM_SETTINGS_UPDATED', 'settings', 'SUCCESS', body.reason || 'Updated platform operational settings', prevVal, db.settings);
+    return { success: true, settings: db.settings };
   }
 
   if (endpoint === '/admin/api/v1/roles' && method === 'POST') {

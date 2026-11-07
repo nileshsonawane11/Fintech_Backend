@@ -1,6 +1,7 @@
 import { Info } from "lucide-react";
 import LegalLayout, { LegalSection, LegalTable } from "./LegalLayout";
 import { ACCOUNTS } from "../../data/products.js";
+import { getContent } from "../../services/api.js";
 import { formatINRWhole } from "../../lib/format.js";
 
 const SECTIONS = [
@@ -13,6 +14,12 @@ const SECTIONS = [
 ];
 
 export default function ScheduleOfCharges() {
+  const contentCharges = typeof getContent === 'function' ? getContent('charges') : null;
+  const accountServicesRows = (contentCharges?.accountServices ? contentCharges.accountServices.map(r => [r.service || r.item, r.charge]) : null);
+  const debitCardMiscRows = (contentCharges?.debitCardMisc ? contentCharges.debitCardMisc.map(r => [r.service || r.item, r.charge]) : null);
+  const paymentsMiscRows = (contentCharges?.paymentsMisc ? contentCharges.paymentsMisc.map(r => [r.channel || r.service, r.appFee || r.charge, r.branchFee || r.note]) : null);
+  const atmCashMiscRows = (contentCharges?.atmCashMisc ? contentCharges.atmCashMisc.map(r => [r.item || r.service, r.charge]) : null);
+  const chequesDdMiscRows = (contentCharges?.chequesDdMisc ? contentCharges.chequesDdMisc.map(r => [r.item || r.service, r.charge]) : null);
   return (
     <LegalLayout
       title="Schedule of Charges"
@@ -45,7 +52,7 @@ export default function ScheduleOfCharges() {
         <LegalTable
           caption="Account services"
           head={["Service", "Charge"]}
-          rows={[
+          rows={accountServicesRows || [
             ["Account opening (all account types)", "Nil"],
             ["Passbook / account welcome kit", "Nil"],
             ["SMS and email transaction alerts", "Nil"],
@@ -64,7 +71,7 @@ export default function ScheduleOfCharges() {
         <LegalTable
           caption="Debit cards"
           head={["Item", "Charge"]}
-          rows={[
+          rows={debitCardMiscRows || [
             ["Issuance — first card on an account", "Nil"],
             ["Annual fee — FinEdge Classic Debit Card (Savings)", "₹199"],
             ["Annual fee — FinEdge Business Debit Card (Current)", "₹299"],
@@ -94,11 +101,11 @@ export default function ScheduleOfCharges() {
         <LegalTable
           caption="Fund transfers"
           head={["Channel", "In the app / internet banking", "At a branch"]}
-          rows={[
+          rows={paymentsMiscRows || [
             ["Between your own FinEdge accounts", "Nil", "Nil"],
             ["To another FinEdge account", "Nil", "₹25"],
             ["UPI", "Nil", "Not offered at branches"],
-            ["IMPS up to ₹25,000", "₹3", "₹5"],
+            ["IMPS up to ₹25,00,000", "₹3", "₹5"],
             ["IMPS ₹25,001 – ₹1,00,000", "₹6", "₹10"],
             ["IMPS ₹1,00,001 – ₹5,00,000", "₹12", "₹15"],
             ["NEFT up to ₹10,000", "Nil", "₹2.50"],
@@ -111,7 +118,7 @@ export default function ScheduleOfCharges() {
         <LegalTable
           caption="ATM and cash"
           head={["Item", "Charge"]}
-          rows={[
+          rows={atmCashMiscRows || [
             ["FinEdge ATMs — financial and non-financial transactions", "Nil, unlimited"],
             ["Other-bank ATMs — first 5 transactions a month (metro: 3)", "Nil"],
             ["Other-bank ATM cash withdrawal beyond the free limit", "₹20 per transaction"],
@@ -126,7 +133,7 @@ export default function ScheduleOfCharges() {
       <LegalSection id="cheques-dd" title="4. Cheques, demand drafts & documents">
         <LegalTable
           head={["Item", "Charge"]}
-          rows={[
+          rows={chequesDdMiscRows || [
             ["Cheque book — first 25 leaves a year (savings)", "Nil"],
             ["Cheque book — additional leaves", "₹4 per leaf"],
             ["Cheque book — current accounts (50 leaves)", "₹150 per book"],

@@ -4,6 +4,7 @@ import { Badge, Button, Card, EmptyState, PageLoading, SectionHeader, Table } fr
 import { ageOf, formatINR } from '../../../lib/format.js';
 import { reportsSummary } from '../../../services/managerBridge.js';
 import { useDbTick } from '../../../context/AuthContext.jsx';
+import { getSetting } from '../../../services/api.js';
 
 function downloadCsv(filename, csv) {
   const blob = new Blob([csv], { type: 'text/csv;charset=utf-8' });
@@ -32,8 +33,10 @@ function slaTone(oldestAt) {
   if (!oldestAt) return 'success';
   const hours = (Date.now() - new Date(oldestAt).getTime()) / 3600000;
   if (Number.isNaN(hours)) return 'neutral';
-  if (hours >= 72) return 'danger';
-  if (hours >= 24) return 'warning';
+  const thresholds = (typeof getSetting === 'function' ? getSetting('slaThresholds') : null) || { amberHours: 24, redHours: 72 };
+  if (hours >= thresholds.redHours) return 'danger';
+  if (hours >= thresholds.amberHours) return 'warning';
+
   return 'success';
 }
 
@@ -122,7 +125,7 @@ export default function ManagerReportsPage() {
 
           <div>
             <h3 className="mb-1 text-base font-semibold text-ink-900">Queue health</h3>
-            <p className="mb-4 text-sm text-ink-600">Pending work by queue, with the age of its oldest item. SLA flags turn amber after 24 hours and red after 72 hours.</p>
+            <p className="mb-4 text-sm text-ink-600">Pending work by queue, with the age of its oldest item. SLA flags turn amber after {(typeof getSetting === 'function' ? getSetting('slaThresholds')?.amberHours : null) || 24} hours and red after {(typeof getSetting === 'function' ? getSetting('slaThresholds')?.redHours : null) || 72} hours.</p>
             {queueRows.length === 0 ? (
               <EmptyState icon={BarChart3} title="No queue data" body="Queue health will appear once there is work in the system." />
             ) : (

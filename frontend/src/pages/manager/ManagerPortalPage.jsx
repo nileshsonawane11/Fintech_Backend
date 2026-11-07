@@ -35,7 +35,9 @@ import ManagerTicketsSection from './sections/ManagerTicketsSection';
 import ManagerUserManagementSection from './sections/ManagerUserManagementSection';
 import ManagerRolesPermissionsSection from './sections/ManagerRolesPermissionsSection';
 import ManagerProductCatalogueSection from './sections/ManagerProductCatalogueSection';
-import { Package } from 'lucide-react';
+import ManagerSiteContentSection from './sections/ManagerSiteContentSection';
+import ManagerPlatformSettingsSection from './sections/ManagerPlatformSettingsSection';
+import { Package, Globe, Sliders } from 'lucide-react';
 
 const NAV_ITEMS = [
   { group: 'Work queues' },
@@ -56,6 +58,8 @@ const NAV_ITEMS = [
   { section: 'user-management', to: '/manager/user-management', label: 'User Management', icon: Users, adminOnly: true },
   { section: 'roles-permissions', to: '/manager/roles-permissions', label: 'Roles & Permissions', icon: KeyRound, adminOnly: true },
   { section: 'product-catalogue', to: '/manager/product-catalogue', label: 'Product Catalogue', icon: Package, adminOnly: true },
+  { section: 'site-content', to: '/manager/site-content', label: 'Site Content', icon: Globe, adminOnly: true },
+  { section: 'platform-settings', to: '/manager/platform-settings', label: 'Platform Settings', icon: Sliders, adminOnly: true },
 ];
 
 
@@ -97,6 +101,10 @@ export const ManagerPortalPage = () => {
     activeSection = 'roles-permissions';
   } else if (pathname === '/manager/product-catalogue') {
     activeSection = 'product-catalogue';
+  } else if (pathname === '/manager/site-content') {
+    activeSection = 'site-content';
+  } else if (pathname === '/manager/platform-settings') {
+    activeSection = 'platform-settings';
   }
 
   const handleLogout = async () => {
@@ -271,6 +279,8 @@ export const ManagerPortalPage = () => {
             {activeSection === 'user-management' && <ManagerUserManagementSection />}
             {activeSection === 'roles-permissions' && <ManagerRolesPermissionsSection />}
             {activeSection === 'product-catalogue' && <ManagerProductCatalogueSection />}
+            {activeSection === 'site-content' && <ManagerSiteContentSection />}
+            {activeSection === 'platform-settings' && <ManagerPlatformSettingsSection />}
           </>
         )}
       </main>

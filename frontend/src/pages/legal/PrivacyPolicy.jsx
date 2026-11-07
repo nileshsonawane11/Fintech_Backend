@@ -1,4 +1,5 @@
 import LegalLayout, { LegalSection, LegalTable } from "./LegalLayout";
+import { getContent } from "../../services/api.js";
 
 const SECTIONS = [
   { id: "who-we-are", label: "Who we are" },
@@ -16,6 +17,9 @@ const SECTIONS = [
 ];
 
 export default function PrivacyPolicy() {
+  const legalData = typeof getContent === 'function' ? getContent('legalPages') : null;
+  const pageData = legalData?.['privacy-policy'];
+  const whoWeAreSec = pageData?.sections?.find(s => s.id === 'who-we-are' || s.heading?.includes('Who we are'));
   return (
     <LegalLayout
       title="Privacy Policy"
@@ -23,21 +27,27 @@ export default function PrivacyPolicy() {
       sections={SECTIONS}
     >
       <LegalSection id="who-we-are" title="1. Who we are">
-        <p>
-          FinEdge Bank ("FinEdge", "we", "us") provides savings, current,
-          salary, student and minor accounts, loans, cards and investment
-          services through its branches and digital channels. This policy
-          explains our handling of personal information across all of those
-          channels. It applies to customers, joint holders, nominees,
-          guardians, authorised signatories and anyone who applies for a
-          product with us, whether or not the application is completed.
-        </p>
-        <p>
-          We treat the information you entrust to us as a responsibility, not
-          an asset. We collect only what a banking relationship genuinely
-          requires, we use it for the purposes described below, and we do not
-          sell personal information to anyone, for any purpose, ever.
-        </p>
+        {whoWeAreSec?.paragraphs?.length > 0 ? (
+          whoWeAreSec.paragraphs.map((p, idx) => <p key={idx}>{p}</p>)
+        ) : (
+          <>
+            <p>
+              FinEdge Bank ("FinEdge", "we", "us") provides savings, current,
+              salary, student and minor accounts, loans, cards and investment
+              services through its branches and digital channels. This policy
+              explains our handling of personal information across all of those
+              channels. It applies to customers, joint holders, nominees,
+              guardians, authorised signatories and anyone who applies for a
+              product with us, whether or not the application is completed.
+            </p>
+            <p>
+              We treat the information you entrust to us as a responsibility, not
+              an asset. We collect only what a banking relationship genuinely
+              requires, we use it for the purposes described below, and we do not
+              sell personal information to anyone, for any purpose, ever.
+            </p>
+          </>
+        )}
       </LegalSection>
 
       <LegalSection id="what-we-collect" title="2. Information we collect">

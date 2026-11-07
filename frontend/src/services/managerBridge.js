@@ -1,7 +1,7 @@
 // Manager Bridge Service
 // Connects manager sections to managerService and real DB engine with canonical normalization contract
 import { managerService } from './managerService.js';
-import { getDb, saveDb, appendAuditLog, computeEffectivePermissions } from './api.js';
+import { getDb, saveDb, appendAuditLog, computeEffectivePermissions, getContent, getSettings, FACTORY_SITE_CONTENT, FACTORY_SETTINGS, getProducts } from './api.js';
 import { calculateEMI } from '../lib/finance.js';
 import { maskPan } from '../lib/format.js';
 
@@ -93,6 +93,9 @@ export function getFirstQueueForRole(role) {
 export function hasSectionAccess(sectionKey, managerUser) {
   if (!managerUser) return false;
   const role = managerUser.role;
+  if (role === 'ADMIN' && (sectionKey === 'site-content' || sectionKey === 'platform-settings')) {
+    return true;
+  }
   const allowed = ROLE_ALLOWED_SECTIONS[role];
   if (allowed) {
     return allowed.includes(sectionKey);
@@ -1255,8 +1258,8 @@ export function customersCsv(rows = []) {
 }
 
 
-export async function revealCustomerPan(customerId) {
-  const actor = assertStaffPermission('customers.read');
+export async function revealCustomerPan(customerId, actorOverride = {}) {
+  const actor = assertStaffPermission('customers.read', actorOverride);
   const db = getDb();
   const cust = (db.customers || []).find(c => (c.customerId || c.id) === customerId);
   if (!cust) throw new Error('Customer not found');
@@ -1977,4 +1980,175 @@ export async function adminDeleteProduct(slug, actorOverride = {}) {
 
   appendAuditLog(actor.email, actor.role, 'PRODUCT_DELETED', slug, 'SUCCESS', `Deleted unused product ${product.name}`, product, null);
   return { success: true, deletedSlug: slug };
+}
+
+
+// ============================================================================
+// MODULE 49: SITE CONTENT & PLATFORM SETTINGS ADMINISTRATION (ADMIN ONLY)
+// ============================================================================
+
+export async function adminGetSiteContent(key = null, actorOverride = {}) {
+  assertAdminOnly(actorOverride, 'Viewing site content administration');
+  const db = getDb();
+  const siteContent = db.siteContent || FACTORY_SITE_CONTENT;
+  if (!key) return siteContent;
+  return siteContent[key] ?? FACTORY_SITE_CONTENT[key] ?? null;
+}
+
+export async function adminUpdateSiteContent(key, content, reason, actorOverride = {}) {
+  const actor = assertAdminOnly(actorOverride, 'Updating site content');
+  const db = getDb();
+
+  if (!reason || !reason.trim()) {
+    throw { status: 422, code: 'REASON_REQUIRED', detail: 'A justification reason is required to update site content.' };
+  }
+
+  db.siteContent = db.siteContent || JSON.parse(JSON.stringify(FACTORY_SITE_CONTENT));
+  const prevVal = JSON.parse(JSON.stringify(db.siteContent[key] ?? FACTORY_SITE_CONTENT[key] ?? null));
+
+  // Validations per content block type (Part B2)
+  if (key === 'hero') {
+    if (!content || typeof content !== 'object') {
+      throw { status: 422, code: 'VALIDATION_ERROR', detail: 'Hero content must be an object.' };
+    }
+    if (!content.headline || !content.headline.trim()) {
+      throw { status: 422, code: 'VALIDATION_ERROR', detail: 'Homepage hero headline cannot be saved empty.' };
+    }
+    if (!content.subtext || !content.subtext.trim()) {
+      throw { status: 422, code: 'VALIDATION_ERROR', detail: 'Homepage hero subtext cannot be saved empty.' };
+    }
+    if (!content.primaryCtaLabel || !content.primaryCtaLabel.trim()) {
+      throw { status: 422, code: 'VALIDATION_ERROR', detail: 'Primary CTA label cannot be empty.' };
+    }
+  } else if (key === 'offers') {
+    if (!Array.isArray(content)) {
+      throw { status: 422, code: 'VALIDATION_ERROR', detail: 'Offers content must be an array of offer blocks.' };
+    }
+    const allProducts = getProducts({ includeInactive: true });
+    const productSlugs = new Set(allProducts.map(p => p.slug));
+    for (const offer of content) {
+      if (!offer.title || !offer.title.trim()) {
+        throw { status: 422, code: 'VALIDATION_ERROR', detail: 'All seasonal offers must have a title.' };
+      }
+      if (!offer.summary || !offer.summary.trim()) {
+        throw { status: 422, code: 'VALIDATION_ERROR', detail: 'All seasonal offers must have a summary.' };
+      }
+      const slug = offer.productSlug || offer.linkedProductSlug;
+      if (slug && !productSlugs.has(slug)) {
+        throw {
+          status: 422,
+          code: 'VALIDATION_ERROR',
+          detail: `Linked product slug "${slug}" does not exist in the Product Catalogue. Select an existing product from the catalogue picker.`
+        };
+      }
+    }
+  } else if (key === 'faqs') {
+    if (!Array.isArray(content)) {
+      throw { status: 422, code: 'VALIDATION_ERROR', detail: 'FAQs content must be an array.' };
+    }
+    for (const faq of content) {
+      if (!faq.q || !faq.q.trim()) {
+        throw { status: 422, code: 'VALIDATION_ERROR', detail: 'FAQ question text is required.' };
+      }
+      if (!faq.a || !faq.a.trim()) {
+        throw { status: 422, code: 'VALIDATION_ERROR', detail: 'FAQ answer text is required.' };
+      }
+    }
+  } else if (key === 'whyPoints') {
+    if (!Array.isArray(content)) {
+      throw { status: 422, code: 'VALIDATION_ERROR', detail: 'Why Points content must be an array.' };
+    }
+    for (const pt of content) {
+      if (!pt.title || !pt.title.trim()) {
+        throw { status: 422, code: 'VALIDATION_ERROR', detail: 'Why FinEdge points must have a title.' };
+      }
+      if (!pt.body || !pt.body.trim()) {
+        throw { status: 422, code: 'VALIDATION_ERROR', detail: 'Why FinEdge points must have body copy.' };
+      }
+    }
+  } else if (key === 'footer') {
+    if (content.supportEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(content.supportEmail.trim())) {
+      throw { status: 422, code: 'VALIDATION_ERROR', detail: 'Support email must be a valid email address.' };
+    }
+    if (content.grievanceOfficerEmail && !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(content.grievanceOfficerEmail.trim())) {
+      throw { status: 422, code: 'VALIDATION_ERROR', detail: 'Grievance Officer email must be a valid email address.' };
+    }
+    if (!content.supportPhone || !content.supportPhone.trim()) {
+      throw { status: 422, code: 'VALIDATION_ERROR', detail: 'Support phone number is required.' };
+    }
+  } else if (key === 'legalPages') {
+    if (typeof content !== 'object' || !content) {
+      throw { status: 422, code: 'VALIDATION_ERROR', detail: 'Legal pages content must be an object of page definitions.' };
+    }
+    for (const [slug, page] of Object.entries(content)) {
+      if (!Array.isArray(page.sections) || page.sections.length === 0) {
+        throw { status: 422, code: 'VALIDATION_ERROR', detail: `Legal page "${slug}" must retain at least one section.` };
+      }
+      for (const sec of page.sections) {
+        if (!Array.isArray(sec.paragraphs) || sec.paragraphs.length === 0 || !sec.paragraphs.some(p => p && p.trim())) {
+          throw { status: 422, code: 'VALIDATION_ERROR', detail: `Section "${sec.heading || sec.id}" on page "${slug}" must contain at least one non-empty paragraph.` };
+        }
+      }
+    }
+  }
+
+  db.siteContent[key] = content;
+  saveDb(db);
+
+  appendAuditLog(actor.email, actor.role, 'SITE_CONTENT_UPDATED', key, 'SUCCESS', reason.trim(), prevVal, content);
+  return db.siteContent[key];
+}
+
+export async function adminGetSettings(actorOverride = {}) {
+  assertAdminOnly(actorOverride, 'Viewing platform settings administration');
+  const db = getDb();
+  return db.settings || FACTORY_SETTINGS;
+}
+
+export async function adminUpdateSettings(updates, reason, actorOverride = {}) {
+  const actor = assertAdminOnly(actorOverride, 'Updating platform settings');
+  const db = getDb();
+
+  if (!reason || !reason.trim()) {
+    throw { status: 422, code: 'REASON_REQUIRED', detail: 'A justification reason is required to update platform settings.' };
+  }
+
+  db.settings = db.settings || JSON.parse(JSON.stringify(FACTORY_SETTINGS));
+  const prevVal = JSON.parse(JSON.stringify(db.settings));
+
+  // Validations per Part C2
+  if (updates.transferRails) {
+    for (const [railId, railConfig] of Object.entries(updates.transferRails)) {
+      if (railConfig.fee !== undefined && railConfig.fee < 0) {
+        throw { status: 422, code: 'VALIDATION_ERROR', detail: `Transfer rail fee for ${railId} must be greater than or equal to ?0.` };
+      }
+      if (railConfig.dailyLimit !== undefined && railConfig.dailyLimit <= 0) {
+        throw { status: 422, code: 'VALIDATION_ERROR', detail: `Transfer rail daily limit for ${railId} must be greater than ?0.` };
+      }
+    }
+  }
+
+  if (updates.inactivityLockMinutes !== undefined) {
+    const mins = Number(updates.inactivityLockMinutes);
+    if (isNaN(mins) || mins < 5 || mins > 60) {
+      throw { status: 422, code: 'VALIDATION_ERROR', detail: 'Portal inactivity lock must be configured between 5 and 60 minutes.' };
+    }
+  }
+
+  if (updates.slaThresholds) {
+    const amber = Number(updates.slaThresholds.amberHours);
+    const red = Number(updates.slaThresholds.redHours);
+    if (isNaN(amber) || amber <= 0) {
+      throw { status: 422, code: 'VALIDATION_ERROR', detail: 'Amber SLA threshold must be greater than 0 hours.' };
+    }
+    if (isNaN(red) || red <= amber) {
+      throw { status: 422, code: 'VALIDATION_ERROR', detail: 'Red SLA threshold must be strictly greater than the Amber threshold.' };
+    }
+  }
+
+  Object.assign(db.settings, updates);
+  saveDb(db);
+
+  appendAuditLog(actor.email, actor.role, 'PLATFORM_SETTINGS_UPDATED', 'settings', 'SUCCESS', reason.trim(), prevVal, db.settings);
+  return db.settings;
 }

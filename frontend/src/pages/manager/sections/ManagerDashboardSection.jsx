@@ -11,6 +11,7 @@ import { reportsSummary, listMyDecisions, hasSectionAccess } from '../../../serv
 import { listKycCases } from '../../../services/managerBridge.js';
 import { listLoanApplications } from '../../../services/managerBridge.js';
 import { useAuth } from '../../../context/AuthContext.jsx';
+import { getSetting } from '../../../services/api.js';
 
 const LOAN_PENDING_STATUSES = ['SUBMITTED', 'UNDER_REVIEW', 'DOCUMENT_VERIFICATION'];
 const KYC_PENDING_STATUSES = ['PENDING', 'UNDER_REVIEW'];
@@ -22,11 +23,20 @@ function ageHours(iso) {
   return (Date.now() - start) / 3600000;
 }
 
+function getSlaThresholds() {
+  try {
+    return getSetting('slaThresholds') || { amberHours: 24, redHours: 72 };
+  } catch {
+    return { amberHours: 24, redHours: 72 };
+  }
+}
+
 function slaNote(iso) {
   const hours = ageHours(iso);
   if (hours === null) return '';
-  if (hours > 72) return 'Over 72 hours old — needs attention first.';
-  if (hours > 24) return 'Over 24 hours old.';
+  const thresholds = getSlaThresholds();
+  if (hours > thresholds.redHours) return `Over ${thresholds.redHours} hours old — needs attention first.`;
+  if (hours > thresholds.amberHours) return `Over ${thresholds.amberHours} hours old.`;
   return '';
 }
 
@@ -66,7 +76,7 @@ function QueueCell({ icon: Icon, label, queue, to, onOpen, canAccess }) {
         Oldest: {queue?.oldestAt ? ageOf(queue.oldestAt) : '—'}
       </span>
       {note && (
-        <span className={`mt-1 block text-xs font-medium ${ageHours(queue?.oldestAt) > 72 ? 'text-danger-600' : 'text-warning-600'}`}>
+        <span className={`mt-1 block text-xs font-medium ${ageHours(queue?.oldestAt) > getSlaThresholds().redHours ? 'text-danger-600' : 'text-warning-600'}`}>
           {note}
         </span>
       )}
