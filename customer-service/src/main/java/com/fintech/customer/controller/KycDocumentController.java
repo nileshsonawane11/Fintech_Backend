@@ -54,6 +54,19 @@ public class KycDocumentController {
         );
     }
 
+    @PostMapping("/upload")
+    public DocumentResponse processDirectUpload(
+            @AuthenticationPrincipal Jwt jwt,
+            @Valid @RequestBody DocumentUploadRequest request,
+            @RequestBody byte[] content
+    ){
+        return  documentService.processDirectUpload(
+                jwt.getSubject(),
+                request,
+                content
+        );
+    }
+
     @GetMapping
     public List<DocumentResponse> listDocuments(
             @AuthenticationPrincipal Jwt jwt

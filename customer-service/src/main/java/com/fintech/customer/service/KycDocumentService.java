@@ -241,6 +241,28 @@ public class KycDocumentService {
         return toResponse(document);
     }
 
+    @Transactional(noRollbackFor = ApiException.class)
+    public DocumentResponse processDirectUpload(
+            String identitySubject,
+            DocumentUploadRequest request,
+            byte[] content) {
+
+        // Step 1: Create the document metadata and get the reference ID
+        DocumentUploadResponse uploadMeta = createUpload(identitySubject, request);
+        String documentReferenceId = uploadMeta.documentReferenceId();
+
+        // Step 2: Upload the actual binary content
+        uploadContent(
+                identitySubject,
+                documentReferenceId,
+                request.contentType(),
+                content
+        );
+
+        // Step 3: Complete the upload and mark as validated
+        return completeUpload(identitySubject, documentReferenceId);
+    }
+
     @Transactional(readOnly = true)
     public List<DocumentResponse> listDocuments(String identitySubject) {
         return documentRepository
