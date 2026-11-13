@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Ban,
@@ -166,6 +167,7 @@ function CardPanel({ card, accounts, holderName, actorName, onBlockRequest, onRe
     if (disabled) return;
     const previous = controls;
     const next = { ...controls, [key]: !controls[key] };
+    traceForm('CardControlsUpdate', { cardId: card.id, channel: key, enabled: next[key] });
     setControls(next); // optimistic
     try {
       await updateCardControls(card.id, { controls: { [key]: next[key] } }, actorName);
@@ -194,6 +196,7 @@ function CardPanel({ card, accounts, holderName, actorName, onBlockRequest, onRe
       return;
     }
     const previous = savedLimits;
+    traceForm('CardLimitsUpdate', { cardId: card.id, spendDaily: draftLimits.dailySpend, atmWithdrawalDaily: draftLimits.atmWithdrawal });
     try {
       await updateCardControls(card.id, {
         limits: {
@@ -226,6 +229,7 @@ function CardPanel({ card, accounts, holderName, actorName, onBlockRequest, onRe
       setPayModalOpen(false);
       return;
     }
+    traceForm('CardBillPay', { cardId: card.id, accountId: payAccountId, amount: amountToPay });
     setPaying(true);
     try {
       const res = await payCard(card.id, { accountId: payAccountId, amount: amountToPay });
@@ -258,6 +262,7 @@ function CardPanel({ card, accounts, holderName, actorName, onBlockRequest, onRe
       setPinError('PINs do not match.');
       return;
     }
+    traceForm('CardPinSet', { cardId: card.id, pin, confirmPin });
     setSavingPin(true);
     try {
       await updateCardControls(card.id, { pinSet: true }, actorName);
@@ -571,14 +576,20 @@ function CardPanel({ card, accounts, holderName, actorName, onBlockRequest, onRe
       {/* Set PIN Modal */}
       <Modal
         open={pinModalOpen}
-        onClose={() => setPinModalOpen(false)}
+        onClose={() => { setPinModalOpen(false); setPin(''); setConfirmPin(''); setPinError(''); }}
         title="Set / Change ATM PIN"
         footer={
           <>
-            <Button type="button" variant="secondary" onClick={() => setPinModalOpen(false)} disabled={savingPin}>
+            <Button type="button" variant="secondary" onClick={() => { setPinModalOpen(false); setPin(''); setConfirmPin(''); setPinError(''); }} disabled={savingPin}>
               Cancel
             </Button>
-            <Button type="button" variant="primary" onClick={handleSetPin} loading={savingPin}>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={handleSetPin}
+              loading={savingPin}
+              disabled={savingPin || pin.length !== 4 || confirmPin.length !== 4 || pin !== confirmPin || !/^\d{4}$/.test(pin)}
+            >
               Save new PIN
             </Button>
           </>
@@ -592,8 +603,9 @@ function CardPanel({ card, accounts, holderName, actorName, onBlockRequest, onRe
           <Field label="Enter 4-digit PIN" required>
             <Input
               type="password"
+              autoComplete="new-password"
               maxLength={4}
-              placeholder="••••"
+              placeholder="Enter 4-digit PIN"
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
             />
@@ -601,8 +613,9 @@ function CardPanel({ card, accounts, holderName, actorName, onBlockRequest, onRe
           <Field label="Confirm 4-digit PIN" required>
             <Input
               type="password"
+              autoComplete="new-password"
               maxLength={4}
-              placeholder="••••"
+              placeholder="Re-enter 4-digit PIN"
               value={confirmPin}
               onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
             />
@@ -681,6 +694,7 @@ export default function CardsPage() {
       return undefined;
     }
     (async () => {
+      traceData('PortalCards');
       try {
         const [myCards, myApps, accs] = await Promise.all([
           listMyCards(customerId),
@@ -710,6 +724,7 @@ export default function CardsPage() {
 
   async function confirmBlock() {
     if (!blockTarget) return;
+    traceForm('CardBlock', { cardId: blockTarget.id });
     setBlocking(true);
     try {
       await blockCard(blockTarget.id, actorName);
@@ -741,6 +756,7 @@ export default function CardsPage() {
     if (!consent) errors.consent = 'Please confirm you agree to the card terms before applying.';
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0 || !product || !customerId) return;
+    traceForm('CardApplication', { productSlug: selectedSlug, productName: product.name, accountId, requestedLimit });
 
     // Check duplicate by product (not kind)
     const existing = cardApplications.find(
@@ -762,6 +778,7 @@ export default function CardsPage() {
         kind: product.cardType === 'credit' ? 'CREDIT' : 'DEBIT',
         cardType: product.cardType === 'credit' ? 'CREDIT' : 'DEBIT',
         accountId,
+        requestedLimit: requestedLimit ? Number(requestedLimit) : undefined,
       });
       setSuccessApp(app);
       setCardApplications((prev) => [app, ...prev.filter((a) => a.id !== app.id)]);

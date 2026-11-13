@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, FileText, X } from 'lucide-react';
 import {
@@ -149,6 +150,7 @@ export default function ManagerAccountsPage() {
   const [createdAccount, setCreatedAccount] = useState(null);
 
   const load = useCallback(async () => {
+    traceData('ManagerAccountsQueue');
     try {
       const [all, filtered] = await Promise.all([
         listAccountApplications({}),
@@ -193,6 +195,14 @@ export default function ManagerAccountsPage() {
     setPendingDecision(null);
     setCreatedAccount(null);
   }, [detailId]);
+
+  useEffect(() => {
+    const handleKeyDown = (e) => {
+      if (e.key === 'Escape' && !pendingDecision) setDetailId(null);
+    };
+    if (detailId) window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [detailId, pendingDecision]);
 
   // Resolve the account created by an approval so its number can be shown.
   useEffect(() => {
@@ -241,9 +251,15 @@ export default function ManagerAccountsPage() {
 
   const confirmDecision = async () => {
     if (!detail || !pendingDecision) return;
+    const decision = pendingDecision;
+    traceForm('AccountDecision', {
+      accountApplicationId: detail.id,
+      action: decision,
+      remarks: note.trim() || reasonCode,
+      initialFundingAmount: detail.initialFundingAmount,
+    });
     setSubmitting(true);
     try {
-      const decision = pendingDecision;
       const result = await decideAccountApplication(detail.id, {
         decision,
         reasonCode: decision === 'APPROVED' ? (needsOverride ? overrideReason : reasonCode || undefined) : reasonCode,
@@ -407,10 +423,16 @@ export default function ManagerAccountsPage() {
               {detail.status === 'REJECTED' ? (
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-[13px] text-ink-500">This application was rejected. No further decisions are available.</p>
-                  <Button variant="secondary" disabled title="Reopen workflow is not part of this prototype">Reopen</Button>
+                  <div className="flex gap-2">
+                    <Button variant="secondary" onClick={() => setDetailId(null)}>Close</Button>
+                    <Button variant="secondary" disabled title="Reopen workflow is not part of this prototype">Reopen</Button>
+                  </div>
                 </div>
               ) : detail.status === 'APPROVED' ? (
-                <p className="text-[13px] text-ink-500">This application was approved and the account has been created. No further decisions are available.</p>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-[13px] text-ink-500">This application was approved and the account has been created. No further decisions are available.</p>
+                  <Button variant="secondary" onClick={() => setDetailId(null)}>Close</Button>
+                </div>
               ) : actionable ? (
                 <div className="space-y-3">
                   {needsOverride && (
@@ -443,6 +465,7 @@ export default function ManagerAccountsPage() {
                     <Textarea rows={2} value={note} onChange={(e) => setNote(e.target.value)} placeholder="Optional note recorded with the decision" />
                   </Field>
                   <div className="flex flex-wrap justify-end gap-2">
+                    <Button variant="secondary" onClick={() => setDetailId(null)}>Close</Button>
                     <Button variant="danger" onClick={() => openDecision('REJECTED')}>Reject</Button>
                     <Button variant="secondary" onClick={() => openDecision('INFO_REQUIRED')}>Request Info</Button>
                     <Button variant="primary" onClick={() => openDecision('APPROVED')}>
@@ -451,7 +474,10 @@ export default function ManagerAccountsPage() {
                   </div>
                 </div>
               ) : (
-                <p className="text-[13px] text-ink-500">No decision actions are available for this status.</p>
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <p className="text-[13px] text-ink-500">No decision actions are available for this status.</p>
+                  <Button variant="secondary" onClick={() => setDetailId(null)}>Close</Button>
+                </div>
               )}
             </div>
           </aside>

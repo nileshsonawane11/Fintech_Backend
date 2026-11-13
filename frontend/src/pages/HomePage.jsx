@@ -931,7 +931,8 @@ export default function HomePage() {
             {/* Fix 0: Porcelain button on midnight background (NO gold button fill; Fix 4: fades in last) */}
             <div className="reveal-cta-btn">
               <Link
-                to="/portal/login"
+                to="/portal/login?mode=register"
+                state={{ mode: 'register' }}
                 className="inline-flex items-center justify-center gap-2 rounded-lg bg-porcelain-50 px-6 py-3 text-sm font-semibold text-midnight-950 transition-colors hover:bg-porcelain-200 shadow-sm"
               >
                 Create your account <ArrowRight className="h-4 w-4 text-midnight-900" aria-hidden />

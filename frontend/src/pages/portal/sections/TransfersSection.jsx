@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import { ConfirmationCheckmark } from '../../../components/common/ConfirmationCheckmark.jsx';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -31,6 +32,7 @@ export default function TransfersPage() {
   const [receipt, setReceipt] = useState(null);
 
   const loadData = () => {
+    traceData('PortalTransfers');
     if (!user?.customerId) return;
     Promise.all([listAccounts(user.customerId), listBeneficiaries(user.customerId)])
       .then(([accs, bens]) => {
@@ -115,9 +117,22 @@ export default function TransfersPage() {
   };
 
   const confirmTransfer = async () => {
+    traceForm('FundTransfer', {
+      customerId: user.customerId,
+      fromAccountId,
+      destinationType: destTab,
+      destinationId: destTab === 'OWN' ? ownAccountId : beneficiaryId,
+      amount: amountNum,
+      railId,
+      note: note.trim() || undefined,
+    });
     setFormError('');
     setSubmitting(true);
     try {
+      const resolvedToName = destTab === 'OWN' && ownAccount
+        ? accountLabel(ownAccount)
+        : (destTab === 'BENEFICIARY' && beneficiary ? (beneficiary.beneficiaryName || beneficiary.name) : undefined);
+
       const result = await transfer({
         customerId: user.customerId,
         fromAccountId,
@@ -126,6 +141,7 @@ export default function TransfersPage() {
         amount: amountNum,
         railId,
         note: note.trim() || undefined,
+        toName: resolvedToName,
       });
       setReceipt(result);
       setStep('receipt');
@@ -180,7 +196,7 @@ export default function TransfersPage() {
             <div>
               <h2 className="font-display text-xl font-semibold text-midnight-950">Transfer completed</h2>
               <p className="mt-1 text-sm text-ink-600">
-                {formatINR(receipt.amount)} has been sent to {receipt.toName || '—'}.
+                {formatINR(receipt.amount)} has been sent to {(receipt.toName || '').replace('FinEdge Enterprise Current Account', 'Trade Current') || '—'}.
               </p>
             </div>
           </div>
@@ -196,7 +212,7 @@ export default function TransfersPage() {
             </div>
             <div className="flex items-center justify-between gap-4 py-3">
               <dt className="text-ink-500">To</dt>
-              <dd className="font-medium text-ink-900">{receipt.toName || '—'}</dd>
+              <dd className="font-medium text-ink-900">{(receipt.toName || '').replace('FinEdge Enterprise Current Account', 'Trade Current') || '—'}</dd>
             </div>
             <div className="flex items-center justify-between gap-4 py-3">
               <dt className="text-ink-500">From</dt>

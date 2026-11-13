@@ -730,8 +730,8 @@ export async function decideLoanApplication(appId, { decision, reasonCode, note,
   const sAmount = sanctionedAmount != null ? Number(sanctionedAmount) : (app.sanctionedAmount || app.requestedAmount || app.amount);
   const sRate = sanctionedRate != null ? Number(sanctionedRate) : (app.sanctionedRate || app.rate || 8.75);
 
-  if (decision === 'APPROVED') {
-    app.status = 'APPROVED';
+  if (decision === 'APPROVED' || decision === 'SANCTIONED') {
+    app.status = decision === 'SANCTIONED' ? 'SANCTIONED' : 'APPROVED';
     app.sanctionedAmount = sAmount;
     app.sanctionedRate = sRate;
     app.decidedBy = staff.email;
@@ -922,7 +922,8 @@ export async function disburseLoan(appId, options = {}) {
     sanctionedAmount: principal,
     creditedAccountLast4: targetAcc?.accountNumber?.slice(-4) || '1001',
     accountId: targetAcc?.accountId || disbursementAccountId,
-    disbursedAt
+    disbursedAt,
+    status: 'DISBURSED'
   };
 }
 
@@ -1376,7 +1377,8 @@ export async function getUserDetail(id, type, actorOverride = {}) {
   assertAdminOnly(actorOverride, 'Viewing user details');
   const db = getDb();
   let user = null;
-  if (type === 'CUSTOMER' || (!type && id.startsWith('CUS'))) {
+  const normType = (type || '').toUpperCase();
+  if (normType === 'CUSTOMER' || (!type && id.startsWith('CUS'))) {
     const c = (db.customers || []).find(cust => cust.customerId === id);
     if (!c) throw { status: 404, code: 'USER_NOT_FOUND', detail: 'Customer not found.' };
     user = {
@@ -1390,6 +1392,8 @@ export async function getUserDetail(id, type, actorOverride = {}) {
       role: 'CUSTOMER',
       roles: ['CUSTOMER'],
       roleTitle: 'Retail Customer',
+      permissions: ['transfers.execute', 'cards.issue', 'accounts.read'],
+      permissionOverrides: c.permissionOverrides || {},
       status: c.status || 'ACTIVE',
       kycStatus: c.kycStatus || 'PENDING',
       riskCategory: c.riskCategory || 'LOW',
@@ -1580,8 +1584,11 @@ export async function updateUserOverrides(id, overrides, reason, actorOverride =
     throw { status: 422, code: 'REASON_REQUIRED', detail: 'A reason is required to update permission overrides.' };
   }
 
-  const target = (db.staffUsers || []).find(s => s.staffId === id);
-  if (!target) throw { status: 404, code: 'USER_NOT_FOUND', detail: 'Staff member not found.' };
+  let target = (db.staffUsers || []).find(s => s.staffId === id);
+  if (!target) {
+    target = (db.customers || []).find(c => c.customerId === id);
+  }
+  if (!target) throw { status: 404, code: 'USER_NOT_FOUND', detail: 'User not found.' };
 
   if (actor.staffId === id || (actor.email && target.email && actor.email.toLowerCase() === target.email.toLowerCase())) {
     throw {
@@ -1619,8 +1626,13 @@ export async function updateUserRoles(id, newRoles, reason, actorOverride = {}) 
     throw { status: 422, code: 'REASON_REQUIRED', detail: 'A reason is required to change roles.' };
   }
 
-  const target = (db.staffUsers || []).find(s => s.staffId === id);
-  if (!target) throw { status: 404, code: 'USER_NOT_FOUND', detail: 'Staff member not found.' };
+  let target = (db.staffUsers || []).find(s => s.staffId === id);
+  let isCustomer = false;
+  if (!target) {
+    target = (db.customers || []).find(c => c.customerId === id);
+    if (target) isCustomer = true;
+  }
+  if (!target) throw { status: 404, code: 'USER_NOT_FOUND', detail: 'User not found.' };
 
   if (actor.staffId === id || (actor.email && target.email && actor.email.toLowerCase() === target.email.toLowerCase())) {
     throw {
@@ -1645,11 +1657,11 @@ export async function updateUserRoles(id, newRoles, reason, actorOverride = {}) 
     }
   }
 
-  const prevRole = target.role;
+  const prevRole = target.role || (isCustomer ? 'CUSTOMER' : 'STAFF');
   const primaryRole = Array.isArray(newRoles) ? newRoles[0] : newRoles;
   target.role = primaryRole;
   target.roles = Array.isArray(newRoles) ? newRoles : [newRoles];
-  if (ROLE_TEMPLATES[primaryRole]) {
+  if (!isCustomer && ROLE_TEMPLATES[primaryRole]) {
     target.permissions = [...ROLE_TEMPLATES[primaryRole]];
   }
   saveDb(db);
@@ -1665,6 +1677,7 @@ export async function updateUserRoles(id, newRoles, reason, actorOverride = {}) 
 export async function listRoles(actorOverride = {}) {
   assertAdminOnly(actorOverride, 'Viewing role governance');
   const db = getDb();
+  const overrides = db.systemRoleOverrides || {};
 
   const systemRoles = [
     {
@@ -1672,49 +1685,49 @@ export async function listRoles(actorOverride = {}) {
       name: 'Customer',
       description: 'Retail banking customer with self-service portal clearance',
       isSystem: true,
-      permissions: ['customers.read']
+      permissions: overrides.CUSTOMER || ['customers.read']
     },
     {
       id: 'KYC_OFFICER',
       name: 'KYC Verification Officer',
       description: 'Senior KYC verification, document compliance, and AML assessment',
       isSystem: true,
-      permissions: ROLE_TEMPLATES.KYC_OFFICER
+      permissions: overrides.KYC_OFFICER || ROLE_TEMPLATES.KYC_OFFICER
     },
     {
       id: 'ACCOUNT_OPS',
       name: 'Account & Card Operations Specialist',
       description: 'Account origination decisions and debit/credit card issuance clearance',
       isSystem: true,
-      permissions: ROLE_TEMPLATES.ACCOUNT_OPS
+      permissions: overrides.ACCOUNT_OPS || ROLE_TEMPLATES.ACCOUNT_OPS
     },
     {
       id: 'AUDIT_COMPLIANCE',
       name: 'Senior Internal Auditor',
       description: 'Independent risk oversight, compliance reporting, and read-only audit log inspection',
       isSystem: true,
-      permissions: ROLE_TEMPLATES.AUDIT_COMPLIANCE
+      permissions: overrides.AUDIT_COMPLIANCE || ROLE_TEMPLATES.AUDIT_COMPLIANCE
     },
     {
       id: 'CUSTOMER_SUPPORT',
       name: 'Customer Care Lead',
       description: 'Support ticket resolution, inquiry handling, and customer communications',
       isSystem: true,
-      permissions: ROLE_TEMPLATES.CUSTOMER_SUPPORT
+      permissions: overrides.CUSTOMER_SUPPORT || ROLE_TEMPLATES.CUSTOMER_SUPPORT
     },
     {
       id: 'BANK_MANAGER',
       name: 'Chief Branch Manager',
       description: 'Operational supervisory authority across lending, accounts, cards, and staff',
       isSystem: true,
-      permissions: ROLE_TEMPLATES.BANK_MANAGER
+      permissions: overrides.BANK_MANAGER || ROLE_TEMPLATES.BANK_MANAGER
     },
     {
       id: 'ADMIN',
       name: 'System Administrator',
       description: 'Full platform administration, security roles governance, and product catalogue management',
       isSystem: true,
-      permissions: PERMISSION_CATALOGUE.map(p => p.code)
+      permissions: overrides.ADMIN || PERMISSION_CATALOGUE.map(p => p.code)
     }
   ];
 
@@ -1767,8 +1780,11 @@ export async function updateRole(roleId, updates, reason, actorOverride = {}) {
   let nextPermissions = updates.permissions || [];
 
   if (isSystem) {
-    prevPermissions = ROLE_TEMPLATES[roleId] ? [...ROLE_TEMPLATES[roleId]] : [];
+    prevPermissions = db.systemRoleOverrides?.[roleId] || (ROLE_TEMPLATES[roleId] ? [...ROLE_TEMPLATES[roleId]] : (roleId === 'ADMIN' ? PERMISSION_CATALOGUE.map(p => p.code) : []));
     ROLE_TEMPLATES[roleId] = [...nextPermissions];
+    db.systemRoleOverrides = db.systemRoleOverrides || {};
+    db.systemRoleOverrides[roleId] = [...nextPermissions];
+    saveDb(db);
   } else {
     const custom = (db.customRoles || []).find(r => r.id === roleId);
     if (!custom) throw { status: 404, code: 'ROLE_NOT_FOUND', detail: 'Custom role not found.' };
@@ -1928,7 +1944,7 @@ export async function adminSetProductStatus(slug, status, reason, actorOverride 
   if (!product) throw { status: 404, code: 'PRODUCT_NOT_FOUND', detail: 'Product not found.' };
 
   const prevStatus = product.status || 'ACTIVE';
-  product.status = status === 'INACTIVE' ? 'INACTIVE' : 'ACTIVE';
+  product.status = (status === 'INACTIVE' || status === 'DEACTIVATED') ? status : 'ACTIVE';
   product.updatedAt = new Date().toISOString();
   saveDb(db);
 
@@ -2123,15 +2139,15 @@ export async function adminUpdateSettings(updates, reason, actorOverride = {}) {
         throw { status: 422, code: 'VALIDATION_ERROR', detail: `Transfer rail fee for ${railId} must be greater than or equal to ?0.` };
       }
       if (railConfig.dailyLimit !== undefined && railConfig.dailyLimit <= 0) {
-        throw { status: 422, code: 'VALIDATION_ERROR', detail: `Transfer rail daily limit for ${railId} must be greater than ?0.` };
+        throw { status: 422, code: 'VALIDATION_ERROR', detail: `Transfer rail daily limit for ${railId} must be greater than ₹0.` };
       }
     }
   }
 
   if (updates.inactivityLockMinutes !== undefined) {
     const mins = Number(updates.inactivityLockMinutes);
-    if (isNaN(mins) || mins < 5 || mins > 60) {
-      throw { status: 422, code: 'VALIDATION_ERROR', detail: 'Portal inactivity lock must be configured between 5 and 60 minutes.' };
+    if (isNaN(mins) || mins < 1 || mins > 60) {
+      throw { status: 422, code: 'VALIDATION_ERROR', detail: 'Portal inactivity lock must be configured between 1 and 60 minutes.' };
     }
   }
 

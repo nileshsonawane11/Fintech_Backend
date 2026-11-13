@@ -1,3 +1,4 @@
+import { traceData } from '../../../lib/trace.js';
 import Reveal from '../../../components/Reveal.jsx';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
@@ -109,6 +110,7 @@ export default function DashboardPage() {
   const [txnFilter, setTxnFilter] = useState('ALL'); // 'ALL' | 'CREDIT' | 'DEBIT'
 
   const load = useCallback(async () => {
+    traceData('PortalDashboard');
     if (!customerId) { setLoading(false); return; }
     setLoading(true);
     setLoadError('');

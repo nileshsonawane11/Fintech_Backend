@@ -486,10 +486,10 @@ await itAsync('Lock: Set inactivity lock to 5 minutes -> getSetting reflects 5',
   assert.strictEqual(getSetting('inactivityLockMinutes'), 15);
 });
 
-await itAsync('Lock: Values below 5 or above 60 are rejected with 422', async () => {
+await itAsync('Lock: Values below 1 or above 60 are rejected with 422', async () => {
   let threwLow = false;
   try {
-    await adminUpdateSettings({ inactivityLockMinutes: 3 }, 'Too low', ADMIN_ACTOR);
+    await adminUpdateSettings({ inactivityLockMinutes: 0 }, 'Too low', ADMIN_ACTOR);
   } catch (e) {
     threwLow = true;
     assert.strictEqual(e.status, 422);

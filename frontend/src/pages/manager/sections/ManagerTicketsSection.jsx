@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useEffect, useMemo, useState } from 'react';
 import { LifeBuoy, Send, X } from 'lucide-react';
 import {
@@ -32,6 +33,7 @@ export default function ManagerTicketsPage() {
   const [statusBusy, setStatusBusy] = useState(false);
 
   const load = () => {
+    traceData('ManagerTicketsQueue');
     listAllTickets({})
       .then((rows) => { setTickets(rows); setError(''); })
       .catch((e) => setError(e.message || 'Could not load tickets.'));
@@ -75,13 +77,17 @@ export default function ManagerTicketsPage() {
   useEffect(() => { setReply(''); }, [selectedId]);
 
   async function handleReply() {
-    if (!selected || !reply.trim()) return;
+    if (!selected || !reply.trim() || sending) return;
+    traceForm('TicketReply', { ticketId: selected.id, replyMessage: reply.trim(), status: selected.status });
     setSending(true);
     try {
-      await replyTicket(selected.id, { from: 'STAFF', body: reply.trim(), actor, actorRole, actorEmail: user?.email });
-      toast({ title: 'Reply sent', body: `Your reply was added to ticket ${selected.id}.` });
+      const updated = await replyTicket(selected.id, { from: 'STAFF', body: reply.trim(), actor, actorRole, actorEmail: user?.email });
       setReply('');
+      if (updated) {
+        setTickets((prev) => (prev || []).map((t) => (t.id === selected.id ? { ...t, ...updated, customer: t.customer } : t)));
+      }
       load();
+      toast({ title: 'Reply sent', body: `Your reply was added to ticket ${selected.id}.` });
     } catch (e) {
       toast({ tone: 'error', title: 'Reply failed', body: e.message });
     } finally {
@@ -90,12 +96,16 @@ export default function ManagerTicketsPage() {
   }
 
   async function handleStatus(status, successTitle) {
-    if (!selected) return;
+    if (!selected || statusBusy) return;
+    traceForm('TicketStatusChange', { ticketId: selected.id, status });
     setStatusBusy(true);
     try {
-      await setTicketStatus(selected.id, status, { actor, actorRole, actorEmail: user?.email });
-      toast({ title: successTitle, body: `Ticket ${selected.id} is now ${status === 'RESOLVED' ? 'resolved' : 'in progress'}.` });
+      const updated = await setTicketStatus(selected.id, status, { actor, actorRole, actorEmail: user?.email });
+      if (updated) {
+        setTickets((prev) => (prev || []).map((t) => (t.id === selected.id ? { ...t, ...updated, customer: t.customer } : t)));
+      }
       load();
+      toast({ title: successTitle, body: `Ticket ${selected.id} is now ${status === 'RESOLVED' ? 'resolved' : 'in progress'}.` });
     } catch (e) {
       toast({ tone: 'error', title: 'Status change failed', body: e.message });
     } finally {
@@ -218,8 +228,11 @@ export default function ManagerTicketsPage() {
                   title={isAuditor ? 'Auditors have read-only access and cannot reply to tickets' : undefined}
                 />
               </Field>
-              <div className="flex justify-end">
-                <Button loading={sending} disabled={!reply.trim() || isAuditor} title={isAuditor ? 'Auditors have read-only access and cannot reply to tickets' : undefined} onClick={handleReply}>
+              <div className="flex items-center justify-between gap-3">
+                <Button variant="secondary" onClick={() => setSelectedId(null)}>
+                  Close
+                </Button>
+                <Button loading={sending} disabled={!reply.trim() || isAuditor || sending} title={isAuditor ? 'Auditors have read-only access and cannot reply to tickets' : undefined} onClick={handleReply}>
                   <Send className="h-4 w-4" aria-hidden /> Send reply
                 </Button>
               </div>

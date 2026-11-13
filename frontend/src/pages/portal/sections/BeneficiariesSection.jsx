@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Plus, Trash2, Users } from 'lucide-react';
 import { Button, Card, EmptyState, Field, FormError, Input, Modal, PageLoading, SectionHeader, Table, useToast } from '../../../components/ui.jsx';
@@ -25,6 +26,7 @@ export default function BeneficiariesPage() {
   const [deleteError, setDeleteError] = useState('');
 
   const load = useCallback(() => {
+    traceData('PortalBeneficiaries');
     if (!user?.customerId) return;
     Promise.all([
       listBeneficiaries(user.customerId),
@@ -87,6 +89,12 @@ export default function BeneficiariesPage() {
     e.preventDefault();
     setFormError('');
     if (!validate()) return;
+    traceForm('AddBeneficiary', {
+      name: form.name.trim(),
+      accountNumber: form.accountNumber.replace(/\s/g, ''),
+      ifsc: form.ifsc.trim(),
+      bankName: form.bankName.trim(),
+    });
     setAdding(true);
     try {
       const ben = await addBeneficiary(user.customerId, {
@@ -108,6 +116,7 @@ export default function BeneficiariesPage() {
 
   const confirmDelete = async () => {
     if (!deleteTarget) return;
+    traceForm('DeleteBeneficiary', { beneficiaryId: deleteTarget.id, name: deleteTarget.name });
     setDeleteError('');
     setDeleting(true);
     try {

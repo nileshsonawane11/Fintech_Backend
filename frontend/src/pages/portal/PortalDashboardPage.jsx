@@ -1,4 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import { useServerMode } from '../../lib/serverMode.js';
+import React from 'react';
+import { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate, useSearchParams, Link, NavLink, useParams } from 'react-router-dom';
 import { useAuth, useDbTick } from '../../context/AuthContext';
 import {
@@ -62,17 +64,30 @@ export const PortalDashboardPage = () => {
   const { user, logout } = useAuth();
   useDbTick();
   const navigate = useNavigate();
+  const { isDemo } = useServerMode();
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const [moreOpen, setMoreOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
-  const [unreadN, setUnreadN] = useState(0);
+  const [asyncUnread, setAsyncUnread] = useState(0);
 
-  // Sync sidebar unread badge with unreadCount
+  // Sync unread badge with unreadCount
   useEffect(() => {
     if (!user?.customerId) return;
-    unreadCount(user.customerId).then((c) => setUnreadN(c || 0)).catch(() => {});
+    unreadCount(user.customerId).then((c) => setAsyncUnread(c || 0)).catch(() => {});
   }, [user?.customerId, location.pathname]);
+
+  // One unread count: portal header badge, sidebar badge, and "More" menu badge read from the same state selector in same render
+  const unreadN = useMemo(() => {
+    if (!user?.customerId) return 0;
+    try {
+      const db = getDb();
+      if (Array.isArray(db.notifications)) {
+        return db.notifications.filter((n) => n.customerId === user.customerId && !n.read).length;
+      }
+    } catch {}
+    return asyncUnread;
+  }, [user?.customerId, asyncUnread]);
 
   // 15-Minute Session Inactivity Lock
   const lockMinutes = Number(getSetting('inactivityLockMinutes')) || 15;
@@ -173,7 +188,13 @@ export const PortalDashboardPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-porcelain-100 lg:flex">
+    <div className="min-h-screen bg-porcelain-100 flex flex-col">
+      {isDemo && (
+        <div className="w-full bg-amber-500/10 border-b border-amber-500/20 px-4 py-1 text-center text-xs font-medium text-amber-900 tracking-wide z-20 shrink-0">
+          Demo mode · demonstration data — nothing here is a real bank record.
+        </div>
+      )}
+      <div className="flex-1 lg:flex">
       {/* Sidebar ≥ lg */}
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col bg-midnight-900 px-4 py-5 lg:flex border-r border-midnight-950">
         <Link to="/" className="flex items-center gap-2.5 px-2" aria-label="FinEdge Bank — home">
@@ -393,6 +414,7 @@ export const PortalDashboardPage = () => {
         )}
       </nav>
 
+      </div>
       {/* Session Inactivity Lock Modal */}
       {sessionLocked && (
         <Modal

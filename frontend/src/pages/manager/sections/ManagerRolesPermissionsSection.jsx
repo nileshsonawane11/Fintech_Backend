@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../../context/AuthContext.jsx';
 
@@ -66,6 +67,7 @@ export default function ManagerRolesPermissionsSection() {
   const [deleting, setDeleting] = useState(false);
 
   const loadRoles = async () => {
+    traceData('ManagerRolesPermissions');
     try {
       setLoading(true);
       setError('');
@@ -135,6 +137,7 @@ export default function ManagerRolesPermissionsSection() {
       setApplyError('A justification reason is mandatory for governance audit records.');
       return;
     }
+    traceForm('RolePermissionsUpdate', { role: selectedRole?.id || selectedRole, permissions: stagedPermissions });
     setApplying(true);
     setApplyError('');
     try {

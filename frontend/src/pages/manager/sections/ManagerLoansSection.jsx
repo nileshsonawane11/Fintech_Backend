@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, Receipt, Search, X } from 'lucide-react';
 import {
@@ -114,6 +115,7 @@ export default function ManagerLoansPage() {
   const [linkedAccount, setLinkedAccount] = useState(null);
 
   const load = useCallback(async () => {
+    traceData('ManagerLoansQueue');
     try {
       const [all, filtered] = await Promise.all([
         listLoanApplications({}),
@@ -204,10 +206,16 @@ export default function ManagerLoansPage() {
 
   const confirmDecision = async () => {
     if (!detail || !pendingDecision) return;
+    const decision = pendingDecision;
+    traceForm('LoanDecision', {
+      loanApplicationId: detail.id,
+      action: decision,
+      remarks: note.trim() || reasonCode,
+      sanctionedAmount: Number(sanctionedAmount) || detail.amount,
+    });
     setSubmitting(true);
     setConfirmError('');
     try {
-      const decision = pendingDecision;
       let sAmt = detail.amount;
       let sRt = detail.rate || 8.75;
       if (decision === 'APPROVED') {
@@ -273,6 +281,7 @@ export default function ManagerLoansPage() {
 
   const confirmDisburse = async () => {
     if (!detail) return;
+    traceForm('LoanDisburse', { loanApplicationId: detail.id });
     setSubmitting(true);
     try {
       const loan = await disburseLoan(detail.id, {
@@ -496,7 +505,7 @@ export default function ManagerLoansPage() {
                   {isAuditor && <p className="text-xs text-ink-500 text-right mt-1">Auditor clearance is read-only — decision controls are disabled.</p>}
                 </div>
               ) : (
-                <p className="text-[13px] text-ink-500">No decision actions are available for this status.</p>
+                <div className="flex items-center justify-between pt-2"><p className="text-[13px] text-ink-500">No decision actions are available for this status.</p><Button variant="secondary" size="sm" onClick={() => setDetailId(null)}>Close</Button></div>
               )}
             </div>
           </aside>

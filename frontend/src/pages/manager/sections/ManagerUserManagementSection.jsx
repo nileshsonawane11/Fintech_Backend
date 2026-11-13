@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../../context/AuthContext.jsx';
 
@@ -24,6 +25,7 @@ import {
   createInternalUser,
   updateUserStatus,
   updateUserOverrides,
+  updateUserRoles,
   PERMISSION_CATALOGUE,
 } from '../../../services/managerBridge.js';
 import {
@@ -70,6 +72,13 @@ export default function ManagerUserManagementSection() {
   const [overrideModalOpen, setOverrideModalOpen] = useState(false);
   const [savingOverrides, setSavingOverrides] = useState(false);
 
+  // Role Assignment Modal (Module 52 A.9)
+  const [roleModalOpen, setRoleModalOpen] = useState(false);
+  const [selectedRoleForUser, setSelectedRoleForUser] = useState('');
+  const [roleChangeReason, setRoleChangeReason] = useState('');
+  const [roleChangeError, setRoleChangeError] = useState('');
+  const [updatingRole, setUpdatingRole] = useState(false);
+
   // Status Action Modal
   const [statusModalOpen, setStatusModalOpen] = useState(false);
   const [targetStatus, setTargetStatus] = useState('ACTIVE');
@@ -98,6 +107,7 @@ export default function ManagerUserManagementSection() {
   const isAdmin = managerUser?.role === 'ADMIN';
 
   const loadUsers = async () => {
+    traceData('ManagerUserManagement');
     try {
       setLoading(true);
       setError('');
@@ -138,6 +148,22 @@ export default function ManagerUserManagementSection() {
     setStagedOverrides({});
     setOverrideReason('');
   };
+
+  useEffect(() => {
+    if (!selectedUser) return undefined;
+    const prevOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    const onKey = (e) => {
+      if (e.key === 'Escape' && !overrideModalOpen && !roleModalOpen && !statusModalOpen && !resetModalOpen) {
+        closeDrawer();
+      }
+    };
+    document.addEventListener('keydown', onKey);
+    return () => {
+      document.body.style.overflow = prevOverflow;
+      document.removeEventListener('keydown', onKey);
+    };
+  }, [selectedUser, overrideModalOpen, roleModalOpen, statusModalOpen, resetModalOpen]);
 
   const filteredUsers = useMemo(() => {
     if (!users) return [];
@@ -229,11 +255,38 @@ export default function ManagerUserManagementSection() {
       (selectedUser.email && managerUser.email && selectedUser.email.toLowerCase() === managerUser.email.toLowerCase()))
   );
 
+  const handleRoleUpdate = async () => {
+    if (!roleChangeReason.trim()) {
+      setRoleChangeError('A reason is mandatory for changing a user role.');
+      return;
+    }
+    setUpdatingRole(true);
+    setRoleChangeError('');
+    try {
+      await updateUserRoles(selectedUser.id, selectedRoleForUser, roleChangeReason.trim());
+      toast({
+        title: 'Role Updated',
+        body: `Assigned ${selectedRoleForUser} role to ${selectedUser.name}. Written to audit log.`,
+      });
+      setRoleModalOpen(false);
+      setRoleChangeReason('');
+      await loadUsers();
+      const updated = await getUserDetail(selectedUser.id, selectedUser.type);
+      setDrawerDetail(updated);
+      setSelectedUser(updated.user);
+    } catch (e) {
+      setRoleChangeError(e.detail || e.message || 'Failed to update user role.');
+    } finally {
+      setUpdatingRole(false);
+    }
+  };
+
   const handleSaveOverrides = async () => {
     if (!overrideReason.trim()) {
       toast({ tone: 'error', title: 'Reason Required', body: 'A reason is required to update permission overrides.' });
       return;
     }
+    traceForm('UserOverridesUpdate', { staffId: selectedUser.id, overrides: stagedOverrides });
     setSavingOverrides(true);
     try {
       await updateUserOverrides(selectedUser.id, stagedOverrides, overrideReason.trim());
@@ -600,7 +653,23 @@ export default function ManagerUserManagementSection() {
                             <p className="text-ink-900 mt-0.5">{selectedUser.mobile || '—'}</p>
                           </div>
                           <div>
-                            <p className="text-ink-500 font-medium">Clearance / Role</p>
+                            <div className="flex items-center justify-between">
+                              <p className="text-ink-500 font-medium">Clearance / Role</p>
+                              {!isSelf && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    setSelectedRoleForUser(selectedUser.role || 'CUSTOMER');
+                                    setRoleChangeReason('');
+                                    setRoleChangeError('');
+                                    setRoleModalOpen(true);
+                                  }}
+                                  className="text-xs font-semibold text-gold-700 hover:text-gold-900 hover:underline"
+                                >
+                                  Change Role
+                                </button>
+                              )}
+                            </div>
                             <p className="font-semibold text-ink-900 mt-0.5">
                               {selectedUser.roleTitle || selectedUser.role}
                             </p>

@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, CreditCard, Search, X } from 'lucide-react';
 import {
@@ -100,6 +101,7 @@ export default function ManagerCardsPage() {
   const [issueResult, setIssueResult] = useState(null);
 
   const load = useCallback(async () => {
+    traceData('ManagerCardsQueue');
     try {
       const [all, filtered] = await Promise.all([
         listCardApplications({}),
@@ -199,6 +201,11 @@ export default function ManagerCardsPage() {
 
   const confirmAction = async () => {
     if (!detail || !pendingAction) return;
+    traceForm('CardDecision', {
+      cardApplicationId: detail.id,
+      action: pendingAction,
+      limit: Number(approvedLimit) || undefined,
+    });
     setSubmitting(true);
     setFormError('');
     try {
@@ -452,7 +459,7 @@ export default function ManagerCardsPage() {
                   {isAuditor && <p className="text-xs text-ink-500 text-right mt-1">Auditor clearance is read-only — action controls are disabled.</p>}
                 </div>
               ) : (
-                <p className="text-[13px] text-ink-500">No actions are available for this status.</p>
+                <div className="flex items-center justify-between pt-2"><p className="text-[13px] text-ink-500">No actions are available for this status.</p><Button variant="secondary" size="sm" onClick={() => setDetailId(null)}>Close</Button></div>
               )}
             </div>
           </aside>

@@ -1,3 +1,4 @@
+import { traceData } from '../../../lib/trace.js';
 import React, { useEffect, useState } from 'react';
 import { BarChart3, Download } from 'lucide-react';
 import { Badge, Button, Card, EmptyState, PageLoading, SectionHeader, Table } from '../../../components/ui.jsx';
@@ -55,6 +56,7 @@ export default function ManagerReportsPage() {
 
   useEffect(() => {
     let alive = true;
+    traceData('ManagerReports');
     reportsSummary()
       .then((s) => { if (alive) { setSummary(s); setError(''); } })
       .catch((e) => { if (alive) setError(e.message || 'Could not load reports.'); });

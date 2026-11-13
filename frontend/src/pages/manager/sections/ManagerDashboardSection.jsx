@@ -1,3 +1,4 @@
+import { traceData } from '../../../lib/trace.js';
 import React, { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import {
@@ -99,6 +100,7 @@ export default function ManagerDashboardPage() {
   useEffect(() => {
     let cancelled = false;
     (async () => {
+      traceData('ManagerDashboard');
       setLoading(true);
       setError('');
       try {

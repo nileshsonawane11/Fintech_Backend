@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ChevronLeft, ChevronRight, FileText, Search, SearchX, X,
@@ -83,6 +84,7 @@ export default function ManagerKycPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const loadList = useCallback(async () => {
+    traceData('ManagerKycQueue');
     setLoading(true);
     setLoadError('');
     try {
@@ -178,6 +180,12 @@ export default function ManagerKycPage() {
     if (!drawerCase || !confirmDecision) return;
     const decidedId = drawerCase.id;
     const decision = confirmDecision;
+    traceForm('KycDecision', {
+      kycCaseId: decidedId,
+      action: decision,
+      remarks: remarks.trim() || reasonCode,
+      riskCategory: drawerCase.riskCategory,
+    });
     setSubmitting(true);
     setConfirmError('');
     try {
@@ -453,6 +461,7 @@ export default function ManagerKycPage() {
                   />
                 </Field>
                 <div className="flex flex-wrap gap-2">
+                  <Button variant="secondary" onClick={closeDrawer}>Close</Button>
                   <Button variant="danger" className="flex-1" disabled={isAuditor} title={isAuditor ? 'Auditor access is read-only' : undefined} onClick={() => requestDecision('REJECTED')}>Reject</Button>
                   <Button variant="secondary" className="flex-1" disabled={isAuditor} title={isAuditor ? 'Auditor access is read-only' : undefined} onClick={() => requestDecision('INFO_REQUIRED')}>Request Info</Button>
                   <Button variant="primary" className="flex-1" disabled={isAuditor} title={isAuditor ? 'Auditor access is read-only' : undefined} onClick={() => requestDecision('APPROVED')}>Approve</Button>
@@ -460,10 +469,11 @@ export default function ManagerKycPage() {
                 {isAuditor && <p className="text-xs text-ink-500 text-center">Auditor clearance is read-only — decision controls are disabled.</p>}
               </div>
             ) : (
-              <div className="sticky bottom-0 z-10 shrink-0 border-t border-ink-100 bg-porcelain-50 px-5 py-4">
+              <div className="sticky bottom-0 z-10 shrink-0 border-t border-ink-100 bg-porcelain-50 px-5 py-4 flex flex-wrap items-center justify-between gap-3">
                 <p className="text-sm text-ink-600">
                   This case has already been decided ({statusLabel(drawerCase.status)}). Its history above is the record of that decision.
                 </p>
+                <Button variant="secondary" onClick={closeDrawer}>Close</Button>
               </div>
             )}
           </aside>

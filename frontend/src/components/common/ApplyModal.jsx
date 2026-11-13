@@ -1,3 +1,5 @@
+import { useServerMode } from '../../lib/serverMode.js';
+import { traceForm } from '../../lib/trace.js';
 import { ConfirmationCheckmark } from './ConfirmationCheckmark.jsx';
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -89,8 +91,9 @@ function calculateAge(dobString) {
   return age;
 }
 
-export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, initialAmount, initialTenure, initialCategory }) => {
+export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, initialAmount, initialTenure, initialCategory, initialTenureMonths }) => {
   const isModalOpen = open ?? isOpen;
+  const { isDemo } = useServerMode();
   const { submitApplication, user, accounts = [] } = useAuth();
   const modalRef = useRef(null);
   const firstInputRef = useRef(null);
@@ -295,6 +298,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
     // Fixed Deposit (FD)
     fdDepositAmount: initialAmount ? String(initialAmount) : '',
     fdTenureBand: (isFD && initialTenure) ? initialTenure : '2 – 3 years',
+    fdTenureMonths: (isFD && initialTenureMonths) ? String(initialTenureMonths) : (isFD && initialTenure === '1 – 2 years' ? '12' : ''),
     fdPayoutOption: 'Cumulative (paid at maturity)',
     fdAutoRenew: false,
     fdConsentTerms: false,
@@ -1093,7 +1097,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
           const tenureMonths = fdBand?.tenure === '7 – 45 days' ? 1
             : fdBand?.tenure === '46 – 179 days' ? 4
             : fdBand?.tenure === '180 – 364 days' ? 9
-            : fdBand?.tenure === '1 – 2 years' ? 24
+            : fdBand?.tenure === '1 – 2 years' ? (formData.fdTenureMonths ? Number(formData.fdTenureMonths) : 12)
             : fdBand?.tenure === '2 – 3 years' ? 36
             : fdBand?.tenure === '3 – 5 years' ? 48
             : 60;
@@ -1192,6 +1196,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
           }
         };
 
+        traceForm('InvestmentApplication', investmentPayload);
         const res = await submitApplication(investmentPayload);
         setSubmittedApp(res.data || res);
         return;
@@ -1225,6 +1230,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
           consents: { debitTermsAccepted: formData.consentDebitTerms }
         };
 
+        traceForm('CardApplication', debitPayload);
         const res = await submitApplication(debitPayload);
         setSubmittedApp(res.data || res);
         return;
@@ -1348,6 +1354,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
           }
         };
 
+        traceForm('LoanApplication', loanPayload);
         const res = await submitApplication(loanPayload);
         setSubmittedApp(res.data || res);
         return;
@@ -1395,6 +1402,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
           }
         };
 
+        traceForm('CardApplication', cardPayload);
         const res = await submitApplication(cardPayload);
         setSubmittedApp(res.data || res);
         return;
@@ -1464,10 +1472,11 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
         }
       };
 
+      traceForm('AccountApplication', accountPayload);
       const res = await submitApplication(accountPayload);
       setSubmittedApp(res.data || res);
     } catch (err) {
-      setErrors({ form: err?.message || 'Application submission failed. Please try again.' });
+      setErrors({ form: err?.detail || err?.message || 'Network connection failed. Please try again.' });
     } finally {
       setLoading(false);
     }
@@ -1828,12 +1837,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
         ) : (
           <form id="apply-product-form" onSubmit={handleSubmit} noValidate className="flex flex-col flex-1 min-h-0 overflow-hidden">
             <div className="flex-1 space-y-6 overflow-y-auto p-6 [scrollbar-width:thin]">
-              {errors.form && (
-                <div className="flex items-center gap-2 rounded-lg border border-danger-600/30 bg-danger-50 p-3 text-xs text-danger-600" role="alert">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  <span>{errors.form}</span>
-                </div>
-              )}
+              {/* Form error moved to sticky footer per Module 51 G.1 */}
 
             {isInvestment ? (
               <InvestmentFormFields
@@ -3942,26 +3946,38 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
             </div>
 
             {/* Sticky Modal Footer */}
-            <div className="sticky bottom-0 z-10 shrink-0 flex items-center justify-end gap-3 border-t border-ink-100 bg-porcelain-50 px-6 py-4 rounded-b-2xl">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleClose}
-                disabled={loading}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                disabled={loading || !isRequiredConsentMet}
-              >
-                {loading
-                  ? 'Submitting...'
-                  : isDebitCard && formData.debitLinkType === 'new'
-                  ? 'Continue to Account Opening'
-                  : 'Submit Application'}
-              </Button>
+            <div className="sticky bottom-0 z-10 shrink-0 flex flex-col gap-2 border-t border-ink-100 bg-porcelain-50 px-6 py-4 rounded-b-2xl">
+              {error && (
+                <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+                  {error}
+                </div>
+              )}
+              {isDemo && (
+                <p className="text-xs text-amber-700 text-right">
+                  Demo mode: this application will be recorded in this browser&apos;s demonstration data and reviewed in the staff console demo.
+                </p>
+              )}
+              <div className="flex items-center justify-end gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleClose}
+                  disabled={loading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={loading || !isRequiredConsentMet}
+                >
+                  {loading
+                    ? 'Submitting...'
+                    : isDebitCard && formData.debitLinkType === 'new'
+                    ? 'Continue to Account Opening'
+                    : 'Submit Application'}
+                </Button>
+              </div>
             </div>
           </form>
         )}

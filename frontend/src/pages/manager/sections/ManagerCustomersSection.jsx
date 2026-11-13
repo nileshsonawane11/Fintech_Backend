@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Download, Eye, EyeOff, Search, Users, X } from 'lucide-react';
 import { Button, Card, EmptyState, Input, PageLoading, SectionHeader, StatusChip, Table, useToast } from '../../../components/ui.jsx';
@@ -48,6 +49,7 @@ export default function ManagerCustomersPage() {
 
   useEffect(() => {
     let alive = true;
+    traceData('ManagerCustomersDirectory');
     listCustomers({ query: query.trim() || undefined })
       .then((r) => { if (alive) { setRows(r); setError(''); } })
       .catch((e) => { if (alive) setError(e.message || 'Could not load customers.'); });
@@ -116,6 +118,7 @@ export default function ManagerCustomersPage() {
                   setRevealed((r) => { const copy = { ...r }; delete copy[c.id]; return copy; });
                 } else {
                   try {
+                    traceForm('CustomerPanReveal', { customerId: c.id, justification: 'Officer verification' });
                     const res = await revealCustomerPan(c.id);
                     setRevealed((r) => ({ ...r, [c.id]: res.pan }));
                   } catch (err) {

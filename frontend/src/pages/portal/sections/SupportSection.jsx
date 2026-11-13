@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ChevronDown, LifeBuoy, Mail, MessageSquare, Phone, Plus, Scale, Send } from 'lucide-react';
@@ -42,6 +43,7 @@ export default function SupportPage() {
 
   useEffect(() => {
     if (!customerId) return undefined;
+    traceData('PortalSupport');
     let live = true;
     setLoading(true);
     listMyTickets(customerId)
@@ -84,6 +86,7 @@ export default function SupportPage() {
   async function handleReply(ticket) {
     const body = replyDraft.trim();
     if (!body || replying) return;
+    traceForm('SupportTicketReply', { ticketId: ticket.id, body });
     setReplying(true);
     try {
       await replyTicket(ticket.id, { from: 'CUSTOMER', body, actor: user?.name || 'Customer', actorRole: 'CUSTOMER' });
@@ -106,6 +109,7 @@ export default function SupportPage() {
     if (description.trim().length < 20) next.description = 'A few details help us resolve faster (20+ characters).';
     setErrors(next);
     if (Object.keys(next).length) return;
+    traceForm('SupportTicketCreate', { category, subject: subject.trim(), description: description.trim(), transactionRef: txnRef || '' });
     setSubmitting(true);
     setFormError('');
     try {

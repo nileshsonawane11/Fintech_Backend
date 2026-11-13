@@ -704,7 +704,7 @@ function FdCalculator({ onOpenApply }) {
           headlineNote="Cumulative deposit — interest stays invested until maturity."
           ctaTo="/investments/fixed-deposit"
           ctaLabel="Open a Fixed Deposit"
-          onCtaClick={() => onOpenApply?.(FD, principal, selectedBand.tenure)}
+          onCtaClick={() => onOpenApply?.(FD, principal, selectedBand.tenure, senior ? 'SENIOR' : 'GENERAL', tenureMonths)}
           pulseKey={`${selectedBand.tenure}-${senior}`}
         >
           {result && (
@@ -1060,8 +1060,8 @@ export default function CalculatorsPage() {
   const active = TAB_IDS.includes(requested) ? requested : 'emi';
   const [applyModalState, setApplyModalState] = useState(null);
 
-  const handleOpenApply = (product, initialAmount, initialTenure, initialCategory) => {
-    setApplyModalState({ product, initialAmount, initialTenure, initialCategory });
+  const handleOpenApply = (product, initialAmount, initialTenure, initialCategory, initialTenureMonths) => {
+    setApplyModalState({ product, initialAmount, initialTenure, initialCategory, initialTenureMonths });
   };
 
   return (
@@ -1094,6 +1094,7 @@ export default function CalculatorsPage() {
           initialAmount={applyModalState.initialAmount}
           initialTenure={applyModalState.initialTenure}
           initialCategory={applyModalState.initialCategory}
+          initialTenureMonths={applyModalState.initialTenureMonths}
           onClose={() => setApplyModalState(null)}
         />
       )}

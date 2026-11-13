@@ -1,3 +1,4 @@
+import { useServerMode } from '../../lib/serverMode.js';
 import React from 'react';
 import { useLocation, useNavigate, NavLink, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -67,6 +68,7 @@ const NAV_ITEMS = [
 export const ManagerPortalPage = () => {
   const { managerUser, managerLogout } = useAuth();
   const navigate = useNavigate();
+  const { isDemo } = useServerMode();
   const location = useLocation();
 
   const pathname = location.pathname.replace(/\/$/, '');
@@ -141,7 +143,13 @@ export const ManagerPortalPage = () => {
   }
 
   return (
-    <div className="min-h-screen bg-porcelain-100 lg:flex">
+    <div className="min-h-screen bg-porcelain-100 flex flex-col">
+      {isDemo && (
+        <div className="w-full bg-amber-500/10 border-b border-amber-500/20 px-4 py-1 text-center text-xs font-medium text-amber-900 tracking-wide z-20 shrink-0">
+          Demo mode · demonstration data — nothing here is a real bank record.
+        </div>
+      )}
+      <div className="flex-1 lg:flex">
       {/* Desktop Sidebar */}
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col bg-midnight-900 px-3 py-5 lg:flex border-r border-midnight-950">
         <div className="px-3">
@@ -284,6 +292,7 @@ export const ManagerPortalPage = () => {
           </>
         )}
       </main>
+      </div>
     </div>
   );
 };

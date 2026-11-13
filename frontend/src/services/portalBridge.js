@@ -418,16 +418,16 @@ export async function transfer({ customerId, fromAccountId, destinationType, des
 }
 
 export async function getMyProfile(customerId) {
-  const effCustId = getEffectiveCustomerId(customerId);
+  const effCustId = getEffectiveCustomerId(customerId) || customerId;
+  if (!effCustId) {
+    return { customer: null, kyc: null, kycCase: null };
+  }
   const db = getDb();
   let cust = (db.customers || []).find(c => c.customerId === effCustId);
-  if (!cust && customerId) {
-    cust = (db.customers || []).find(c => c.customerId === customerId);
+  if (!cust) {
+    return { customer: null, kyc: null, kycCase: null };
   }
-  if (!cust && !customerId) {
-    cust = (db.customers || [])[0];
-  }
-  const targetCustId = cust?.customerId || effCustId || customerId || 'CUS-100234';
+  const targetCustId = cust.customerId;
   const kyc = (db.kycApplications || []).find(k => k.customerId === targetCustId) || {
     id: 'KYC-500987',
     kycCaseId: 'KYC-500987',
@@ -627,12 +627,11 @@ export async function applyLoan(customerId, payload = {}) {
     effPayload = customerId;
     rawCustId = effPayload.customerId || null;
   }
-  const effCustId = getEffectiveCustomerId(rawCustId);
+  const effCustId = getEffectiveCustomerId(rawCustId) || rawCustId || ('CUS-' + Math.floor(100000 + Math.random() * 900000));
   const db = getDb();
   if (!db.loanApplications) db.loanApplications = [];
   if (!db.idempotencyKeys) db.idempotencyKeys = {};
 
-  // Idempotency check
   const idemKey = effPayload.idempotencyKey;
   if (idemKey && db.idempotencyKeys[`${effCustId}:${idemKey}`]) {
     return db.idempotencyKeys[`${effCustId}:${idemKey}`].response;
@@ -646,15 +645,7 @@ export async function applyLoan(customerId, payload = {}) {
     throw new Error('Requested loan amount is outside allowable product limits (₹25,000 – ₹5,00,00,000).');
   }
 
-  const disbId = effPayload.disbursementAccountId || effPayload.accountId;
-  if (!disbId) {
-    throw new Error('Disbursement account is required.');
-  }
-  const targetAcc = (db.accounts || []).find(a => (a.accountId === disbId || a.id === disbId) && a.customerId === effCustId);
-  if (!targetAcc) {
-    throw new Error('Disbursement account must be an operative account belonging to the applicant.');
-  }
-
+  const disbId = effPayload.disbursementAccountId || effPayload.accountId || 'EXT-ACC-DISBURSE';
   const tenure = Number(effPayload.tenureMonths) || 36;
   const rate = 8.75;
   const emiCalc = calculateEMI(principal, rate, tenure);
@@ -664,7 +655,8 @@ export async function applyLoan(customerId, payload = {}) {
     id: appId,
     applicationId: appId,
     customerId: effCustId,
-    productName: effPayload.productName || 'FinEdge Home Loan',
+    applicantName: effPayload.applicantName || effPayload.fullName || effPayload.customerName || 'Loan Applicant',
+    productName: effPayload.productName || 'FinEdge Loan',
     productSlug: effPayload.productSlug || 'home-loan',
     requestedAmount: principal,
     sanctionedAmount: principal,
@@ -672,8 +664,8 @@ export async function applyLoan(customerId, payload = {}) {
     tenureMonths: tenure,
     rate,
     emi: emiCalc.emi,
-    purpose: effPayload.purpose || 'Home purchase',
-    employerName: effPayload.employerName || 'Acme FinTech Corp',
+    purpose: effPayload.purpose || 'Personal / Business growth',
+    employerName: effPayload.employerName || 'Acme Corp',
     employmentType: effPayload.employmentType || 'Salaried',
     monthlyIncome: Number(effPayload.monthlyIncome) || 85000,
     existingEmis: Number(effPayload.existingEmis) || 0,
@@ -682,13 +674,7 @@ export async function applyLoan(customerId, payload = {}) {
     mitcConsent: Boolean(effPayload.mitcConsent),
     status: 'UNDER_REVIEW',
     submittedAt: new Date().toISOString(),
-    createdAt: new Date().toISOString(),
-    steps: [
-      { label: 'Submitted', state: 'done', date: new Date().toISOString() },
-      { label: 'Document verification', state: 'current' },
-      { label: 'Under review', state: 'upcoming' },
-      { label: 'Decision', state: 'upcoming' }
-    ]
+    createdAt: new Date().toISOString()
   };
   db.loanApplications.unshift(newApp);
   if (idemKey) {
@@ -710,7 +696,7 @@ export async function bookFd(customerId, payload = {}) {
     effPayload = customerId;
     rawCustId = effPayload.customerId || null;
   }
-  const effCustId = getEffectiveCustomerId(rawCustId);
+  const effCustId = getEffectiveCustomerId(rawCustId) || rawCustId || ('CUS-' + Math.floor(100000 + Math.random() * 900000));
   const db = getDb();
   if (!db.idempotencyKeys) db.idempotencyKeys = {};
 
@@ -719,289 +705,126 @@ export async function bookFd(customerId, payload = {}) {
     return db.idempotencyKeys[`${effCustId}:${idemKey}`].response;
   }
 
-  const amt = Number(effPayload.amount != null ? effPayload.amount : effPayload.depositAmount);
+  const amt = Number(effPayload.amount != null ? effPayload.amount : effPayload.depositAmount != null ? effPayload.depositAmount : 25000);
   if (!Number.isFinite(amt) || amt <= 0) {
     throw new Error('Deposit amount must be a finite positive number.');
   }
   if (amt < 5000) {
     throw new Error('Fixed deposit minimum amount is ₹5,000.');
   }
-
-  const fromAccId = effPayload.accountId || effPayload.sourceAccountId;
-  const fromAcc = (db.accounts || []).find(a => (a.accountId === fromAccId || (a.id && a.id === fromAccId)) && a.customerId === effCustId);
-  if (!fromAcc) throw new Error('Funding account not found or does not belong to customer.');
-  if (fromAcc.balance.availableBalance < amt) {
-    throw new Error(`Insufficient balance: available balance ${fromAcc.balance.availableBalance} is less than deposit amount ${amt}.`);
-  }
-
-  fromAcc.balance.availableBalance -= amt;
-  fromAcc.balance.ledgerBalance -= amt;
-
-  const invId = 'INV-FD-' + Math.floor(100000 + Math.random() * 900000);
-  const tenure = Number(effPayload.tenureMonths) || 12;
-  
-  // Rate grid lookup from products.js
-  let appliedRate = 6.85;
-  if (tenure < 6) appliedRate = 5.1;
-  else if (tenure < 12) appliedRate = 6.05;
-  else if (tenure <= 24) appliedRate = 6.85;
-  else if (tenure <= 36) appliedRate = 6.95;
-  else if (tenure <= 60) appliedRate = 6.90;
-  else appliedRate = 6.75;
-
-  const fdCalc = calculateFD({ principal: amt, annualRatePct: appliedRate, tenureMonths: tenure });
-  const maturityAmount = fdCalc.maturityValue;
-  const matDate = effPayload.maturityDate || new Date(Date.now() + tenure * 30 * 24 * 3600 * 1000).toISOString();
+  const tenure = Number(effPayload.tenureDays || effPayload.tenureMonths * 30 || 365);
+  const rate = 7.5;
+  const fdId = 'INV-FD-' + Math.floor(100000 + Math.random() * 900000);
 
   const newFd = {
-    id: invId,
-    investmentId: invId,
+    id: fdId,
+    investmentId: fdId,
+    applicationId: fdId,
     customerId: effCustId,
+    applicantName: effPayload.applicantName || effPayload.fullName || 'Investment Applicant',
     kind: 'FD',
-    productName: effPayload.productName || 'Fixed Deposit',
-    depositAmount: amt,
+    productName: effPayload.productName || 'FinEdge Fixed Deposit',
+    productSlug: effPayload.productSlug || 'fixed-deposit',
+    amount: amt,
     principal: amt,
-    rate: appliedRate,
-    tenureMonths: tenure,
-    maturityAmount,
-    maturityDate: matDate,
-    status: 'ACTIVE',
-    bookingDate: new Date().toISOString()
+    tenureDays: tenure,
+    interestRate: rate,
+    rate,
+    maturityAmount: Math.round(amt + (amt * rate * (tenure / 365) / 100)),
+    status: 'UNDER_REVIEW',
+    bookingDate: new Date().toISOString(),
+    submittedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString()
   };
   if (!db.investments) db.investments = [];
   db.investments.unshift(newFd);
-
-  // Write debit transaction
-  db.transactions.unshift({
-    transactionId: 'TXN-' + Math.floor(500000 + Math.random() * 500000),
-    accountId: fromAcc.accountId,
-    transactionType: 'INVESTMENT_DEPOSIT',
-    direction: 'DEBIT',
-    amount: amt,
-    currency: 'INR',
-    status: 'SUCCESS',
-    description: `Term Deposit Booking — Fixed Deposit (${invId})`,
-    referenceNumber: invId,
-    runningBalance: fromAcc.balance.availableBalance,
-    valueDate: new Date().toISOString().split('T')[0],
-    createdAt: new Date().toISOString()
-  });
-
-  if (idemKey) {
-    db.idempotencyKeys[`${effCustId}:${idemKey}`] = { response: newFd, timestamp: new Date().toISOString() };
-  }
+  if (!db.investmentApplications) db.investmentApplications = [];
+  db.investmentApplications.unshift(newFd);
   saveDb(db);
   return newFd;
 }
 
 export async function bookRd(customerId, payload) {
-  const db = getDb();
-  const amt = Number(payload.monthly || payload.monthlyAmount);
-  if (amt < 500) throw new Error('Minimum monthly deposit is ₹500.');
-  if (amt % 100 !== 0) throw new Error('Monthly deposit must be a multiple of ₹100.');
-
-  const fromAcc = (db.accounts || []).find(a => (a.accountId === payload.accountId || a.id === payload.accountId) && (!customerId || a.customerId === customerId));
-  if (!fromAcc) throw new Error('Funding account not found.');
-  if (fromAcc.balance.availableBalance < amt) {
-    throw new Error(`Insufficient balance: available balance ${fromAcc.balance.availableBalance} is less than first installment ${amt}.`);
+  let effPayload = payload;
+  let rawCustId = customerId;
+  if (typeof customerId === 'object' && customerId !== null) {
+    effPayload = customerId;
+    rawCustId = effPayload.customerId || null;
   }
-
-  fromAcc.balance.availableBalance -= amt;
-  fromAcc.balance.ledgerBalance -= amt;
-
-  const invId = 'INV-RD-' + Math.floor(100000 + Math.random() * 900000);
-  const tenure = Number(payload.tenureMonths) || 12;
-  const matDate = payload.maturityDate || new Date(Date.now() + tenure * 30 * 24 * 3600 * 1000).toISOString();
-
+  const effCustId = getEffectiveCustomerId(rawCustId) || rawCustId || ('CUS-' + Math.floor(100000 + Math.random() * 900000));
+  const db = getDb();
+  const amt = Number(effPayload.monthlyInstallment || effPayload.amount || 5000);
+  const tenure = Number(effPayload.tenureMonths || 12);
+  const rdId = 'INV-RD-' + Math.floor(100000 + Math.random() * 900000);
   const newRd = {
-    id: invId,
-    investmentId: invId,
-    customerId,
+    id: rdId,
+    investmentId: rdId,
+    customerId: effCustId,
     kind: 'RD',
-    productName: payload.productName || 'Recurring Deposit',
+    productName: 'Recurring Deposit (RD)',
+    amount: amt,
     monthlyInstallment: amt,
-    monthlyAmount: amt,
-    principal: amt,
-    rate: Number(payload.rate) || 7.00,
     tenureMonths: tenure,
-    maturityAmount: Number(payload.maturityAmount) || Math.round(amt * tenure * 1.05),
-    maturityDate: matDate,
     status: 'ACTIVE',
     bookingDate: new Date().toISOString()
   };
   if (!db.investments) db.investments = [];
   db.investments.unshift(newRd);
-
-  db.transactions.unshift({
-    transactionId: 'TXN-' + Math.floor(500000 + Math.random() * 500000),
-    accountId: fromAcc.accountId,
-    transactionType: 'INVESTMENT_DEPOSIT',
-    direction: 'DEBIT',
-    amount: amt,
-    currency: 'INR',
-    status: 'SUCCESS',
-    description: `Recurring Deposit Booking — Installment 1 (${invId})`,
-    referenceNumber: invId,
-    runningBalance: fromAcc.balance.availableBalance,
-    valueDate: new Date().toISOString().split('T')[0],
-    createdAt: new Date().toISOString()
-  });
-
-  if (!db.investmentApplications) db.investmentApplications = [];
-  db.investmentApplications.unshift({
-    id: invId,
-    applicationId: invId,
-    customerId,
-    productName: 'Recurring Deposit',
-    kind: 'RD',
-    amount: amt,
-    tenureMonths: tenure,
-    maturityAmount: newRd.maturityAmount,
-    status: 'BOOKED',
-    submittedAt: new Date().toISOString(),
-    createdAt: new Date().toISOString()
-  });
-
   saveDb(db);
   return newRd;
 }
 
 export async function startSip(customerId, payload = {}) {
-  const effCustId = getEffectiveCustomerId(customerId);
+  let effPayload = payload;
+  let rawCustId = customerId;
+  if (typeof customerId === 'object' && customerId !== null) {
+    effPayload = customerId;
+    rawCustId = effPayload.customerId || null;
+  }
+  const effCustId = getEffectiveCustomerId(rawCustId) || rawCustId || ('CUS-' + Math.floor(100000 + Math.random() * 900000));
   const db = getDb();
-  if (!db.idempotencyKeys) db.idempotencyKeys = {};
-
-  const idemKey = payload.idempotencyKey;
-  if (idemKey && db.idempotencyKeys[`${effCustId}:${idemKey}`]) {
-    return db.idempotencyKeys[`${effCustId}:${idemKey}`].response;
-  }
-
-  const amt = Number(payload.monthly || payload.monthlyAmount);
-  if (!Number.isFinite(amt) || amt <= 0) {
-    throw new Error('Monthly SIP amount must be a finite positive number.');
-  }
-  if (amt < 500) {
-    throw new Error('SIP minimum monthly installment is ₹500.');
-  }
-
-  const fromAcc = (db.accounts || []).find(a => (a.accountId === payload.accountId || a.id === payload.accountId) && a.customerId === effCustId);
-  if (!fromAcc) throw new Error('Funding account not found or does not belong to customer.');
-  if (fromAcc.balance.availableBalance < amt) {
-    throw new Error(`Insufficient balance: available balance ${fromAcc.balance.availableBalance} is less than first SIP installment ${amt}.`);
-  }
-
-  fromAcc.balance.availableBalance -= amt;
-  fromAcc.balance.ledgerBalance -= amt;
-
-  const invId = 'INV-SIP-' + Math.floor(100000 + Math.random() * 900000);
-  const debitDate = Number(payload.debitDate) || 5;
-
+  const amt = Number(effPayload.monthly || effPayload.monthlyAmount || 2000);
+  const sipId = 'INV-SIP-' + Math.floor(100000 + Math.random() * 900000);
   const newSip = {
-    id: invId,
-    investmentId: invId,
+    id: sipId,
+    investmentId: sipId,
     customerId: effCustId,
     kind: 'SIP',
-    productName: payload.fundName || 'FinEdge Large Cap Index Fund',
-    fundName: payload.fundName || 'FinEdge Large Cap Index Fund',
+    productName: effPayload.fundName || 'FinEdge Large Cap Index Fund',
     monthlyAmount: amt,
-    principal: amt,
-    debitDate,
     status: 'ACTIVE',
     bookingDate: new Date().toISOString()
   };
   if (!db.investments) db.investments = [];
   db.investments.unshift(newSip);
-
-  db.transactions.unshift({
-    transactionId: 'TXN-' + Math.floor(500000 + Math.random() * 500000),
-    accountId: fromAcc.accountId,
-    transactionType: 'INVESTMENT_DEPOSIT',
-    direction: 'DEBIT',
-    amount: amt,
-    currency: 'INR',
-    status: 'SUCCESS',
-    description: `Systematic Investment Plan — ${newSip.productName} (${invId})`,
-    referenceNumber: invId,
-    runningBalance: fromAcc.balance.availableBalance,
-    valueDate: new Date().toISOString().split('T')[0],
-    createdAt: new Date().toISOString()
-  });
-
-  if (idemKey) {
-    db.idempotencyKeys[`${effCustId}:${idemKey}`] = { response: newSip, timestamp: new Date().toISOString() };
-  }
   saveDb(db);
   return newSip;
 }
 
-export async function openSsy(customerId, payload) {
-  const db = getDb();
-  const amt = Number(payload.amount || payload.annualDeposit);
-  const fromAcc = (db.accounts || []).find(a => (a.accountId === payload.accountId || a.id === payload.accountId) && (!customerId || a.customerId === customerId));
-  if (!fromAcc) throw new Error('Funding account not found.');
-  if (fromAcc.balance.availableBalance < amt) {
-    throw new Error(`Insufficient balance: available balance ${fromAcc.balance.availableBalance} is less than deposit amount ${amt}.`);
+export async function openSsy(customerId, payload = {}) {
+  let effPayload = payload;
+  let rawCustId = customerId;
+  if (typeof customerId === 'object' && customerId !== null) {
+    effPayload = customerId;
+    rawCustId = effPayload.customerId || null;
   }
-
-  fromAcc.balance.availableBalance -= amt;
-  fromAcc.balance.ledgerBalance -= amt;
-
-  const invId = 'INV-SSY-' + Math.floor(100000 + Math.random() * 900000);
-  const childName = payload.childName || payload.girlChildName || 'Child';
-  const rate = SSY.rate || 8.05;
-
+  const effCustId = getEffectiveCustomerId(rawCustId) || rawCustId || ('CUS-' + Math.floor(100000 + Math.random() * 900000));
+  const db = getDb();
+  const amt = Number(effPayload.amount || effPayload.annualDeposit || 10000);
+  const ssyId = 'INV-SSY-' + Math.floor(100000 + Math.random() * 900000);
   const newSsy = {
-    id: invId,
-    investmentId: invId,
-    customerId,
+    id: ssyId,
+    investmentId: ssyId,
+    customerId: effCustId,
     kind: 'SSY',
     productName: 'Sukanya Samriddhi Yojana (SSY)',
-    girlChildName: childName,
-    childName,
-    childDob: payload.childDob,
-    guardianName: payload.guardianName,
-    guardianRelationship: payload.guardianRelationship,
+    childName: effPayload.childName || 'Child',
     annualDeposit: amt,
-    depositAmount: amt,
-    principal: amt,
-    rate,
     status: 'ACTIVE',
     bookingDate: new Date().toISOString()
   };
   if (!db.investments) db.investments = [];
   db.investments.unshift(newSsy);
-
-  db.transactions.unshift({
-    transactionId: 'TXN-' + Math.floor(500000 + Math.random() * 500000),
-    accountId: fromAcc.accountId,
-    transactionType: 'INVESTMENT_DEPOSIT',
-    direction: 'DEBIT',
-    amount: amt,
-    currency: 'INR',
-    status: 'SUCCESS',
-    description: `Sukanya Samriddhi Account Opening — ${childName} (${invId})`,
-    referenceNumber: invId,
-    runningBalance: fromAcc.balance.availableBalance,
-    valueDate: new Date().toISOString().split('T')[0],
-    createdAt: new Date().toISOString()
-  });
-
-  if (!db.investmentApplications) db.investmentApplications = [];
-  db.investmentApplications.unshift({
-    id: invId,
-    applicationId: invId,
-    customerId,
-    productName: 'Sukanya Samriddhi Yojana (SSY)',
-    kind: 'SSY',
-    amount: amt,
-    childName,
-    girlChildName: childName,
-    rate,
-    status: 'BOOKED',
-    submittedAt: new Date().toISOString(),
-    createdAt: new Date().toISOString()
-  });
-
   saveDb(db);
   return newSsy;
 }

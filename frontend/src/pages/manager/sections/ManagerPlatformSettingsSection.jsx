@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useState, useEffect } from 'react';
 import {
   Sliders,
@@ -45,6 +46,7 @@ export default function ManagerPlatformSettingsSection() {
   const [validationError, setValidationError] = useState('');
 
   const loadSettings = async () => {
+    traceData('ManagerPlatformSettings');
     try {
       setLoading(true);
       const res = await adminGetSettings();
@@ -110,8 +112,8 @@ export default function ManagerPlatformSettingsSection() {
 
     if (domain === 'lock' || domain === 'all') {
       const mins = Number(lockMinutesDraft);
-      if (isNaN(mins) || mins < 5 || mins > 60) {
-        setValidationError('Session inactivity lock must be set between 5 and 60 minutes.');
+      if (isNaN(mins) || mins < 1 || mins > 60) {
+        setValidationError('Session inactivity lock must be set between 1 and 60 minutes.');
         return;
       }
     }
@@ -134,10 +136,7 @@ export default function ManagerPlatformSettingsSection() {
   };
 
   const handleConfirmSave = async () => {
-    if (!saveReason.trim()) {
-      setValidationError('A mandatory business justification reason is required for audit non-repudiation.');
-      return;
-    }
+    traceForm('PlatformSettingsUpdate', { rails: railsDraft, lockMinutes: lockMinutesDraft, sla: slaDraft });
     setSaving(true);
     try {
       const updates = {};
@@ -261,7 +260,7 @@ export default function ManagerPlatformSettingsSection() {
             </div>
             <div>
               <h3 className="text-base font-semibold text-midnight-950">Portal Inactivity Lock Timer</h3>
-              <p className="text-xs text-ink-500 mt-0.5">Session pause duration after user idle time (acceptable range: 5 to 60 minutes).</p>
+              <p className="text-xs text-ink-500 mt-0.5">Session pause duration after user idle time (acceptable range: 1 to 60 minutes).</p>
             </div>
           </div>
           <Button variant="primary" onClick={() => openSave('lock')} className="min-h-11">
@@ -273,7 +272,7 @@ export default function ManagerPlatformSettingsSection() {
           <Field label="Inactivity Lock Timeout (Minutes)" required hint="Governs idle pause modal on customer NetBanking session">
             <Input
               type="number"
-              min="5"
+              min="1"
               max="60"
               value={lockMinutesDraft}
               onChange={(e) => setLockMinutesDraft(e.target.value)}

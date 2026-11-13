@@ -1,3 +1,4 @@
+import { traceData } from '../../../lib/trace.js';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
 import { ArrowLeft, Download, FileText, SearchX } from 'lucide-react';
@@ -40,6 +41,7 @@ export default function AccountDetailPage({ accountId }) {
 
   useEffect(() => {
     let alive = true;
+    traceData('PortalAccountDetail');
     getAccount(id)
       .then((acc) => { if (alive) setAccount(acc); })
       .catch((e) => { if (alive) setAccountError(e.message || 'Account not found.'); });

@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../../context/AuthContext.jsx';
 
@@ -95,6 +96,7 @@ export default function ManagerProductCatalogueSection() {
   const [deleting, setDeleting] = useState(false);
 
   const loadProducts = async () => {
+    traceData('ManagerProductCatalogue');
     try {
       setLoading(true);
       setError('');
@@ -183,6 +185,7 @@ export default function ManagerProductCatalogueSection() {
   const handleFormSubmit = async (e) => {
     e.preventDefault();
     setFormError('');
+    traceForm('ProductCatalogueSave', form);
     setSaving(true);
     try {
       const payload = {

@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   BadgeCheck,
@@ -106,6 +107,7 @@ export default function LoansPage() {
       return undefined;
     }
     (async () => {
+      traceData('PortalLoans');
       try {
         const [accs, apps, myLoans] = await Promise.all([
           listAccounts(customerId),
@@ -214,6 +216,17 @@ export default function LoansPage() {
     e.preventDefault();
     setFormError('');
     if (!validate() || !product || !customerId) return;
+    traceForm('LoanApplication', {
+      productSlug: product.slug,
+      productName: product.name,
+      amount: Number(amount),
+      tenureMonths: Number(tenure),
+      purpose: purpose.trim(),
+      accountId,
+      monthlyIncome: Number(monthlyIncome),
+      employmentType,
+      employerName: employerName.trim(),
+    });
     setSubmitting(true);
     try {
       const app = await applyLoan(customerId, {
@@ -240,7 +253,7 @@ export default function LoansPage() {
         body: `Reference ${app.id}. You can track it below while our team reviews it.`,
       });
     } catch (err) {
-      setFormError(err?.message || 'We could not submit your application. Please try again.');
+      setFormError(err?.detail || err?.message || 'Loan request could not be processed. Please try again.');
     } finally {
       setSubmitting(false);
     }

@@ -1,23 +1,18 @@
+import { useServerMode } from '../../lib/serverMode.js';
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronDown, Eye, EyeOff, ShieldCheck, KeyRound, Lock, Mail, ArrowRight } from 'lucide-react';
+import { Eye, EyeOff, ShieldCheck, Lock, Mail, ArrowRight, ChevronDown, KeyRound, Info } from 'lucide-react';
 import { Button, Card, Field, FormError, Input, Modal } from '../../components/ui.jsx';
 import { useAuth } from '../../context/AuthContext';
 import { getFirstQueueForRole, hasSectionAccess } from '../../services/managerBridge.js';
 import { resetDemoDb, getDemoStaffAccounts } from '../../services/api.js';
-
-export const STAFF_ACCOUNTS = getDemoStaffAccounts();
+import { traceForm } from '../../lib/trace.js';
 
 export const ManagerLoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const { managerLogin } = useAuth();
-
-  const [email, setEmail] = useState('');
-  const [password, setPassword] = useState('');
-  const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
-  const [loading, setLoading] = useState(false);
+  const { isDemo } = useServerMode();
   const [demoOpen, setDemoOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);
 
@@ -28,6 +23,18 @@ export const ManagerLoginPage = () => {
       window.location.reload();
     }
   };
+
+  const populateStaff = (s) => {
+    setEmail(s.email);
+    setPassword(s.password);
+    setError('');
+  };
+
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [showPassword, setShowPassword] = useState(false);
+  const [error, setError] = useState('');
+  const [loading, setLoading] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -42,6 +49,9 @@ export const ManagerLoginPage = () => {
       return;
     }
 
+    // Module 50: Trace form submission before request
+    traceForm('StaffLogin', { email: trimmed, password });
+
     setLoading(true);
     try {
       const res = await managerLogin(trimmed, password);
@@ -54,17 +64,11 @@ export const ManagerLoginPage = () => {
         : defaultTarget;
       navigate(target);
     } catch (err) {
-      const msg = err?.error?.message || err?.detail || err?.title || 'Authentication failed. Check your staff credentials.';
+      const msg = err?.detail || err?.error?.message || err?.message || 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.';
       setError(msg);
     } finally {
       setLoading(false);
     }
-  };
-
-  const populateStaff = (s) => {
-    setEmail(s.email);
-    setPassword(s.password);
-    setError('');
   };
 
   return (
@@ -81,7 +85,13 @@ export const ManagerLoginPage = () => {
             </div>
           </div>
 
-          {error && <FormError message={error} />}
+          {/* FormError placed above submit button per G.1 */}
+          {isDemo && (
+            <div className="mb-4 flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 shadow-sm">
+              <Info className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+              <span>Demo mode — no server is connected. You are signing in to demonstration data stored only in this browser.</span>
+            </div>
+          )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
             <Field label="Staff Corporate Email" required>
@@ -120,6 +130,11 @@ export const ManagerLoginPage = () => {
               </div>
             </Field>
 
+            {error && (
+              <div className="pt-2">
+                <FormError message={error} />
+              </div>
+            )}
             <div className="pt-2">
               <Button variant="primary" type="submit" loading={loading} className="w-full">
                 Authenticate Staff Session <ArrowRight className="h-4 w-4" />
@@ -127,77 +142,82 @@ export const ManagerLoginPage = () => {
             </div>
           </form>
 
-          {/* Demo Staff Expander */}
-          <div className="mt-6 border-t border-ink-100 pt-4">
-            <button
-              type="button"
-              onClick={() => setDemoOpen(!demoOpen)}
-              className="flex w-full items-center justify-between text-left text-xs font-semibold text-midnight-900"
-            >
-              <span className="flex items-center gap-1.5">
-                <KeyRound className="h-4 w-4 text-gold-600" />
-                Demo Staff Clearance Credentials
-              </span>
-              <ChevronDown className={`h-4 w-4 transition-transform ${demoOpen ? 'rotate-180' : ''}`} />
-            </button>
+          
+          {/* Demo Staff Expander - Module 51 Part C */}
+          {isDemo && (
+            <div className="mt-6 border-t border-ink-100 pt-4">
+              <button
+                type="button"
+                onClick={() => setDemoOpen(!demoOpen)}
+                className="flex w-full items-center justify-between text-left text-xs font-semibold text-midnight-900"
+              >
+                <span className="flex items-center gap-1.5">
+                  <KeyRound className="h-4 w-4 text-gold-600" />
+                  <span>Demo access</span>
+                </span>
+                <ChevronDown className={`h-4 w-4 transition-transform ${demoOpen ? 'rotate-180' : ''}`} />
+              </button>
+              <p className="mt-1 text-xs text-ink-500">Demonstration accounts — no real credentials.</p>
 
-            {demoOpen && (
-              <div className="mt-3 space-y-2 text-xs text-ink-700">
-                <p className="text-xs text-ink-500 leading-relaxed">
-                  Click any clearance role to populate operational login credentials:
-                </p>
-                <div className="space-y-2">
-                  {STAFF_ACCOUNTS.map((s) => (
-                    <button
-                      key={s.email}
-                      type="button"
-                      onClick={() => populateStaff(s)}
-                      className="w-full rounded-md border border-ink-200 bg-porcelain-50 p-2 text-left transition-colors hover:border-gold-400 hover:bg-gold-50/30"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-midnight-900">{s.role}</span>
-                        <span className="font-mono text-xs text-ink-500">{s.email}</span>
-                      </div>
-                      <p className="mt-0.5 text-xs text-ink-600 line-clamp-1">{s.clearance}</p>
-                    </button>
-                  ))}
+              {demoOpen && (
+                <div className="mt-3 space-y-2 text-xs text-ink-700">
+                  <p className="text-xs text-ink-500 leading-relaxed">
+                    Click any clearance role to populate operational login credentials:
+                  </p>
+                  <div className="space-y-2">
+                    {getDemoStaffAccounts().map((s) => (
+                      <button
+                        key={s.email}
+                        type="button"
+                        onClick={() => populateStaff(s)}
+                        className="w-full rounded-md border border-ink-200 bg-porcelain-50 p-2 text-left transition-colors hover:border-gold-400 hover:bg-gold-50/30"
+                      >
+                        <div className="flex items-center justify-between">
+                          <span className="font-semibold text-midnight-900">{s.role}</span>
+                          <span className="font-mono text-xs text-ink-500">{s.email}</span>
+                        </div>
+                        <p className="mt-0.5 text-xs text-ink-600 line-clamp-1">{s.clearance || s.department || s.name}</p>
+                      </button>
+                    ))}
+                  </div>
                 </div>
-              </div>
-            )}
+              )}
 
-          <div className="mt-3 text-center border-t border-ink-100 pt-2.5">
-            <button
-              type="button"
-              onClick={() => setResetOpen(true)}
-              className="text-xs font-medium text-ink-500 hover:text-ink-700 underline transition-colors"
-            >
-              Reset demo data
-            </button>
-          </div>
-          </div>
+              <div className="mt-3 text-center border-t border-ink-100 pt-2.5">
+                <button
+                  type="button"
+                  onClick={() => setResetOpen(true)}
+                  className="text-xs font-medium text-ink-500 hover:text-ink-700 underline transition-colors"
+                >
+                  Reset demo data
+                </button>
+              </div>
+            </div>
+          )}
+
+          <Modal
+            open={resetOpen}
+            onClose={() => setResetOpen(false)}
+            title="Reset demo data?"
+            footer={(
+              <>
+                <Button variant="secondary" onClick={() => setResetOpen(false)}>Cancel</Button>
+                <Button variant="danger" onClick={handleResetConfirm}>Reset demo data</Button>
+              </>
+            )}
+          >
+            <p className="text-sm leading-relaxed text-ink-700">
+              This clears everything this prototype has stored in your browser — accounts, applications,
+              transfers, KYC decisions and preferences — and restores the original seeded demo data.
+              You will be signed out, and the reset cannot be undone.
+            </p>
+          </Modal>
 
           <div className="mt-6 text-center text-xs text-ink-500">
             <Link to="/portal/login" className="text-midnight-800 underline hover:text-midnight-950">
               Return to Customer Online Banking Portal
             </Link>
           </div>
-      <Modal
-        open={resetOpen}
-        onClose={() => setResetOpen(false)}
-        title="Reset demo data?"
-        footer={(
-          <>
-            <Button variant="secondary" onClick={() => setResetOpen(false)}>Cancel</Button>
-            <Button variant="danger" onClick={handleResetConfirm}>Reset demo data</Button>
-          </>
-        )}
-      >
-        <p className="text-sm leading-relaxed text-ink-700">
-          This clears everything this prototype has stored in your browser — accounts, applications,
-          transfers, KYC decisions and preferences — and restores the original seeded demo data.
-          You will be signed out, and the reset cannot be undone.
-        </p>
-      </Modal>
         </Card>
       </div>
     </div>

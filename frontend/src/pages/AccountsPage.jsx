@@ -17,6 +17,15 @@ import { ApplyModal } from '../components/common/ApplyModal.jsx';
 
 const MAX_COMPARE = 3;
 
+const CATEGORY_CHIPS = [
+  { id: 'all', label: 'All Accounts' },
+  { id: 'savings', label: 'Savings' },
+  { id: 'current', label: 'Current' },
+  { id: 'salary', label: 'Salary' },
+  { id: 'student', label: 'Student' },
+  { id: 'minor', label: 'Minor' },
+];
+
 function moneyOrNil(value) {
   if (value === null || value === undefined) return '—';
   return value === 0 ? 'Nil' : formatINRWhole(value);
@@ -34,7 +43,7 @@ export default function AccountsPage() {
   const { toast } = useToast();
   const qParam = params.get('q') || '';
   const [inputValue, setInputValue] = useState(qParam);
-  const [q, setQ] = useState(qParam);
+  const [category, setCategory] = useState('all');
   const [compare, setCompare] = useState([]);
   const [selectedProductForApply, setSelectedProductForApply] = useState(null);
   const [detailAccount, setDetailAccount] = useState(null);
@@ -43,13 +52,11 @@ export default function AccountsPage() {
   // Sync external search params (back/forward navigation)
   useEffect(() => {
     setInputValue(qParam);
-    setQ(qParam);
   }, [qParam]);
 
-  // Debounced search update (~150ms) to preserve INP and prevent render storms
+  // Debounced URL sync only (count and grid filter synchronously without delay)
   useEffect(() => {
     const timer = setTimeout(() => {
-      setQ(inputValue);
       if (inputValue !== qParam) {
         setParams(inputValue ? { q: inputValue } : {}, { replace: true });
       }
@@ -75,11 +82,19 @@ export default function AccountsPage() {
     }
   }, [params]);
 
-  // Live filter against name, tagline, accountType, overview, and features
+  // Synchronous live filter: derives honest count and grid from ONE array in same render
   const filtered = useMemo(() => {
-    const needle = q.trim().toLowerCase();
-    if (!needle) return ACCOUNTS;
+    const needle = inputValue.trim().toLowerCase();
     return ACCOUNTS.filter((a) => {
+      if (category !== 'all') {
+        const cat = (a.accountType || a.slug || '').toLowerCase();
+        if (category === 'savings' && !cat.includes('savings')) return false;
+        if (category === 'current' && !cat.includes('current')) return false;
+        if (category === 'salary' && !cat.includes('salary')) return false;
+        if (category === 'student' && !cat.includes('student')) return false;
+        if (category === 'minor' && !cat.includes('minor')) return false;
+      }
+      if (!needle) return true;
       const haystack = [
         a.name,
         a.tagline,
@@ -93,7 +108,7 @@ export default function AccountsPage() {
         .toLowerCase();
       return haystack.includes(needle);
     });
-  }, [q]);
+  }, [inputValue, category]);
 
   const selected = useMemo(() => ACCOUNTS.filter((a) => compare.includes(a.slug)), [compare]);
 
@@ -233,6 +248,29 @@ export default function AccountsPage() {
         description="Savings, current, salary, student and minor accounts — one illustrative rate and fee schedule, read straight from the product catalogue. Tick Compare on up to three accounts to see them side by side."
       />
 
+      {/* Category Filter Chips (Module 52 D14) */}
+      <div className="mb-6 flex flex-wrap gap-2" role="radiogroup" aria-label="Account Categories">
+        {CATEGORY_CHIPS.map((chip) => {
+          const isSelected = category === chip.id;
+          return (
+            <button
+              key={chip.id}
+              type="button"
+              role="radio"
+              aria-checked={isSelected}
+              onClick={() => setCategory(chip.id)}
+              className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
+                isSelected
+                  ? 'bg-midnight-950 text-white shadow-xs'
+                  : 'bg-porcelain-100 text-ink-700 hover:bg-porcelain-200 hover:text-ink-950 border border-ink-200'
+              }`}
+            >
+              {chip.label}
+            </button>
+          );
+        })}
+      </div>
+
       {/* Search Bar with Result Count and Clear Control (Fix 7) */}
       <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
         <div className="relative w-full max-w-md">
@@ -248,7 +286,7 @@ export default function AccountsPage() {
           {inputValue && (
             <button
               type="button"
-              onClick={handleClearSearch}
+              onClick={() => { handleClearSearch(); setCategory("all"); }}
               className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
               aria-label="Clear search"
             >
@@ -265,7 +303,7 @@ export default function AccountsPage() {
       {filtered.length === 0 ? (
         <EmptyState
           icon={Search}
-          title={`No accounts match “${q}”`}
+          title={`No accounts match “${inputValue}”`}
           body={`Nothing in the accounts catalogue matches your query. Try searching for “student”, “salary”, or “savings”, or reset the search to view all ${ACCOUNTS.length} accounts.`}
           action={
             <Button variant="secondary" onClick={handleClearSearch}>

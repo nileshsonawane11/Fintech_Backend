@@ -1,3 +1,5 @@
+import { getMode, setServerMode, registerReachabilityProbe, probeReachability } from '../lib/serverMode.js';
+import { traceRequest, traceResponse, traceFailure } from '../lib/trace.js';
 import { FINEDGE_RATES_CONFIG } from '../data/ratesConfig.js';
 import { SAVINGS_TOP_RATE, ALL_PRODUCTS } from '../data/products.js';
 import { FACTORY_SITE_CONTENT, FACTORY_SETTINGS } from '../data/factoryContent.js';
@@ -105,11 +107,11 @@ export const clearManagerToken = () => {
 };
 
 // ============================================================================
-// SEED VERSION & ALIASES (Module 40)
+// SEED VERSION & ALIASES (Module 40 / Module 52)
 // ============================================================================
 // SEED_VERSION: Stored inside the persisted db.
 // Rule: bump it whenever a seed identity/contact field changes.
-export const SEED_VERSION = 1;
+export const SEED_VERSION = 2;
 
 // Explicit alias map keyed by customerId for seeded demo customers.
 // Covers current seed email and historical/legacy identifiers.
@@ -150,6 +152,8 @@ console.log(ALL_PRODUCTS)
 // INITIAL PERSISTENT STORE (Mirrors FinBank API Data Model)
 // ============================================================================
 export const getDefaultDb = () => {
+  const now = Date.now();
+  const offsetIso = (hoursAgo) => new Date(now - hoursAgo * 3600000).toISOString();
   return {
     seedVersion: SEED_VERSION,
     sessions: [],
@@ -389,7 +393,7 @@ export const getDefaultDb = () => {
         rawAccountNumber: '98201100005678',
         accountType: 'CURRENT',
         productCode: 'CURRENT_BUSINESS',
-        productName: 'FinEdge Enterprise Current Account',
+        productName: 'Trade Current Account',
         customerId: 'CUS-100234',
         status: 'ACTIVE',
         currency: 'INR',
@@ -412,7 +416,7 @@ export const getDefaultDb = () => {
         rawAccountNumber: '98201100009988',
         accountType: 'CURRENT',
         productCode: 'CURRENT_BUSINESS',
-        productName: 'FinEdge Enterprise Current Account',
+        productName: 'Trade Current Account',
         customerId: 'CUS-100235',
         status: 'ACTIVE',
         currency: 'INR',
@@ -435,7 +439,7 @@ export const getDefaultDb = () => {
         rawAccountNumber: '98201100004455',
         accountType: 'CURRENT',
         productCode: 'CURRENT_BUSINESS',
-        productName: 'FinEdge Enterprise Current Account',
+        productName: 'Trade Current Account',
         customerId: 'CUS-100237',
         status: 'ACTIVE',
         currency: 'INR',
@@ -642,7 +646,7 @@ export const getDefaultDb = () => {
         amount: 185000.00,
         currency: 'INR',
         status: 'SUCCESS',
-        description: 'Monthly Salary Credit â€” Acme FinTech Corp',
+        description: 'Monthly Salary Credit — Acme FinTech Corp',
         referenceNumber: 'PAY-882191',
         valueDate: '2026-10-01',
         createdAt: '2026-10-01T05:00:00Z',
@@ -670,7 +674,7 @@ export const getDefaultDb = () => {
         amount: 50000.00,
         currency: 'INR',
         status: 'SUCCESS',
-        description: 'Client Invoice Payment â€” Zenith Logistics',
+        description: 'Client Invoice Payment — Zenith Logistics',
         referenceNumber: 'PAY-771101',
         valueDate: '2026-09-27',
         createdAt: '2026-09-27T10:00:00Z'
@@ -701,6 +705,18 @@ export const getDefaultDb = () => {
         bankName: 'FinEdge Bank',
         status: 'ACTIVE',
         verificationStatus: 'VERIFIED'
+      },
+      {
+        beneficiaryId: 'BEN-778900',
+        customerId: 'CUS-100234',
+        nickname: 'Suresh (HDFC)',
+        beneficiaryName: 'Suresh Menon',
+        accountNumber: '50100234567890',
+        maskedAccountNumber: '**********7890',
+        ifscCode: 'HDFC0000128',
+        bankName: 'HDFC Bank Ltd',
+        status: 'ACTIVE',
+        verificationStatus: 'VERIFIED'
       }
     ],
     kycApplications: [
@@ -713,9 +729,9 @@ export const getDefaultDb = () => {
         occupation: 'SALARIED',
         annualIncomeRange: '1000000_1500000',
         aadhaarConsent: true,
-        submittedAt: '2026-10-01T06:30:00Z',
+        submittedAt: offsetIso(48),
         approvedBy: 'OPS-2001',
-        approvedAt: '2026-10-01T09:15:00Z',
+        approvedAt: offsetIso(45),
         documents: [
           { documentType: 'PAN', fileName: 'pan-card.pdf', verified: true },
           { documentType: 'ADDRESS_PROOF', fileName: 'utility-bill.pdf', verified: true }
@@ -730,7 +746,7 @@ export const getDefaultDb = () => {
         occupation: 'BUSINESS',
         annualIncomeRange: '1500000_2500000',
         aadhaarConsent: true,
-        submittedAt: '2026-09-27T09:40:00Z',
+        submittedAt: offsetIso(26),
         documents: [
           { documentType: 'PAN', fileName: 'pan_aarav.pdf', verified: false },
           { documentType: 'ADDRESS_PROOF', fileName: 'aadhaar_front.pdf', verified: false }
@@ -745,7 +761,7 @@ export const getDefaultDb = () => {
         occupation: 'SALARIED',
         annualIncomeRange: '2500000_5000000',
         aadhaarConsent: true,
-        submittedAt: '2026-09-27T14:15:00Z',
+        submittedAt: offsetIso(14),
         documents: [
           { documentType: 'PAN', fileName: 'pan_priya_nair.pdf', verified: false },
           { documentType: 'ADDRESS_PROOF', fileName: 'passport_front.pdf', verified: false }
@@ -760,7 +776,7 @@ export const getDefaultDb = () => {
         occupation: 'BUSINESS',
         annualIncomeRange: '1000000_1500000',
         aadhaarConsent: true,
-        submittedAt: '2026-09-27T16:45:00Z',
+        submittedAt: offsetIso(4),
         documents: [
           { documentType: 'PAN', fileName: 'pan_neha_blurred.pdf', verified: false },
           { documentType: 'ADDRESS_PROOF', fileName: 'electricity_bill.pdf', verified: false }
@@ -776,8 +792,8 @@ export const getDefaultDb = () => {
         productName: 'FinEdge Prime Savings Account',
         initialFundingAmount: 25000.00,
         status: 'APPROVED',
-        submittedAt: '2026-10-10T10:00:00Z',
-        approvedAt: '2026-09-12T09:20:00Z',
+        submittedAt: offsetIso(36),
+        approvedAt: offsetIso(34),
         nominee: {
           fullName: 'Ananya Iyer',
           relationship: 'SPOUSE',
@@ -790,10 +806,10 @@ export const getDefaultDb = () => {
         customerId: 'CUS-100235',
         customerName: 'Aarav Patel',
         productCode: 'CURRENT_BUSINESS',
-        productName: 'FinEdge Enterprise Current Account',
+        productName: 'Trade Current Account',
         initialFundingAmount: 100000.00,
         status: 'UNDER_REVIEW',
-        submittedAt: '2026-09-27T10:15:00Z',
+        submittedAt: offsetIso(20),
         nominee: {
           fullName: 'Priya Patel',
           relationship: 'SPOUSE',
@@ -809,7 +825,7 @@ export const getDefaultDb = () => {
         productName: 'FinEdge Wealth High-Yield Savings',
         initialFundingAmount: 100000.00,
         status: 'UNDER_REVIEW',
-        submittedAt: '2026-09-27T14:30:00Z',
+        submittedAt: offsetIso(8),
         nominee: {
           fullName: 'Kishore Nair',
           relationship: 'BROTHER',
@@ -825,7 +841,7 @@ export const getDefaultDb = () => {
         productName: 'Medical Practice Current Account',
         initialFundingAmount: 50000.00,
         status: 'UNDER_REVIEW',
-        submittedAt: '2026-09-27T15:10:00Z',
+        submittedAt: offsetIso(2),
         nominee: {
           fullName: 'Ananya Singhal',
           relationship: 'SPOUSE',
@@ -842,9 +858,10 @@ export const getDefaultDb = () => {
         cardType: 'CREDIT',
         productSlug: 'edge-cashback-credit',
         cardName: 'FinEdge Edge Cashback Card',
+        requestedLimit: 200000.00,
         linkedAccountId: 'ACC-1001',
         status: 'APPROVED',
-        submittedAt: '2026-09-12T12:00:00Z',
+        submittedAt: offsetIso(30),
         issuedCardId: 'CARD-3001'
       },
       {
@@ -852,10 +869,12 @@ export const getDefaultDb = () => {
         customerId: 'CUS-100235',
         customerName: 'Aarav Patel',
         cardType: 'CREDIT',
-        cardName: 'FinEdge Nova Rewards Credit Card',
+        productSlug: 'edge-cashback-credit',
+        cardName: 'FinEdge Edge Cashback Card',
+        requestedLimit: 150000.00,
         linkedAccountId: 'ACC-2001',
         status: 'UNDER_REVIEW',
-        submittedAt: '2026-09-27T11:30:00Z'
+        submittedAt: offsetIso(18)
       },
       {
         cardApplicationId: 'CARD-APP-400125',
@@ -864,19 +883,22 @@ export const getDefaultDb = () => {
         cardType: 'CREDIT',
         productSlug: 'edge-cashback-credit',
         cardName: 'FinEdge Edge Cashback Card',
+        requestedLimit: 100000.00,
         linkedAccountId: 'ACC-1001',
         status: 'UNDER_REVIEW',
-        submittedAt: '2026-09-27T14:45:00Z'
+        submittedAt: offsetIso(6)
       },
       {
         cardApplicationId: 'CARD-APP-400126',
         customerId: 'CUS-100240',
         customerName: 'Neha Kapoor',
         cardType: 'CREDIT',
-        cardName: 'FinEdge Nova Rewards Credit Card',
+        productSlug: 'edge-voyage-credit',
+        cardName: 'Edge Voyage Travel Credit Card',
+        requestedLimit: 250000.00,
         linkedAccountId: 'ACC-1001',
         status: 'UNDER_REVIEW',
-        submittedAt: '2026-09-27T17:00:00Z'
+        submittedAt: offsetIso(1)
       }
     ],
     staffUsers: [
@@ -1020,7 +1042,7 @@ export const getDefaultDb = () => {
         target: 'ACC-1001',
         status: 'SUCCESS',
         ipAddress: '49.36.120.44',
-        details: 'IMPS Outward Transfer â‚¹15,000 to Ananya Iyer'
+        details: 'IMPS Outward Transfer ₹15,000 to Ananya Iyer'
       }
     ],
     notifications: [
@@ -1030,7 +1052,7 @@ export const getDefaultDb = () => {
         templateCode: 'PAYMENT_SUCCESS',
         channel: 'IN_APP',
         title: 'Payment Successful',
-        body: 'â‚¹15,000 was transferred successfully via IMPS to Ananya Iyer.',
+        body: '₹15,000 was transferred successfully via IMPS to Ananya Iyer.',
         read: false,
         createdAt: '2026-10-27T08:15:35Z'
       },
@@ -1064,15 +1086,14 @@ export const getDefaultDb = () => {
             body: 'Need confirmation receipt for transfer TXN-554433 to tax authority.',
             text: 'Need confirmation receipt for transfer TXN-554433 to tax authority.',
             message: 'Need confirmation receipt for transfer TXN-554433 to tax authority.',
-            at: '2026-09-27T09:50:00Z',
-            timestamp: '2026-09-27T09:50:00Z'
+            at: offsetIso(5),
+            timestamp: offsetIso(5)
           }
         ],
-        createdAt: '2026-09-27T09:50:00Z',
-        updatedAt: '2026-09-27T09:50:00Z'
+        createdAt: offsetIso(5),
+        updatedAt: offsetIso(5)
       }
-    ]
-,
+    ],
     loans: [],
     loanApplications: [],
     investmentHoldings: [],
@@ -1084,42 +1105,22 @@ export const getDefaultDb = () => {
   };
 };
 
-export const getDemoAccounts = () => {
-  const defaults = getDefaultDb();
-  const demoIds = ['CUS-100234', 'CUS-100235'];
-  return demoIds.map(id => {
-    const cust = defaults.customers.find(c => c.customerId === id);
-    if (!cust) return null;
-    return {
-      customerId: cust.customerId,
-      name: cust.fullName,
-      email: cust.email,
-      password: cust.password,
-      note: cust.note || (cust.kycStatus === 'APPROVED' ? 'KYC Verified · Savings & Credit Cards' : 'KYC Under Review · Active Accounts')
-    };
-  }).filter(Boolean);
-};
-
+export const getDemoAccounts = () => (getDefaultDb().customers || []).map(c => ({
+  ...c,
+  name: c.fullName || c.name,
+  phone: c.mobileNumber || c.phone
+}));
 export const DEMO_ACCOUNTS = getDemoAccounts();
 
-
-export const getDemoStaffAccounts = () => {
-  const defaults = getDefaultDb();
-  return (defaults.staffUsers || []).map(s => ({
-    staffId: s.staffId,
-    role: s.roleTitle || s.role,
-    email: s.email,
-    password: s.password,
-    clearance: s.department ? `${s.department} — ${s.roleTitle || s.role}` : (s.roleTitle || s.role)
-  }));
-};
-
+export const getDemoStaffAccounts = () => (getDefaultDb().staffUsers || []).map(s => ({
+  ...s,
+  clearance: s.department ? `${s.role} · ${s.department}` : s.role
+}));
 export const STAFF_ACCOUNTS = getDemoStaffAccounts();
 
 export const resetDemoDb = () => {
-  const defaults = getDefaultDb();
+  const factoryDb = getDefaultDb();
   if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(defaults));
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(SESSION_CUST_KEY);
@@ -1127,192 +1128,139 @@ export const resetDemoDb = () => {
     localStorage.removeItem('finedge_demo_user');
     localStorage.removeItem('finedge_manager_user');
     localStorage.removeItem('finedge_user_prefs');
+    try {
+      localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(factoryDb));
+    } catch {}
   }
-  return defaults;
+  inMemoryDb = JSON.parse(JSON.stringify(factoryDb));
+  return inMemoryDb;
 };
 
 export const getInitialDb = () => {
   return getDb();
 };
 
-export const getDb = () => {
-  const defaults = getDefaultDb();
-  if (typeof localStorage === 'undefined') return defaults;
-  const existingStr = localStorage.getItem(MOCK_STORAGE_KEY);
-  if (!existingStr) {
-    localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(defaults));
-    return defaults;
+export const sanitizeStoredDb = (data) => {
+  if (!data || typeof data !== 'object') return data;
+  let modified = false;
+
+  // 1. Mojibake repair
+  const jsonStr = JSON.stringify(data);
+  if (jsonStr.includes('â‚') || jsonStr.includes('â€')) {
+    const cleaned = jsonStr.replace(/â‚¹/g, '₹').replace(/â€”/g, '—').replace(/â€/g, '—');
+    data = JSON.parse(cleaned);
+    modified = true;
   }
-  try {
-        const db = JSON.parse(existingStr);
 
-    if (!Array.isArray(db.sessions)) { db.sessions = []; dirty = true; }
-    if (!Array.isArray(db.pendingChallenges)) { db.pendingChallenges = []; dirty = true; }
-    if (!db.idempotencyKeys || typeof db.idempotencyKeys !== 'object') { db.idempotencyKeys = {}; dirty = true; }
-
-    let dirty = false;
-
-    // Fix 2: Seed-version identity re-sync in getDb
-    // When stored version is lower than code's SEED_VERSION, re-sync seeded customers
-    // (matched by customerId) from the defaults for identity/contact fields only.
-    const storedVersion = typeof db.seedVersion === 'number' ? db.seedVersion : 0;
-    if (storedVersion < SEED_VERSION) {
-      const seedCustomerMap = new Map(defaults.customers.map(c => [c.customerId, c]));
-      if (Array.isArray(db.customers)) {
-        db.customers.forEach(cust => {
-          const defaultCust = seedCustomerMap.get(cust.customerId);
-          if (defaultCust) {
-            // Re-sync identity/contact fields ONLY:
-            cust.fullName = defaultCust.fullName;
-            cust.email = defaultCust.email;
-            cust.mobileNumber = defaultCust.mobileNumber;
-            cust.pan = defaultCust.pan;
-            cust.dateOfBirth = defaultCust.dateOfBirth;
-            cust.kycStatus = defaultCust.kycStatus;
-            cust.riskCategory = defaultCust.riskCategory;
-            cust.address = defaultCust.address ? JSON.parse(JSON.stringify(defaultCust.address)) : cust.address;
-            if (defaultCust.note) cust.note = defaultCust.note;
-            // CRITICAL INVARIANT: The re-sync must never overwrite:
-            // 1. the stored password (Module 36 change-password persists there)
-            // 2. any record whose id is not a seed id (registered customers are untouched)
-            // 3. any non-customer collection
-          }
-        });
-      }
-      db.seedVersion = SEED_VERSION;
-      dirty = true;
+  // 2. Add external beneficiary Suresh Menon for CUS-100234 if missing
+  if (Array.isArray(data.beneficiaries)) {
+    const hasExternal = data.beneficiaries.some(b => b.beneficiaryId === 'BEN-778900' || b.accountNumber === '50100234567890');
+    if (!hasExternal) {
+      data.beneficiaries.push({
+        beneficiaryId: 'BEN-778900',
+        customerId: 'CUS-100234',
+        nickname: 'Suresh (HDFC)',
+        beneficiaryName: 'Suresh Menon',
+        accountNumber: '50100234567890',
+        maskedAccountNumber: '**********7890',
+        ifscCode: 'HDFC0000128',
+        bankName: 'HDFC Bank Ltd',
+        status: 'ACTIVE',
+        verificationStatus: 'VERIFIED'
+      });
+      modified = true;
     }
+  }
 
-    // Auto-merge seeded customers if missing
-    defaults.customers.forEach(dc => {
-      if (!db.customers?.some(c => c.customerId === dc.customerId)) {
-        db.customers = db.customers || [];
-        db.customers.push(dc);
-        dirty = true;
-      }
-    });
-
-    // Auto-merge seeded accounts
-    defaults.accounts.forEach(da => {
-      if (!db.accounts?.some(a => a.accountId === da.accountId)) {
-        db.accounts = db.accounts || [];
-        db.accounts.push(da);
-        dirty = true;
-      }
-    });
-
-    // Auto-merge seeded cards
-    defaults.cards.forEach(dc => {
-      if (!db.cards?.some(c => c.cardId === dc.cardId)) {
-        db.cards = db.cards || [];
-        db.cards.push(dc);
-        dirty = true;
-      }
-    });
-
-    // Auto-merge seeded transactions
-    defaults.transactions.forEach(dt => {
-      if (!db.transactions?.some(t => t.transactionId === dt.transactionId)) {
-        db.transactions = db.transactions || [];
-        db.transactions.push(dt);
-        dirty = true;
-      }
-    });
-
-    // Auto-merge seeded KYC applications
-    defaults.kycApplications.forEach(dk => {
-      if (!db.kycApplications?.some(k => k.kycCaseId === dk.kycCaseId)) {
-        db.kycApplications = db.kycApplications || [];
-        db.kycApplications.push(dk);
-        dirty = true;
-      }
-    });
-
-    // Auto-merge seeded account applications
-    defaults.accountApplications.forEach(da => {
-      if (!db.accountApplications?.some(a => a.accountApplicationId === da.accountApplicationId)) {
-        db.accountApplications = db.accountApplications || [];
-        db.accountApplications.push(da);
-        dirty = true;
-      }
-    });
-
-    // Auto-merge seeded card applications
-    defaults.cardApplications.forEach(dc => {
-      if (!db.cardApplications?.some(c => c.cardApplicationId === dc.cardApplicationId)) {
-        db.cardApplications = db.cardApplications || [];
-        db.cardApplications.push(dc);
-        dirty = true;
-      }
-    });
-
-    // Auto-merge seeded staff users
-    defaults.staffUsers.forEach(ds => {
-      const existing = db.staffUsers?.find(s => s.staffId === ds.staffId);
-      if (existing) {
-        if (ds.staffId === 'STF-005' && existing.permissions?.includes('kyc.read')) {
-          existing.permissions = [...ds.permissions];
-          dirty = true;
-        } else if (ds.staffId === 'STF-004' && existing.permissions?.includes('loans.read')) {
-          existing.permissions = [...ds.permissions];
-          dirty = true;
-        } else if (ds.staffId === 'STF-003' && existing.permissions?.includes('loans.read')) {
-          existing.permissions = [...ds.permissions];
-          dirty = true;
+  // 3. Fix card applications referencing non-existent Nova Rewards card
+  if (Array.isArray(data.cardApplications)) {
+    data.cardApplications.forEach(app => {
+      if (app.cardName?.includes('Nova Rewards') || !app.productSlug) {
+        if (app.cardApplicationId === 'CARD-APP-400124') {
+          app.productSlug = 'edge-cashback-credit';
+          app.cardName = 'FinEdge Edge Cashback Card';
+          app.requestedLimit = app.requestedLimit || 150000.00;
+          modified = true;
+        } else if (app.cardApplicationId === 'CARD-APP-400126') {
+          app.productSlug = 'edge-voyage-credit';
+          app.cardName = 'Edge Voyage Travel Credit Card';
+          app.requestedLimit = app.requestedLimit || 250000.00;
+          modified = true;
+        } else if (!app.productSlug) {
+          app.productSlug = 'edge-cashback-credit';
+          app.cardName = app.cardName || 'FinEdge Edge Cashback Card';
+          app.requestedLimit = app.requestedLimit || 100000.00;
+          modified = true;
         }
       }
-      if (!existing) {
-        db.staffUsers = db.staffUsers || [];
-        db.staffUsers.push(ds);
-        dirty = true;
-      } else {
-        const curPerms = new Set(existing.permissions || []);
-        let permAdded = false;
-        (ds.permissions || []).forEach(p => {
-          if (!curPerms.has(p)) {
-            existing.permissions.push(p);
-            permAdded = true;
-          }
-        });
-        if (permAdded) dirty = true;
+      if (app.cardType === 'CREDIT' && !app.requestedLimit) {
+        app.requestedLimit = 150000.00;
+        modified = true;
       }
     });
-
-    if (!Array.isArray(db.loans)) { db.loans = []; dirty = true; }
-    if (!Array.isArray(db.loanApplications)) { db.loanApplications = []; dirty = true; }
-    if (!Array.isArray(db.investmentHoldings)) { db.investmentHoldings = []; dirty = true; }
-    if (!Array.isArray(db.investmentApplications)) { db.investmentApplications = []; dirty = true; }
-    if (!Array.isArray(db.beneficiaries)) { db.beneficiaries = []; dirty = true; }
-    if (!Array.isArray(db.products) || db.products.length === 0) {
-      db.products = (defaults.products || []).map(p => ({ ...p, status: 'ACTIVE' }));
-      dirty = true;
-    }
-    if (!Array.isArray(db.customRoles)) {
-      db.customRoles = [];
-      dirty = true;
-    }
-    if (!db.siteContent || typeof db.siteContent !== 'object' || !db.siteContent.hero) {
-      db.siteContent = JSON.parse(JSON.stringify(defaults.siteContent || FACTORY_SITE_CONTENT));
-      dirty = true;
-    }
-    if (!db.settings || typeof db.settings !== 'object' || !db.settings.transferRails) {
-      db.settings = JSON.parse(JSON.stringify(defaults.settings || FACTORY_SETTINGS));
-      dirty = true;
-    }
-
-    if (dirty) {
-      localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(db));
-    }
-    return db;
-  } catch (e) {
-    localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(defaults));
-    return defaults;
   }
+
+  // 4. Update legacy FinEdge Enterprise Current Account to Trade Current Account
+  if (Array.isArray(data.accounts)) {
+    data.accounts.forEach(acc => {
+      if (acc.productName === 'FinEdge Enterprise Current Account') {
+        acc.productName = 'Trade Current Account';
+        modified = true;
+      }
+    });
+  }
+  if (Array.isArray(data.accountApplications)) {
+    data.accountApplications.forEach(app => {
+      if (app.productName === 'FinEdge Enterprise Current Account') {
+        app.productName = 'Trade Current Account';
+        modified = true;
+      }
+    });
+  }
+
+  if (data.seedVersion !== SEED_VERSION) {
+    data.seedVersion = SEED_VERSION;
+    modified = true;
+  }
+
+  if (modified && typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(data));
+    } catch {}
+  }
+
+  return data;
+};
+
+let inMemoryDb = null;
+
+export const getDb = () => {
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const stored = localStorage.getItem(MOCK_STORAGE_KEY);
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        return sanitizeStoredDb(parsed);
+      }
+    } catch {}
+  }
+  if (!inMemoryDb) {
+    inMemoryDb = getDefaultDb();
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(inMemoryDb));
+      } catch {}
+    }
+  }
+  return inMemoryDb;
 };
 
 export const saveDb = (db) => {
+  inMemoryDb = db;
   if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(db));
+    try {
+      localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(db));
+    } catch {}
   }
 };
 
@@ -1366,6 +1314,14 @@ export const resolveSession = (db, token, expectedType) => {
   session.expiresAt = new Date(now + duration).toISOString();
   saveDb(db);
   return session;
+};
+
+export const getOptionalAuthenticatedCustomerId = (db, options = {}) => {
+  try {
+    return getAuthenticatedCustomerId(db, options);
+  } catch {
+    return null;
+  }
 };
 
 export const getAuthenticatedCustomerId = (db, options = {}) => {
@@ -1519,6 +1475,10 @@ export const computeEffectivePermissions = (user, db) => {
 
 export const verifyStaffPermission = (db, requiredPermission, options = {}) => {
   let staffUser = null;
+  if (!db.staffUsers || db.staffUsers.length === 0) {
+    db.staffUsers = (getDefaultDb().staffUsers || []).map(s => ({ ...s }));
+  }
+  const staffList = db.staffUsers;
   const token = options.headers?.['Authorization'] || (options.isManager ? getManagerToken() : null);
 
   // 1. Resolve from session
@@ -1526,7 +1486,7 @@ export const verifyStaffPermission = (db, requiredPermission, options = {}) => {
     const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
     const session = resolveSession(db, cleanToken, 'STAFF');
     if (session) {
-      staffUser = (db.staffUsers || []).find(s => s.staffId === session.staffId || (s.email && s.email.toLowerCase() === session.email?.toLowerCase()));
+      staffUser = staffList.find(s => s.staffId === session.staffId || (s.email && s.email.toLowerCase() === session.email?.toLowerCase()));
     } else {
       throw {
         status: 401,
@@ -1543,7 +1503,7 @@ export const verifyStaffPermission = (db, requiredPermission, options = {}) => {
     if (savedMgr) {
       try {
         const parsed = JSON.parse(savedMgr);
-        staffUser = (db.staffUsers || []).find(s => 
+        staffUser = staffList.find(s => 
           (s.email && s.email.toLowerCase() === parsed.email?.toLowerCase()) || 
           s.staffId === (parsed.staffId || parsed.id)
         );
@@ -1556,14 +1516,14 @@ export const verifyStaffPermission = (db, requiredPermission, options = {}) => {
     try {
       const b = typeof options.body === 'string' ? JSON.parse(options.body || '{}') : (options.body || {});
       if (b.actorEmail) {
-        staffUser = (db.staffUsers || []).find(s => s.email && s.email.toLowerCase() === b.actorEmail.toLowerCase());
+        staffUser = staffList.find(s => s.email && s.email.toLowerCase() === b.actorEmail.toLowerCase());
       }
     } catch {}
   }
 
   // 4. Test harness compatibility for options.isManager in node test environment when no token is passed
   if (!staffUser && options.isManager && (typeof window === 'undefined' || typeof process !== 'undefined')) {
-    staffUser = (db.staffUsers || [])[0];
+    staffUser = staffList[0];
   }
 
   if (!staffUser) {
@@ -1608,7 +1568,7 @@ export const getProducts = (options = {}) => {
     list = list.filter(p => p.category === options.category);
   }
   if (!options.includeInactive) {
-    list = list.filter(p => p.status !== 'INACTIVE');
+    list = list.filter(p => p.status !== 'INACTIVE' && p.status !== 'DEACTIVATED');
   }
   return list;
 };
@@ -1639,6 +1599,16 @@ export const getSetting = (key, options = {}) => {
 };
 
 export const apiRequest = async (endpoint, options = {}) => {
+  const method = (options.method || 'GET').toUpperCase();
+  let bodyParsed = null;
+  if (options.body) {
+    try {
+      bodyParsed = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
+    } catch {}
+  }
+
+  traceRequest(method, endpoint, bodyParsed);
+
   const url = `${BASE_URL}${endpoint}`;
   const token = options.isManager ? getManagerToken() : getAccessToken();
 
@@ -1655,7 +1625,7 @@ export const apiRequest = async (endpoint, options = {}) => {
   }
 
   // Idempotency-Key on state mutations
-  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method || 'GET') && !headers['Idempotency-Key']) {
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && !headers['Idempotency-Key']) {
     headers['Idempotency-Key'] = generateUUID();
   }
 
@@ -1664,6 +1634,11 @@ export const apiRequest = async (endpoint, options = {}) => {
       ...options,
       headers
     });
+
+    // Part 0.2: FIRST request whose fetch resolves with any HTTP response sets mode 'server'
+    if (getMode() === 'unknown') {
+      setServerMode('server');
+    }
 
     if (response.status === 401 && !options._retry && !options.isManager) {
       const refreshed = await tryRefreshToken();
@@ -1682,18 +1657,62 @@ export const apiRequest = async (endpoint, options = {}) => {
     }
 
     if (!response.ok) {
-      throw {
-        ...JSON.parse(data)
+      const errCode = data?.error?.code || data?.code || 'API_ERROR';
+      const errDetail = data?.error?.message || data?.detail || data?.title || response.statusText;
+      const errDetails = data?.error?.details || data?.details || data?.errors || [];
+      const reqId = data?.error?.requestId || headers['X-Correlation-Id'];
+      const errObj = {
+        status: response.status,
+        code: errCode,
+        title: data?.title || 'Request Failed',
+        detail: errDetail,
+        message: errDetail,
+        details: errDetails,
+        errors: errDetails,
+        requestId: reqId,
+        error: {
+          code: errCode,
+          message: errDetail,
+          details: errDetails,
+          requestId: reqId
+        }
       };
+      traceFailure(endpoint, errObj);
+      throw errObj;
     }
 
+    traceResponse(endpoint, response.status, data);
     return data;
-
   } catch (err) {
-    if (err.name === 'TypeError' || err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
+    // If err.status exists, fetch DID resolve (HTTP response was received and parsed, then thrown)
+    if (err.status) {
+      if (getMode() === 'unknown') {
+        setServerMode('server');
+      }
+      throw err;
+    }
+
+    // Network failure: fetch itself rejected (server down / unreachable)
+    if (getMode() === 'unknown') {
+      setServerMode('demo');
+    }
+
+    const currentMode = getMode();
+    if (currentMode === 'demo') {
+      // Part A.1: Route the call to handleLocalFallback(endpoint, options) exactly as pre-Module-50
+      traceFailure(endpoint, 'Network failure — routed to demo fallback engine');
       return handleLocalFallback(endpoint, options);
     }
-    throw err;
+
+    // In server mode, network failures surface as an error state, never a silent mode switch
+    traceFailure(endpoint, err?.message || 'Network connection failed');
+    throw {
+      status: 503,
+      code: 'NETWORK_ERROR',
+      title: 'Network Error',
+      detail: 'Network connection failed. The server could not be reached.',
+      message: 'Network connection failed. The server could not be reached.'
+    };
   }
 };
 
@@ -1820,6 +1839,11 @@ export const handleLocalFallback = (endpoint, options = {}) => {
   if (endpoint === '/api/v1/auth/login' && method === 'POST') {
     const rawIdent = (body.identifier || '').trim();
     const identLower = rawIdent.toLowerCase();
+    const defaults = getDefaultDb();
+    if (!db.customers || db.customers.length === 0) {
+      db.customers = (defaults.customers || []).map(c => ({ ...c }));
+    }
+    const custList = db.customers;
 
     // Fix 1.2: Resolve identifiers for seeded demo customers through explicit alias map
     let matchedSeedCustomerId = null;
@@ -1832,11 +1856,11 @@ export const handleLocalFallback = (endpoint, options = {}) => {
 
     let customer = null;
     if (matchedSeedCustomerId) {
-      customer = db.customers.find(c => c.customerId === matchedSeedCustomerId);
+      customer = custList.find(c => c.customerId === matchedSeedCustomerId);
     }
 
     if (!customer) {
-      customer = db.customers.find(c => 
+      customer = custList.find(c => 
         (c.email && c.email.toLowerCase() === identLower) || 
         c.mobileNumber === rawIdent
       );
@@ -1847,7 +1871,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
         status: 401,
         code: 'INVALID_CREDENTIALS',
         title: 'Authentication Failed',
-        detail: 'No registered customer account found with the provided credentials.'
+        detail: 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.'
       };
     }
 
@@ -1856,7 +1880,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
         status: 401,
         code: 'INVALID_CREDENTIALS',
         title: 'Authentication Failed',
-        detail: 'The password entered is incorrect. Please check your credentials.'
+        detail: 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.'
       };
     }
 
@@ -1993,15 +2017,19 @@ export const handleLocalFallback = (endpoint, options = {}) => {
   // 5. /admin/api/v1/auth/login (Dedicated Staff Authentication)
   if (endpoint === '/admin/api/v1/auth/login' && method === 'POST') {
     const ident = (body.identifier || body.email || '').trim().toLowerCase();
-    const staff = db.staffUsers.find(s => s.email.toLowerCase() === ident);
+    const defaults = getDefaultDb();
+    if (!db.staffUsers || db.staffUsers.length === 0) {
+      db.staffUsers = (defaults.staffUsers || []).map(s => ({ ...s }));
+    }
+    const staff = db.staffUsers.find(s => s.email.toLowerCase() === ident || s.staffId.toLowerCase() === ident);
 
     if (!staff) {
       appendAuditLog(ident || 'UNKNOWN', 'STAFF', 'STAFF_LOGIN_FAILED', 'STAFF_AUTH', 'FAILED', 'Unknown staff corporate email: ' + ident);
       throw {
         status: 401,
-        code: 'STAFF_NOT_FOUND',
+        code: 'INVALID_CREDENTIALS',
         title: 'Authentication Failed',
-        detail: 'Unauthorized: No bank staff account found with this corporate email.'
+        detail: 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.'
       };
     }
 
@@ -2022,7 +2050,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
         status: 401,
         code: 'INVALID_CREDENTIALS',
         title: 'Authentication Failed',
-        detail: 'The administrative password entered is incorrect.'
+        detail: 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.'
       };
     }
 
@@ -2131,48 +2159,63 @@ export const handleLocalFallback = (endpoint, options = {}) => {
 
   // 9. /api/v1/accounts (Strict Customer Data Isolation)
   if (endpoint === '/api/v1/accounts') {
-    const currentCustId = getAuthenticatedCustomerId(db);
     if (method === 'GET') {
+      const currentCustId = getAuthenticatedCustomerId(db, options);
       const customerAccounts = db.accounts.filter(a => a.customerId === currentCustId);
       return { data: customerAccounts };
     }
     if (method === 'POST') {
-      // Duplicate application prevention
-      const existingPending = db.accountApplications.find(a => 
-        a.customerId === currentCustId && 
-        a.productCode === body.productCode && 
-        ['UNDER_REVIEW', 'PENDING_APPROVAL', 'SUBMITTED'].includes(a.status)
-      );
-      if (existingPending) {
-        throw {
-          status: 409,
-          code: 'DUPLICATE_APPLICATION',
-          title: 'Application Already In Progress',
-          detail: `An active application (${existingPending.accountApplicationId}) for this account product is currently under review.`
-        };
+      const currentCustId = getOptionalAuthenticatedCustomerId(db, options) || body.customerId || ('CUS-' + Math.floor(100000 + Math.random() * 900000));
+      if (body.customerId || getOptionalAuthenticatedCustomerId(db, options)) {
+        const existingPending = (db.accountApplications || []).find(a => 
+          a.customerId === currentCustId && 
+          a.productCode === body.productCode && 
+          ['UNDER_REVIEW', 'PENDING_APPROVAL', 'SUBMITTED', 'PENDING'].includes(a.status)
+        );
+        if (existingPending) {
+          throw {
+            status: 409,
+            code: 'DUPLICATE_APPLICATION',
+            title: 'Application Already In Progress',
+            detail: `An active application (${existingPending.accountApplicationId || existingPending.id}) for this account product is currently under review.`
+          };
+        }
       }
 
       const newAppId = 'ACC-APP-' + Math.floor(900000 + Math.random() * 100000);
-      const cust = db.customers.find(c => c.customerId === currentCustId);
+      const cust = (db.customers || []).find(c => c.customerId === currentCustId);
       const newApp = {
+        id: newAppId,
         accountApplicationId: newAppId,
+        applicationId: newAppId,
         customerId: currentCustId,
-        customerName: body.applicantName || body.customerName || cust?.fullName || 'Customer',
+        customerName: body.applicantName || body.fullName || body.customerName || cust?.fullName || 'Guest Applicant',
+        email: body.email || cust?.email || '',
+        mobileNumber: body.mobile || body.mobileNumber || cust?.mobileNumber || '',
+        pan: body.panNumber || body.pan || cust?.pan || '',
         productCode: body.productCode || 'SAVINGS_REGULAR',
         productName: body.productName || (body.productCode === 'CURRENT_BUSINESS' ? 'FinEdge Trade Current Account' : 'FinEdge Everyday Savings Account'),
+        productSlug: body.productSlug || 'everyday-savings',
+        initialFunding: body.initialFundingAmount || body.initialFunding || 10000,
         initialFundingAmount: body.initialFundingAmount || 10000.00,
-        status: 'PENDING_APPROVAL',
-      submittedAt: new Date().toISOString(),
-        nominee: body.nominee || {}
+        status: 'UNDER_REVIEW',
+        submittedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        nominee: body.nominee || {},
+        nomineeName: body.nominee?.fullName || body.nomineeName || 'Nominee on file'
       };
+      if (!Array.isArray(db.accountApplications)) db.accountApplications = [];
       db.accountApplications.unshift(newApp);
       saveDb(db);
       appendAuditLog(currentCustId, 'CUSTOMER', 'ACCOUNT_APPLICATION_SUBMITTED', newAppId, 'SUCCESS', `Applied for ${newApp.productName}`);
       return {
+        id: newAppId,
         accountApplicationId: newAppId,
+        applicationId: newAppId,
         customerId: currentCustId,
         productCode: newApp.productCode,
-        status: 'PENDING_APPROVAL',
+        productName: newApp.productName,
+        status: 'UNDER_REVIEW',
         estimatedCompletionTime: new Date(Date.now() + 48 * 3600 * 1000).toISOString()
       };
     }
@@ -2469,29 +2512,31 @@ export const handleLocalFallback = (endpoint, options = {}) => {
 
   // 14. /api/v1/cards/applications
   if (endpoint === '/api/v1/cards/applications' && method === 'POST') {
-    const currentCustId = getAuthenticatedCustomerId(db);
+    const currentCustId = getOptionalAuthenticatedCustomerId(db, options) || body.customerId || ('CUS-' + Math.floor(100000 + Math.random() * 900000));
     const prodSlug = body.productSlug || (body.cardName ? body.cardName.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'edge-cashback-credit');
-    const existingCardApp = (db.cardApplications || []).find(c => 
-      c.customerId === currentCustId && 
-      (c.productSlug === prodSlug || c.cardName === body.cardName) && 
-      ['UNDER_REVIEW', 'PENDING_APPROVAL', 'SUBMITTED'].includes(c.status)
-    );
-    if (existingCardApp) {
-      throw {
-        status: 409,
-        code: 'DUPLICATE_APPLICATION',
-        title: 'Application Already Pending',
-        detail: `An active application (${existingCardApp.cardApplicationId}) for ${body.cardName || 'this card'} is currently under review.`
-      };
+    if (getOptionalAuthenticatedCustomerId(db, options) || body.customerId) {
+      const existingCardApp = (db.cardApplications || []).find(c => 
+        c.customerId === currentCustId && 
+        (c.productSlug === prodSlug || c.cardName === body.cardName) && 
+        ['UNDER_REVIEW', 'PENDING_APPROVAL', 'SUBMITTED'].includes(c.status)
+      );
+      if (existingCardApp) {
+        throw {
+          status: 409,
+          code: 'DUPLICATE_APPLICATION',
+          title: 'Application Already Pending',
+          detail: `An active application (${existingCardApp.cardApplicationId}) for ${body.cardName || 'this card'} is currently under review.`
+        };
+      }
     }
 
-    const cust = db.customers.find(c => c.customerId === currentCustId);
+    const cust = (db.customers || []).find(c => c.customerId === currentCustId);
     const newCardAppId = 'CARD-APP-' + Math.floor(400000 + Math.random() * 100000);
     const newCardApp = {
       cardApplicationId: newCardAppId,
       id: newCardAppId,
       customerId: currentCustId,
-      customerName: cust?.fullName || 'Customer',
+      customerName: body.applicantName || body.fullName || body.customerName || cust?.fullName || 'Guest Applicant',
       cardType: body.cardType || 'CREDIT',
       cardName: body.cardName || 'FinEdge Edge Cashback Card',
       productName: body.cardName || 'FinEdge Edge Cashback Card',
@@ -2696,7 +2741,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
 
   // 18. /api/v1/support/tickets
   if (endpoint === '/api/v1/support/tickets' && method === 'POST') {
-    const currentCustId = getAuthenticatedCustomerId(db) || body.customerId || null;
+    const currentCustId = getOptionalAuthenticatedCustomerId(db, options) || body.customerId || null;
     const desc = (body.description || body.message || '').trim();
     const ticketId = 'TCK-' + Math.floor(700000 + Math.random() * 100000);
     const now = new Date().toISOString();
@@ -3002,7 +3047,8 @@ export const handleLocalFallback = (endpoint, options = {}) => {
       cardId: newCardId,
       issuedAt,
       dispatchRef,
-      limit: approvedLimit
+      limit: approvedLimit,
+      status: 'APPROVED'
     };
   }
 
@@ -3081,6 +3127,9 @@ export const handleLocalFallback = (endpoint, options = {}) => {
   // Manager: Staff List (requires staff.read)
   if (endpoint === '/admin/api/v1/staff' && method === 'GET') {
     verifyStaffPermission(db, 'staff.read', options);
+    if (!db.staffUsers || db.staffUsers.length === 0) {
+      db.staffUsers = (getDefaultDb().staffUsers || []).map(s => ({ ...s }));
+    }
     return db.staffUsers;
   }
 

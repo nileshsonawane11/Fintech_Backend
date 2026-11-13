@@ -1,3 +1,4 @@
+import { traceData } from '../../../lib/trace.js';
 import React, { useEffect, useMemo, useState } from 'react';
 import { ChevronDown, ChevronRight, Download, FileSearch, Search } from 'lucide-react';
 import { Button, EmptyState, Field, Input, PageLoading, SectionHeader, Select, StatusChip, Table } from '../../../components/ui.jsx';
@@ -36,6 +37,7 @@ export default function ManagerAuditPage() {
 
   useEffect(() => {
     let alive = true;
+    traceData('ManagerAuditLog');
     listAudit({})
       .then((rows) => { if (alive) { setAllRows(rows); setError(''); } })
       .catch((e) => { if (alive) setError(e.message || 'Could not load the audit log.'); });
