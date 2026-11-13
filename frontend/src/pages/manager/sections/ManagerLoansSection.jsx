@@ -505,7 +505,7 @@ export default function ManagerLoansPage() {
                   {isAuditor && <p className="text-xs text-ink-500 text-right mt-1">Auditor clearance is read-only — decision controls are disabled.</p>}
                 </div>
               ) : (
-                <p className="text-[13px] text-ink-500">No decision actions are available for this status.</p>
+                <div className="flex items-center justify-between pt-2"><p className="text-[13px] text-ink-500">No decision actions are available for this status.</p><Button variant="secondary" size="sm" onClick={() => setDetailId(null)}>Close</Button></div>
               )}
             </div>
           </aside>

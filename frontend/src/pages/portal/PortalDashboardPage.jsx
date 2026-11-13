@@ -68,13 +68,25 @@ export const PortalDashboardPage = () => {
   const [searchParams] = useSearchParams();
   const [moreOpen, setMoreOpen] = useState(false);
   const [avatarMenuOpen, setAvatarMenuOpen] = useState(false);
-  const [unreadN, setUnreadN] = useState(0);
+  const [asyncUnread, setAsyncUnread] = useState(0);
 
-  // Sync sidebar unread badge with unreadCount
+  // Sync unread badge with unreadCount
   useEffect(() => {
     if (!user?.customerId) return;
-    unreadCount(user.customerId).then((c) => setUnreadN(c || 0)).catch(() => {});
+    unreadCount(user.customerId).then((c) => setAsyncUnread(c || 0)).catch(() => {});
   }, [user?.customerId, location.pathname]);
+
+  // One unread count: portal header badge, sidebar badge, and "More" menu badge read from the same state selector in same render
+  const unreadN = useMemo(() => {
+    if (!user?.customerId) return 0;
+    try {
+      const db = getDb();
+      if (Array.isArray(db.notifications)) {
+        return db.notifications.filter((n) => n.customerId === user.customerId && !n.read).length;
+      }
+    } catch {}
+    return asyncUnread;
+  }, [user?.customerId, asyncUnread]);
 
   // 15-Minute Session Inactivity Lock
   const lockMinutes = Number(getSetting('inactivityLockMinutes')) || 15;

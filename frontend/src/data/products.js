@@ -1,10 +1,27 @@
 import { FACTORY_SITE_CONTENT } from './factoryContent.js';
 
-export const getBrandSupport = () => ({
-  phone: '1800 267 4100 (toll-free, demo)',
-  email: FACTORY_SITE_CONTENT.footer.supportEmail,
-  hours: FACTORY_SITE_CONTENT.footer.supportHours,
-});
+export const getBrandSupport = () => {
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const raw = localStorage.getItem('finedge_persistent_db');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (parsed?.siteContent?.footer) {
+          return {
+            phone: parsed.siteContent.footer.supportPhone || '1800 267 4100 (toll-free, demo)',
+            email: parsed.siteContent.footer.supportEmail || FACTORY_SITE_CONTENT.footer.supportEmail,
+            hours: parsed.siteContent.footer.supportHours || FACTORY_SITE_CONTENT.footer.supportHours,
+          };
+        }
+      }
+    }
+  } catch {}
+  return {
+    phone: '1800 267 4100 (toll-free, demo)',
+    email: FACTORY_SITE_CONTENT.footer.supportEmail,
+    hours: FACTORY_SITE_CONTENT.footer.supportHours,
+  };
+};
 
 // ============================================================================
 // FinEdge Bank — product catalogue (single source of truth for the public site)
@@ -1229,9 +1246,26 @@ export const FACTORY_ALL_PRODUCTS = [...FACTORY_ACCOUNTS, ...FACTORY_LOANS, ...F
 
 
 function getLiveProducts(category, options = {}) {
-  let factory = [...FACTORY_ACCOUNTS, ...FACTORY_LOANS, ...FACTORY_CARDS, ...FACTORY_INVESTMENTS];
+  let items = null;
+  if (typeof localStorage !== 'undefined') {
+    try {
+      const stored = localStorage.getItem('finedge_persistent_db');
+      if (stored) {
+        const parsed = JSON.parse(stored);
+        if (Array.isArray(parsed.products) && parsed.products.length > 0) {
+          items = parsed.products;
+        }
+      }
+    } catch {}
+  }
+  if (!items) {
+    items = [...FACTORY_ACCOUNTS, ...FACTORY_LOANS, ...FACTORY_CARDS, ...FACTORY_INVESTMENTS];
+  }
+  let factory = [...items];
   if (category) factory = factory.filter((p) => p.category === category);
-  if (!options.includeInactive) factory = factory.filter((p) => p.status !== 'INACTIVE');
+  if (!options.includeInactive) {
+    factory = factory.filter((p) => p.status !== 'INACTIVE' && p.status !== 'DEACTIVATED');
+  }
   return factory;
 }
 

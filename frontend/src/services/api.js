@@ -107,11 +107,11 @@ export const clearManagerToken = () => {
 };
 
 // ============================================================================
-// SEED VERSION & ALIASES (Module 40)
+// SEED VERSION & ALIASES (Module 40 / Module 52)
 // ============================================================================
 // SEED_VERSION: Stored inside the persisted db.
 // Rule: bump it whenever a seed identity/contact field changes.
-export const SEED_VERSION = 1;
+export const SEED_VERSION = 2;
 
 // Explicit alias map keyed by customerId for seeded demo customers.
 // Covers current seed email and historical/legacy identifiers.
@@ -150,6 +150,8 @@ export const SEED_CUSTOMER_ALIASES = {
 // INITIAL PERSISTENT STORE (Mirrors FinBank API Data Model)
 // ============================================================================
 export const getDefaultDb = () => {
+  const now = Date.now();
+  const offsetIso = (hoursAgo) => new Date(now - hoursAgo * 3600000).toISOString();
   return {
     seedVersion: SEED_VERSION,
     sessions: [],
@@ -389,7 +391,7 @@ export const getDefaultDb = () => {
         rawAccountNumber: '98201100005678',
         accountType: 'CURRENT',
         productCode: 'CURRENT_BUSINESS',
-        productName: 'FinEdge Enterprise Current Account',
+        productName: 'Trade Current Account',
         customerId: 'CUS-100234',
         status: 'ACTIVE',
         currency: 'INR',
@@ -412,7 +414,7 @@ export const getDefaultDb = () => {
         rawAccountNumber: '98201100009988',
         accountType: 'CURRENT',
         productCode: 'CURRENT_BUSINESS',
-        productName: 'FinEdge Enterprise Current Account',
+        productName: 'Trade Current Account',
         customerId: 'CUS-100235',
         status: 'ACTIVE',
         currency: 'INR',
@@ -435,7 +437,7 @@ export const getDefaultDb = () => {
         rawAccountNumber: '98201100004455',
         accountType: 'CURRENT',
         productCode: 'CURRENT_BUSINESS',
-        productName: 'FinEdge Enterprise Current Account',
+        productName: 'Trade Current Account',
         customerId: 'CUS-100237',
         status: 'ACTIVE',
         currency: 'INR',
@@ -642,7 +644,7 @@ export const getDefaultDb = () => {
         amount: 185000.00,
         currency: 'INR',
         status: 'SUCCESS',
-        description: 'Monthly Salary Credit â€” Acme FinTech Corp',
+        description: 'Monthly Salary Credit — Acme FinTech Corp',
         referenceNumber: 'PAY-882191',
         valueDate: '2026-10-01',
         createdAt: '2026-10-01T05:00:00Z',
@@ -670,7 +672,7 @@ export const getDefaultDb = () => {
         amount: 50000.00,
         currency: 'INR',
         status: 'SUCCESS',
-        description: 'Client Invoice Payment â€” Zenith Logistics',
+        description: 'Client Invoice Payment — Zenith Logistics',
         referenceNumber: 'PAY-771101',
         valueDate: '2026-09-27',
         createdAt: '2026-09-27T10:00:00Z'
@@ -701,6 +703,18 @@ export const getDefaultDb = () => {
         bankName: 'FinEdge Bank',
         status: 'ACTIVE',
         verificationStatus: 'VERIFIED'
+      },
+      {
+        beneficiaryId: 'BEN-778900',
+        customerId: 'CUS-100234',
+        nickname: 'Suresh (HDFC)',
+        beneficiaryName: 'Suresh Menon',
+        accountNumber: '50100234567890',
+        maskedAccountNumber: '**********7890',
+        ifscCode: 'HDFC0000128',
+        bankName: 'HDFC Bank Ltd',
+        status: 'ACTIVE',
+        verificationStatus: 'VERIFIED'
       }
     ],
     kycApplications: [
@@ -713,9 +727,9 @@ export const getDefaultDb = () => {
         occupation: 'SALARIED',
         annualIncomeRange: '1000000_1500000',
         aadhaarConsent: true,
-        submittedAt: '2026-10-01T06:30:00Z',
+        submittedAt: offsetIso(48),
         approvedBy: 'OPS-2001',
-        approvedAt: '2026-10-01T09:15:00Z',
+        approvedAt: offsetIso(45),
         documents: [
           { documentType: 'PAN', fileName: 'pan-card.pdf', verified: true },
           { documentType: 'ADDRESS_PROOF', fileName: 'utility-bill.pdf', verified: true }
@@ -730,7 +744,7 @@ export const getDefaultDb = () => {
         occupation: 'BUSINESS',
         annualIncomeRange: '1500000_2500000',
         aadhaarConsent: true,
-        submittedAt: '2026-09-27T09:40:00Z',
+        submittedAt: offsetIso(26),
         documents: [
           { documentType: 'PAN', fileName: 'pan_aarav.pdf', verified: false },
           { documentType: 'ADDRESS_PROOF', fileName: 'aadhaar_front.pdf', verified: false }
@@ -745,7 +759,7 @@ export const getDefaultDb = () => {
         occupation: 'SALARIED',
         annualIncomeRange: '2500000_5000000',
         aadhaarConsent: true,
-        submittedAt: '2026-09-27T14:15:00Z',
+        submittedAt: offsetIso(14),
         documents: [
           { documentType: 'PAN', fileName: 'pan_priya_nair.pdf', verified: false },
           { documentType: 'ADDRESS_PROOF', fileName: 'passport_front.pdf', verified: false }
@@ -760,7 +774,7 @@ export const getDefaultDb = () => {
         occupation: 'BUSINESS',
         annualIncomeRange: '1000000_1500000',
         aadhaarConsent: true,
-        submittedAt: '2026-09-27T16:45:00Z',
+        submittedAt: offsetIso(4),
         documents: [
           { documentType: 'PAN', fileName: 'pan_neha_blurred.pdf', verified: false },
           { documentType: 'ADDRESS_PROOF', fileName: 'electricity_bill.pdf', verified: false }
@@ -776,8 +790,8 @@ export const getDefaultDb = () => {
         productName: 'FinEdge Prime Savings Account',
         initialFundingAmount: 25000.00,
         status: 'APPROVED',
-        submittedAt: '2026-10-10T10:00:00Z',
-        approvedAt: '2026-09-12T09:20:00Z',
+        submittedAt: offsetIso(36),
+        approvedAt: offsetIso(34),
         nominee: {
           fullName: 'Ananya Iyer',
           relationship: 'SPOUSE',
@@ -790,10 +804,10 @@ export const getDefaultDb = () => {
         customerId: 'CUS-100235',
         customerName: 'Aarav Patel',
         productCode: 'CURRENT_BUSINESS',
-        productName: 'FinEdge Enterprise Current Account',
+        productName: 'Trade Current Account',
         initialFundingAmount: 100000.00,
         status: 'UNDER_REVIEW',
-        submittedAt: '2026-09-27T10:15:00Z',
+        submittedAt: offsetIso(20),
         nominee: {
           fullName: 'Priya Patel',
           relationship: 'SPOUSE',
@@ -809,7 +823,7 @@ export const getDefaultDb = () => {
         productName: 'FinEdge Wealth High-Yield Savings',
         initialFundingAmount: 100000.00,
         status: 'UNDER_REVIEW',
-        submittedAt: '2026-09-27T14:30:00Z',
+        submittedAt: offsetIso(8),
         nominee: {
           fullName: 'Kishore Nair',
           relationship: 'BROTHER',
@@ -825,7 +839,7 @@ export const getDefaultDb = () => {
         productName: 'Medical Practice Current Account',
         initialFundingAmount: 50000.00,
         status: 'UNDER_REVIEW',
-        submittedAt: '2026-09-27T15:10:00Z',
+        submittedAt: offsetIso(2),
         nominee: {
           fullName: 'Ananya Singhal',
           relationship: 'SPOUSE',
@@ -842,9 +856,10 @@ export const getDefaultDb = () => {
         cardType: 'CREDIT',
         productSlug: 'edge-cashback-credit',
         cardName: 'FinEdge Edge Cashback Card',
+        requestedLimit: 200000.00,
         linkedAccountId: 'ACC-1001',
         status: 'APPROVED',
-        submittedAt: '2026-09-12T12:00:00Z',
+        submittedAt: offsetIso(30),
         issuedCardId: 'CARD-3001'
       },
       {
@@ -852,10 +867,12 @@ export const getDefaultDb = () => {
         customerId: 'CUS-100235',
         customerName: 'Aarav Patel',
         cardType: 'CREDIT',
-        cardName: 'FinEdge Nova Rewards Credit Card',
+        productSlug: 'edge-cashback-credit',
+        cardName: 'FinEdge Edge Cashback Card',
+        requestedLimit: 150000.00,
         linkedAccountId: 'ACC-2001',
         status: 'UNDER_REVIEW',
-        submittedAt: '2026-09-27T11:30:00Z'
+        submittedAt: offsetIso(18)
       },
       {
         cardApplicationId: 'CARD-APP-400125',
@@ -864,19 +881,22 @@ export const getDefaultDb = () => {
         cardType: 'CREDIT',
         productSlug: 'edge-cashback-credit',
         cardName: 'FinEdge Edge Cashback Card',
+        requestedLimit: 100000.00,
         linkedAccountId: 'ACC-1001',
         status: 'UNDER_REVIEW',
-        submittedAt: '2026-09-27T14:45:00Z'
+        submittedAt: offsetIso(6)
       },
       {
         cardApplicationId: 'CARD-APP-400126',
         customerId: 'CUS-100240',
         customerName: 'Neha Kapoor',
         cardType: 'CREDIT',
-        cardName: 'FinEdge Nova Rewards Credit Card',
+        productSlug: 'edge-voyage-credit',
+        cardName: 'Edge Voyage Travel Credit Card',
+        requestedLimit: 250000.00,
         linkedAccountId: 'ACC-1001',
         status: 'UNDER_REVIEW',
-        submittedAt: '2026-09-27T17:00:00Z'
+        submittedAt: offsetIso(1)
       }
     ],
     staffUsers: [
@@ -1020,7 +1040,7 @@ export const getDefaultDb = () => {
         target: 'ACC-1001',
         status: 'SUCCESS',
         ipAddress: '49.36.120.44',
-        details: 'IMPS Outward Transfer â‚¹15,000 to Ananya Iyer'
+        details: 'IMPS Outward Transfer ₹15,000 to Ananya Iyer'
       }
     ],
     notifications: [
@@ -1030,7 +1050,7 @@ export const getDefaultDb = () => {
         templateCode: 'PAYMENT_SUCCESS',
         channel: 'IN_APP',
         title: 'Payment Successful',
-        body: 'â‚¹15,000 was transferred successfully via IMPS to Ananya Iyer.',
+        body: '₹15,000 was transferred successfully via IMPS to Ananya Iyer.',
         read: false,
         createdAt: '2026-10-27T08:15:35Z'
       },
@@ -1064,12 +1084,12 @@ export const getDefaultDb = () => {
             body: 'Need confirmation receipt for transfer TXN-554433 to tax authority.',
             text: 'Need confirmation receipt for transfer TXN-554433 to tax authority.',
             message: 'Need confirmation receipt for transfer TXN-554433 to tax authority.',
-            at: '2026-09-27T09:50:00Z',
-            timestamp: '2026-09-27T09:50:00Z'
+            at: offsetIso(5),
+            timestamp: offsetIso(5)
           }
         ],
-        createdAt: '2026-09-27T09:50:00Z',
-        updatedAt: '2026-09-27T09:50:00Z'
+        createdAt: offsetIso(5),
+        updatedAt: offsetIso(5)
       }
     ],
     loans: [],
@@ -1118,6 +1138,98 @@ export const getInitialDb = () => {
   return getDb();
 };
 
+export const sanitizeStoredDb = (data) => {
+  if (!data || typeof data !== 'object') return data;
+  let modified = false;
+
+  // 1. Mojibake repair
+  const jsonStr = JSON.stringify(data);
+  if (jsonStr.includes('â‚') || jsonStr.includes('â€')) {
+    const cleaned = jsonStr.replace(/â‚¹/g, '₹').replace(/â€”/g, '—').replace(/â€/g, '—');
+    data = JSON.parse(cleaned);
+    modified = true;
+  }
+
+  // 2. Add external beneficiary Suresh Menon for CUS-100234 if missing
+  if (Array.isArray(data.beneficiaries)) {
+    const hasExternal = data.beneficiaries.some(b => b.beneficiaryId === 'BEN-778900' || b.accountNumber === '50100234567890');
+    if (!hasExternal) {
+      data.beneficiaries.push({
+        beneficiaryId: 'BEN-778900',
+        customerId: 'CUS-100234',
+        nickname: 'Suresh (HDFC)',
+        beneficiaryName: 'Suresh Menon',
+        accountNumber: '50100234567890',
+        maskedAccountNumber: '**********7890',
+        ifscCode: 'HDFC0000128',
+        bankName: 'HDFC Bank Ltd',
+        status: 'ACTIVE',
+        verificationStatus: 'VERIFIED'
+      });
+      modified = true;
+    }
+  }
+
+  // 3. Fix card applications referencing non-existent Nova Rewards card
+  if (Array.isArray(data.cardApplications)) {
+    data.cardApplications.forEach(app => {
+      if (app.cardName?.includes('Nova Rewards') || !app.productSlug) {
+        if (app.cardApplicationId === 'CARD-APP-400124') {
+          app.productSlug = 'edge-cashback-credit';
+          app.cardName = 'FinEdge Edge Cashback Card';
+          app.requestedLimit = app.requestedLimit || 150000.00;
+          modified = true;
+        } else if (app.cardApplicationId === 'CARD-APP-400126') {
+          app.productSlug = 'edge-voyage-credit';
+          app.cardName = 'Edge Voyage Travel Credit Card';
+          app.requestedLimit = app.requestedLimit || 250000.00;
+          modified = true;
+        } else if (!app.productSlug) {
+          app.productSlug = 'edge-cashback-credit';
+          app.cardName = app.cardName || 'FinEdge Edge Cashback Card';
+          app.requestedLimit = app.requestedLimit || 100000.00;
+          modified = true;
+        }
+      }
+      if (app.cardType === 'CREDIT' && !app.requestedLimit) {
+        app.requestedLimit = 150000.00;
+        modified = true;
+      }
+    });
+  }
+
+  // 4. Update legacy FinEdge Enterprise Current Account to Trade Current Account
+  if (Array.isArray(data.accounts)) {
+    data.accounts.forEach(acc => {
+      if (acc.productName === 'FinEdge Enterprise Current Account') {
+        acc.productName = 'Trade Current Account';
+        modified = true;
+      }
+    });
+  }
+  if (Array.isArray(data.accountApplications)) {
+    data.accountApplications.forEach(app => {
+      if (app.productName === 'FinEdge Enterprise Current Account') {
+        app.productName = 'Trade Current Account';
+        modified = true;
+      }
+    });
+  }
+
+  if (data.seedVersion !== SEED_VERSION) {
+    data.seedVersion = SEED_VERSION;
+    modified = true;
+  }
+
+  if (modified && typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(data));
+    } catch {}
+  }
+
+  return data;
+};
+
 let inMemoryDb = null;
 
 export const getDb = () => {
@@ -1125,7 +1237,8 @@ export const getDb = () => {
     try {
       const stored = localStorage.getItem(MOCK_STORAGE_KEY);
       if (stored) {
-        return JSON.parse(stored);
+        const parsed = JSON.parse(stored);
+        return sanitizeStoredDb(parsed);
       }
     } catch {}
   }
@@ -1453,7 +1566,7 @@ export const getProducts = (options = {}) => {
     list = list.filter(p => p.category === options.category);
   }
   if (!options.includeInactive) {
-    list = list.filter(p => p.status !== 'INACTIVE');
+    list = list.filter(p => p.status !== 'INACTIVE' && p.status !== 'DEACTIVATED');
   }
   return list;
 };

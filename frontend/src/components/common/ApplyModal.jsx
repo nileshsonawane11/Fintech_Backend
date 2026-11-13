@@ -91,7 +91,7 @@ function calculateAge(dobString) {
   return age;
 }
 
-export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, initialAmount, initialTenure, initialCategory }) => {
+export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, initialAmount, initialTenure, initialCategory, initialTenureMonths }) => {
   const isModalOpen = open ?? isOpen;
   const { isDemo } = useServerMode();
   const { submitApplication, user, accounts = [] } = useAuth();
@@ -298,6 +298,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
     // Fixed Deposit (FD)
     fdDepositAmount: initialAmount ? String(initialAmount) : '',
     fdTenureBand: (isFD && initialTenure) ? initialTenure : '2 – 3 years',
+    fdTenureMonths: (isFD && initialTenureMonths) ? String(initialTenureMonths) : (isFD && initialTenure === '1 – 2 years' ? '12' : ''),
     fdPayoutOption: 'Cumulative (paid at maturity)',
     fdAutoRenew: false,
     fdConsentTerms: false,
@@ -1096,7 +1097,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
           const tenureMonths = fdBand?.tenure === '7 – 45 days' ? 1
             : fdBand?.tenure === '46 – 179 days' ? 4
             : fdBand?.tenure === '180 – 364 days' ? 9
-            : fdBand?.tenure === '1 – 2 years' ? 24
+            : fdBand?.tenure === '1 – 2 years' ? (formData.fdTenureMonths ? Number(formData.fdTenureMonths) : 12)
             : fdBand?.tenure === '2 – 3 years' ? 36
             : fdBand?.tenure === '3 – 5 years' ? 48
             : 60;

@@ -1,6 +1,6 @@
 import { useServerMode } from '../../lib/serverMode.js';
 import React, { useState } from 'react';
-import { useNavigate, useLocation, Link } from 'react-router-dom';
+import { useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getDemoAccounts, resetDemoDb } from '../../services/api.js';
 import {
@@ -44,9 +44,11 @@ export const PortalLoginPage = () => {
   const { login, verifyMfa, register, verifyOtp } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
+  const [searchParams] = useSearchParams();
 
   // Mode: 'login' | 'mfa' | 'register' | 'register_otp'
-  const [mode, setMode] = useState('login');
+  const initialMode = location.state?.mode === 'register' || searchParams.get('mode') === 'register' ? 'register' : 'login';
+  const [mode, setMode] = useState(initialMode);
   const { isDemo } = useServerMode();
   const [demoOpen, setDemoOpen] = useState(false);
   const [resetOpen, setResetOpen] = useState(false);

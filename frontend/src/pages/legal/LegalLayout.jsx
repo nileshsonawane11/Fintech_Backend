@@ -91,7 +91,7 @@ export default function LegalLayout({
         {sections.length > 0 && (
           <nav
             aria-label="On this page quick links"
-            className="lg:hidden mb-6 -mx-4 px-4 overflow-x-auto no-scrollbar py-2.5 border-b border-ink-200/70 bg-porcelain-100/95 sticky top-16 z-20 backdrop-blur-xs flex gap-2"
+            className="lg:hidden mb-6 -mx-4 px-4 py-2.5 border-b border-ink-200/70 bg-porcelain-100/95 sticky top-16 z-20 backdrop-blur-xs flex flex-wrap gap-2"
           >
             {sections.map((s) => {
               const active = activeSection === s.id;
@@ -100,7 +100,7 @@ export default function LegalLayout({
                   key={s.id}
                   href={`#${s.id}`}
                   onClick={handleNavClick(s.id)}
-                  className={`shrink-0 rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-160 ${
+                  className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-160 ${
                     active
                       ? "bg-midnight-900 text-porcelain-50 border border-gold-500 shadow-xs font-semibold"
                       : "border border-ink-200 bg-white text-ink-700 hover:bg-midnight-50 hover:text-midnight-900"

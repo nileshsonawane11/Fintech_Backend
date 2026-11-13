@@ -61,7 +61,7 @@ export const InvestmentFormFields = ({
   const fdTenureMonths = fdBand?.tenure === '7 – 45 days' ? 1
     : fdBand?.tenure === '46 – 179 days' ? 4
     : fdBand?.tenure === '180 – 364 days' ? 9
-    : fdBand?.tenure === '1 – 2 years' ? 24
+    : fdBand?.tenure === '1 – 2 years' ? (formData.fdTenureMonths ? Number(formData.fdTenureMonths) : 12)
     : fdBand?.tenure === '2 – 3 years' ? 36
     : fdBand?.tenure === '3 – 5 years' ? 48
     : 60;

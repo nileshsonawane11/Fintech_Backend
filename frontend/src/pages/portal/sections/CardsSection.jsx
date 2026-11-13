@@ -576,14 +576,20 @@ function CardPanel({ card, accounts, holderName, actorName, onBlockRequest, onRe
       {/* Set PIN Modal */}
       <Modal
         open={pinModalOpen}
-        onClose={() => setPinModalOpen(false)}
+        onClose={() => { setPinModalOpen(false); setPin(''); setConfirmPin(''); setPinError(''); }}
         title="Set / Change ATM PIN"
         footer={
           <>
-            <Button type="button" variant="secondary" onClick={() => setPinModalOpen(false)} disabled={savingPin}>
+            <Button type="button" variant="secondary" onClick={() => { setPinModalOpen(false); setPin(''); setConfirmPin(''); setPinError(''); }} disabled={savingPin}>
               Cancel
             </Button>
-            <Button type="button" variant="primary" onClick={handleSetPin} loading={savingPin}>
+            <Button
+              type="button"
+              variant="primary"
+              onClick={handleSetPin}
+              loading={savingPin}
+              disabled={savingPin || pin.length !== 4 || confirmPin.length !== 4 || pin !== confirmPin || !/^\d{4}$/.test(pin)}
+            >
               Save new PIN
             </Button>
           </>
@@ -597,8 +603,9 @@ function CardPanel({ card, accounts, holderName, actorName, onBlockRequest, onRe
           <Field label="Enter 4-digit PIN" required>
             <Input
               type="password"
+              autoComplete="new-password"
               maxLength={4}
-              placeholder="••••"
+              placeholder="Enter 4-digit PIN"
               value={pin}
               onChange={(e) => setPin(e.target.value.replace(/\D/g, ''))}
             />
@@ -606,8 +613,9 @@ function CardPanel({ card, accounts, holderName, actorName, onBlockRequest, onRe
           <Field label="Confirm 4-digit PIN" required>
             <Input
               type="password"
+              autoComplete="new-password"
               maxLength={4}
-              placeholder="••••"
+              placeholder="Re-enter 4-digit PIN"
               value={confirmPin}
               onChange={(e) => setConfirmPin(e.target.value.replace(/\D/g, ''))}
             />
@@ -770,6 +778,7 @@ export default function CardsPage() {
         kind: product.cardType === 'credit' ? 'CREDIT' : 'DEBIT',
         cardType: product.cardType === 'credit' ? 'CREDIT' : 'DEBIT',
         accountId,
+        requestedLimit: requestedLimit ? Number(requestedLimit) : undefined,
       });
       setSuccessApp(app);
       setCardApplications((prev) => [app, ...prev.filter((a) => a.id !== app.id)]);
