@@ -1,4 +1,5 @@
 import { FACTORY_SITE_CONTENT } from './factoryContent.js';
+const BASE_URL = import.meta.env?.VITE_API_URL || 'http://localhost:8080';
 
 export const getBrandSupport = () => {
   try {
@@ -131,6 +132,19 @@ export const STANDARD_APPLY_STEPS = [
 // ---------------------------------------------------------------------------
 // ACCOUNTS
 // ---------------------------------------------------------------------------
+
+// const Account_res = await fetch(`${BASE_URL}/api/v1/account-products`,{
+//   method:"GET",
+//   headers: {
+//     "Content-Type": "application/json"
+//   }
+// });
+//
+// const Account_data = await Account_res.json();
+//
+// console.log(Account_data.data);
+//
+// export const FACTORY_ACCOUNTS = Array.from(Account_data.data)
 
 export const FACTORY_ACCOUNTS = [
   {
@@ -1260,7 +1274,7 @@ function getLiveProducts(category, options = {}) {
           if (!options.includeInactive) {
             list = list.filter((p) => p.status !== 'INACTIVE');
           }
-          return list;
+          return Account_res;
         }
       }
     }

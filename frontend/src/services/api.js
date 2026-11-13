@@ -144,6 +144,8 @@ export const SEED_CUSTOMER_ALIASES = {
   ]
 };
 
+console.log(ALL_PRODUCTS)
+
 // ============================================================================
 // INITIAL PERSISTENT STORE (Mirrors FinBank API Data Model)
 // ============================================================================

@@ -125,13 +125,15 @@ public class AccountProductService {
         return toResponse(saved);
     }
 
-    private AccountProductResponse toResponse(AccountProduct product) {
+    public AccountProductResponse toResponse(AccountProduct product) {
+
         return new AccountProductResponse(
                 product.getProductCode(),
                 product.getProductName(),
                 product.getDescription(),
                 product.getAccountType(),
                 product.getCurrency(),
+
                 product.getMinimumBalance(),
                 product.getMinimumInitialFunding(),
                 product.getInterestRate(),
@@ -140,7 +142,25 @@ public class AccountProductService {
                 product.getMinimumAge(),
                 product.getMaximumAge(),
                 product.isRequiresKyc(),
-                product.isActive()
+                product.isActive(),
+
+                product.getSlug(),
+                product.getCategory(),
+                product.getTagline(),
+                product.getStatus(),
+                product.getInterestNote(),
+
+                product.getAmb(),
+                product.getFees(),
+                product.getCharges(),
+
+                product.getDocuments(),
+                product.getEligibility(),
+                product.getFaqs(),
+                product.getFeatures(),
+                product.getHowToApply(),
+
+                product.getRateSlabs()
         );
     }
 }

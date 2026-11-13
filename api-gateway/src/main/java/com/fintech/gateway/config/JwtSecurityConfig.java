@@ -53,6 +53,7 @@ public class JwtSecurityConfig {
                         // Registration, login, MFA and refresh endpoints
                         .pathMatchers(
                                 "/api/v1/auth/**",
+                                "/api/v1/account-products",
                                 "/api/v1/customers/"
                         ).permitAll()
 

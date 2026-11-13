@@ -4,6 +4,10 @@ import com.fintech.account.enums.AccountType;
 import jakarta.persistence.*;
 import java.math.BigDecimal;
 import java.time.Instant;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+import java.util.List;
+import java.util.Map;
 import java.util.UUID;
 
 @Entity
@@ -68,6 +72,57 @@ public class AccountProduct {
 
     @Column(name = "updated_by", nullable = false, length = 100)
     private String updatedBy;
+
+    @Column(name = "slug", nullable = false, unique = true, length = 100)
+    private String slug;
+
+    @Column(name = "category", nullable = false, length = 50)
+    private String category;
+
+    @Column(name = "tagline", length = 255)
+    private String tagline;
+
+    @Column(name = "interest_note", columnDefinition = "TEXT")
+    private String interestNote;
+
+    @Column(name = "status", nullable = false, length = 30)
+    private String status = "ACTIVE";
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "amb", columnDefinition = "jsonb")
+    private Map<String, Object> amb;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "fees", columnDefinition = "jsonb")
+    private Map<String, Object> fees;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "charges", columnDefinition = "jsonb")
+    private List<Map<String, Object>> charges;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "documents", columnDefinition = "jsonb")
+    private List<String> documents;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "eligibility", columnDefinition = "jsonb")
+    private List<String> eligibility;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "faqs", columnDefinition = "jsonb")
+    private List<Map<String, Object>> faqs;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "features", columnDefinition = "jsonb")
+    private List<String> features;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "how_to_apply", columnDefinition = "jsonb")
+    private List<String> howToApply;
+
+    @JdbcTypeCode(SqlTypes.JSON)
+    @Column(name = "rate_slabs", columnDefinition = "jsonb")
+    private List<Map<String, Object>> rateSlabs;
 
     @Version
     @Column(name = "version", nullable = false)
@@ -137,6 +192,62 @@ public class AccountProduct {
 
     public String getCurrency() {
         return currency;
+    }
+
+    public List<Map<String, Object>> getRateSlabs() {
+        return rateSlabs;
+    }
+
+    public List<String> getHowToApply() {
+        return howToApply;
+    }
+
+    public List<String> getFeatures() {
+        return features;
+    }
+
+    public List<Map<String, Object>> getFaqs() {
+        return faqs;
+    }
+
+    public List<String> getEligibility() {
+        return eligibility;
+    }
+
+    public List<String> getDocuments() {
+        return documents;
+    }
+
+    public List<Map<String, Object>> getCharges() {
+        return charges;
+    }
+
+    public Map<String, Object> getFees() {
+        return fees;
+    }
+
+    public Map<String, Object> getAmb() {
+        return amb;
+    }
+
+    public String getStatus() {
+        return status;
+    }
+
+    public String getInterestNote() {
+        return interestNote;
+    }
+
+    public String getTagline() {
+        return tagline;
+    }
+
+    public String getCategory() {
+        return category;
+    }
+
+    public String getSlug() {
+        return slug;
     }
 
     public void setCurrency(String currency) {
