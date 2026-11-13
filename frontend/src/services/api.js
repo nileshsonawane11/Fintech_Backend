@@ -1344,6 +1344,10 @@ export const computeEffectivePermissions = (user, db) => {
 
 export const verifyStaffPermission = (db, requiredPermission, options = {}) => {
   let staffUser = null;
+  if (!db.staffUsers || db.staffUsers.length === 0) {
+    db.staffUsers = (getDefaultDb().staffUsers || []).map(s => ({ ...s }));
+  }
+  const staffList = db.staffUsers;
   const token = options.headers?.['Authorization'] || (options.isManager ? getManagerToken() : null);
 
   // 1. Resolve from session
@@ -1351,7 +1355,7 @@ export const verifyStaffPermission = (db, requiredPermission, options = {}) => {
     const cleanToken = token.startsWith('Bearer ') ? token.slice(7) : token;
     const session = resolveSession(db, cleanToken, 'STAFF');
     if (session) {
-      staffUser = (db.staffUsers || []).find(s => s.staffId === session.staffId || (s.email && s.email.toLowerCase() === session.email?.toLowerCase()));
+      staffUser = staffList.find(s => s.staffId === session.staffId || (s.email && s.email.toLowerCase() === session.email?.toLowerCase()));
     } else {
       throw {
         status: 401,
@@ -1368,7 +1372,7 @@ export const verifyStaffPermission = (db, requiredPermission, options = {}) => {
     if (savedMgr) {
       try {
         const parsed = JSON.parse(savedMgr);
-        staffUser = (db.staffUsers || []).find(s => 
+        staffUser = staffList.find(s => 
           (s.email && s.email.toLowerCase() === parsed.email?.toLowerCase()) || 
           s.staffId === (parsed.staffId || parsed.id)
         );
@@ -1381,14 +1385,14 @@ export const verifyStaffPermission = (db, requiredPermission, options = {}) => {
     try {
       const b = typeof options.body === 'string' ? JSON.parse(options.body || '{}') : (options.body || {});
       if (b.actorEmail) {
-        staffUser = (db.staffUsers || []).find(s => s.email && s.email.toLowerCase() === b.actorEmail.toLowerCase());
+        staffUser = staffList.find(s => s.email && s.email.toLowerCase() === b.actorEmail.toLowerCase());
       }
     } catch {}
   }
 
   // 4. Test harness compatibility for options.isManager in node test environment when no token is passed
   if (!staffUser && options.isManager && (typeof window === 'undefined' || typeof process !== 'undefined')) {
-    staffUser = (db.staffUsers || [])[0];
+    staffUser = staffList[0];
   }
 
   if (!staffUser) {
@@ -1548,6 +1552,14 @@ export const apiRequest = async (endpoint, options = {}) => {
       throw err;
     }
     traceFailure(endpoint, err?.message || 'Failed to fetch (Server not connected)');
+    // If backend microservices are offline, allow authentication endpoints to resolve via local fallback engine
+    if (endpoint.includes('/auth/login') || endpoint.includes('/auth/register') || endpoint.includes('/auth/otp/verify') || endpoint.includes('/auth/mfa/verify')) {
+      try {
+        return handleLocalFallback(endpoint, options);
+      } catch (fbErr) {
+        throw fbErr;
+      }
+    }
     throw {
       status: 503,
       code: 'SERVER_NOT_CONNECTED',
@@ -1681,6 +1693,11 @@ export const handleLocalFallback = (endpoint, options = {}) => {
   if (endpoint === '/api/v1/auth/login' && method === 'POST') {
     const rawIdent = (body.identifier || '').trim();
     const identLower = rawIdent.toLowerCase();
+    const defaults = getDefaultDb();
+    if (!db.customers || db.customers.length === 0) {
+      db.customers = (defaults.customers || []).map(c => ({ ...c }));
+    }
+    const custList = db.customers;
 
     // Fix 1.2: Resolve identifiers for seeded demo customers through explicit alias map
     let matchedSeedCustomerId = null;
@@ -1693,11 +1710,11 @@ export const handleLocalFallback = (endpoint, options = {}) => {
 
     let customer = null;
     if (matchedSeedCustomerId) {
-      customer = db.customers.find(c => c.customerId === matchedSeedCustomerId);
+      customer = custList.find(c => c.customerId === matchedSeedCustomerId);
     }
 
     if (!customer) {
-      customer = db.customers.find(c => 
+      customer = custList.find(c => 
         (c.email && c.email.toLowerCase() === identLower) || 
         c.mobileNumber === rawIdent
       );
@@ -1854,7 +1871,11 @@ export const handleLocalFallback = (endpoint, options = {}) => {
   // 5. /admin/api/v1/auth/login (Dedicated Staff Authentication)
   if (endpoint === '/admin/api/v1/auth/login' && method === 'POST') {
     const ident = (body.identifier || body.email || '').trim().toLowerCase();
-    const staff = db.staffUsers.find(s => s.email.toLowerCase() === ident);
+    const defaults = getDefaultDb();
+    if (!db.staffUsers || db.staffUsers.length === 0) {
+      db.staffUsers = (defaults.staffUsers || []).map(s => ({ ...s }));
+    }
+    const staff = db.staffUsers.find(s => s.email.toLowerCase() === ident || s.staffId.toLowerCase() === ident);
 
     if (!staff) {
       appendAuditLog(ident || 'UNKNOWN', 'STAFF', 'STAFF_LOGIN_FAILED', 'STAFF_AUTH', 'FAILED', 'Unknown staff corporate email: ' + ident);
@@ -2942,6 +2963,9 @@ export const handleLocalFallback = (endpoint, options = {}) => {
   // Manager: Staff List (requires staff.read)
   if (endpoint === '/admin/api/v1/staff' && method === 'GET') {
     verifyStaffPermission(db, 'staff.read', options);
+    if (!db.staffUsers || db.staffUsers.length === 0) {
+      db.staffUsers = (getDefaultDb().staffUsers || []).map(s => ({ ...s }));
+    }
     return db.staffUsers;
   }
 
