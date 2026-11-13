@@ -459,7 +459,7 @@ export function ToastProvider({ children }) {
     info: 'border-midnight-300 text-midnight-700',
   };
   return (
-    <ToastCtx.Provider value={{ toast: push }}>
+    <ToastCtx.Provider value={{ toast: push, addToast: (msg, tone = 'info') => push(typeof msg === 'string' ? { body: msg, tone: tone === 'danger' ? 'error' : tone } : { ...msg, tone: msg.tone === 'danger' ? 'error' : (msg.tone || tone) }) }}>
       {children}
       <div className="pointer-events-none fixed right-4 top-4 z-[60] flex w-[min(92vw,360px)] flex-col gap-2" aria-live="polite">
         {toasts.map((t) => {
