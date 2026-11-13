@@ -673,6 +673,7 @@ export async function applyLoan(customerId, payload = {}) {
     cicConsent: Boolean(effPayload.cicConsent),
     mitcConsent: Boolean(effPayload.mitcConsent),
     status: 'UNDER_REVIEW',
+    steps: ['SUBMITTED', 'UNDER_REVIEW', 'APPROVED', 'DISBURSED'],
     submittedAt: new Date().toISOString(),
     createdAt: new Date().toISOString()
   };
@@ -713,8 +714,19 @@ export async function bookFd(customerId, payload = {}) {
     throw new Error('Fixed deposit minimum amount is ₹5,000.');
   }
   const tenure = Number(effPayload.tenureDays || effPayload.tenureMonths * 30 || 365);
-  const rate = 7.5;
+  const rate = effPayload.rate != null ? Number(effPayload.rate) : 7.5;
   const fdId = 'INV-FD-' + Math.floor(100000 + Math.random() * 900000);
+  const maturityAmount = effPayload.maturityAmount != null ? Number(effPayload.maturityAmount) : Math.round(amt + (amt * rate * (tenure / 365) / 100));
+
+  const fundingAcct = (db.accounts || []).find(a => (a.accountId || a.id) === (effPayload.accountId || effPayload.sourceAccountId));
+  if (fundingAcct) {
+    if (typeof fundingAcct.balance === 'object' && fundingAcct.balance !== null) {
+      fundingAcct.balance.availableBalance = (fundingAcct.balance.availableBalance || 0) - amt;
+      fundingAcct.balance.ledgerBalance = (fundingAcct.balance.ledgerBalance || 0) - amt;
+    } else {
+      fundingAcct.balance = (Number(fundingAcct.balance) || 0) - amt;
+    }
+  }
 
   const newFd = {
     id: fdId,
@@ -730,7 +742,7 @@ export async function bookFd(customerId, payload = {}) {
     tenureDays: tenure,
     interestRate: rate,
     rate,
-    maturityAmount: Math.round(amt + (amt * rate * (tenure / 365) / 100)),
+    maturityAmount,
     status: 'UNDER_REVIEW',
     bookingDate: new Date().toISOString(),
     submittedAt: new Date().toISOString(),
@@ -753,7 +765,10 @@ export async function bookRd(customerId, payload) {
   }
   const effCustId = getEffectiveCustomerId(rawCustId) || rawCustId || ('CUS-' + Math.floor(100000 + Math.random() * 900000));
   const db = getDb();
-  const amt = Number(effPayload.monthlyInstallment || effPayload.amount || 5000);
+  const amt = Number(effPayload.monthlyInstallment || effPayload.monthly || effPayload.amount || 5000);
+  if (amt % 100 !== 0) {
+    throw new Error('RD monthly installment must be a multiple of ₹100.');
+  }
   const tenure = Number(effPayload.tenureMonths || 12);
   const rdId = 'INV-RD-' + Math.floor(100000 + Math.random() * 900000);
   const newRd = {
@@ -819,6 +834,8 @@ export async function openSsy(customerId, payload = {}) {
     kind: 'SSY',
     productName: 'Sukanya Samriddhi Yojana (SSY)',
     childName: effPayload.childName || 'Child',
+    girlChildName: effPayload.childName || 'Child',
+    rate: effPayload.rate != null ? Number(effPayload.rate) : 8.05,
     annualDeposit: amt,
     status: 'ACTIVE',
     bookingDate: new Date().toISOString()

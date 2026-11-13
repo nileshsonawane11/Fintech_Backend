@@ -154,6 +154,7 @@ export const getDefaultDb = () => {
   const offsetIso = (hoursAgo) => new Date(now - hoursAgo * 3600000).toISOString();
   return {
     seedVersion: SEED_VERSION,
+    timestampsRebased: true,
     sessions: [],
     pendingChallenges: [],
     idempotencyKeys: {},
@@ -1093,7 +1094,33 @@ export const getDefaultDb = () => {
       }
     ],
     loans: [],
-    loanApplications: [],
+    loanApplications: [
+      {
+        loanApplicationId: 'LN-APP-214759',
+        id: 'LN-APP-214759',
+        customerId: 'CUS-100234',
+        applicantName: 'Vikramaditya Sharma',
+        fullName: 'Vikramaditya Sharma',
+        productSlug: 'home-loan',
+        productId: 'home-loan',
+        productName: 'FinEdge Home Loan',
+        amount: 2500000.00,
+        requestedAmount: 2500000.00,
+        tenureMonths: 240,
+        monthlyIncome: 125000.00,
+        employmentType: 'SALARIED',
+        purpose: 'Purchase of ready-to-move property',
+        rate: 8.75,
+        status: 'SUBMITTED',
+        submittedAt: offsetIso(14),
+        createdAt: offsetIso(14),
+        updatedAt: offsetIso(14),
+        accountId: 'ACC-1001',
+        history: [
+          { action: 'SUBMITTED', at: offsetIso(14), actor: 'Vikramaditya Sharma', note: 'Application submitted online' }
+        ]
+      }
+    ],
     investmentHoldings: [],
     investmentApplications: [],
     products: (ALL_PRODUCTS || []).map(p => ({ ...p, status: 'ACTIVE' })),
@@ -1141,6 +1168,152 @@ export const getInitialDb = () => {
 export const sanitizeStoredDb = (data) => {
   if (!data || typeof data !== 'object') return data;
   let modified = false;
+
+  // Defensive check for required collections
+  try {
+    if (!Array.isArray(data.products) || data.products.length === 0) {
+      data.products = (ALL_PRODUCTS || []).map(p => ({ ...p, status: 'ACTIVE' }));
+      modified = true;
+    }
+  } catch (err) {
+    console.warn('[sanitizeStoredDb warning: products]:', err);
+  }
+
+  try {
+    if (!Array.isArray(data.customRoles)) {
+      data.customRoles = [];
+      modified = true;
+    }
+  } catch (err) {
+    console.warn('[sanitizeStoredDb warning: customRoles]:', err);
+  }
+
+  try {
+    if (!data.siteContent || typeof data.siteContent !== 'object') {
+      data.siteContent = JSON.parse(JSON.stringify(FACTORY_SITE_CONTENT));
+      modified = true;
+    }
+  } catch (err) {
+    console.warn('[sanitizeStoredDb warning: siteContent]:', err);
+  }
+
+  try {
+    if (!data.settings || typeof data.settings !== 'object') {
+      data.settings = JSON.parse(JSON.stringify(FACTORY_SETTINGS));
+      modified = true;
+    }
+  } catch (err) {
+    console.warn('[sanitizeStoredDb warning: settings]:', err);
+  }
+
+  try {
+    if (!data.systemRoleOverrides || typeof data.systemRoleOverrides !== 'object') {
+      data.systemRoleOverrides = {};
+      modified = true;
+    }
+  } catch (err) {
+    console.warn('[sanitizeStoredDb warning: systemRoleOverrides]:', err);
+  }
+
+  try {
+    if (!Array.isArray(data.loanApplications) || data.loanApplications.length === 0) {
+      const now = Date.now();
+      const offsetIso = (hoursAgo) => new Date(now - hoursAgo * 3600000).toISOString();
+      data.loanApplications = [
+        {
+          loanApplicationId: 'LN-APP-214759',
+          id: 'LN-APP-214759',
+          customerId: 'CUS-100234',
+          applicantName: 'Vikramaditya Sharma',
+          fullName: 'Vikramaditya Sharma',
+          productSlug: 'home-loan',
+          productId: 'home-loan',
+          productName: 'FinEdge Home Loan',
+          amount: 2500000.00,
+          requestedAmount: 2500000.00,
+          tenureMonths: 240,
+          monthlyIncome: 125000.00,
+          employmentType: 'SALARIED',
+          purpose: 'Purchase of ready-to-move property',
+          rate: 8.75,
+          status: 'SUBMITTED',
+          submittedAt: offsetIso(14),
+          createdAt: offsetIso(14),
+          updatedAt: offsetIso(14),
+          accountId: 'ACC-1001',
+          history: [
+            { action: 'SUBMITTED', at: offsetIso(14), actor: 'Vikramaditya Sharma', note: 'Application submitted online' }
+          ]
+        }
+      ];
+      modified = true;
+    }
+  } catch (err) {
+    console.warn('[sanitizeStoredDb warning: loanApplications]:', err);
+  }
+
+  // Part D: Stored-data timestamp repair (D13 completed)
+  try {
+    if (!data.timestampsRebased) {
+      const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
+      let hasOldTimestamp = false;
+
+      const checkOld = (iso) => {
+        if (!iso) return false;
+        const ts = new Date(iso).getTime();
+        return !isNaN(ts) && (now - ts > SEVEN_DAYS_MS);
+      };
+
+      const checkItems = [
+        ...(data.kycApplications || []),
+        ...(data.accountApplications || []),
+        ...(data.cardApplications || []),
+        ...(data.loanApplications || []),
+        ...(data.investmentApplications || []),
+        ...(data.tickets || [])
+      ];
+
+      for (const item of checkItems) {
+        if (checkOld(item.submittedAt) || checkOld(item.createdAt) || checkOld(item.updatedAt)) {
+          hasOldTimestamp = true;
+          break;
+        }
+      }
+
+      if (hasOldTimestamp) {
+        const queues = [
+          'kycApplications',
+          'accountApplications',
+          'cardApplications',
+          'loanApplications',
+          'investmentApplications',
+          'tickets'
+        ];
+
+        queues.forEach((qKey) => {
+          if (Array.isArray(data[qKey])) {
+            data[qKey].forEach((item, idx) => {
+              const offsetHours = 2 + (idx * 7) % 46;
+              const rebasedIso = new Date(now - offsetHours * 3600000).toISOString();
+              if (item.createdAt) item.createdAt = rebasedIso;
+              if (item.submittedAt) item.submittedAt = rebasedIso;
+              if (item.updatedAt) item.updatedAt = new Date(new Date(rebasedIso).getTime() + 1800000).toISOString();
+              if (item.messages && Array.isArray(item.messages)) {
+                item.messages.forEach((m, mIdx) => {
+                  m.timestamp = new Date(new Date(rebasedIso).getTime() + mIdx * 600000).toISOString();
+                });
+              }
+            });
+          }
+        });
+      }
+      data.timestampsRebased = true;
+      modified = true;
+    }
+  } catch (err) {
+    console.warn('[sanitizeStoredDb warning: timestampsRebased]:', err);
+  }
 
   // 1. Mojibake repair
   const jsonStr = JSON.stringify(data);
@@ -1216,6 +1389,16 @@ export const sanitizeStoredDb = (data) => {
     });
   }
 
+    // Re-sync seeded customer emails on seedVersion mismatch
+  if (data.seedVersion !== SEED_VERSION && Array.isArray(data.customers)) {
+    const defaultCusts = getDefaultDb().customers || [];
+    data.customers.forEach(c => {
+      const def = defaultCusts.find(d => d.customerId === c.customerId);
+      if (def && c.email !== def.email && !c.isRegistered) {
+        c.email = def.email;
+      }
+    });
+  }
   if (data.seedVersion !== SEED_VERSION) {
     data.seedVersion = SEED_VERSION;
     modified = true;

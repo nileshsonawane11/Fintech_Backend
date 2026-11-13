@@ -515,7 +515,10 @@ export async function getCustomerDetail(customerId) {
     accounts: (db.accounts || []).filter(a => (a.customerId || a.id) === customerId).map(a => ({
       ...a,
       id: a.accountId || a.id,
-      accountId: a.accountId || a.id
+      accountId: a.accountId || a.id,
+      balance: typeof a.balance === 'object' && a.balance !== null ? (a.balance.availableBalance ?? a.balance.ledgerBalance ?? 0) : (a.availableBalance ?? a.balance ?? 0),
+      ledgerBalance: typeof a.balance === 'object' && a.balance !== null ? a.balance.ledgerBalance : (a.ledgerBalance ?? a.balance ?? 0),
+      availableBalance: typeof a.balance === 'object' && a.balance !== null ? a.balance.availableBalance : (a.availableBalance ?? a.balance ?? 0)
     })),
     loans: (db.loans || []).filter(l => l.customerId === customerId).map(l => ({
       ...l,
@@ -900,7 +903,7 @@ export async function disburseLoan(appId, options = {}) {
   app.loanId = loanId;
   app.disbursementRef = disbursementRef;
   if (Array.isArray(app.steps)) {
-    app.steps.forEach(s => { s.state = 'done'; });
+    app.steps = app.steps.map(s => (typeof s === 'object' && s !== null ? { ...s, state: 'done' } : { name: s, state: 'done' }));
   }
   if (!Array.isArray(app.timeline)) app.timeline = [];
   app.timeline.push({

@@ -73,4 +73,85 @@ export function RouteSuspenseFallback() {
   );
 }
 
+export class SectionErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.warn('[SectionErrorBoundary caught error]:', error, errorInfo);
+  }
+
+  handleReset = () => {
+    this.setState({ hasError: false, error: null });
+  };
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 p-6 text-center my-4" role="alert">
+          <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-amber-100 text-amber-700 mb-3">
+            <AlertTriangle className="h-5 w-5" aria-hidden="true" />
+          </div>
+          <h3 className="text-base font-semibold text-ink-900">
+            {this.props.title || 'Unable to load section'}
+          </h3>
+          <p className="mt-1 text-sm text-ink-600 max-w-md mx-auto">
+            This section encountered an issue while rendering. Other sections remain available.
+          </p>
+          <div className="mt-4 flex justify-center gap-3">
+            <Button variant="outline" size="sm" onClick={this.handleReset}>
+              <RefreshCw className="h-3.5 w-3.5 mr-1.5" aria-hidden="true" />
+              Try again
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
+export class ModalErrorBoundary extends Component {
+  constructor(props) {
+    super(props);
+    this.state = { hasError: false, error: null };
+  }
+
+  static getDerivedStateFromError(error) {
+    return { hasError: true, error };
+  }
+
+  componentDidCatch(error, errorInfo) {
+    console.warn('[ModalErrorBoundary caught error]:', error, errorInfo);
+  }
+
+  render() {
+    if (this.state.hasError) {
+      return (
+        <div className="p-6 text-center" role="alert">
+          <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-amber-100 text-amber-700 mb-4">
+            <AlertTriangle className="h-6 w-6" aria-hidden="true" />
+          </div>
+          <h3 className="text-lg font-semibold text-ink-900">Unable to load form</h3>
+          <p className="mt-2 text-sm text-ink-600 max-w-sm mx-auto">
+            An unexpected error occurred while loading this dialog. Please close and try again.
+          </p>
+          <div className="mt-6 flex justify-center">
+            <Button variant="outline" onClick={this.props.onClose}>
+              Close
+            </Button>
+          </div>
+        </div>
+      );
+    }
+    return this.props.children;
+  }
+}
+
 export default RouteErrorBoundary;

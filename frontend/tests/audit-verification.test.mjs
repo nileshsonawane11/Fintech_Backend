@@ -226,7 +226,7 @@ async function runTestSuite() {
       })
     });
     newAccAppId = accAppRes.accountApplicationId;
-    assert(accAppRes.status === 'PENDING_APPROVAL', 'New account application submitted with PENDING_APPROVAL status');
+    assert(accAppRes.status === 'PENDING_APPROVAL' || accAppRes.status === 'UNDER_REVIEW', 'New account application submitted with PENDING_APPROVAL status (superseded by UNDER_REVIEW in Module 36)');
   } catch (e) {
     assert(false, `Account application failed: ${e.detail}`);
   }

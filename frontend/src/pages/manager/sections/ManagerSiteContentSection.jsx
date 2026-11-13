@@ -171,7 +171,7 @@ export default function ManagerSiteContentSection() {
   };
 
   const handleConfirmSave = async () => {
-    traceForm('SiteContentUpdate', { ...draftData });
+    traceForm('SiteContentUpdate', { pendingSaveKey, saveReason });
     setSaving(true);
     try {
       let draftToSave = null;

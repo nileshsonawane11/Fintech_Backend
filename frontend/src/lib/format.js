@@ -15,12 +15,18 @@ const inrWhole = new Intl.NumberFormat('en-IN', {
 
 /** Format a rupee amount stored in rupees (float) with paise. */
 export function formatINR(amount) {
+  if (typeof amount === 'object' && amount !== null) {
+    amount = amount.availableBalance ?? amount.ledgerBalance ?? amount.balance ?? amount.amount;
+  }
   if (amount === null || amount === undefined || Number.isNaN(Number(amount))) return '—';
   return inr.format(Number(amount));
 }
 
 /** Format without paise for headline figures. */
 export function formatINRWhole(amount) {
+  if (typeof amount === 'object' && amount !== null) {
+    amount = amount.availableBalance ?? amount.ledgerBalance ?? amount.balance ?? amount.amount;
+  }
   if (amount === null || amount === undefined || Number.isNaN(Number(amount))) return '—';
   return inrWhole.format(Number(amount));
 }

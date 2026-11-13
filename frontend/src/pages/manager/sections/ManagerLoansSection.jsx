@@ -40,7 +40,7 @@ const DOC_CODES = [
 ];
 
 const ALL_CODES = [...REJECT_CODES, ...DOC_CODES.filter((c) => !REJECT_CODES.some((r) => r.value === c.value))];
-const ACTIONABLE = ['SUBMITTED', 'DOCUMENT_VERIFICATION', 'UNDER_REVIEW', 'INFO_REQUIRED', 'DOCS_REQUESTED'];
+const ACTIONABLE = ['SUBMITTED', 'PENDING', 'DOCUMENT_VERIFICATION', 'UNDER_REVIEW', 'INFO_REQUIRED', 'DOCS_REQUESTED'];
 
 function productFor(app) {
   if (!app?.productSlug) return null;
@@ -157,8 +157,10 @@ export default function ManagerLoansPage() {
     setRemarks('');
     setFormError('');
     setConfirmError('');
-    setSanctionedAmount(detail?.sanctionedAmount != null ? String(detail.sanctionedAmount) : (detail?.amount != null ? String(detail.amount) : ''));
-    const defaultRate = detail?.sanctionedRate != null ? detail.sanctionedRate : (detail?.rate != null ? detail.rate : (productFor(detail)?.rateMin || 8.75));
+    const rawAmt = detail?.sanctionedAmount != null ? detail.sanctionedAmount : (detail?.amount != null ? detail.amount : '');
+    setSanctionedAmount(rawAmt !== '' && rawAmt != null ? String(Number(Number(rawAmt).toFixed(2))) : '');
+    const rawRate = detail?.sanctionedRate != null ? detail.sanctionedRate : (detail?.rate != null ? detail.rate : (productFor(detail)?.rateMin || 8.75));
+    const defaultRate = Number(Number(rawRate).toFixed(2));
     setSanctionedRate(String(defaultRate));
     setPendingDecision(null);
     setDisburseOpen(false);
@@ -210,7 +212,7 @@ export default function ManagerLoansPage() {
     traceForm('LoanDecision', {
       loanApplicationId: detail.id,
       action: decision,
-      remarks: note.trim() || reasonCode,
+      remarks: remarks.trim() || reasonCode,
       sanctionedAmount: Number(sanctionedAmount) || detail.amount,
     });
     setSubmitting(true);
@@ -550,9 +552,9 @@ export default function ManagerLoansPage() {
                 <Field label="Sanctioned Rate (% p.a.)" hint={`Range: ${productFor(detail)?.rateMin ?? 8.5}% – ${productFor(detail)?.rateMax ?? 15}%`}>
                   <Input
                     type="number"
-                    step="0.05"
+                    step="0.01"
                     value={sanctionedRate}
-                    onChange={(e) => setSanctionedRate(e.target.value)}
+                    onChange={(e) => { setSanctionedRate(e.target.value); setConfirmError(''); }}
                   />
                 </Field>
               </div>

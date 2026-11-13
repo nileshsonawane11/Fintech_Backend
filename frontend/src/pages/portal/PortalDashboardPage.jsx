@@ -1,7 +1,8 @@
 import { useServerMode } from '../../lib/serverMode.js';
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo } from 'react';
 import { useLocation, useNavigate, useSearchParams, Link, NavLink, useParams } from 'react-router-dom';
 import { useAuth, useDbTick } from '../../context/AuthContext';
+import { SectionErrorBoundary } from '../../components/common/RouteErrorBoundary.jsx';
 import {
   ArrowLeftRight,
   Bell,
@@ -329,19 +330,21 @@ export const PortalDashboardPage = () => {
       {/* Main Content View */}
       <main className="mx-auto w-full max-w-6xl flex-1 px-4 pb-28 pt-5 sm:px-6 lg:pb-10 lg:pt-7">
         <div key={activeSection} className="animate-portal-crossfade motion-reduce:animate-none">
-          {activeSection === 'overview' && <DashboardSection />}
-          {activeSection === 'accounts' && <AccountsSection />}
-          {activeSection === 'account-detail' && <AccountDetailSection accountId={accountDetailId} />}
-          {activeSection === 'transfers' && <TransfersSection />}
-          {activeSection === 'beneficiaries' && <BeneficiariesSection />}
-          {activeSection === 'loans' && <LoansSection />}
-          {activeSection === 'cards' && <CardsSection />}
-          {activeSection === 'investments' && <InvestmentsSection />}
-          {activeSection === 'kyc' && <KycSection />}
-          {activeSection === 'applications' && <ApplicationsSection />}
-          {activeSection === 'notifications' && <NotificationsSection />}
-          {activeSection === 'profile' && <ProfileSection />}
-          {activeSection === 'support' && <SupportSection />}
+          <SectionErrorBoundary title={`Unable to load ${activeSection}`}>
+            {activeSection === 'overview' && <DashboardSection />}
+            {activeSection === 'accounts' && <AccountsSection />}
+            {activeSection === 'account-detail' && <AccountDetailSection accountId={accountDetailId} />}
+            {activeSection === 'transfers' && <TransfersSection />}
+            {activeSection === 'beneficiaries' && <BeneficiariesSection />}
+            {activeSection === 'loans' && <LoansSection />}
+            {activeSection === 'cards' && <CardsSection />}
+            {activeSection === 'investments' && <InvestmentsSection />}
+            {activeSection === 'kyc' && <KycSection />}
+            {activeSection === 'applications' && <ApplicationsSection />}
+            {activeSection === 'notifications' && <NotificationsSection />}
+            {activeSection === 'profile' && <ProfileSection />}
+            {activeSection === 'support' && <SupportSection />}
+          </SectionErrorBoundary>
         </div>
       </main>
 
