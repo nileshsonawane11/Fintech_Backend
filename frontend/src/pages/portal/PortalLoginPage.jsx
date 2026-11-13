@@ -1,6 +1,8 @@
+import { useServerMode } from '../../lib/serverMode.js';
 import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
+import { getDemoAccounts, resetDemoDb } from '../../services/api.js';
 import {
   Card,
   Button,
@@ -8,7 +10,8 @@ import {
   Input,
   FormError,
   OtpInput,
-  ResendOtp
+  ResendOtp,
+  Modal
 } from '../../components/ui.jsx';
 import {
   Lock,
@@ -18,7 +21,10 @@ import {
   EyeOff,
   Landmark,
   CheckCircle2,
-  ArrowRight
+  ArrowRight,
+  KeyRound,
+  ChevronDown,
+  Info
 } from 'lucide-react';
 import { traceForm } from '../../lib/trace.js';
 
@@ -41,6 +47,23 @@ export const PortalLoginPage = () => {
 
   // Mode: 'login' | 'mfa' | 'register' | 'register_otp'
   const [mode, setMode] = useState('login');
+  const { isDemo } = useServerMode();
+  const [demoOpen, setDemoOpen] = useState(false);
+  const [resetOpen, setResetOpen] = useState(false);
+
+  const handleResetConfirm = () => {
+    resetDemoDb();
+    setResetOpen(false);
+    if (typeof window !== 'undefined') {
+      window.location.reload();
+    }
+  };
+
+  const populateDemo = (acc) => {
+    setIdentifier(acc.email || acc.phone || acc.mobileNumber);
+    setPassword(acc.password || 'Password@123');
+    setError('');
+  };
 
   // Form states
   const [identifier, setIdentifier] = useState('');
@@ -109,7 +132,7 @@ export const PortalLoginPage = () => {
         navigate(location.state?.from?.pathname || location.state?.from || '/portal');
       }
     } catch (err) {
-const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || err?.message || err?.title || 'Invalid credentials. Please verify your details.';
+const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || err?.message || err?.title || 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.';
       setError(msg);
     } finally {
       setLoading(false);
@@ -219,7 +242,13 @@ const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || e
         <BrandMark />
 
         <Card className="mt-8 p-6 sm:p-8 shadow-card border border-ink-100 bg-white">
-          {error && <FormError message={error} />}
+          {/* FormError placed above submit button per G.1 */}
+          {isDemo && (
+            <div className="mb-4 flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 shadow-sm">
+              <Info className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
+              <span>Demo mode — no server is connected. You are signing in to demonstration data stored only in this browser.</span>
+            </div>
+          )}
           {successMsg && (
             <div className="mb-4 flex items-start gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
               <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 mt-0.5" />
@@ -277,6 +306,11 @@ const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || e
                 </button>
               </div>
 
+              {error && (
+                <div className="pt-2">
+                  <FormError message={error} />
+                </div>
+              )}
               <div className="pt-2">
                 <Button variant="primary" type="submit" loading={loading} className="w-full">
                   Sign in to NetBanking <ArrowRight className="h-4 w-4" />
@@ -477,6 +511,82 @@ const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || e
             </div>
           )}
         </Card>
+
+        
+        {/* Demo Credentials Expander - Module 51 Part C */}
+        {isDemo && (
+          <div className="mt-6 rounded-xl border border-ink-200 bg-white/80 p-4">
+            <button
+              type="button"
+              onClick={() => setDemoOpen(!demoOpen)}
+              className="flex w-full items-center justify-between text-left text-xs font-semibold text-midnight-900"
+            >
+              <span className="flex items-center gap-1.5">
+                <KeyRound className="h-4 w-4 text-gold-600" />
+                <span>Demo access</span>
+              </span>
+              <ChevronDown className={`h-4 w-4 transition-transform ${demoOpen ? 'rotate-180' : ''}`} />
+            </button>
+            <p className="mt-1 text-xs text-ink-500">Demonstration accounts — no real credentials.</p>
+
+            {demoOpen && (
+              <div className="mt-3 space-y-2 border-t border-ink-100 pt-3 text-xs text-ink-700">
+                <p className="text-xs text-ink-500 leading-relaxed">
+                  Click any profile below to populate standard credentials. Simulated OTP code is <span className="font-mono font-bold text-midnight-950">849201</span>.
+                </p>
+                <div className="space-y-1.5">
+                  {getDemoAccounts().map((acc) => (
+                    <button
+                      key={acc.email}
+                      type="button"
+                      onClick={() => {
+                        populateDemo(acc);
+                        setMode('login');
+                      }}
+                      className="flex w-full items-center justify-between rounded-lg border border-ink-100 bg-porcelain-50 p-2.5 text-left hover:border-midnight-300 hover:bg-midnight-50/50 transition-colors"
+                    >
+                      <div>
+                        <p className="font-semibold text-midnight-950">{acc.fullName || acc.name}</p>
+                        <p className="text-xs font-mono text-ink-500">{acc.email}</p>
+                      </div>
+                      <span className="text-xs font-medium text-midnight-700 underline">
+                        Use account →
+                      </span>
+                    </button>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            <div className="mt-3 text-center border-t border-ink-100 pt-2.5">
+              <button
+                type="button"
+                onClick={() => setResetOpen(true)}
+                className="text-xs font-medium text-ink-500 hover:text-ink-700 underline transition-colors"
+              >
+                Reset demo data
+              </button>
+            </div>
+          </div>
+        )}
+
+        <Modal
+          open={resetOpen}
+          onClose={() => setResetOpen(false)}
+          title="Reset demo data?"
+          footer={(
+            <>
+              <Button variant="secondary" onClick={() => setResetOpen(false)}>Cancel</Button>
+              <Button variant="danger" onClick={handleResetConfirm}>Reset demo data</Button>
+            </>
+          )}
+        >
+          <p className="text-sm leading-relaxed text-ink-700">
+            This clears everything this prototype has stored in your browser — accounts, applications,
+            transfers, KYC decisions and preferences — and restores the original seeded demo data.
+            You will be signed out, and the reset cannot be undone.
+          </p>
+        </Modal>
 
         <p className="mt-6 text-center text-xs text-ink-500">
           Bank staff member?{' '}

@@ -1,3 +1,4 @@
+import { applyLoan, bookFd } from '../services/portalBridge';
 import React, { createContext, useContext, useState, useEffect, useCallback } from 'react';
 import { authService } from '../services/authService';
 import { customerService } from '../services/customerService';
@@ -134,7 +135,7 @@ export const AuthProvider = ({ children }) => {
           status: 401,
           code: 'INVALID_CREDENTIALS',
           title: 'Authentication Failed',
-          detail: 'Invalid credentials. Please verify your details.'
+          detail: 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.'
         };
       }
 
@@ -166,7 +167,7 @@ export const AuthProvider = ({ children }) => {
           status: 401,
           code: 'INVALID_CREDENTIALS',
           title: 'Authentication Failed',
-          detail: 'Invalid credentials. Please verify your details.'
+          detail: 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.'
         };
       }
 
@@ -217,21 +218,21 @@ export const AuthProvider = ({ children }) => {
       const res = await authService.managerLogin({ identifier, password });
       const recordRole = res.role || res.customer?.role || res.user?.role;
       const isStaff = (recordRole && STAFF_ROLES.includes(recordRole)) || res.type === 'STAFF';
-      if (!isStaff || recordRole === 'CUSTOMER' || res.type === 'CUSTOMER') {
+      if (!isStaff || recordRole === 'CUSTOMER' || res.type === 'CUSTOMER' || !res.staffId) {
         throw {
           status: 401,
           code: 'INVALID_CREDENTIALS',
           title: 'Authentication Failed',
-          detail: 'Invalid credentials. Please verify your details.'
+          detail: 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.'
         };
       }
 
       const mgr = {
-        staffId: res.staffId || res.customer?.id || 'STF-001',
-        name: res.fullName || res.customer?.fullName || 'Staff Member',
-        email: res.email || res.customer?.email || identifier,
+        staffId: res.staffId,
+        name: res.fullName || res.name || 'Staff Member',
+        email: res.email || identifier,
         role: recordRole,
-        roleTitle: res.roleTitle || (recordRole === 'BANK_MANAGER' ? 'Chief Branch Manager' : recordRole === 'KYC_OFFICER' ? 'Senior KYC Verification Officer' : recordRole === 'ADMIN' ? 'System Administrator' : 'Operations Specialist'),
+        roleTitle: res.roleTitle || 'Operations Specialist',
         department: res.department || 'Operations',
         permissions: res.permissions || [],
         lastLogin: new Date().toISOString()
@@ -258,22 +259,22 @@ export const AuthProvider = ({ children }) => {
   // Module 50 B3: Unconnected flows are bypassed with visible note.
   const submitApplication = async (applicationData) => {
     const category = (applicationData.category || applicationData.productType || '').toLowerCase();
-    if (category === 'investment') {
-      throw {
-        status: 503,
-        code: 'SERVER_NOT_CONNECTED',
-        title: 'Server Not Connected',
-        detail: 'Server not connected — bypassed for now',
-        message: 'Server not connected — bypassed for now'
-      };
+    if (category === 'investment' || category === 'investments') {
+      const res = await bookFd(user?.customerId || null, {
+        ...applicationData,
+        customerId: user?.customerId || null,
+        accountId: applicationData.accountId || applicationData.sourceAccountId || accounts[0]?.accountId || 'ACC-1001'
+      });
+      refreshCustomerData();
+      return res;
     } else if (category === 'loan' || category === 'loans') {
-      throw {
-        status: 503,
-        code: 'SERVER_NOT_CONNECTED',
-        title: 'Server Not Connected',
-        detail: 'Server not connected — bypassed for now',
-        message: 'Server not connected — bypassed for now'
-      };
+      const res = await applyLoan(user?.customerId || null, {
+        ...applicationData,
+        customerId: user?.customerId || null,
+        disbursementAccountId: applicationData.disbursementAccountId || accounts[0]?.accountId || 'ACC-1001'
+      });
+      refreshCustomerData();
+      return res;
     } else if (category === 'account' || category === 'accounts' || applicationData.productType?.toLowerCase().includes('account')) {
       const res = await accountService.applyForAccount({
         productCode: applicationData.productCode || (applicationData.title?.includes('Current') || applicationData.productName?.includes('Current') ? 'CURRENT_BUSINESS' : 'SAVINGS_REGULAR'),
@@ -285,7 +286,8 @@ export const AuthProvider = ({ children }) => {
           relationship: 'SPOUSE',
           dateOfBirth: '1998-01-01',
           mobileNumber: user?.mobileNumber || user?.phone || '9876543210'
-        }
+        },
+        ...applicationData
       });
       refreshCustomerData();
       return res;
@@ -295,7 +297,8 @@ export const AuthProvider = ({ children }) => {
         cardName: applicationData.cardName || applicationData.productName || applicationData.title || 'FinEdge Edge Cashback Card',
         productSlug: applicationData.productSlug || 'edge-cashback-credit',
         linkedAccountId: applicationData.linkedAccountId || accounts[0]?.accountId || 'ACC-1001',
-        requestedLimit: applicationData.requestedLimit
+        requestedLimit: applicationData.requestedLimit,
+        ...applicationData
       });
       refreshCustomerData();
       return res;

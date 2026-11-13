@@ -730,8 +730,8 @@ export async function decideLoanApplication(appId, { decision, reasonCode, note,
   const sAmount = sanctionedAmount != null ? Number(sanctionedAmount) : (app.sanctionedAmount || app.requestedAmount || app.amount);
   const sRate = sanctionedRate != null ? Number(sanctionedRate) : (app.sanctionedRate || app.rate || 8.75);
 
-  if (decision === 'APPROVED') {
-    app.status = 'APPROVED';
+  if (decision === 'APPROVED' || decision === 'SANCTIONED') {
+    app.status = decision === 'SANCTIONED' ? 'SANCTIONED' : 'APPROVED';
     app.sanctionedAmount = sAmount;
     app.sanctionedRate = sRate;
     app.decidedBy = staff.email;
@@ -922,7 +922,8 @@ export async function disburseLoan(appId, options = {}) {
     sanctionedAmount: principal,
     creditedAccountLast4: targetAcc?.accountNumber?.slice(-4) || '1001',
     accountId: targetAcc?.accountId || disbursementAccountId,
-    disbursedAt
+    disbursedAt,
+    status: 'DISBURSED'
   };
 }
 

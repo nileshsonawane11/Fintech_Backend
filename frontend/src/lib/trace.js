@@ -1,6 +1,9 @@
-// Console Tracing Utility for FinEdge Bank (Module 50)
+// Console Tracing Utility for FinEdge Bank (Modules 50 & 51)
 // Provides unified form submission, API traffic, and screen data fetching tracing.
 // Gated by single DEBUG_TRACE flag.
+// In demo mode, prefixes API traces with (demo-local) per Module 51 Part H.
+
+import { getMode } from './serverMode.js';
 
 export let DEBUG_TRACE = true;
 
@@ -9,6 +12,15 @@ export const setDebugTrace = (val) => {
 };
 
 export const getDebugTrace = () => DEBUG_TRACE;
+
+function getApiPrefix(baseTag) {
+  try {
+    const mode = getMode ? getMode() : 'unknown';
+    return mode === 'demo' ? `${baseTag} (demo-local)` : baseTag;
+  } catch {
+    return baseTag;
+  }
+}
 
 /**
  * Checks whether an object key represents sensitive credentials that must be masked.
@@ -62,6 +74,7 @@ export function sanitizePayload(payload) {
 /**
  * Trace Form Submission
  * Formats: [FORM] <FormName> -> expandable console group with sanitized payload.
+ * Module 50: [FORM] traces fire before mode decision with masked credentials.
  */
 export function traceForm(formName, payload) {
   if (!DEBUG_TRACE) return;
@@ -80,15 +93,17 @@ export function traceForm(formName, payload) {
 /**
  * Trace API Request
  * Format: [API →] METHOD /path + request body/params
+ * In demo mode: [API →] (demo-local) METHOD /path
  */
 export function traceRequest(method, path, bodyOrParams) {
   if (!DEBUG_TRACE) return;
+  const prefix = getApiPrefix('[API →]');
   const sanitized = bodyOrParams ? sanitizePayload(bodyOrParams) : null;
   if (typeof console !== 'undefined') {
     if (sanitized && Object.keys(sanitized).length > 0) {
-      console.info(`[API →] ${String(method).toUpperCase()} ${path}`, sanitized);
+      console.info(`${prefix} ${String(method).toUpperCase()} ${path}`, sanitized);
     } else {
-      console.info(`[API →] ${String(method).toUpperCase()} ${path}`);
+      console.info(`${prefix} ${String(method).toUpperCase()} ${path}`);
     }
   }
 }
@@ -96,11 +111,12 @@ export function traceRequest(method, path, bodyOrParams) {
 /**
  * Trace API Response
  * Format: [API ←] /path · <status> · <what came back>
- * (the data itself for single records; keys + count for lists).
+ * In demo mode: [API ←] (demo-local) /path · <status> · ...
  */
 export function traceResponse(path, status, data) {
   if (!DEBUG_TRACE) return;
   if (typeof console === 'undefined') return;
+  const prefix = getApiPrefix('[API ←]');
 
   let whatCameBack;
   if (Array.isArray(data)) {
@@ -120,18 +136,20 @@ export function traceResponse(path, status, data) {
     whatCameBack = data;
   }
 
-  console.info(`[API ←] ${path} · ${status} ·`, whatCameBack);
+  console.info(`${prefix} ${path} · ${status} ·`, whatCameBack);
 }
 
 /**
  * Trace API Failure
  * Format: [API ✗] /path · <error>
+ * In demo mode: [API ✗] (demo-local) /path · ...
  */
 export function traceFailure(path, error) {
   if (!DEBUG_TRACE) return;
   if (typeof console === 'undefined') return;
+  const prefix = getApiPrefix('[API ✗]');
   const errMsg = error?.detail || error?.message || error?.code || String(error);
-  console.info(`[API ✗] ${path} · ${errMsg}`);
+  console.info(`${prefix} ${path} · ${errMsg}`);
 }
 
 /**

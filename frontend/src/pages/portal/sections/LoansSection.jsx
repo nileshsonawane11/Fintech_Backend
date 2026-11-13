@@ -253,7 +253,7 @@ export default function LoansPage() {
         body: `Reference ${app.id}. You can track it below while our team reviews it.`,
       });
     } catch (err) {
-      setFormError(err?.detail || err?.message || 'Server not connected — bypassed for now');
+      setFormError(err?.detail || err?.message || 'Loan request could not be processed. Please try again.');
     } finally {
       setSubmitting(false);
     }

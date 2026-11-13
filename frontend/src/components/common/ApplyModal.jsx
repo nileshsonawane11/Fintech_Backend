@@ -1,3 +1,4 @@
+import { useServerMode } from '../../lib/serverMode.js';
 import { traceForm } from '../../lib/trace.js';
 import { ConfirmationCheckmark } from './ConfirmationCheckmark.jsx';
 import React, { useState, useEffect, useRef } from 'react';
@@ -92,6 +93,7 @@ function calculateAge(dobString) {
 
 export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, initialAmount, initialTenure, initialCategory }) => {
   const isModalOpen = open ?? isOpen;
+  const { isDemo } = useServerMode();
   const { submitApplication, user, accounts = [] } = useAuth();
   const modalRef = useRef(null);
   const firstInputRef = useRef(null);
@@ -1473,7 +1475,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
       const res = await submitApplication(accountPayload);
       setSubmittedApp(res.data || res);
     } catch (err) {
-      setErrors({ form: err?.detail || err?.message || 'Server not connected — bypassed for now' });
+      setErrors({ form: err?.detail || err?.message || 'Network connection failed. Please try again.' });
     } finally {
       setLoading(false);
     }
@@ -1834,12 +1836,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
         ) : (
           <form id="apply-product-form" onSubmit={handleSubmit} noValidate className="flex flex-col flex-1 min-h-0 overflow-hidden">
             <div className="flex-1 space-y-6 overflow-y-auto p-6 [scrollbar-width:thin]">
-              {errors.form && (
-                <div className="flex items-center gap-2 rounded-lg border border-danger-600/30 bg-danger-50 p-3 text-xs text-danger-600" role="alert">
-                  <AlertCircle className="h-4 w-4 shrink-0" />
-                  <span>{errors.form}</span>
-                </div>
-              )}
+              {/* Form error moved to sticky footer per Module 51 G.1 */}
 
             {isInvestment ? (
               <InvestmentFormFields
@@ -3948,26 +3945,38 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
             </div>
 
             {/* Sticky Modal Footer */}
-            <div className="sticky bottom-0 z-10 shrink-0 flex items-center justify-end gap-3 border-t border-ink-100 bg-porcelain-50 px-6 py-4 rounded-b-2xl">
-              <Button
-                type="button"
-                variant="outline"
-                onClick={handleClose}
-                disabled={loading}
-              >
-                Cancel
-              </Button>
-              <Button
-                type="submit"
-                variant="primary"
-                disabled={loading || !isRequiredConsentMet}
-              >
-                {loading
-                  ? 'Submitting...'
-                  : isDebitCard && formData.debitLinkType === 'new'
-                  ? 'Continue to Account Opening'
-                  : 'Submit Application'}
-              </Button>
+            <div className="sticky bottom-0 z-10 shrink-0 flex flex-col gap-2 border-t border-ink-100 bg-porcelain-50 px-6 py-4 rounded-b-2xl">
+              {error && (
+                <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
+                  {error}
+                </div>
+              )}
+              {isDemo && (
+                <p className="text-xs text-amber-700 text-right">
+                  Demo mode: this application will be recorded in this browser&apos;s demonstration data and reviewed in the staff console demo.
+                </p>
+              )}
+              <div className="flex items-center justify-end gap-3">
+                <Button
+                  type="button"
+                  variant="outline"
+                  onClick={handleClose}
+                  disabled={loading}
+                >
+                  Cancel
+                </Button>
+                <Button
+                  type="submit"
+                  variant="primary"
+                  disabled={loading || !isRequiredConsentMet}
+                >
+                  {loading
+                    ? 'Submitting...'
+                    : isDebitCard && formData.debitLinkType === 'new'
+                    ? 'Continue to Account Opening'
+                    : 'Submit Application'}
+                </Button>
+              </div>
             </div>
           </form>
         )}

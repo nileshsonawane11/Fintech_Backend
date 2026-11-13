@@ -42,8 +42,8 @@ export const InvestmentFormFields = ({
   const [customerRecord, setCustomerRecord] = useState(null);
 
   useEffect(() => {
-    if (isExpressMode || user) {
-      getMyProfile().then(res => {
+    if (user && isExpressMode) {
+      getMyProfile(user.customerId).then(res => {
         if (res?.customer) setCustomerRecord(res.customer);
       }).catch(() => {});
     }
@@ -139,7 +139,7 @@ export const InvestmentFormFields = ({
       {/* ------------------------------------------------------------- */}
       {/* 1. APPLICANT IDENTITY (EXPRESS VS LOGGED-OUT APPLICATION)     */}
       {/* ------------------------------------------------------------- */}
-      {isExpressMode ? (
+      {(user && isExpressMode && (customerRecord || user)) ? (
         <div className="rounded-xl border border-midnight-200 bg-midnight-50/60 p-4">
           <div className="flex items-center justify-between">
             <span className="text-xs font-semibold uppercase tracking-wider text-midnight-800">

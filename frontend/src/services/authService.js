@@ -65,7 +65,7 @@ export const authService = {
         status: 401,
         code: 'INVALID_CREDENTIALS',
         title: 'Authentication Failed',
-        detail: 'Invalid credentials. Please verify your details.'
+        detail: 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.'
       };
     }
 
@@ -88,7 +88,7 @@ export const authService = {
         status: 401,
         code: 'INVALID_CREDENTIALS',
         title: 'Authentication Failed',
-        detail: 'Invalid credentials. Please verify your details.'
+        detail: 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.'
       };
     }
 
@@ -148,7 +148,7 @@ export const authService = {
         status: 401,
         code: 'INVALID_CREDENTIALS',
         title: 'Authentication Failed',
-        detail: 'Invalid credentials. Please verify your details.'
+        detail: 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.'
       };
     }
 

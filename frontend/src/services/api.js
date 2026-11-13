@@ -1,3 +1,4 @@
+import { getMode, setServerMode, registerReachabilityProbe, probeReachability } from '../lib/serverMode.js';
 import { traceRequest, traceResponse, traceFailure } from '../lib/trace.js';
 import { FINEDGE_RATES_CONFIG } from '../data/ratesConfig.js';
 import { SAVINGS_TOP_RATE, ALL_PRODUCTS } from '../data/products.js';
@@ -1082,15 +1083,22 @@ export const getDefaultDb = () => {
   };
 };
 
-export const getDemoAccounts = () => [];
-export const DEMO_ACCOUNTS = [];
+export const getDemoAccounts = () => (getDefaultDb().customers || []).map(c => ({
+  ...c,
+  name: c.fullName || c.name,
+  phone: c.mobileNumber || c.phone
+}));
+export const DEMO_ACCOUNTS = getDemoAccounts();
 
-export const getDemoStaffAccounts = () => [];
-export const STAFF_ACCOUNTS = [];
+export const getDemoStaffAccounts = () => (getDefaultDb().staffUsers || []).map(s => ({
+  ...s,
+  clearance: s.department ? `${s.role} · ${s.department}` : s.role
+}));
+export const STAFF_ACCOUNTS = getDemoStaffAccounts();
 
 export const resetDemoDb = () => {
+  const factoryDb = getDefaultDb();
   if (typeof localStorage !== 'undefined') {
-    localStorage.removeItem(MOCK_STORAGE_KEY);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(SESSION_CUST_KEY);
@@ -1098,8 +1106,12 @@ export const resetDemoDb = () => {
     localStorage.removeItem('finedge_demo_user');
     localStorage.removeItem('finedge_manager_user');
     localStorage.removeItem('finedge_user_prefs');
+    try {
+      localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(factoryDb));
+    } catch {}
   }
-  return {};
+  inMemoryDb = JSON.parse(JSON.stringify(factoryDb));
+  return inMemoryDb;
 };
 
 export const getInitialDb = () => {
@@ -1111,34 +1123,30 @@ let inMemoryDb = null;
 export const getDb = () => {
   if (typeof localStorage !== 'undefined') {
     try {
-      localStorage.removeItem(MOCK_STORAGE_KEY);
+      const stored = localStorage.getItem(MOCK_STORAGE_KEY);
+      if (stored) {
+        return JSON.parse(stored);
+      }
     } catch {}
   }
   if (!inMemoryDb) {
-    inMemoryDb = {
-      customers: [],
-      staffUsers: [],
-      accounts: [],
-      cards: [],
-      transactions: [],
-      beneficiaries: [],
-      loans: [],
-      investments: [],
-      tickets: [],
-      auditLogs: [],
-      sessions: [],
-      pendingChallenges: [],
-      products: [],
-      siteContent: {},
-      settings: {}
-    };
+    inMemoryDb = getDefaultDb();
+    if (typeof localStorage !== 'undefined') {
+      try {
+        localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(inMemoryDb));
+      } catch {}
+    }
   }
   return inMemoryDb;
 };
 
 export const saveDb = (db) => {
   inMemoryDb = db;
-  // Module 50: Local platform data removed. Do not write business records to localStorage.
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(db));
+    } catch {}
+  }
 };
 
 export const appendAuditLog = (actor, actorRole, action, target, status, details, previousValue = null, newValue = null) => {
@@ -1191,6 +1199,14 @@ export const resolveSession = (db, token, expectedType) => {
   session.expiresAt = new Date(now + duration).toISOString();
   saveDb(db);
   return session;
+};
+
+export const getOptionalAuthenticatedCustomerId = (db, options = {}) => {
+  try {
+    return getAuthenticatedCustomerId(db, options);
+  } catch {
+    return null;
+  }
 };
 
 export const getAuthenticatedCustomerId = (db, options = {}) => {
@@ -1504,6 +1520,11 @@ export const apiRequest = async (endpoint, options = {}) => {
       headers
     });
 
+    // Part 0.2: FIRST request whose fetch resolves with any HTTP response sets mode 'server'
+    if (getMode() === 'unknown') {
+      setServerMode('server');
+    }
+
     if (response.status === 401 && !options._retry && !options.isManager) {
       const refreshed = await tryRefreshToken();
       if (refreshed) {
@@ -1548,24 +1569,34 @@ export const apiRequest = async (endpoint, options = {}) => {
     traceResponse(endpoint, response.status, data);
     return data;
   } catch (err) {
+    // If err.status exists, fetch DID resolve (HTTP response was received and parsed, then thrown)
     if (err.status) {
+      if (getMode() === 'unknown') {
+        setServerMode('server');
+      }
       throw err;
     }
-    traceFailure(endpoint, err?.message || 'Failed to fetch (Server not connected)');
-    // If backend microservices are offline, allow authentication endpoints to resolve via local fallback engine
-    if (endpoint.includes('/auth/login') || endpoint.includes('/auth/register') || endpoint.includes('/auth/otp/verify') || endpoint.includes('/auth/mfa/verify')) {
-      try {
-        return handleLocalFallback(endpoint, options);
-      } catch (fbErr) {
-        throw fbErr;
-      }
+
+    // Network failure: fetch itself rejected (server down / unreachable)
+    if (getMode() === 'unknown') {
+      setServerMode('demo');
     }
+
+    const currentMode = getMode();
+    if (currentMode === 'demo') {
+      // Part A.1: Route the call to handleLocalFallback(endpoint, options) exactly as pre-Module-50
+      traceFailure(endpoint, 'Network failure — routed to demo fallback engine');
+      return handleLocalFallback(endpoint, options);
+    }
+
+    // In server mode, network failures surface as an error state, never a silent mode switch
+    traceFailure(endpoint, err?.message || 'Network connection failed');
     throw {
       status: 503,
-      code: 'SERVER_NOT_CONNECTED',
-      title: 'Server Not Connected',
-      detail: 'Server not connected — bypassed for now',
-      message: 'Server not connected — bypassed for now'
+      code: 'NETWORK_ERROR',
+      title: 'Network Error',
+      detail: 'Network connection failed. The server could not be reached.',
+      message: 'Network connection failed. The server could not be reached.'
     };
   }
 };
@@ -1725,7 +1756,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
         status: 401,
         code: 'INVALID_CREDENTIALS',
         title: 'Authentication Failed',
-        detail: 'Invalid credentials. Please verify your details.'
+        detail: 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.'
       };
     }
 
@@ -1734,7 +1765,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
         status: 401,
         code: 'INVALID_CREDENTIALS',
         title: 'Authentication Failed',
-        detail: 'Invalid credentials. Please verify your details.'
+        detail: 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.'
       };
     }
 
@@ -1883,7 +1914,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
         status: 401,
         code: 'INVALID_CREDENTIALS',
         title: 'Authentication Failed',
-        detail: 'Invalid credentials. Please verify your details.'
+        detail: 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.'
       };
     }
 
@@ -1904,7 +1935,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
         status: 401,
         code: 'INVALID_CREDENTIALS',
         title: 'Authentication Failed',
-        detail: 'Invalid credentials. Please verify your details.'
+        detail: 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.'
       };
     }
 
@@ -2013,48 +2044,63 @@ export const handleLocalFallback = (endpoint, options = {}) => {
 
   // 9. /api/v1/accounts (Strict Customer Data Isolation)
   if (endpoint === '/api/v1/accounts') {
-    const currentCustId = getAuthenticatedCustomerId(db);
     if (method === 'GET') {
+      const currentCustId = getAuthenticatedCustomerId(db, options);
       const customerAccounts = db.accounts.filter(a => a.customerId === currentCustId);
       return { data: customerAccounts };
     }
     if (method === 'POST') {
-      // Duplicate application prevention
-      const existingPending = db.accountApplications.find(a => 
-        a.customerId === currentCustId && 
-        a.productCode === body.productCode && 
-        ['UNDER_REVIEW', 'PENDING_APPROVAL', 'SUBMITTED'].includes(a.status)
-      );
-      if (existingPending) {
-        throw {
-          status: 409,
-          code: 'DUPLICATE_APPLICATION',
-          title: 'Application Already In Progress',
-          detail: `An active application (${existingPending.accountApplicationId}) for this account product is currently under review.`
-        };
+      const currentCustId = getOptionalAuthenticatedCustomerId(db, options) || body.customerId || ('CUS-' + Math.floor(100000 + Math.random() * 900000));
+      if (body.customerId || getOptionalAuthenticatedCustomerId(db, options)) {
+        const existingPending = (db.accountApplications || []).find(a => 
+          a.customerId === currentCustId && 
+          a.productCode === body.productCode && 
+          ['UNDER_REVIEW', 'PENDING_APPROVAL', 'SUBMITTED', 'PENDING'].includes(a.status)
+        );
+        if (existingPending) {
+          throw {
+            status: 409,
+            code: 'DUPLICATE_APPLICATION',
+            title: 'Application Already In Progress',
+            detail: `An active application (${existingPending.accountApplicationId || existingPending.id}) for this account product is currently under review.`
+          };
+        }
       }
 
       const newAppId = 'ACC-APP-' + Math.floor(900000 + Math.random() * 100000);
-      const cust = db.customers.find(c => c.customerId === currentCustId);
+      const cust = (db.customers || []).find(c => c.customerId === currentCustId);
       const newApp = {
+        id: newAppId,
         accountApplicationId: newAppId,
+        applicationId: newAppId,
         customerId: currentCustId,
-        customerName: body.applicantName || body.customerName || cust?.fullName || 'Customer',
+        customerName: body.applicantName || body.fullName || body.customerName || cust?.fullName || 'Guest Applicant',
+        email: body.email || cust?.email || '',
+        mobileNumber: body.mobile || body.mobileNumber || cust?.mobileNumber || '',
+        pan: body.panNumber || body.pan || cust?.pan || '',
         productCode: body.productCode || 'SAVINGS_REGULAR',
         productName: body.productName || (body.productCode === 'CURRENT_BUSINESS' ? 'FinEdge Trade Current Account' : 'FinEdge Everyday Savings Account'),
+        productSlug: body.productSlug || 'everyday-savings',
+        initialFunding: body.initialFundingAmount || body.initialFunding || 10000,
         initialFundingAmount: body.initialFundingAmount || 10000.00,
-        status: 'PENDING_APPROVAL',
-      submittedAt: new Date().toISOString(),
-        nominee: body.nominee || {}
+        status: 'UNDER_REVIEW',
+        submittedAt: new Date().toISOString(),
+        createdAt: new Date().toISOString(),
+        nominee: body.nominee || {},
+        nomineeName: body.nominee?.fullName || body.nomineeName || 'Nominee on file'
       };
+      if (!Array.isArray(db.accountApplications)) db.accountApplications = [];
       db.accountApplications.unshift(newApp);
       saveDb(db);
       appendAuditLog(currentCustId, 'CUSTOMER', 'ACCOUNT_APPLICATION_SUBMITTED', newAppId, 'SUCCESS', `Applied for ${newApp.productName}`);
       return {
+        id: newAppId,
         accountApplicationId: newAppId,
+        applicationId: newAppId,
         customerId: currentCustId,
         productCode: newApp.productCode,
-        status: 'PENDING_APPROVAL',
+        productName: newApp.productName,
+        status: 'UNDER_REVIEW',
         estimatedCompletionTime: new Date(Date.now() + 48 * 3600 * 1000).toISOString()
       };
     }
@@ -2351,29 +2397,31 @@ export const handleLocalFallback = (endpoint, options = {}) => {
 
   // 14. /api/v1/cards/applications
   if (endpoint === '/api/v1/cards/applications' && method === 'POST') {
-    const currentCustId = getAuthenticatedCustomerId(db);
+    const currentCustId = getOptionalAuthenticatedCustomerId(db, options) || body.customerId || ('CUS-' + Math.floor(100000 + Math.random() * 900000));
     const prodSlug = body.productSlug || (body.cardName ? body.cardName.toLowerCase().replace(/[^a-z0-9]+/g, '-') : 'edge-cashback-credit');
-    const existingCardApp = (db.cardApplications || []).find(c => 
-      c.customerId === currentCustId && 
-      (c.productSlug === prodSlug || c.cardName === body.cardName) && 
-      ['UNDER_REVIEW', 'PENDING_APPROVAL', 'SUBMITTED'].includes(c.status)
-    );
-    if (existingCardApp) {
-      throw {
-        status: 409,
-        code: 'DUPLICATE_APPLICATION',
-        title: 'Application Already Pending',
-        detail: `An active application (${existingCardApp.cardApplicationId}) for ${body.cardName || 'this card'} is currently under review.`
-      };
+    if (getOptionalAuthenticatedCustomerId(db, options) || body.customerId) {
+      const existingCardApp = (db.cardApplications || []).find(c => 
+        c.customerId === currentCustId && 
+        (c.productSlug === prodSlug || c.cardName === body.cardName) && 
+        ['UNDER_REVIEW', 'PENDING_APPROVAL', 'SUBMITTED'].includes(c.status)
+      );
+      if (existingCardApp) {
+        throw {
+          status: 409,
+          code: 'DUPLICATE_APPLICATION',
+          title: 'Application Already Pending',
+          detail: `An active application (${existingCardApp.cardApplicationId}) for ${body.cardName || 'this card'} is currently under review.`
+        };
+      }
     }
 
-    const cust = db.customers.find(c => c.customerId === currentCustId);
+    const cust = (db.customers || []).find(c => c.customerId === currentCustId);
     const newCardAppId = 'CARD-APP-' + Math.floor(400000 + Math.random() * 100000);
     const newCardApp = {
       cardApplicationId: newCardAppId,
       id: newCardAppId,
       customerId: currentCustId,
-      customerName: cust?.fullName || 'Customer',
+      customerName: body.applicantName || body.fullName || body.customerName || cust?.fullName || 'Guest Applicant',
       cardType: body.cardType || 'CREDIT',
       cardName: body.cardName || 'FinEdge Edge Cashback Card',
       productName: body.cardName || 'FinEdge Edge Cashback Card',
@@ -2578,7 +2626,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
 
   // 18. /api/v1/support/tickets
   if (endpoint === '/api/v1/support/tickets' && method === 'POST') {
-    const currentCustId = getAuthenticatedCustomerId(db) || body.customerId || null;
+    const currentCustId = getOptionalAuthenticatedCustomerId(db, options) || body.customerId || null;
     const desc = (body.description || body.message || '').trim();
     const ticketId = 'TCK-' + Math.floor(700000 + Math.random() * 100000);
     const now = new Date().toISOString();
@@ -2884,7 +2932,8 @@ export const handleLocalFallback = (endpoint, options = {}) => {
       cardId: newCardId,
       issuedAt,
       dispatchRef,
-      limit: approvedLimit
+      limit: approvedLimit,
+      status: 'APPROVED'
     };
   }
 

@@ -121,7 +121,7 @@ function FdForm({ customerId, accounts, profile, onBooked }) {
       toast({ title: 'Fixed deposit booked', body: `${formatINR(amt)} for ${tenureMonths} months at ${rate.toFixed(2)}% p.a. · Ref ${inv.id}` });
       onBooked();
     } catch (err) {
-      setFormError(err?.detail || err?.message || 'Server not connected — bypassed for now');
+      setFormError(err?.detail || err?.message || 'Investment request could not be processed. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -236,7 +236,7 @@ function RdForm({ customerId, accounts, onBooked }) {
       toast({ title: 'Recurring deposit started', body: `${formatINR(m)} per month for ${tenureMonths} months at ${rate.toFixed(2)}% p.a. · Ref ${inv.id}` });
       onBooked();
     } catch (err) {
-      setFormError(err?.detail || err?.message || 'Server not connected — bypassed for now');
+      setFormError(err?.detail || err?.message || 'Investment request could not be processed. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -341,7 +341,7 @@ function SipForm({ customerId, accounts, onBooked }) {
       toast({ title: 'SIP started', body: `${formatINR(m)} per month in ${fundName} (Debit day: ${debitDate}). Market-linked — returns are not guaranteed. · Ref ${inv.id}` });
       onBooked();
     } catch (err) {
-      setFormError(err?.detail || err?.message || 'Server not connected — bypassed for now');
+      setFormError(err?.detail || err?.message || 'Investment request could not be processed. Please try again.');
     } finally {
       setSubmitting(false);
     }
@@ -478,7 +478,7 @@ function SsyForm({ customerId, accounts, profile, onBooked }) {
       toast({ title: 'SSY account opened', body: `${formatINR(amt)} deposited for ${childName.trim()} at ${rate.toFixed(2)}% p.a. · Ref ${inv.id}` });
       onBooked();
     } catch (err) {
-      setFormError(err?.detail || err?.message || 'Server not connected — bypassed for now');
+      setFormError(err?.detail || err?.message || 'Investment request could not be processed. Please try again.');
     } finally {
       setSubmitting(false);
     }

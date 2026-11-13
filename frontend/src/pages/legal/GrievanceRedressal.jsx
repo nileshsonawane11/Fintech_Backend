@@ -151,7 +151,7 @@ export default function GrievanceRedressal() {
       setReference(issuedRef);
       setStatus("submitted");
     } catch (err) {
-      setErrorMessage(err?.detail || err?.message || "Server not connected — bypassed for now");
+      setErrorMessage(err?.detail || err?.message || "Unable to submit your grievance at this time. Please try again.");
       setStatus("error");
     }
   }
