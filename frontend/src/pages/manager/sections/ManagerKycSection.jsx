@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useCallback, useEffect, useState } from 'react';
 import {
   ChevronLeft, ChevronRight, FileText, Search, SearchX, X,
@@ -83,6 +84,7 @@ export default function ManagerKycPage() {
   const [submitting, setSubmitting] = useState(false);
 
   const loadList = useCallback(async () => {
+    traceData('ManagerKycQueue');
     setLoading(true);
     setLoadError('');
     try {
@@ -178,6 +180,12 @@ export default function ManagerKycPage() {
     if (!drawerCase || !confirmDecision) return;
     const decidedId = drawerCase.id;
     const decision = confirmDecision;
+    traceForm('KycDecision', {
+      kycCaseId: decidedId,
+      action: decision,
+      remarks: remarks.trim() || reasonCode,
+      riskCategory: drawerCase.riskCategory,
+    });
     setSubmitting(true);
     setConfirmError('');
     try {

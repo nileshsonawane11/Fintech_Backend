@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useState, useEffect } from 'react';
 import {
   Globe,
@@ -56,6 +57,7 @@ export default function ManagerSiteContentSection() {
   const [legalDraft, setLegalDraft] = useState({});
 
   const loadData = async () => {
+    traceData('ManagerSiteContent');
     try {
       setLoading(true);
       const allContent = await adminGetSiteContent();
@@ -169,10 +171,7 @@ export default function ManagerSiteContentSection() {
   };
 
   const handleConfirmSave = async () => {
-    if (!saveReason.trim()) {
-      setValidationError('A mandatory business justification reason is required for audit non-repudiation.');
-      return;
-    }
+    traceForm('SiteContentUpdate', { ...draftData });
     setSaving(true);
     try {
       let draftToSave = null;

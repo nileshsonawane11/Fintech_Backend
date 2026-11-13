@@ -1,7 +1,6 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import { useNavigate, useLocation, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getDemoAccounts, resetDemoDb } from '../../services/api.js';
 import {
   Card,
   Button,
@@ -9,25 +8,19 @@ import {
   Input,
   FormError,
   OtpInput,
-  ResendOtp,
-  Modal
+  ResendOtp
 } from '../../components/ui.jsx';
 import {
   Lock,
   Mail,
-  User,
   ShieldCheck,
   Eye,
   EyeOff,
   Landmark,
-  KeyRound,
-  ChevronDown,
-  Info,
   CheckCircle2,
   ArrowRight
 } from 'lucide-react';
-
-const DEMO_ACCOUNTS = getDemoAccounts();
+import { traceForm } from '../../lib/trace.js';
 
 function BrandMark() {
   return (
@@ -46,24 +39,15 @@ export const PortalLoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
 
-  // Mode: 'login' | 'mfa' | 'register' | 'register_otp' | 'forgot'
+  // Mode: 'login' | 'mfa' | 'register' | 'register_otp'
   const [mode, setMode] = useState('login');
 
-  const handleResetConfirm = () => {
-    resetDemoDb();
-    setResetOpen(false);
-    if (typeof window !== 'undefined') {
-      window.location.reload();
-    }
-  };
-
-  // Form states - completely empty on open
+  // Form states
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [mfaReferenceId, setMfaReferenceId] = useState('');
   const [mfaOtp, setMfaOtp] = useState('');
-  const [resetOpen, setResetOpen] = useState(false);
 
   // Registration states
   const [regFullName, setRegFullName] = useState('');
@@ -75,9 +59,6 @@ export const PortalLoginPage = () => {
   const [acceptedTerms, setAcceptedTerms] = useState(false);
   const [regOtp, setRegOtp] = useState('');
   const [otpReferenceId, setOtpReferenceId] = useState('');
-
-  // Demo Expander
-  const [demoOpen, setDemoOpen] = useState(false);
 
   // Status & Feedback
   const [error, setError] = useState('');
@@ -113,6 +94,9 @@ export const PortalLoginPage = () => {
       return;
     }
 
+    // Module 50: Trace form submission
+    traceForm('CustomerLogin', { identifier: trimmedId, password });
+
     setLoading(true);
     try {
       const result = await login(trimmedId, password);
@@ -125,7 +109,7 @@ export const PortalLoginPage = () => {
         navigate(location.state?.from?.pathname || location.state?.from || '/portal');
       }
     } catch (err) {
-      const msg = err?.errors[0]?.message || err?.detail || err?.title || 'Invalid credentials. Please verify your details.';
+const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || err?.message || err?.title || 'Invalid credentials. Please verify your details.';
       setError(msg);
     } finally {
       setLoading(false);
@@ -140,12 +124,15 @@ export const PortalLoginPage = () => {
       return;
     }
 
+    // Module 50: Trace MFA submission
+    traceForm('CustomerMfaVerify', { mfaReferenceId, otp: code });
+
     setLoading(true);
     try {
       await verifyMfa(mfaReferenceId, code);
       navigate(location.state?.from?.pathname || location.state?.from || '/portal');
     } catch (err) {
-      const msg = err?.error?.message || err?.detail || 'Invalid or expired OTP code. Use demo code 849201 in simulated mode.';
+      const msg = err?.detail || err?.error?.message || err?.message || 'Invalid or expired OTP code.';
       setError(msg);
     } finally {
       setLoading(false);
@@ -169,19 +156,26 @@ export const PortalLoginPage = () => {
       return;
     }
 
+    const regPayload = {
+      fullName: regFullName.trim(),
+      mobileNumber: regMobile.trim(),
+      email: regEmail.trim(),
+      password: regPassword,
+      acceptedTermsVersion: 'v2026-10-01',
+      marketingConsent: false
+    };
+
+    // Module 50: Trace Registration Form
+    traceForm('CustomerRegistration', regPayload);
+
     setLoading(true);
     try {
-      const res = await register({
-        fullName: regFullName.trim(),
-        mobileNumber: regMobile.trim(),
-        email: regEmail.trim(),
-        password: regPassword
-      });
+      const res = await register(regPayload);
       setOtpReferenceId(res?.otpReferenceId || 'REF-' + Date.now());
       setMode('login');
       setSuccessMsg(`Verification OTP sent to ${getMaskedTarget(regMobile)}.`);
     } catch (err) {
-      const msg = err?.errors[0]?.message || err?.detail || 'Registration failed. Please check your details.';
+const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || err?.message || 'Registration failed. Please check your details.';
       setError(msg);
     } finally {
       setLoading(false);
@@ -196,28 +190,27 @@ export const PortalLoginPage = () => {
       return;
     }
 
+    const verifyPayload = {
+      referenceId: otpReferenceId,
+      otp: code,
+      email: regEmail.trim(),
+      mobileNumber: regMobile.trim(),
+      purpose: 'REGISTRATION'
+    };
+
+    // Module 50: Trace Registration OTP Verify
+    traceForm('RegistrationOtpVerify', verifyPayload);
+
     setLoading(true);
     try {
-      await verifyOtp({
-        referenceId: otpReferenceId,
-        otp: code,
-        email: regEmail.trim(),
-        mobileNumber: regMobile.trim()
-      });
+      await verifyOtp(verifyPayload);
       navigate(location.state?.from?.pathname || location.state?.from || '/portal');
     } catch (err) {
-      const msg = err?.error?.message || err?.detail || 'Invalid OTP code. Use simulated code 849201 in demo mode.';
+      const msg = err?.detail || err?.error?.message || err?.message || 'Invalid or expired OTP code.';
       setError(msg);
     } finally {
       setLoading(false);
     }
-  };
-
-  const populateDemo = (acc) => {
-    setIdentifier(acc.email);
-    setPassword(acc.password);
-    setError('');
-    setFieldErrors({});
   };
 
   return (
@@ -322,7 +315,7 @@ export const PortalLoginPage = () => {
                 >
                   ← Back to Login
                 </button>
-                <ResendOtp onResend={() => setSuccessMsg('New security code dispatched (Demo: 849201)')} />
+                <ResendOtp onResend={() => setSuccessMsg('New security code dispatched')} />
               </div>
 
               <Button
@@ -348,18 +341,18 @@ export const PortalLoginPage = () => {
                 <Input
                   value={regFullName}
                   onChange={(e) => setRegFullName(e.target.value)}
-                  placeholder="e.g. Priya Sundaram"
+                  placeholder="e.g. Rahul Sharma"
                   error={Boolean(fieldErrors.regFullName)}
                 />
               </Field>
 
-              <Field label="Mobile Number" error={fieldErrors.regMobile} hint="10-digit Indian mobile" required>
+              <Field label="Mobile Number" error={fieldErrors.regMobile} required>
                 <Input
                   type="tel"
                   maxLength={10}
                   value={regMobile}
-                  onChange={(e) => setRegMobile(e.target.value)}
-                  placeholder="9820011223"
+                  onChange={(e) => setRegMobile(e.target.value.replace(/\D/g, ''))}
+                  placeholder="10-digit mobile number"
                   error={Boolean(fieldErrors.regMobile)}
                 />
               </Field>
@@ -369,56 +362,73 @@ export const PortalLoginPage = () => {
                   type="email"
                   value={regEmail}
                   onChange={(e) => setRegEmail(e.target.value)}
-                  placeholder="priya@example.com"
+                  placeholder="name@domain.com"
                   error={Boolean(fieldErrors.regEmail)}
                 />
               </Field>
 
-              <div className="grid gap-3 sm:grid-cols-2">
-                <Field label="Password" error={fieldErrors.regPassword} required>
+              <Field label="Set Portal Password" error={fieldErrors.regPassword} required>
+                <div className="relative">
                   <Input
-                    type="password"
+                    type={showRegPassword ? 'text' : 'password'}
                     value={regPassword}
                     onChange={(e) => setRegPassword(e.target.value)}
                     placeholder="Min. 8 characters"
+                    className="pr-10"
                     error={Boolean(fieldErrors.regPassword)}
                   />
-                </Field>
-                <Field label="Confirm Password" error={fieldErrors.regConfirmPassword} required>
-                  <Input
-                    type="password"
-                    value={regConfirmPassword}
-                    onChange={(e) => setRegConfirmPassword(e.target.value)}
-                    placeholder="Repeat password"
-                    error={Boolean(fieldErrors.regConfirmPassword)}
-                  />
-                </Field>
-              </div>
+                  <button
+                    type="button"
+                    onClick={() => setShowRegPassword(!showRegPassword)}
+                    className="absolute right-2.5 top-1/2 -translate-y-1/2 text-ink-400 hover:text-ink-600"
+                    aria-label={showRegPassword ? 'Hide password' : 'Show password'}
+                  >
+                    {showRegPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
+                  </button>
+                </div>
+              </Field>
+
+              <Field label="Confirm Password" error={fieldErrors.regConfirmPassword} required>
+                <Input
+                  type={showRegPassword ? 'text' : 'password'}
+                  value={regConfirmPassword}
+                  onChange={(e) => setRegConfirmPassword(e.target.value)}
+                  placeholder="Re-enter password"
+                  error={Boolean(fieldErrors.regConfirmPassword)}
+                />
+              </Field>
 
               <div className="pt-1">
-                <label className="flex items-start gap-2 cursor-pointer text-xs text-ink-700">
+                <label className="flex items-start gap-2 text-xs text-ink-700 cursor-pointer">
                   <input
                     type="checkbox"
                     checked={acceptedTerms}
                     onChange={(e) => setAcceptedTerms(e.target.checked)}
-                    className="mt-0.5 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                    className="mt-0.5 rounded border-ink-300 text-midnight-900 focus:ring-midnight-900"
                   />
-                  <span>I agree to FinEdge digital terms, KYC authorization, and privacy disclosure.</span>
+                  <span>
+                    I confirm that I am an Indian citizen residing in India, and agree to FinEdge&apos;s{' '}
+                    <Link to="/terms-and-conditions" className="text-midnight-800 underline">Terms</Link> and{' '}
+                    <Link to="/privacy-policy" className="text-midnight-800 underline">Privacy Policy</Link>.
+                  </span>
                 </label>
-                {fieldErrors.acceptedTerms && <p className="mt-1 text-xs text-danger-600">{fieldErrors.acceptedTerms}</p>}
+                {fieldErrors.acceptedTerms && <p className="mt-1 text-xs text-rose-600">{fieldErrors.acceptedTerms}</p>}
               </div>
 
-              <div className="pt-2 flex items-center justify-between">
+              <div className="pt-2">
+                <Button variant="primary" type="submit" loading={loading} className="w-full">
+                  Create Account <ArrowRight className="h-4 w-4" />
+                </Button>
+              </div>
+
+              <div className="text-center pt-1">
                 <button
                   type="button"
                   onClick={() => { setMode('login'); setError(''); }}
-                  className="text-xs font-medium text-ink-600 hover:text-midnight-900"
+                  className="text-xs text-ink-500 hover:text-midnight-900"
                 >
-                  ← Already registered? Sign In
+                  Already have an account? Sign in
                 </button>
-                <Button variant="primary" type="submit" loading={loading}>
-                  Continue to OTP
-                </Button>
               </div>
             </form>
           )}
@@ -427,18 +437,23 @@ export const PortalLoginPage = () => {
           {mode === 'register_otp' && (
             <div className="space-y-5">
               <div className="text-center">
-                <h3 className="text-base font-semibold text-midnight-950">Verify Your Mobile Number</h3>
-                <p className="mt-1 text-xs text-ink-600">
-                  Enter the 6-digit verification code dispatched to <span className="font-semibold">{getMaskedTarget(regMobile)}</span>.
+                <div className="mx-auto flex h-10 w-10 items-center justify-center rounded-full bg-emerald-50 text-emerald-800">
+                  <CheckCircle2 className="h-5 w-5" />
+                </div>
+                <h3 className="mt-2 text-base font-semibold text-midnight-950">Verify Your Mobile</h3>
+                <p className="mt-1 text-xs text-ink-600 leading-relaxed">
+                  Enter the 6-digit one-time passcode sent to {getMaskedTarget(regMobile)}.
                 </p>
               </div>
 
-              <OtpInput
-                length={6}
-                value={regOtp}
-                onChange={(val) => setRegOtp(val)}
-                onComplete={(val) => handleRegisterOtpSubmit(val)}
-              />
+              <div className="py-2">
+                <OtpInput
+                  length={6}
+                  value={regOtp}
+                  onChange={(val) => setRegOtp(val)}
+                  onComplete={(val) => handleRegisterOtpSubmit(val)}
+                />
+              </div>
 
               <div className="flex justify-between items-center text-xs">
                 <button
@@ -448,7 +463,7 @@ export const PortalLoginPage = () => {
                 >
                   ← Edit Information
                 </button>
-                <ResendOtp onResend={() => setSuccessMsg('New security code dispatched (Demo: 849201)')} />
+                <ResendOtp onResend={() => setSuccessMsg('New security code dispatched')} />
               </div>
 
               <Button
@@ -463,83 +478,12 @@ export const PortalLoginPage = () => {
           )}
         </Card>
 
-        {/* Demo Credentials Expander - Non-Negotiable Honesty Pattern */}
-        <div className="mt-6 rounded-xl border border-ink-200 bg-white/80 p-4">
-          <button
-            type="button"
-            onClick={() => setDemoOpen(!demoOpen)}
-            className="flex w-full items-center justify-between text-left text-xs font-semibold text-midnight-900"
-          >
-            <span className="flex items-center gap-1.5">
-              <KeyRound className="h-4 w-4 text-gold-600" />
-              Demo access (Click to view test credentials)
-            </span>
-            <ChevronDown className={`h-4 w-4 transition-transform ${demoOpen ? 'rotate-180' : ''}`} />
-          </button>
-
-          {demoOpen && (
-            <div className="mt-3 space-y-2 border-t border-ink-100 pt-3 text-xs text-ink-700">
-              <p className="text-xs text-ink-500 leading-relaxed">
-                Click any profile below to populate standard credentials. Simulated OTP code is <span className="font-mono font-bold text-midnight-950">849201</span>.
-              </p>
-              <div className="space-y-1.5">
-                {DEMO_ACCOUNTS.map((acc) => (
-                  <button
-                    key={acc.email}
-                    type="button"
-                    onClick={() => {
-                      populateDemo(acc);
-                      setMode('login');
-                    }}
-                    className="flex w-full items-center justify-between rounded-lg border border-ink-100 bg-porcelain-50 p-2.5 text-left hover:border-midnight-300 hover:bg-midnight-50/50 transition-colors"
-                  >
-                    <div>
-                      <p className="font-semibold text-midnight-950">{acc.name}</p>
-                      <p className="text-xs font-mono text-ink-500">{acc.email}</p>
-                    </div>
-                    <span className="text-xs font-medium text-midnight-700 underline">
-                      Use account →
-                    </span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          <div className="mt-3 text-center border-t border-ink-100 pt-2.5">
-            <button
-              type="button"
-              onClick={() => setResetOpen(true)}
-              className="text-xs font-medium text-ink-500 hover:text-ink-700 underline transition-colors"
-            >
-              Reset demo data
-            </button>
-          </div>
-        </div>
-
         <p className="mt-6 text-center text-xs text-ink-500">
           Bank staff member?{' '}
           <Link to="/manager/login" className="font-medium text-midnight-800 underline hover:text-midnight-950">
             Staff Operations Terminal →
           </Link>
         </p>
-      <Modal
-        open={resetOpen}
-        onClose={() => setResetOpen(false)}
-        title="Reset demo data?"
-        footer={(
-          <>
-            <Button variant="secondary" onClick={() => setResetOpen(false)}>Cancel</Button>
-            <Button variant="danger" onClick={handleResetConfirm}>Reset demo data</Button>
-          </>
-        )}
-      >
-        <p className="text-sm leading-relaxed text-ink-700">
-          This clears everything this prototype has stored in your browser — accounts, applications,
-          transfers, KYC decisions and preferences — and restores the original seeded demo data.
-          You will be signed out, and the reset cannot be undone.
-        </p>
-      </Modal>
       </div>
     </div>
   );

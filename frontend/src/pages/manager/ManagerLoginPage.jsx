@@ -1,12 +1,10 @@
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
-import { ChevronDown, Eye, EyeOff, ShieldCheck, KeyRound, Lock, Mail, ArrowRight } from 'lucide-react';
-import { Button, Card, Field, FormError, Input, Modal } from '../../components/ui.jsx';
+import { Eye, EyeOff, ShieldCheck, Lock, Mail, ArrowRight } from 'lucide-react';
+import { Button, Card, Field, FormError, Input } from '../../components/ui.jsx';
 import { useAuth } from '../../context/AuthContext';
 import { getFirstQueueForRole, hasSectionAccess } from '../../services/managerBridge.js';
-import { resetDemoDb, getDemoStaffAccounts } from '../../services/api.js';
-
-export const STAFF_ACCOUNTS = getDemoStaffAccounts();
+import { traceForm } from '../../lib/trace.js';
 
 export const ManagerLoginPage = () => {
   const navigate = useNavigate();
@@ -18,16 +16,6 @@ export const ManagerLoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
-  const [demoOpen, setDemoOpen] = useState(false);
-  const [resetOpen, setResetOpen] = useState(false);
-
-  const handleResetConfirm = () => {
-    resetDemoDb();
-    setResetOpen(false);
-    if (typeof window !== 'undefined') {
-      window.location.reload();
-    }
-  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -42,6 +30,9 @@ export const ManagerLoginPage = () => {
       return;
     }
 
+    // Module 50: Trace form submission before request
+    traceForm('StaffLogin', { email: trimmed, password });
+
     setLoading(true);
     try {
       const res = await managerLogin(trimmed, password);
@@ -54,17 +45,11 @@ export const ManagerLoginPage = () => {
         : defaultTarget;
       navigate(target);
     } catch (err) {
-      const msg = err?.error?.message || err?.detail || err?.title || 'Authentication failed. Check your staff credentials.';
+      const msg = err?.detail || err?.error?.message || err?.message || 'Invalid credentials. Please verify your details.';
       setError(msg);
     } finally {
       setLoading(false);
     }
-  };
-
-  const populateStaff = (s) => {
-    setEmail(s.email);
-    setPassword(s.password);
-    setError('');
   };
 
   return (
@@ -127,77 +112,11 @@ export const ManagerLoginPage = () => {
             </div>
           </form>
 
-          {/* Demo Staff Expander */}
-          <div className="mt-6 border-t border-ink-100 pt-4">
-            <button
-              type="button"
-              onClick={() => setDemoOpen(!demoOpen)}
-              className="flex w-full items-center justify-between text-left text-xs font-semibold text-midnight-900"
-            >
-              <span className="flex items-center gap-1.5">
-                <KeyRound className="h-4 w-4 text-gold-600" />
-                Demo Staff Clearance Credentials
-              </span>
-              <ChevronDown className={`h-4 w-4 transition-transform ${demoOpen ? 'rotate-180' : ''}`} />
-            </button>
-
-            {demoOpen && (
-              <div className="mt-3 space-y-2 text-xs text-ink-700">
-                <p className="text-xs text-ink-500 leading-relaxed">
-                  Click any clearance role to populate operational login credentials:
-                </p>
-                <div className="space-y-2">
-                  {STAFF_ACCOUNTS.map((s) => (
-                    <button
-                      key={s.email}
-                      type="button"
-                      onClick={() => populateStaff(s)}
-                      className="w-full rounded-md border border-ink-200 bg-porcelain-50 p-2 text-left transition-colors hover:border-gold-400 hover:bg-gold-50/30"
-                    >
-                      <div className="flex items-center justify-between">
-                        <span className="font-semibold text-midnight-900">{s.role}</span>
-                        <span className="font-mono text-xs text-ink-500">{s.email}</span>
-                      </div>
-                      <p className="mt-0.5 text-xs text-ink-600 line-clamp-1">{s.clearance}</p>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-          <div className="mt-3 text-center border-t border-ink-100 pt-2.5">
-            <button
-              type="button"
-              onClick={() => setResetOpen(true)}
-              className="text-xs font-medium text-ink-500 hover:text-ink-700 underline transition-colors"
-            >
-              Reset demo data
-            </button>
-          </div>
-          </div>
-
           <div className="mt-6 text-center text-xs text-ink-500">
             <Link to="/portal/login" className="text-midnight-800 underline hover:text-midnight-950">
               Return to Customer Online Banking Portal
             </Link>
           </div>
-      <Modal
-        open={resetOpen}
-        onClose={() => setResetOpen(false)}
-        title="Reset demo data?"
-        footer={(
-          <>
-            <Button variant="secondary" onClick={() => setResetOpen(false)}>Cancel</Button>
-            <Button variant="danger" onClick={handleResetConfirm}>Reset demo data</Button>
-          </>
-        )}
-      >
-        <p className="text-sm leading-relaxed text-ink-700">
-          This clears everything this prototype has stored in your browser — accounts, applications,
-          transfers, KYC decisions and preferences — and restores the original seeded demo data.
-          You will be signed out, and the reset cannot be undone.
-        </p>
-      </Modal>
         </Card>
       </div>
     </div>

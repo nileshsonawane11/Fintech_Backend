@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useEffect, useMemo, useState } from 'react';
 import { LifeBuoy, Send, X } from 'lucide-react';
 import {
@@ -32,6 +33,7 @@ export default function ManagerTicketsPage() {
   const [statusBusy, setStatusBusy] = useState(false);
 
   const load = () => {
+    traceData('ManagerTicketsQueue');
     listAllTickets({})
       .then((rows) => { setTickets(rows); setError(''); })
       .catch((e) => setError(e.message || 'Could not load tickets.'));
@@ -76,6 +78,7 @@ export default function ManagerTicketsPage() {
 
   async function handleReply() {
     if (!selected || !reply.trim()) return;
+    traceForm('TicketReply', { ticketId: selected.id, replyMessage: reply.trim(), status: selected.status });
     setSending(true);
     try {
       await replyTicket(selected.id, { from: 'STAFF', body: reply.trim(), actor, actorRole, actorEmail: user?.email });
@@ -91,6 +94,7 @@ export default function ManagerTicketsPage() {
 
   async function handleStatus(status, successTitle) {
     if (!selected) return;
+    traceForm('TicketStatusChange', { ticketId: selected.id, status });
     setStatusBusy(true);
     try {
       await setTicketStatus(selected.id, status, { actor, actorRole, actorEmail: user?.email });

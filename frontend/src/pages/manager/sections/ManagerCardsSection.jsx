@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { CheckCircle2, CreditCard, Search, X } from 'lucide-react';
 import {
@@ -100,6 +101,7 @@ export default function ManagerCardsPage() {
   const [issueResult, setIssueResult] = useState(null);
 
   const load = useCallback(async () => {
+    traceData('ManagerCardsQueue');
     try {
       const [all, filtered] = await Promise.all([
         listCardApplications({}),
@@ -199,6 +201,11 @@ export default function ManagerCardsPage() {
 
   const confirmAction = async () => {
     if (!detail || !pendingAction) return;
+    traceForm('CardDecision', {
+      cardApplicationId: detail.id,
+      action: pendingAction,
+      limit: Number(approvedLimit) || undefined,
+    });
     setSubmitting(true);
     setFormError('');
     try {

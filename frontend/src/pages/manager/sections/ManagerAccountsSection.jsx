@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useCallback, useEffect, useMemo, useState } from 'react';
 import { AlertTriangle, CheckCircle2, FileText, X } from 'lucide-react';
 import {
@@ -149,6 +150,7 @@ export default function ManagerAccountsPage() {
   const [createdAccount, setCreatedAccount] = useState(null);
 
   const load = useCallback(async () => {
+    traceData('ManagerAccountsQueue');
     try {
       const [all, filtered] = await Promise.all([
         listAccountApplications({}),
@@ -241,9 +243,15 @@ export default function ManagerAccountsPage() {
 
   const confirmDecision = async () => {
     if (!detail || !pendingDecision) return;
+    const decision = pendingDecision;
+    traceForm('AccountDecision', {
+      accountApplicationId: detail.id,
+      action: decision,
+      remarks: note.trim() || reasonCode,
+      initialFundingAmount: detail.initialFundingAmount,
+    });
     setSubmitting(true);
     try {
-      const decision = pendingDecision;
       const result = await decideAccountApplication(detail.id, {
         decision,
         reasonCode: decision === 'APPROVED' ? (needsOverride ? overrideReason : reasonCode || undefined) : reasonCode,

@@ -1,3 +1,4 @@
+import { traceData } from '../../../lib/trace.js';
 import React, { useEffect, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { ArrowRight, Landmark, Wallet } from 'lucide-react';
@@ -27,6 +28,7 @@ export default function AccountsPage() {
 
   useEffect(() => {
     if (!user?.customerId) return;
+    traceData('PortalAccounts');
     let alive = true;
     listAccounts(user.customerId)
       .then((rows) => { if (alive) setAccounts(rows); })

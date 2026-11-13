@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useState, useEffect, useMemo } from 'react';
 import { useAuth } from '../../../context/AuthContext.jsx';
 
@@ -98,6 +99,7 @@ export default function ManagerUserManagementSection() {
   const isAdmin = managerUser?.role === 'ADMIN';
 
   const loadUsers = async () => {
+    traceData('ManagerUserManagement');
     try {
       setLoading(true);
       setError('');
@@ -234,6 +236,7 @@ export default function ManagerUserManagementSection() {
       toast({ tone: 'error', title: 'Reason Required', body: 'A reason is required to update permission overrides.' });
       return;
     }
+    traceForm('UserOverridesUpdate', { staffId: selectedUser.id, overrides: stagedOverrides });
     setSavingOverrides(true);
     try {
       await updateUserOverrides(selectedUser.id, stagedOverrides, overrideReason.trim());

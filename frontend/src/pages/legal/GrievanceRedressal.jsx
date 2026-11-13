@@ -1,3 +1,4 @@
+import { traceForm } from '../../lib/trace.js';
 import Reveal from '../../components/Reveal';
 import { ConfirmationCheckmark } from '../../components/common/ConfirmationCheckmark.jsx';
 import { useEffect, useState } from "react";
@@ -117,6 +118,16 @@ export default function GrievanceRedressal() {
   async function handleSubmit(e) {
     e.preventDefault();
     if (!validate()) return;
+    traceForm('GrievanceSubmission', {
+      fullName: form.fullName.trim(),
+      email: form.email.trim(),
+      mobile: form.mobile.replace(/\s/g, ''),
+      accountRef: form.accountRef.trim(),
+      category: form.category,
+      subject: form.subject.trim(),
+      description: form.description.trim(),
+      consent: form.consent
+    });
     setStatus("submitting");
     setErrorMessage("");
 
@@ -140,7 +151,7 @@ export default function GrievanceRedressal() {
       setReference(issuedRef);
       setStatus("submitted");
     } catch (err) {
-      setErrorMessage(err?.message || "We could not record your complaint just now.");
+      setErrorMessage(err?.detail || err?.message || "Server not connected — bypassed for now");
       setStatus("error");
     }
   }

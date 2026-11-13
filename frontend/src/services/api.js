@@ -1,3 +1,4 @@
+import { traceRequest, traceResponse, traceFailure } from '../lib/trace.js';
 import { FINEDGE_RATES_CONFIG } from '../data/ratesConfig.js';
 import { SAVINGS_TOP_RATE, ALL_PRODUCTS } from '../data/products.js';
 import { FACTORY_SITE_CONTENT, FACTORY_SETTINGS } from '../data/factoryContent.js';
@@ -1069,8 +1070,7 @@ export const getDefaultDb = () => {
         createdAt: '2026-09-27T09:50:00Z',
         updatedAt: '2026-09-27T09:50:00Z'
       }
-    ]
-,
+    ],
     loans: [],
     loanApplications: [],
     investmentHoldings: [],
@@ -1082,42 +1082,15 @@ export const getDefaultDb = () => {
   };
 };
 
-export const getDemoAccounts = () => {
-  const defaults = getDefaultDb();
-  const demoIds = ['CUS-100234', 'CUS-100235'];
-  return demoIds.map(id => {
-    const cust = defaults.customers.find(c => c.customerId === id);
-    if (!cust) return null;
-    return {
-      customerId: cust.customerId,
-      name: cust.fullName,
-      email: cust.email,
-      password: cust.password,
-      note: cust.note || (cust.kycStatus === 'APPROVED' ? 'KYC Verified · Savings & Credit Cards' : 'KYC Under Review · Active Accounts')
-    };
-  }).filter(Boolean);
-};
+export const getDemoAccounts = () => [];
+export const DEMO_ACCOUNTS = [];
 
-export const DEMO_ACCOUNTS = getDemoAccounts();
-
-
-export const getDemoStaffAccounts = () => {
-  const defaults = getDefaultDb();
-  return (defaults.staffUsers || []).map(s => ({
-    staffId: s.staffId,
-    role: s.roleTitle || s.role,
-    email: s.email,
-    password: s.password,
-    clearance: s.department ? `${s.department} — ${s.roleTitle || s.role}` : (s.roleTitle || s.role)
-  }));
-};
-
-export const STAFF_ACCOUNTS = getDemoStaffAccounts();
+export const getDemoStaffAccounts = () => [];
+export const STAFF_ACCOUNTS = [];
 
 export const resetDemoDb = () => {
-  const defaults = getDefaultDb();
   if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(defaults));
+    localStorage.removeItem(MOCK_STORAGE_KEY);
     localStorage.removeItem(TOKEN_KEY);
     localStorage.removeItem(REFRESH_TOKEN_KEY);
     localStorage.removeItem(SESSION_CUST_KEY);
@@ -1126,192 +1099,46 @@ export const resetDemoDb = () => {
     localStorage.removeItem('finedge_manager_user');
     localStorage.removeItem('finedge_user_prefs');
   }
-  return defaults;
+  return {};
 };
 
 export const getInitialDb = () => {
   return getDb();
 };
 
+let inMemoryDb = null;
+
 export const getDb = () => {
-  const defaults = getDefaultDb();
-  if (typeof localStorage === 'undefined') return defaults;
-  const existingStr = localStorage.getItem(MOCK_STORAGE_KEY);
-  if (!existingStr) {
-    localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(defaults));
-    return defaults;
+  if (typeof localStorage !== 'undefined') {
+    try {
+      localStorage.removeItem(MOCK_STORAGE_KEY);
+    } catch {}
   }
-  try {
-        const db = JSON.parse(existingStr);
-
-    if (!Array.isArray(db.sessions)) { db.sessions = []; dirty = true; }
-    if (!Array.isArray(db.pendingChallenges)) { db.pendingChallenges = []; dirty = true; }
-    if (!db.idempotencyKeys || typeof db.idempotencyKeys !== 'object') { db.idempotencyKeys = {}; dirty = true; }
-
-    let dirty = false;
-
-    // Fix 2: Seed-version identity re-sync in getDb
-    // When stored version is lower than code's SEED_VERSION, re-sync seeded customers
-    // (matched by customerId) from the defaults for identity/contact fields only.
-    const storedVersion = typeof db.seedVersion === 'number' ? db.seedVersion : 0;
-    if (storedVersion < SEED_VERSION) {
-      const seedCustomerMap = new Map(defaults.customers.map(c => [c.customerId, c]));
-      if (Array.isArray(db.customers)) {
-        db.customers.forEach(cust => {
-          const defaultCust = seedCustomerMap.get(cust.customerId);
-          if (defaultCust) {
-            // Re-sync identity/contact fields ONLY:
-            cust.fullName = defaultCust.fullName;
-            cust.email = defaultCust.email;
-            cust.mobileNumber = defaultCust.mobileNumber;
-            cust.pan = defaultCust.pan;
-            cust.dateOfBirth = defaultCust.dateOfBirth;
-            cust.kycStatus = defaultCust.kycStatus;
-            cust.riskCategory = defaultCust.riskCategory;
-            cust.address = defaultCust.address ? JSON.parse(JSON.stringify(defaultCust.address)) : cust.address;
-            if (defaultCust.note) cust.note = defaultCust.note;
-            // CRITICAL INVARIANT: The re-sync must never overwrite:
-            // 1. the stored password (Module 36 change-password persists there)
-            // 2. any record whose id is not a seed id (registered customers are untouched)
-            // 3. any non-customer collection
-          }
-        });
-      }
-      db.seedVersion = SEED_VERSION;
-      dirty = true;
-    }
-
-    // Auto-merge seeded customers if missing
-    defaults.customers.forEach(dc => {
-      if (!db.customers?.some(c => c.customerId === dc.customerId)) {
-        db.customers = db.customers || [];
-        db.customers.push(dc);
-        dirty = true;
-      }
-    });
-
-    // Auto-merge seeded accounts
-    defaults.accounts.forEach(da => {
-      if (!db.accounts?.some(a => a.accountId === da.accountId)) {
-        db.accounts = db.accounts || [];
-        db.accounts.push(da);
-        dirty = true;
-      }
-    });
-
-    // Auto-merge seeded cards
-    defaults.cards.forEach(dc => {
-      if (!db.cards?.some(c => c.cardId === dc.cardId)) {
-        db.cards = db.cards || [];
-        db.cards.push(dc);
-        dirty = true;
-      }
-    });
-
-    // Auto-merge seeded transactions
-    defaults.transactions.forEach(dt => {
-      if (!db.transactions?.some(t => t.transactionId === dt.transactionId)) {
-        db.transactions = db.transactions || [];
-        db.transactions.push(dt);
-        dirty = true;
-      }
-    });
-
-    // Auto-merge seeded KYC applications
-    defaults.kycApplications.forEach(dk => {
-      if (!db.kycApplications?.some(k => k.kycCaseId === dk.kycCaseId)) {
-        db.kycApplications = db.kycApplications || [];
-        db.kycApplications.push(dk);
-        dirty = true;
-      }
-    });
-
-    // Auto-merge seeded account applications
-    defaults.accountApplications.forEach(da => {
-      if (!db.accountApplications?.some(a => a.accountApplicationId === da.accountApplicationId)) {
-        db.accountApplications = db.accountApplications || [];
-        db.accountApplications.push(da);
-        dirty = true;
-      }
-    });
-
-    // Auto-merge seeded card applications
-    defaults.cardApplications.forEach(dc => {
-      if (!db.cardApplications?.some(c => c.cardApplicationId === dc.cardApplicationId)) {
-        db.cardApplications = db.cardApplications || [];
-        db.cardApplications.push(dc);
-        dirty = true;
-      }
-    });
-
-    // Auto-merge seeded staff users
-    defaults.staffUsers.forEach(ds => {
-      const existing = db.staffUsers?.find(s => s.staffId === ds.staffId);
-      if (existing) {
-        if (ds.staffId === 'STF-005' && existing.permissions?.includes('kyc.read')) {
-          existing.permissions = [...ds.permissions];
-          dirty = true;
-        } else if (ds.staffId === 'STF-004' && existing.permissions?.includes('loans.read')) {
-          existing.permissions = [...ds.permissions];
-          dirty = true;
-        } else if (ds.staffId === 'STF-003' && existing.permissions?.includes('loans.read')) {
-          existing.permissions = [...ds.permissions];
-          dirty = true;
-        }
-      }
-      if (!existing) {
-        db.staffUsers = db.staffUsers || [];
-        db.staffUsers.push(ds);
-        dirty = true;
-      } else {
-        const curPerms = new Set(existing.permissions || []);
-        let permAdded = false;
-        (ds.permissions || []).forEach(p => {
-          if (!curPerms.has(p)) {
-            existing.permissions.push(p);
-            permAdded = true;
-          }
-        });
-        if (permAdded) dirty = true;
-      }
-    });
-
-    if (!Array.isArray(db.loans)) { db.loans = []; dirty = true; }
-    if (!Array.isArray(db.loanApplications)) { db.loanApplications = []; dirty = true; }
-    if (!Array.isArray(db.investmentHoldings)) { db.investmentHoldings = []; dirty = true; }
-    if (!Array.isArray(db.investmentApplications)) { db.investmentApplications = []; dirty = true; }
-    if (!Array.isArray(db.beneficiaries)) { db.beneficiaries = []; dirty = true; }
-    if (!Array.isArray(db.products) || db.products.length === 0) {
-      db.products = (defaults.products || []).map(p => ({ ...p, status: 'ACTIVE' }));
-      dirty = true;
-    }
-    if (!Array.isArray(db.customRoles)) {
-      db.customRoles = [];
-      dirty = true;
-    }
-    if (!db.siteContent || typeof db.siteContent !== 'object' || !db.siteContent.hero) {
-      db.siteContent = JSON.parse(JSON.stringify(defaults.siteContent || FACTORY_SITE_CONTENT));
-      dirty = true;
-    }
-    if (!db.settings || typeof db.settings !== 'object' || !db.settings.transferRails) {
-      db.settings = JSON.parse(JSON.stringify(defaults.settings || FACTORY_SETTINGS));
-      dirty = true;
-    }
-
-    if (dirty) {
-      localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(db));
-    }
-    return db;
-  } catch (e) {
-    localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(defaults));
-    return defaults;
+  if (!inMemoryDb) {
+    inMemoryDb = {
+      customers: [],
+      staffUsers: [],
+      accounts: [],
+      cards: [],
+      transactions: [],
+      beneficiaries: [],
+      loans: [],
+      investments: [],
+      tickets: [],
+      auditLogs: [],
+      sessions: [],
+      pendingChallenges: [],
+      products: [],
+      siteContent: {},
+      settings: {}
+    };
   }
+  return inMemoryDb;
 };
 
 export const saveDb = (db) => {
-  if (typeof localStorage !== 'undefined') {
-    localStorage.setItem(MOCK_STORAGE_KEY, JSON.stringify(db));
-  }
+  inMemoryDb = db;
+  // Module 50: Local platform data removed. Do not write business records to localStorage.
 };
 
 export const appendAuditLog = (actor, actorRole, action, target, status, details, previousValue = null, newValue = null) => {
@@ -1637,6 +1464,16 @@ export const getSetting = (key, options = {}) => {
 };
 
 export const apiRequest = async (endpoint, options = {}) => {
+  const method = (options.method || 'GET').toUpperCase();
+  let bodyParsed = null;
+  if (options.body) {
+    try {
+      bodyParsed = typeof options.body === 'string' ? JSON.parse(options.body) : options.body;
+    } catch {}
+  }
+
+  traceRequest(method, endpoint, bodyParsed);
+
   const url = `${BASE_URL}${endpoint}`;
   const token = options.isManager ? getManagerToken() : getAccessToken();
 
@@ -1653,7 +1490,7 @@ export const apiRequest = async (endpoint, options = {}) => {
   }
 
   // Idempotency-Key on state mutations
-  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(options.method || 'GET') && !headers['Idempotency-Key']) {
+  if (['POST', 'PUT', 'PATCH', 'DELETE'].includes(method) && !headers['Idempotency-Key']) {
     headers['Idempotency-Key'] = generateUUID();
   }
 
@@ -1680,18 +1517,44 @@ export const apiRequest = async (endpoint, options = {}) => {
     }
 
     if (!response.ok) {
-      throw {
-        ...JSON.parse(data)
+      const errCode = data?.error?.code || data?.code || 'API_ERROR';
+      const errDetail = data?.error?.message || data?.detail || data?.title || response.statusText;
+      const errDetails = data?.error?.details || data?.details || data?.errors || [];
+      const reqId = data?.error?.requestId || headers['X-Correlation-Id'];
+      const errObj = {
+        status: response.status,
+        code: errCode,
+        title: data?.title || 'Request Failed',
+        detail: errDetail,
+        message: errDetail,
+        details: errDetails,
+        errors: errDetails,
+        requestId: reqId,
+        error: {
+          code: errCode,
+          message: errDetail,
+          details: errDetails,
+          requestId: reqId
+        }
       };
+      traceFailure(endpoint, errObj);
+      throw errObj;
     }
 
+    traceResponse(endpoint, response.status, data);
     return data;
-
   } catch (err) {
-    if (err.name === 'TypeError' || err.message?.includes('Failed to fetch') || err.message?.includes('NetworkError')) {
-      return handleLocalFallback(endpoint, options);
+    if (err.status) {
+      throw err;
     }
-    throw err;
+    traceFailure(endpoint, err?.message || 'Failed to fetch (Server not connected)');
+    throw {
+      status: 503,
+      code: 'SERVER_NOT_CONNECTED',
+      title: 'Server Not Connected',
+      detail: 'Server not connected — bypassed for now',
+      message: 'Server not connected — bypassed for now'
+    };
   }
 };
 
@@ -1845,7 +1708,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
         status: 401,
         code: 'INVALID_CREDENTIALS',
         title: 'Authentication Failed',
-        detail: 'No registered customer account found with the provided credentials.'
+        detail: 'Invalid credentials. Please verify your details.'
       };
     }
 
@@ -1854,7 +1717,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
         status: 401,
         code: 'INVALID_CREDENTIALS',
         title: 'Authentication Failed',
-        detail: 'The password entered is incorrect. Please check your credentials.'
+        detail: 'Invalid credentials. Please verify your details.'
       };
     }
 
@@ -1997,9 +1860,9 @@ export const handleLocalFallback = (endpoint, options = {}) => {
       appendAuditLog(ident || 'UNKNOWN', 'STAFF', 'STAFF_LOGIN_FAILED', 'STAFF_AUTH', 'FAILED', 'Unknown staff corporate email: ' + ident);
       throw {
         status: 401,
-        code: 'STAFF_NOT_FOUND',
+        code: 'INVALID_CREDENTIALS',
         title: 'Authentication Failed',
-        detail: 'Unauthorized: No bank staff account found with this corporate email.'
+        detail: 'Invalid credentials. Please verify your details.'
       };
     }
 
@@ -2020,7 +1883,7 @@ export const handleLocalFallback = (endpoint, options = {}) => {
         status: 401,
         code: 'INVALID_CREDENTIALS',
         title: 'Authentication Failed',
-        detail: 'The administrative password entered is incorrect.'
+        detail: 'Invalid credentials. Please verify your details.'
       };
     }
 

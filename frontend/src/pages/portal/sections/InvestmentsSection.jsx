@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useEffect, useMemo, useState } from 'react';
 import { CalendarClock, Info, Landmark, PiggyBank, ShieldCheck, TrendingUp } from 'lucide-react';
 import {
@@ -103,6 +104,7 @@ function FdForm({ customerId, accounts, profile, onBooked }) {
     if (!(amt >= FD.minAmount)) next.amount = `Minimum deposit is ${formatINR(FD.minAmount)}.`;
     setErrors(next);
     if (Object.keys(next).length) return;
+    traceForm('InvestmentApplication', { kind: 'FD', accountId, amount: amt, tenureMonths, rate });
     setSubmitting(true);
     setFormError('');
     try {
@@ -119,7 +121,7 @@ function FdForm({ customerId, accounts, profile, onBooked }) {
       toast({ title: 'Fixed deposit booked', body: `${formatINR(amt)} for ${tenureMonths} months at ${rate.toFixed(2)}% p.a. · Ref ${inv.id}` });
       onBooked();
     } catch (err) {
-      setFormError(err?.message || 'We could not book this deposit. Please try again.');
+      setFormError(err?.detail || err?.message || 'Server not connected — bypassed for now');
     } finally {
       setSubmitting(false);
     }
@@ -217,6 +219,7 @@ function RdForm({ customerId, accounts, onBooked }) {
     else if (m % 100 !== 0) next.monthly = 'Monthly deposit must be a multiple of ₹100.';
     setErrors(next);
     if (Object.keys(next).length) return;
+    traceForm('InvestmentApplication', { kind: 'RD', accountId, monthly: m, tenureMonths, rate });
     setSubmitting(true);
     setFormError('');
     try {
@@ -233,7 +236,7 @@ function RdForm({ customerId, accounts, onBooked }) {
       toast({ title: 'Recurring deposit started', body: `${formatINR(m)} per month for ${tenureMonths} months at ${rate.toFixed(2)}% p.a. · Ref ${inv.id}` });
       onBooked();
     } catch (err) {
-      setFormError(err?.message || 'We could not start this recurring deposit. Please try again.');
+      setFormError(err?.detail || err?.message || 'Server not connected — bypassed for now');
     } finally {
       setSubmitting(false);
     }
@@ -318,6 +321,7 @@ function SipForm({ customerId, accounts, onBooked }) {
     if (!(tenureMonths >= 12)) next.tenure = 'Choose a horizon of at least 12 months.';
     setErrors(next);
     if (Object.keys(next).length) return;
+    traceForm('InvestmentApplication', { kind: 'SIP', accountId, fundName, monthly: m, tenureMonths, rate, debitDate });
     setSubmitting(true);
     setFormError('');
     try {
@@ -337,7 +341,7 @@ function SipForm({ customerId, accounts, onBooked }) {
       toast({ title: 'SIP started', body: `${formatINR(m)} per month in ${fundName} (Debit day: ${debitDate}). Market-linked — returns are not guaranteed. · Ref ${inv.id}` });
       onBooked();
     } catch (err) {
-      setFormError(err?.message || 'We could not start this SIP. Please try again.');
+      setFormError(err?.detail || err?.message || 'Server not connected — bypassed for now');
     } finally {
       setSubmitting(false);
     }
@@ -454,6 +458,7 @@ function SsyForm({ customerId, accounts, profile, onBooked }) {
 
     setErrors(next);
     if (Object.keys(next).length) return;
+    traceForm('InvestmentApplication', { kind: 'SSY', accountId, childName, childDob, guardianName, amount: amt });
     setSubmitting(true);
     setFormError('');
     try {
@@ -473,7 +478,7 @@ function SsyForm({ customerId, accounts, profile, onBooked }) {
       toast({ title: 'SSY account opened', body: `${formatINR(amt)} deposited for ${childName.trim()} at ${rate.toFixed(2)}% p.a. · Ref ${inv.id}` });
       onBooked();
     } catch (err) {
-      setFormError(err?.message || 'We could not open this SSY account. Please try again.');
+      setFormError(err?.detail || err?.message || 'Server not connected — bypassed for now');
     } finally {
       setSubmitting(false);
     }
@@ -547,6 +552,7 @@ export default function InvestmentsPage() {
   useEffect(() => {
     if (!customerId) return undefined;
     let live = true;
+    traceData('PortalInvestments');
     setLoading(true);
     Promise.all([
       listHoldings(customerId),

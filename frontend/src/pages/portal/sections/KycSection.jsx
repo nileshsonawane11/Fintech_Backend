@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useEffect, useRef, useState } from 'react';
 import { FileText, ShieldCheck, Upload } from 'lucide-react';
 import {
@@ -57,6 +58,7 @@ export default function KycPage() {
 
   useEffect(() => {
     if (!customerId) return undefined;
+    traceData('PortalKyc');
     let live = true;
     setLoading(true);
     getMyKyc(customerId)
@@ -145,6 +147,20 @@ export default function KycPage() {
   async function handleSubmit(e) {
     e.preventDefault();
     if (!validate()) return;
+    traceForm('KycSubmission', {
+      fullName: form.fullName.trim(),
+      pan: form.pan.trim().toUpperCase(),
+      dob: form.dob,
+      mobile: form.mobile,
+      address: {
+        line1: form.line1.trim(),
+        city: form.city.trim(),
+        state: form.state.trim(),
+        pin: form.pin.trim(),
+      },
+      occupation: form.occupation.trim(),
+      annualIncome: Number(form.annualIncome),
+    });
     setSubmitting(true);
     setFormError('');
     const digits = form.mobile.replace(/\D/g, '');

@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import { ConfirmationCheckmark } from '../../../components/common/ConfirmationCheckmark.jsx';
 import React, { useEffect, useMemo, useState } from 'react';
 import { Link, useLocation } from 'react-router-dom';
@@ -31,6 +32,7 @@ export default function TransfersPage() {
   const [receipt, setReceipt] = useState(null);
 
   const loadData = () => {
+    traceData('PortalTransfers');
     if (!user?.customerId) return;
     Promise.all([listAccounts(user.customerId), listBeneficiaries(user.customerId)])
       .then(([accs, bens]) => {
@@ -115,6 +117,15 @@ export default function TransfersPage() {
   };
 
   const confirmTransfer = async () => {
+    traceForm('FundTransfer', {
+      customerId: user.customerId,
+      fromAccountId,
+      destinationType: destTab,
+      destinationId: destTab === 'OWN' ? ownAccountId : beneficiaryId,
+      amount: amountNum,
+      railId,
+      note: note.trim() || undefined,
+    });
     setFormError('');
     setSubmitting(true);
     try {

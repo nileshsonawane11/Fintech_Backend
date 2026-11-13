@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import {
   Ban,
@@ -166,6 +167,7 @@ function CardPanel({ card, accounts, holderName, actorName, onBlockRequest, onRe
     if (disabled) return;
     const previous = controls;
     const next = { ...controls, [key]: !controls[key] };
+    traceForm('CardControlsUpdate', { cardId: card.id, channel: key, enabled: next[key] });
     setControls(next); // optimistic
     try {
       await updateCardControls(card.id, { controls: { [key]: next[key] } }, actorName);
@@ -194,6 +196,7 @@ function CardPanel({ card, accounts, holderName, actorName, onBlockRequest, onRe
       return;
     }
     const previous = savedLimits;
+    traceForm('CardLimitsUpdate', { cardId: card.id, spendDaily: draftLimits.dailySpend, atmWithdrawalDaily: draftLimits.atmWithdrawal });
     try {
       await updateCardControls(card.id, {
         limits: {
@@ -226,6 +229,7 @@ function CardPanel({ card, accounts, holderName, actorName, onBlockRequest, onRe
       setPayModalOpen(false);
       return;
     }
+    traceForm('CardBillPay', { cardId: card.id, accountId: payAccountId, amount: amountToPay });
     setPaying(true);
     try {
       const res = await payCard(card.id, { accountId: payAccountId, amount: amountToPay });
@@ -258,6 +262,7 @@ function CardPanel({ card, accounts, holderName, actorName, onBlockRequest, onRe
       setPinError('PINs do not match.');
       return;
     }
+    traceForm('CardPinSet', { cardId: card.id, pin, confirmPin });
     setSavingPin(true);
     try {
       await updateCardControls(card.id, { pinSet: true }, actorName);
@@ -681,6 +686,7 @@ export default function CardsPage() {
       return undefined;
     }
     (async () => {
+      traceData('PortalCards');
       try {
         const [myCards, myApps, accs] = await Promise.all([
           listMyCards(customerId),
@@ -710,6 +716,7 @@ export default function CardsPage() {
 
   async function confirmBlock() {
     if (!blockTarget) return;
+    traceForm('CardBlock', { cardId: blockTarget.id });
     setBlocking(true);
     try {
       await blockCard(blockTarget.id, actorName);
@@ -741,6 +748,7 @@ export default function CardsPage() {
     if (!consent) errors.consent = 'Please confirm you agree to the card terms before applying.';
     setFieldErrors(errors);
     if (Object.keys(errors).length > 0 || !product || !customerId) return;
+    traceForm('CardApplication', { productSlug: selectedSlug, productName: product.name, accountId, requestedLimit });
 
     // Check duplicate by product (not kind)
     const existing = cardApplications.find(

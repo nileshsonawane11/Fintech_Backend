@@ -1,3 +1,4 @@
+import { traceForm } from '../../lib/trace.js';
 import { ConfirmationCheckmark } from './ConfirmationCheckmark.jsx';
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
@@ -1192,6 +1193,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
           }
         };
 
+        traceForm('InvestmentApplication', investmentPayload);
         const res = await submitApplication(investmentPayload);
         setSubmittedApp(res.data || res);
         return;
@@ -1225,6 +1227,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
           consents: { debitTermsAccepted: formData.consentDebitTerms }
         };
 
+        traceForm('CardApplication', debitPayload);
         const res = await submitApplication(debitPayload);
         setSubmittedApp(res.data || res);
         return;
@@ -1348,6 +1351,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
           }
         };
 
+        traceForm('LoanApplication', loanPayload);
         const res = await submitApplication(loanPayload);
         setSubmittedApp(res.data || res);
         return;
@@ -1395,6 +1399,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
           }
         };
 
+        traceForm('CardApplication', cardPayload);
         const res = await submitApplication(cardPayload);
         setSubmittedApp(res.data || res);
         return;
@@ -1464,10 +1469,11 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
         }
       };
 
+      traceForm('AccountApplication', accountPayload);
       const res = await submitApplication(accountPayload);
       setSubmittedApp(res.data || res);
     } catch (err) {
-      setErrors({ form: err?.message || 'Application submission failed. Please try again.' });
+      setErrors({ form: err?.detail || err?.message || 'Server not connected — bypassed for now' });
     } finally {
       setLoading(false);
     }

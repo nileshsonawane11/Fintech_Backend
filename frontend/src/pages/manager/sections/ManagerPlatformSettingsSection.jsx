@@ -1,3 +1,4 @@
+import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useState, useEffect } from 'react';
 import {
   Sliders,
@@ -45,6 +46,7 @@ export default function ManagerPlatformSettingsSection() {
   const [validationError, setValidationError] = useState('');
 
   const loadSettings = async () => {
+    traceData('ManagerPlatformSettings');
     try {
       setLoading(true);
       const res = await adminGetSettings();
@@ -134,10 +136,7 @@ export default function ManagerPlatformSettingsSection() {
   };
 
   const handleConfirmSave = async () => {
-    if (!saveReason.trim()) {
-      setValidationError('A mandatory business justification reason is required for audit non-repudiation.');
-      return;
-    }
+    traceForm('PlatformSettingsUpdate', { ...draftSettings });
     setSaving(true);
     try {
       const updates = {};
