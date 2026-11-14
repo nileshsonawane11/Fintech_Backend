@@ -1,6 +1,7 @@
 package com.fintech.customer.controller;
 
 import com.fintech.customer.dto.request.ApproveKycRequest;
+import com.fintech.customer.dto.response.KycApplicationDetailsResponse;
 import com.fintech.customer.dto.response.KycApprovalResponse;
 import com.fintech.customer.dto.response.OpsKycApplicationResponse;
 import com.fintech.customer.exception.ApiException;
@@ -10,6 +11,7 @@ import com.fintech.customer.model.kyc.state.KycStatus;
 import com.fintech.customer.model.kyc.state.RiskCategory;
 import com.fintech.customer.repository.CustomerProfileRepository;
 import com.fintech.customer.repository.KycCaseRepository;
+import com.fintech.customer.service.KycOperationsService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -29,6 +31,7 @@ public class OpsKycController {
 
     private final KycCaseRepository kycCaseRepository;
     private final CustomerProfileRepository customerProfileRepository;
+    private final KycOperationsService kycOperationsService;
 
     @GetMapping("/applications")
     @Transactional(readOnly = true)
@@ -51,6 +54,18 @@ public class OpsKycController {
         }).collect(Collectors.toList());
 
         return ResponseEntity.ok(list);
+    }
+
+    @GetMapping("/applications/details")
+    public ResponseEntity<List<KycApplicationDetailsResponse>> getKycApplicationDetails(
+            @RequestParam(required = false, defaultValue = "ALL") String status,
+            @RequestParam(required = false, defaultValue = "") String query
+    ) {
+
+        List<KycApplicationDetailsResponse> applications =
+                kycOperationsService.getKycApplicationDetails(status, query);
+
+        return ResponseEntity.ok(applications);
     }
 
     @GetMapping("/applications/{kycCaseId}")
