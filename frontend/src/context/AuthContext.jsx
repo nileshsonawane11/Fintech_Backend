@@ -4,7 +4,7 @@ import { authService } from '../services/authService';
 import { customerService } from '../services/customerService';
 import { accountService } from '../services/accountService';
 import { cardService } from '../services/cardService';
-import { getAccessToken, getManagerToken } from '../services/api';
+import {getAccessToken, getManagerToken, setTokens} from '../services/api';
 
 const AuthContext = createContext();
 
@@ -139,7 +139,6 @@ export const AuthProvider = ({ children }) => {
         };
       }
 
-
       const initialUser = {
         name: custObj.fullName || custObj.name || 'FinEdge Customer',
         email: custObj.email || identifier,
@@ -215,10 +214,10 @@ export const AuthProvider = ({ children }) => {
   const managerLogin = async (identifier, password, role) => {
     setLoading(true);
     try {
-      const res = await authService.managerLogin({ identifier, password, role });
-      const recordRole = res.role || res.customer?.role || res.user?.role;
+      const res = await authService.managerLogin({ identifier, password });
+      const recordRole = res.role || res?.customer?.role || res.user?.role;
       const isStaff = (recordRole && STAFF_ROLES.includes(recordRole)) || res.type === 'STAFF';
-      if (!isStaff || recordRole === 'CUSTOMER' || res.type === 'CUSTOMER' || !res.staffId || (role && recordRole !== role)) {
+      if (!isStaff || recordRole === 'CUSTOMER' || !res?.customer?.id) {
         throw {
           status: 401,
           code: 'INVALID_CREDENTIALS',
@@ -228,7 +227,7 @@ export const AuthProvider = ({ children }) => {
       }
 
       const mgr = {
-        staffId: res.staffId,
+        staffId: res.id,
         name: res.fullName || res.name || 'Staff Member',
         email: res.email || identifier,
         role: recordRole,
@@ -241,6 +240,7 @@ export const AuthProvider = ({ children }) => {
       if (typeof localStorage !== 'undefined') {
         localStorage.setItem('finedge_manager_user', JSON.stringify(mgr));
       }
+      console.log(res);
       return { success: true, managerUser: mgr };
     } finally {
       setLoading(false);

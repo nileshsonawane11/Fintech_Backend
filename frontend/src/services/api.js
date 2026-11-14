@@ -168,6 +168,8 @@ export const SEED_CUSTOMER_ALIASES = {
   ]
 };
 
+console.log(ALL_PRODUCTS)
+
 // ============================================================================
 // INITIAL PERSISTENT STORE (Mirrors FinBank API Data Model)
 // ============================================================================
@@ -1114,7 +1116,8 @@ export const getDefaultDb = () => {
         createdAt: offsetIso(5),
         updatedAt: offsetIso(5)
       }
-    ],
+    ]
+,
     loans: [],
     loanApplications: [
       {
@@ -1858,6 +1861,8 @@ export const apiRequest = async (endpoint, options = {}) => {
     } else {
       data = await response.text();
     }
+
+    console.log(response)
 
     if (!response.ok) {
       const errCode = data?.error?.code || data?.code || 'API_ERROR';

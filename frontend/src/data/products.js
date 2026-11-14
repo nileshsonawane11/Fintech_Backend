@@ -3,14 +3,15 @@ import { FACTORY_SITE_CONTENT } from './factoryContent.js';
 export const getBrandSupport = () => {
   try {
     if (typeof localStorage !== 'undefined') {
-      const raw = localStorage.getItem('finedge_persistent_db');
-      if (raw) {
-        const parsed = JSON.parse(raw);
-        if (parsed?.siteContent?.footer) {
+      const dbStr = localStorage.getItem('finedge_persistent_db');
+      if (dbStr) {
+        const parsed = JSON.parse(dbStr);
+        if (parsed && parsed.siteContent && parsed.siteContent.footer) {
+          const f = parsed.siteContent.footer;
           return {
-            phone: parsed.siteContent.footer.supportPhone || '1800 267 4100 (toll-free, demo)',
-            email: parsed.siteContent.footer.supportEmail || FACTORY_SITE_CONTENT.footer.supportEmail,
-            hours: parsed.siteContent.footer.supportHours || FACTORY_SITE_CONTENT.footer.supportHours,
+            phone: f.supportPhone ? (f.supportPhone + ' (toll-free, demo)') : '1800 267 4100 (toll-free, demo)',
+            email: f.supportEmail || FACTORY_SITE_CONTENT.footer.supportEmail,
+            hours: f.supportHours || FACTORY_SITE_CONTENT.footer.supportHours,
           };
         }
       }
@@ -1246,26 +1247,28 @@ export const FACTORY_ALL_PRODUCTS = [...FACTORY_ACCOUNTS, ...FACTORY_LOANS, ...F
 
 
 function getLiveProducts(category, options = {}) {
-  let items = null;
-  if (typeof localStorage !== 'undefined') {
-    try {
-      const stored = localStorage.getItem('finedge_persistent_db');
+  try {
+    if (typeof localStorage !== 'undefined') {
+      const stored = localStorage.getItem('finedge_persistent_db') || localStorage.getItem('finedge_mock_db');
       if (stored) {
-        const parsed = JSON.parse(stored);
-        if (Array.isArray(parsed.products) && parsed.products.length > 0) {
-          items = parsed.products;
+        const db = JSON.parse(stored);
+        if (Array.isArray(db.products) && db.products.length > 0) {
+          let list = db.products;
+          if (category) {
+            list = list.filter((p) => p.category === category);
+          }
+          if (!options.includeInactive) {
+            list = list.filter((p) => p.status !== 'INACTIVE');
+          }
+          return list;
         }
       }
-    } catch {}
-  }
-  if (!items) {
-    items = [...FACTORY_ACCOUNTS, ...FACTORY_LOANS, ...FACTORY_CARDS, ...FACTORY_INVESTMENTS];
-  }
-  let factory = [...items];
+    }
+  } catch (e) {}
+
+  let factory = [...FACTORY_ACCOUNTS, ...FACTORY_LOANS, ...FACTORY_CARDS, ...FACTORY_INVESTMENTS];
   if (category) factory = factory.filter((p) => p.category === category);
-  if (!options.includeInactive) {
-    factory = factory.filter((p) => p.status !== 'INACTIVE' && p.status !== 'DEACTIVATED');
-  }
+  if (!options.includeInactive) factory = factory.filter((p) => p.status !== 'INACTIVE');
   return factory;
 }
 

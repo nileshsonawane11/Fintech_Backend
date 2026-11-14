@@ -74,9 +74,10 @@ export const ManagerLoginPage = () => {
 
     setLoading(true);
     try {
-      const res = await managerLogin(trimmed, targetPassword, targetRole);
-      const resRole = res?.managerUser?.role || targetRole;
-      const defaultTarget = getFirstQueueForRole(resRole);
+      const res = await managerLogin(trimmed, password);
+      console.log(res);
+      const role = res?.customer?.role;
+      const defaultTarget = getFirstQueueForRole(role);
       const fromPath = location.state?.from?.pathname;
       const fromSection = fromPath?.replace(/^\/manager\/?/, '');
       const target = (fromPath && fromPath.startsWith('/manager') && fromSection && hasSectionAccess(fromSection, res?.managerUser))
