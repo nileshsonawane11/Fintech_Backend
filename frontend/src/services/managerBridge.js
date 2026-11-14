@@ -281,50 +281,102 @@ export function normalizeAuditEntry(r) {
   };
 }
 
-export function normalizeKycCase(k, db) {
-  const cust = (db?.customers || []).find(c => c.customerId === k.customerId);
-  const id = k.kycCaseId || k.caseId || k.id;
-  const custObj = cust ? {
-    id: cust.customerId,
-    customerId: cust.customerId,
-    fullName: cust.fullName || cust.name || '—',
-    name: cust.fullName || cust.name || '—',
-    email: cust.email || '',
-    pan: cust.pan || '',
-    mobile: cust.mobileNumber || cust.mobile || '',
-    dob: cust.dateOfBirth || cust.dob || '',
-    address: cust.address || {},
-    occupation: cust.occupation || 'SALARIED',
-    annualIncome: cust.annualIncome || cust.annualIncomeRange || '1000000_1500000',
-    riskCategory: k.riskCategory || cust.riskCategory || 'LOW'
-  } : null;
+export function normalizeKycCase(k) {
+  const customer = k.customer || {};
+  const address = customer.address || {};
+
+  const id = k.kycCaseId || k.caseId || k.id || '';
+
+  const documents = (k.documents || []).map(d => {
+    const documentStatus = String(d.status || 'PENDING').toUpperCase();
+
+    const verified = [
+      'VERIFIED',
+      'APPROVED'
+    ].includes(documentStatus);
+
+    return {
+      id: d.id || '',
+      documentReferenceId: d.documentReferenceId || '',
+
+      type: d.documentType || 'DOCUMENT',
+      documentType: d.documentType || 'DOCUMENT',
+
+      name: d.fileName || 'document',
+      fileName: d.fileName || 'document',
+
+      contentType: d.contentType || '',
+      contentSizeBytes: d.contentSizeBytes ?? null,
+      uploadedAt: d.uploadedAt || '',
+
+      verified,
+      state: documentStatus
+    };
+  });
+
+  const customerDetails = {
+    id: customer.customerId || k.customerId || '',
+    customerId: customer.customerId || k.customerId || '',
+
+    fullName: customer.fullName || k.customerName || '—',
+    name: customer.fullName || k.customerName || '—',
+
+    email: customer.email || '',
+    pan: customer.pan || '',
+    mobile: customer.mobile || '',
+    dob: customer.dob || '',
+
+    address: {
+      addressType: address.addressType || '',
+      addressLine1: address.addressLine1 || '',
+      addressLine2: address.addressLine2 || '',
+      city: address.city || '',
+      state: address.state || '',
+      postalCode: address.postalCode || '',
+      country: address.country || ''
+    },
+
+    occupation: k.occupation || '',
+    annualIncome: k.annualIncomeRange || '',
+    annualIncomeRange: k.annualIncomeRange || '',
+    riskCategory: k.riskCategory || 'UNASSESSED'
+  };
 
   return {
+    // KYC application identifiers
     id,
     caseId: id,
     kycCaseId: id,
-    customerId: k.customerId,
-    customerName: cust?.fullName || k.customerName || k.applicantName || k.fullName || '—',
-    applicantName: cust?.fullName || k.customerName || k.applicantName || k.fullName || '—',
-    customer: custObj,
-    email: cust?.email || k.email || '',
-    pan: cust?.pan || k.pan || '',
-    mobile: cust?.mobileNumber || k.mobile || '',
-    dob: cust?.dateOfBirth || k.dob || '',
-    address: cust?.address || k.address || {},
-    submittedAt: k.submittedAt || k.createdAt || new Date().toISOString(),
+    recordId: k.id || '',
+
+    // Customer information
+    customerId: k.customerId || customer.customerId || '',
+    customerName: k.customerName || customer.fullName || '—',
+    applicantName: k.customerName || customer.fullName || '—',
+
+    customer: customerDetails,
+
+    email: customer.email || '',
+    pan: customer.pan || '',
+    mobile: customer.mobile || '',
+    dob: customer.dob || '',
+    address: customerDetails.address,
+
+    // KYC application information
+    submittedAt: k.submittedAt || '',
     status: k.status || 'UNDER_REVIEW',
-    risk: k.riskCategory || k.risk || 'UNASSESSED',
-    riskCategory: k.riskCategory || k.risk || 'UNASSESSED',
-    documents: (k.documents || []).map(d => ({
-      type: d.documentType || d.type || 'DOCUMENT',
-      name: d.fileName || d.name || 'document.pdf',
-      verified: Boolean(d.verified ?? (k.status === 'APPROVED')),
-      state: (k.status === 'APPROVED' || d.verified) ? 'VERIFIED' : 'PENDING'
-    })),
-    history: (db?.auditLogs || []).filter(a => a.target === id).map(normalizeAuditEntry),
-    annualIncomeRange: cust?.annualIncomeRange || k.annualIncomeRange || '1000000_1500000',
-    occupation: cust?.occupation || k.occupation || 'SALARIED'
+
+    risk: k.riskCategory || 'UNASSESSED',
+    riskCategory: k.riskCategory || 'UNASSESSED',
+
+    occupation: k.occupation || '',
+    annualIncomeRange: k.annualIncomeRange || '',
+
+    // Documents
+    documents,
+
+    // Audit history is not currently returned by this endpoint.
+    history: []
   };
 }
 
@@ -554,25 +606,29 @@ export async function getCustomerDetail(customerId) {
 // ============================================================================
 
 export async function listKycCases({ status = '', query = '' } = {}) {
-  const db = getDb();
-  let list = db.kycApplications || [];
-  const normalized = list.map(k => normalizeKycCase(k, db));
+  const params = new URLSearchParams();
 
-  let filtered = normalized;
   if (status && status !== 'ALL') {
-    filtered = filtered.filter(k => (k.status || '').toUpperCase() === status.toUpperCase());
+    params.set('status', status);
   }
-  if (query) {
-    const q = query.toLowerCase().trim();
-    filtered = filtered.filter(k =>
-      (k.customerName || '').toLowerCase().includes(q) ||
-      (k.id || '').toLowerCase().includes(q) ||
-      (k.pan || '').toLowerCase().includes(q) ||
-      (k.email || '').toLowerCase().includes(q) ||
-      (k.customerId || '').toLowerCase().includes(q)
-    );
+
+  if (query && query.trim()) {
+    params.set('query', query.trim());
   }
-  return filtered;
+
+  const queryString = params.toString();
+  const endpoint = `/ops/api/v1/kyc/applications/details${
+      queryString ? `?${queryString}` : ''
+  }`;
+
+  const list = await apiRequest(endpoint, {
+    method: 'GET',
+    isManager: true,
+  }) || [];
+
+  console.log('KYC Application Details:', list);
+
+  return list.map(normalizeKycCase);
 }
 
 export async function getKycCase(caseId) {
