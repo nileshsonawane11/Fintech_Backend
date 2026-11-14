@@ -2,11 +2,21 @@ import { useServerMode } from '../../lib/serverMode.js';
 import React, { useState } from 'react';
 import { Link, useNavigate, useLocation } from 'react-router-dom';
 import { Eye, EyeOff, ShieldCheck, Lock, Mail, ArrowRight, ChevronDown, KeyRound, Info } from 'lucide-react';
-import { Button, Card, Field, FormError, Input, Modal } from '../../components/ui.jsx';
+import { Button, Card, Field, FormError, Input, Modal, Select } from '../../components/ui.jsx';
 import { useAuth } from '../../context/AuthContext';
 import { getFirstQueueForRole, hasSectionAccess } from '../../services/managerBridge.js';
 import { resetDemoDb, getDemoStaffAccounts } from '../../services/api.js';
 import { traceForm } from '../../lib/trace.js';
+
+
+const STAFF_ROLE_OPTIONS = [
+  { value: 'ADMIN', label: 'System Administrator' },
+  { value: 'BANK_MANAGER', label: 'Branch Manager' },
+  { value: 'KYC_OFFICER', label: 'KYC Verification Officer' },
+  { value: 'ACCOUNT_OPS', label: 'Account & Card Operations' },
+  { value: 'AUDIT_COMPLIANCE', label: 'Audit & Compliance' },
+  { value: 'CUSTOMER_SUPPORT', label: 'Customer Support' },
+];
 
 export const ManagerLoginPage = () => {
   const navigate = useNavigate();
@@ -25,11 +35,15 @@ export const ManagerLoginPage = () => {
   };
 
   const populateStaff = (s) => {
+    setRole(s.role || '');
+    setRoleError('');
     setEmail(s.email);
     setPassword(s.password);
     setError('');
   };
 
+  const [role, setRole] = useState('');
+  const [roleError, setRoleError] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -39,6 +53,13 @@ export const ManagerLoginPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setRoleError('');
+
+    if (!role) {
+      setRoleError('Select the role you are signing in as.');
+      return;
+    }
+
     const trimmed = email.trim();
     if (!trimmed) {
       setError('Staff corporate email address is required.');
@@ -49,14 +70,14 @@ export const ManagerLoginPage = () => {
       return;
     }
 
-    // Module 50: Trace form submission before request
-    traceForm('StaffLogin', { email: trimmed, password });
+    // Module 50 / Module 54: Trace form submission before request
+    traceForm('StaffLogin', { role, email: trimmed, password });
 
     setLoading(true);
     try {
-      const res = await managerLogin(trimmed, password);
-      const role = res?.managerUser?.role;
-      const defaultTarget = getFirstQueueForRole(role);
+      const res = await managerLogin(trimmed, password, role);
+      const resRole = res?.managerUser?.role || role;
+      const defaultTarget = getFirstQueueForRole(resRole);
       const fromPath = location.state?.from?.pathname;
       const fromSection = fromPath?.replace(/^\/manager\/?/, '');
       const target = (fromPath && fromPath.startsWith('/manager') && fromSection && hasSectionAccess(fromSection, res?.managerUser))
@@ -94,6 +115,25 @@ export const ManagerLoginPage = () => {
           )}
 
           <form onSubmit={handleSubmit} className="space-y-4">
+            <Field label="Signing in as" required error={roleError}>
+              <Select
+                value={role}
+                onChange={(e) => {
+                  setRole(e.target.value);
+                  setRoleError('');
+                }}
+                error={!!roleError}
+                aria-label="Signing in as"
+              >
+                <option value="">Select your role</option>
+                {STAFF_ROLE_OPTIONS.map((opt) => (
+                  <option key={opt.value} value={opt.value}>
+                    {opt.label}
+                  </option>
+                ))}
+              </Select>
+            </Field>
+
             <Field label="Staff Corporate Email" required>
               <div className="relative">
                 <Mail className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" aria-hidden />

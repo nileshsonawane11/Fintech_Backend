@@ -120,7 +120,7 @@ export const PortalLoginPage = () => {
     }
 
     // Module 50: Trace form submission
-    traceForm('CustomerLogin', { identifier: trimmedId, password });
+    traceForm('CustomerLogin', { identifier: trimmedId, password, role: 'CUSTOMER' });
 
     setLoading(true);
     try {

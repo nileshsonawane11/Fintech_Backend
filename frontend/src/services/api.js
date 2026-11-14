@@ -10,6 +10,28 @@ export { FACTORY_SITE_CONTENT, FACTORY_SETTINGS } from '../data/factoryContent.j
 
 const BASE_URL = import.meta.env?.VITE_API_URL || 'http://localhost:8080';
 
+// Module 51 Part 0: Register reachability probe so useServerMode detects server reachability on mount
+registerReachabilityProbe(async () => {
+  if (getMode() !== 'unknown') return getMode();
+  try {
+    if (typeof fetch !== 'undefined') {
+      await fetch(`${BASE_URL}/api/v1/auth/health`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (getMode() === 'unknown') {
+        setServerMode('server');
+      }
+    }
+  } catch (err) {
+    if (getMode() === 'unknown') {
+      setServerMode('demo');
+    }
+  }
+  return getMode();
+});
+
+
 // UUID v4 generator for Idempotency-Key and X-Correlation-Id
 
 export const randomNumeric = (length = 6) => {
@@ -2017,7 +2039,16 @@ export const handleLocalFallback = (endpoint, options = {}) => {
   }
 
     // 3. /api/v1/auth/login
-  if (endpoint === '/api/v1/auth/login' && method === 'POST') {
+  if (endpoint === '/api/v1/auth/login' && !options.isManager && method === 'POST') {
+    // Module 54 A.2: If body.role is present and is not 'CUSTOMER', refuse with generic 401
+    if (body.role !== undefined && body.role !== null && body.role !== 'CUSTOMER') {
+      throw {
+        status: 401,
+        code: 'INVALID_CREDENTIALS',
+        title: 'Authentication Failed',
+        detail: 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.'
+      };
+    }
     const rawIdent = (body.identifier || '').trim();
     const identLower = rawIdent.toLowerCase();
     const defaults = getDefaultDb();
@@ -2195,13 +2226,25 @@ export const handleLocalFallback = (endpoint, options = {}) => {
     };
   }
 
-  // 5. /admin/api/v1/auth/login (Dedicated Staff Authentication)
-  if (endpoint === '/admin/api/v1/auth/login' && method === 'POST') {
+  // 5. /admin/api/v1/auth/login (Dedicated Staff Authentication & shared fallback - Module 54 Part B)
+  if ((endpoint === '/admin/api/v1/auth/login' || (endpoint === '/api/v1/auth/login' && options.isManager)) && method === 'POST') {
     const ident = (body.identifier || body.email || '').trim().toLowerCase();
     const defaults = getDefaultDb();
     if (!db.staffUsers || db.staffUsers.length === 0) {
       db.staffUsers = (defaults.staffUsers || []).map(s => ({ ...s }));
     }
+
+    // Module 54 B.4: Role is required on staff route. A missing role is malformed and refused.
+    if (!body.role) {
+      appendAuditLog(ident || 'UNKNOWN', 'STAFF', 'STAFF_LOGIN_FAILED', 'STAFF_AUTH', 'FAILED', 'Missing required role in staff login payload');
+      throw {
+        status: 401,
+        code: 'INVALID_CREDENTIALS',
+        title: 'Authentication Failed',
+        detail: 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.'
+      };
+    }
+
     const staff = db.staffUsers.find(s => s.email.toLowerCase() === ident || s.staffId.toLowerCase() === ident);
 
     if (!staff) {
@@ -2227,6 +2270,17 @@ export const handleLocalFallback = (endpoint, options = {}) => {
     // Module 43: strictly check staff member's own password - no cross-account universal passwords!
     if (staff.password && staff.password !== body.password) {
       appendAuditLog(staff.email, staff.role, 'STAFF_LOGIN_FAILED', staff.staffId, 'FAILED', 'Incorrect staff password');
+      throw {
+        status: 401,
+        code: 'INVALID_CREDENTIALS',
+        title: 'Authentication Failed',
+        detail: 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.'
+      };
+    }
+
+    // Module 54 B.4: Role mismatch check against stored role
+    if (staff.role !== body.role) {
+      appendAuditLog(staff.email, staff.role, 'STAFF_LOGIN_FAILED', staff.staffId, 'FAILED', 'Role mismatch: requested ' + body.role + ', stored ' + staff.role);
       throw {
         status: 401,
         code: 'INVALID_CREDENTIALS',

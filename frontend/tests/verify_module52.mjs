@@ -193,7 +193,7 @@ await itAsync('A.4 Create Internal User persists and can authenticate', async ()
   // Verify staff login succeeds with created credentials
   const loginRes = handleLocalFallback('/admin/api/v1/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ identifier: 'ravi.varma@finedge.bank', password: 'Password@2026#Ops' })
+    body: JSON.stringify({ identifier: 'ravi.varma@finedge.bank', password: 'Password@2026#Ops', role: 'ACCOUNT_OPS' })
   });
   assert.strictEqual(loginRes.role, 'ACCOUNT_OPS');
   assert.strictEqual(loginRes.user.email, 'ravi.varma@finedge.bank');

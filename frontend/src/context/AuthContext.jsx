@@ -115,13 +115,13 @@ export const AuthProvider = ({ children }) => {
   }, [managerUser]);
 
   // Customer Login with Two-Factor / MFA support
-  const login = async (identifier, password) => {
+  const login = async (identifier, password, role = 'CUSTOMER') => {
     if (!password) {
       throw new Error('Password is required.');
     }
     setLoading(true);
     try {
-      const res = await authService.login({ identifier, password });
+      const res = await authService.login({ identifier, password, role });
 
 
       if (res.mfaRequired) {
@@ -212,13 +212,13 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Manager Login
-  const managerLogin = async (identifier, password) => {
+  const managerLogin = async (identifier, password, role) => {
     setLoading(true);
     try {
-      const res = await authService.managerLogin({ identifier, password });
+      const res = await authService.managerLogin({ identifier, password, role });
       const recordRole = res.role || res.customer?.role || res.user?.role;
       const isStaff = (recordRole && STAFF_ROLES.includes(recordRole)) || res.type === 'STAFF';
-      if (!isStaff || recordRole === 'CUSTOMER' || res.type === 'CUSTOMER' || !res.staffId) {
+      if (!isStaff || recordRole === 'CUSTOMER' || res.type === 'CUSTOMER' || !res.staffId || (role && recordRole !== role)) {
         throw {
           status: 401,
           code: 'INVALID_CREDENTIALS',

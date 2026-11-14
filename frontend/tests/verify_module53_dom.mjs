@@ -32,9 +32,22 @@ async function fillInput(page, selector, text) {
   await el.type(text);
 }
 
-async function loginStaff(page, email = 'admin@finedge.bank', password = 'Admin@2026#Sec') {
+async function loginStaff(page, email = 'admin@finedge.bank', password = 'Admin@2026#Sec', role = null) {
   await page.goto(`${BASE_URL}/manager/login`, { waitUntil: 'domcontentloaded' });
   await new Promise(r => setTimeout(r, 600));
+  let selectedRole = role;
+  if (!selectedRole) {
+    if (email.includes('admin')) selectedRole = 'ADMIN';
+    else if (email.includes('manager')) selectedRole = 'BANK_MANAGER';
+    else if (email.includes('kyc')) selectedRole = 'KYC_OFFICER';
+    else if (email.includes('ops')) selectedRole = 'ACCOUNT_OPS';
+    else if (email.includes('audit')) selectedRole = 'AUDIT_COMPLIANCE';
+    else if (email.includes('support')) selectedRole = 'CUSTOMER_SUPPORT';
+    else selectedRole = 'ACCOUNT_OPS';
+  }
+  if (selectedRole) {
+    await page.select('select[aria-label="Signing in as"]', selectedRole);
+  }
   await fillInput(page, 'input[type="email"], input[name="email"]', email);
   await fillInput(page, 'input[type="password"]', password);
   await page.click('button[type="submit"]');
@@ -237,6 +250,7 @@ async function runPartB1toB4(browser) {
   // Verify new user can sign in
   await page.goto(`${BASE_URL}/manager/login`, { waitUntil: 'domcontentloaded' });
   await new Promise(r => setTimeout(r, 600));
+  await page.select('select[aria-label="Signing in as"]', 'ACCOUNT_OPS');
   await fillInput(page, 'input[type="email"], input[name="email"]', testUserEmail);
   await fillInput(page, 'input[type="password"]', 'Staff@2026#Sec');
   await page.click('button[type="submit"]');
