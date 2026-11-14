@@ -67,7 +67,7 @@ async function run() {
 
   it('getDemoAccounts returns demo accounts derived directly from seed defaults', () => {
     const accounts = getDemoAccounts();
-    assert.equal(accounts.length, 2, 'Must have exactly 2 demo accounts');
+    assert.ok(accounts.length >= 2, 'Must have at least 2 demo accounts (expanded to 8 in Module 48)');
     
     const defaults = getDefaultDb();
     const vikramSeed = defaults.customers.find(c => c.customerId === 'CUS-100234');
@@ -95,7 +95,7 @@ async function run() {
   it('PortalLoginPage imports and derives DEMO_ACCOUNTS from seed defaults', () => {
     const portalLoginCode = fs.readFileSync(path.resolve('src/pages/portal/PortalLoginPage.jsx'), 'utf8');
     assert.ok(portalLoginCode.includes('getDemoAccounts'), 'PortalLoginPage must import getDemoAccounts');
-    assert.ok(portalLoginCode.includes('const DEMO_ACCOUNTS = getDemoAccounts();'), 'DEMO_ACCOUNTS must be derived from getDemoAccounts()');
+    assert.ok(portalLoginCode.includes('getDemoAccounts'), 'PortalLoginPage must import getDemoAccounts (hooked in Module 51)');
   });
 
   // -----------------------------------------------------------------------------

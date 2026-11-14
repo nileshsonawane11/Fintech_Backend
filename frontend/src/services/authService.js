@@ -44,14 +44,13 @@ export const authService = {
     });
   },
 
-  // Customer Login (Section 2.3 of API Doc)
-  // A2 & A3: The customer login authenticates customer records only.
-  // Account type is decided by matched record's own type/role - never by caller flag.
-  async login({ identifier, password }) {
-    traceRequest('POST', '/api/v1/auth/login', { identifier, password });
+  // Customer Login (Section 2.3 of API Doc, Module 54 Part A)
+  // Request body includes role: 'CUSTOMER'.
+  async login({ identifier, password, role = 'CUSTOMER' }) {
+    traceRequest('POST', '/api/v1/auth/login', { identifier, password, role });
     const res = await apiRequest('/api/v1/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ identifier, password })
+      body: JSON.stringify({ identifier, password, role })
     });
 
     // Check matched record's intrinsic role / type from server response / store
@@ -121,15 +120,16 @@ export const authService = {
       res = await apiRequest('/api/v1/auth/login', {
         method: 'POST',
         isManager: true,
-        body: JSON.stringify({ identifier, password })
+        body: JSON.stringify({ identifier, password, role })
       });
     } catch (err) {
       // If server does not have /admin prefix, fallback to /api/v1/auth/login
       if (err.status === 404 || err.code === 'NOT_FOUND') {
+        traceRequest('POST', '/api/v1/auth/login', { identifier, password, role });
         res = await apiRequest('/api/v1/auth/login', {
           method: 'POST',
           isManager: true,
-          body: JSON.stringify({ identifier, password })
+          body: JSON.stringify({ identifier, password, role })
         });
       } else {
         throw err;
@@ -144,8 +144,10 @@ export const authService = {
 
     const isStaff = (recordRole && STAFF_ROLES.includes(recordRole)) || recordType === 'STAFF';
 
-    if (!isStaff || recordRole === 'CUSTOMER' || recordType === 'CUSTOMER') {
-      // Customer credentials refused on staff login with generic error; no session created
+    // B.5 Response-side check tightened:
+    // The returned record's role must equal the selected role - not merely be a staff role!
+    // Keep staff-role guard as well; keep !res.staffId refusal from Module 51.
+    if (!isStaff || recordRole === 'CUSTOMER' || recordType === 'CUSTOMER' || !res?.staffId || (role && recordRole !== role)) {
       clearManagerToken();
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem('finedge_manager_user');

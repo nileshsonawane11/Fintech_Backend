@@ -1,6 +1,7 @@
 import { useServerMode } from '../../lib/serverMode.js';
 import { traceForm } from '../../lib/trace.js';
 import { ConfirmationCheckmark } from './ConfirmationCheckmark.jsx';
+import { ModalErrorBoundary } from './RouteErrorBoundary.jsx';
 import React, { useState, useEffect, useRef } from 'react';
 import { createPortal } from 'react-dom';
 import { useAuth } from '../../context/AuthContext';
@@ -1500,6 +1501,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
         ref={modalRef}
         className="animate-scale-in relative flex max-h-[94dvh] sm:max-h-[calc(100dvh-3rem)] w-full max-w-[720px] flex-col rounded-t-2xl sm:rounded-2xl bg-white shadow-modal overflow-hidden"
       >
+        <ModalErrorBoundary onClose={handleClose}>
         {/* Header */}
         <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between border-b border-ink-100 bg-white px-6 py-4 rounded-t-2xl">
           <div className="min-w-0 flex-1 pr-3">
@@ -3947,9 +3949,9 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
 
             {/* Sticky Modal Footer */}
             <div className="sticky bottom-0 z-10 shrink-0 flex flex-col gap-2 border-t border-ink-100 bg-porcelain-50 px-6 py-4 rounded-b-2xl">
-              {error && (
+              {errors?.form && (
                 <div className="rounded-lg border border-rose-200 bg-rose-50 px-3 py-2 text-xs text-rose-800">
-                  {error}
+                  {errors.form}
                 </div>
               )}
               {isDemo && (
@@ -3981,6 +3983,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
             </div>
           </form>
         )}
+        </ModalErrorBoundary>
       </div>
     </div>
   );

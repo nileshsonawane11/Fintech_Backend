@@ -127,7 +127,7 @@ try {
   // Staff login: Chief Branch Manager
   const staffLogin = handleLocalFallback('/admin/api/v1/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email: 'manager@finedge.bank', password: 'Manager@2026' })
+    body: JSON.stringify({ email: 'manager@finedge.bank', password: 'Manager@2026', role: 'BANK_MANAGER' })
   });
   assert.ok(staffLogin.token, 'Staff login produces token');
   const staffLoginRole = staffLogin.role || staffLogin.user?.role || staffLogin.managerUser?.role;
@@ -294,7 +294,7 @@ try {
   // Sign in as Manager
   const staffLogin = handleLocalFallback('/admin/api/v1/auth/login', {
     method: 'POST',
-    body: JSON.stringify({ email: 'manager@finedge.bank', password: 'Manager@2026' })
+    body: JSON.stringify({ email: 'manager@finedge.bank', password: 'Manager@2026', role: 'BANK_MANAGER' })
   });
   const actor = {
     actor: 'Rajesh Sharma',

@@ -10,6 +10,28 @@ export { FACTORY_SITE_CONTENT, FACTORY_SETTINGS } from '../data/factoryContent.j
 
 const BASE_URL = import.meta.env?.VITE_API_URL || 'http://localhost:8080';
 
+// Module 51 Part 0: Register reachability probe so useServerMode detects server reachability on mount
+registerReachabilityProbe(async () => {
+  if (getMode() !== 'unknown') return getMode();
+  try {
+    if (typeof fetch !== 'undefined') {
+      await fetch(`${BASE_URL}/api/v1/auth/health`, {
+        method: 'GET',
+        headers: { 'Accept': 'application/json' }
+      });
+      if (getMode() === 'unknown') {
+        setServerMode('server');
+      }
+    }
+  } catch (err) {
+    if (getMode() === 'unknown') {
+      setServerMode('demo');
+    }
+  }
+  return getMode();
+});
+
+
 // UUID v4 generator for Idempotency-Key and X-Correlation-Id
 
 export const randomNumeric = (length = 6) => {
@@ -156,6 +178,7 @@ export const getDefaultDb = () => {
   const offsetIso = (hoursAgo) => new Date(now - hoursAgo * 3600000).toISOString();
   return {
     seedVersion: SEED_VERSION,
+    timestampsRebased: true,
     sessions: [],
     pendingChallenges: [],
     idempotencyKeys: {},
@@ -1096,7 +1119,33 @@ export const getDefaultDb = () => {
     ]
 ,
     loans: [],
-    loanApplications: [],
+    loanApplications: [
+      {
+        loanApplicationId: 'LN-APP-214759',
+        id: 'LN-APP-214759',
+        customerId: 'CUS-100234',
+        applicantName: 'Vikramaditya Sharma',
+        fullName: 'Vikramaditya Sharma',
+        productSlug: 'home-loan',
+        productId: 'home-loan',
+        productName: 'FinEdge Home Loan',
+        amount: 2500000.00,
+        requestedAmount: 2500000.00,
+        tenureMonths: 240,
+        monthlyIncome: 125000.00,
+        employmentType: 'SALARIED',
+        purpose: 'Purchase of ready-to-move property',
+        rate: 8.75,
+        status: 'SUBMITTED',
+        submittedAt: offsetIso(14),
+        createdAt: offsetIso(14),
+        updatedAt: offsetIso(14),
+        accountId: 'ACC-1001',
+        history: [
+          { action: 'SUBMITTED', at: offsetIso(14), actor: 'Vikramaditya Sharma', note: 'Application submitted online' }
+        ]
+      }
+    ],
     investmentHoldings: [],
     investmentApplications: [],
     products: (ALL_PRODUCTS || []).map(p => ({ ...p, status: 'ACTIVE' })),
@@ -1144,6 +1193,152 @@ export const getInitialDb = () => {
 export const sanitizeStoredDb = (data) => {
   if (!data || typeof data !== 'object') return data;
   let modified = false;
+
+  // Defensive check for required collections
+  try {
+    if (!Array.isArray(data.products) || data.products.length === 0) {
+      data.products = (ALL_PRODUCTS || []).map(p => ({ ...p, status: 'ACTIVE' }));
+      modified = true;
+    }
+  } catch (err) {
+    console.warn('[sanitizeStoredDb warning: products]:', err);
+  }
+
+  try {
+    if (!Array.isArray(data.customRoles)) {
+      data.customRoles = [];
+      modified = true;
+    }
+  } catch (err) {
+    console.warn('[sanitizeStoredDb warning: customRoles]:', err);
+  }
+
+  try {
+    if (!data.siteContent || typeof data.siteContent !== 'object') {
+      data.siteContent = JSON.parse(JSON.stringify(FACTORY_SITE_CONTENT));
+      modified = true;
+    }
+  } catch (err) {
+    console.warn('[sanitizeStoredDb warning: siteContent]:', err);
+  }
+
+  try {
+    if (!data.settings || typeof data.settings !== 'object') {
+      data.settings = JSON.parse(JSON.stringify(FACTORY_SETTINGS));
+      modified = true;
+    }
+  } catch (err) {
+    console.warn('[sanitizeStoredDb warning: settings]:', err);
+  }
+
+  try {
+    if (!data.systemRoleOverrides || typeof data.systemRoleOverrides !== 'object') {
+      data.systemRoleOverrides = {};
+      modified = true;
+    }
+  } catch (err) {
+    console.warn('[sanitizeStoredDb warning: systemRoleOverrides]:', err);
+  }
+
+  try {
+    if (!Array.isArray(data.loanApplications) || data.loanApplications.length === 0) {
+      const now = Date.now();
+      const offsetIso = (hoursAgo) => new Date(now - hoursAgo * 3600000).toISOString();
+      data.loanApplications = [
+        {
+          loanApplicationId: 'LN-APP-214759',
+          id: 'LN-APP-214759',
+          customerId: 'CUS-100234',
+          applicantName: 'Vikramaditya Sharma',
+          fullName: 'Vikramaditya Sharma',
+          productSlug: 'home-loan',
+          productId: 'home-loan',
+          productName: 'FinEdge Home Loan',
+          amount: 2500000.00,
+          requestedAmount: 2500000.00,
+          tenureMonths: 240,
+          monthlyIncome: 125000.00,
+          employmentType: 'SALARIED',
+          purpose: 'Purchase of ready-to-move property',
+          rate: 8.75,
+          status: 'SUBMITTED',
+          submittedAt: offsetIso(14),
+          createdAt: offsetIso(14),
+          updatedAt: offsetIso(14),
+          accountId: 'ACC-1001',
+          history: [
+            { action: 'SUBMITTED', at: offsetIso(14), actor: 'Vikramaditya Sharma', note: 'Application submitted online' }
+          ]
+        }
+      ];
+      modified = true;
+    }
+  } catch (err) {
+    console.warn('[sanitizeStoredDb warning: loanApplications]:', err);
+  }
+
+  // Part D: Stored-data timestamp repair (D13 completed)
+  try {
+    if (!data.timestampsRebased) {
+      const SEVEN_DAYS_MS = 7 * 24 * 60 * 60 * 1000;
+      const now = Date.now();
+      let hasOldTimestamp = false;
+
+      const checkOld = (iso) => {
+        if (!iso) return false;
+        const ts = new Date(iso).getTime();
+        return !isNaN(ts) && (now - ts > SEVEN_DAYS_MS);
+      };
+
+      const checkItems = [
+        ...(data.kycApplications || []),
+        ...(data.accountApplications || []),
+        ...(data.cardApplications || []),
+        ...(data.loanApplications || []),
+        ...(data.investmentApplications || []),
+        ...(data.tickets || [])
+      ];
+
+      for (const item of checkItems) {
+        if (checkOld(item.submittedAt) || checkOld(item.createdAt) || checkOld(item.updatedAt)) {
+          hasOldTimestamp = true;
+          break;
+        }
+      }
+
+      if (hasOldTimestamp) {
+        const queues = [
+          'kycApplications',
+          'accountApplications',
+          'cardApplications',
+          'loanApplications',
+          'investmentApplications',
+          'tickets'
+        ];
+
+        queues.forEach((qKey) => {
+          if (Array.isArray(data[qKey])) {
+            data[qKey].forEach((item, idx) => {
+              const offsetHours = 2 + (idx * 7) % 46;
+              const rebasedIso = new Date(now - offsetHours * 3600000).toISOString();
+              if (item.createdAt) item.createdAt = rebasedIso;
+              if (item.submittedAt) item.submittedAt = rebasedIso;
+              if (item.updatedAt) item.updatedAt = new Date(new Date(rebasedIso).getTime() + 1800000).toISOString();
+              if (item.messages && Array.isArray(item.messages)) {
+                item.messages.forEach((m, mIdx) => {
+                  m.timestamp = new Date(new Date(rebasedIso).getTime() + mIdx * 600000).toISOString();
+                });
+              }
+            });
+          }
+        });
+      }
+      data.timestampsRebased = true;
+      modified = true;
+    }
+  } catch (err) {
+    console.warn('[sanitizeStoredDb warning: timestampsRebased]:', err);
+  }
 
   // 1. Mojibake repair
   const jsonStr = JSON.stringify(data);
@@ -1219,6 +1414,16 @@ export const sanitizeStoredDb = (data) => {
     });
   }
 
+    // Re-sync seeded customer emails on seedVersion mismatch
+  if (data.seedVersion !== SEED_VERSION && Array.isArray(data.customers)) {
+    const defaultCusts = getDefaultDb().customers || [];
+    data.customers.forEach(c => {
+      const def = defaultCusts.find(d => d.customerId === c.customerId);
+      if (def && c.email !== def.email && !c.isRegistered) {
+        c.email = def.email;
+      }
+    });
+  }
   if (data.seedVersion !== SEED_VERSION) {
     data.seedVersion = SEED_VERSION;
     modified = true;
@@ -1839,7 +2044,16 @@ export const handleLocalFallback = (endpoint, options = {}) => {
   }
 
     // 3. /api/v1/auth/login
-  if (endpoint === '/api/v1/auth/login' && method === 'POST') {
+  if (endpoint === '/api/v1/auth/login' && !options.isManager && method === 'POST') {
+    // Module 54 A.2: If body.role is present and is not 'CUSTOMER', refuse with generic 401
+    if (body.role !== undefined && body.role !== null && body.role !== 'CUSTOMER') {
+      throw {
+        status: 401,
+        code: 'INVALID_CREDENTIALS',
+        title: 'Authentication Failed',
+        detail: 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.'
+      };
+    }
     const rawIdent = (body.identifier || '').trim();
     const identLower = rawIdent.toLowerCase();
     const defaults = getDefaultDb();
@@ -2017,13 +2231,25 @@ export const handleLocalFallback = (endpoint, options = {}) => {
     };
   }
 
-  // 5. /admin/api/v1/auth/login (Dedicated Staff Authentication)
-  if (endpoint === '/admin/api/v1/auth/login' && method === 'POST') {
+  // 5. /admin/api/v1/auth/login (Dedicated Staff Authentication & shared fallback - Module 54 Part B)
+  if ((endpoint === '/admin/api/v1/auth/login' || (endpoint === '/api/v1/auth/login' && options.isManager)) && method === 'POST') {
     const ident = (body.identifier || body.email || '').trim().toLowerCase();
     const defaults = getDefaultDb();
     if (!db.staffUsers || db.staffUsers.length === 0) {
       db.staffUsers = (defaults.staffUsers || []).map(s => ({ ...s }));
     }
+
+    // Module 54 B.4: Role is required on staff route. A missing role is malformed and refused.
+    if (!body.role) {
+      appendAuditLog(ident || 'UNKNOWN', 'STAFF', 'STAFF_LOGIN_FAILED', 'STAFF_AUTH', 'FAILED', 'Missing required role in staff login payload');
+      throw {
+        status: 401,
+        code: 'INVALID_CREDENTIALS',
+        title: 'Authentication Failed',
+        detail: 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.'
+      };
+    }
+
     const staff = db.staffUsers.find(s => s.email.toLowerCase() === ident || s.staffId.toLowerCase() === ident);
 
     if (!staff) {
@@ -2049,6 +2275,17 @@ export const handleLocalFallback = (endpoint, options = {}) => {
     // Module 43: strictly check staff member's own password - no cross-account universal passwords!
     if (staff.password && staff.password !== body.password) {
       appendAuditLog(staff.email, staff.role, 'STAFF_LOGIN_FAILED', staff.staffId, 'FAILED', 'Incorrect staff password');
+      throw {
+        status: 401,
+        code: 'INVALID_CREDENTIALS',
+        title: 'Authentication Failed',
+        detail: 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.'
+      };
+    }
+
+    // Module 54 B.4: Role mismatch check against stored role
+    if (staff.role !== body.role) {
+      appendAuditLog(staff.email, staff.role, 'STAFF_LOGIN_FAILED', staff.staffId, 'FAILED', 'Role mismatch: requested ' + body.role + ', stored ' + staff.role);
       throw {
         status: 401,
         code: 'INVALID_CREDENTIALS',

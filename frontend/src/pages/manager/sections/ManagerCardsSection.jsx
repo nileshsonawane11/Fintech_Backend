@@ -272,7 +272,7 @@ export default function ManagerCardsPage() {
     { key: 'requestedLimit', label: 'Requested limit', align: 'right', render: (r) => formatINR(r.requestedLimit) },
     { key: 'submittedAt', label: 'Submitted', render: (r) => formatDate(r.submittedAt) },
     { key: 'age', label: 'Age', render: (r) => ageOf(r.submittedAt) },
-    { key: 'status', label: 'Status', render: (r) => <StatusChip status={r.status} /> },
+    { key: 'status', label: 'Status', render: (r) => <StatusChip status={(r.status === 'APPROVED' || r.status === 'ISSUED') ? 'ISSUED' : r.status} /> },
   ];
 
   return (
@@ -330,7 +330,7 @@ export default function ManagerCardsPage() {
                 <p className="text-[13px] text-ink-500">{cardName(detail)}</p>
               </div>
               <div className="flex items-center gap-3">
-                <StatusChip status={detail.status} />
+                <StatusChip status={(detail.status === 'APPROVED' || detail.status === 'ISSUED') ? 'ISSUED' : detail.status} />
                 <button onClick={() => setDetailId(null)} className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg p-2.5 text-ink-500 hover:bg-ink-50 hover:text-ink-800 transition-colors" aria-label="Close review">
                   <X className="h-5 w-5" aria-hidden />
                 </button>

@@ -385,20 +385,26 @@ export function Stepper({ steps, horizontalOnMobile = false }) {
 
 /* ---------------- Modal ---------------- */
 
-export function Modal({ open, onClose, title, children, footer, wide = false, maxW }) {
+export function Modal({ open, isOpen, onClose, title, children, footer, wide = false, maxW }) {
+  const isActualOpen = Boolean(open ?? isOpen);
   const ref = useRef(null);
   const openerRef = useRef(null);
+  const onCloseRef = useRef(onClose);
+  onCloseRef.current = onClose;
 
   useEffect(() => {
-    if (!open) return undefined;
+    if (!isActualOpen) return undefined;
     openerRef.current = document.activeElement;
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
-    const onKey = (e) => { if (e.key === 'Escape') onClose?.(); };
+    const onKey = (e) => { if (e.key === 'Escape') onCloseRef.current?.(); };
     document.addEventListener('keydown', onKey);
     const el = ref.current;
-    const focusables = el?.querySelectorAll('button, [href], input, select, textarea, [tabindex]:not([tabindex="-1"])');
-    if (focusables?.length) focusables[0].focus();
+    const active = document.activeElement;
+    if (!el?.contains(active)) {
+      const focusables = el?.querySelectorAll('input, select, textarea, button:not([aria-label="Close"]), [href], button');
+      if (focusables?.length) focusables[0].focus();
+    }
     return () => {
       document.body.style.overflow = prevOverflow;
       document.removeEventListener('keydown', onKey);
@@ -406,9 +412,9 @@ export function Modal({ open, onClose, title, children, footer, wide = false, ma
         openerRef.current.focus();
       }
     };
-  }, [open, onClose]);
+  }, [isActualOpen]);
 
-  if (!open) return null;
+  if (!isActualOpen) return null;
   const modalContent = (
     <div className="fixed inset-0 z-50 flex items-end justify-center p-0 sm:items-center sm:p-6" role="dialog" aria-modal="true" aria-label={title}>
       <div className="animate-fade-in absolute inset-0 bg-midnight-950/60" onClick={onClose} aria-hidden />
@@ -484,7 +490,12 @@ export function ToastProvider({ children }) {
 
 export function useToast() {
   const ctx = useContext(ToastCtx);
-  if (!ctx) throw new Error('useToast must be used inside ToastProvider');
+  if (!ctx) {
+    return {
+      toast: (msg) => console.log('[Toast fallback]:', msg),
+      addToast: (msg) => console.log('[Toast fallback]:', msg)
+    };
+  }
   return ctx;
 }
 

@@ -154,7 +154,7 @@ export default function ManagerUserManagementSection() {
     const prevOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
     const onKey = (e) => {
-      if (e.key === 'Escape' && !overrideModalOpen && !roleModalOpen && !statusModalOpen && !resetModalOpen) {
+      if (e.key === 'Escape' && !overrideModalOpen && !roleModalOpen && !statusModalOpen) {
         closeDrawer();
       }
     };
@@ -163,7 +163,7 @@ export default function ManagerUserManagementSection() {
       document.body.style.overflow = prevOverflow;
       document.removeEventListener('keydown', onKey);
     };
-  }, [selectedUser, overrideModalOpen, roleModalOpen, statusModalOpen, resetModalOpen]);
+  }, [selectedUser, overrideModalOpen, roleModalOpen, statusModalOpen]);
 
   const filteredUsers = useMemo(() => {
     if (!users) return [];

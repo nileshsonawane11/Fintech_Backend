@@ -115,13 +115,13 @@ export const AuthProvider = ({ children }) => {
   }, [managerUser]);
 
   // Customer Login with Two-Factor / MFA support
-  const login = async (identifier, password) => {
+  const login = async (identifier, password, role = 'CUSTOMER') => {
     if (!password) {
       throw new Error('Password is required.');
     }
     setLoading(true);
     try {
-      const res = await authService.login({ identifier, password });
+      const res = await authService.login({ identifier, password, role });
 
 
       if (res.mfaRequired) {
@@ -211,7 +211,7 @@ export const AuthProvider = ({ children }) => {
   };
 
   // Manager Login
-  const managerLogin = async (identifier, password) => {
+  const managerLogin = async (identifier, password, role) => {
     setLoading(true);
     try {
       const res = await authService.managerLogin({ identifier, password });

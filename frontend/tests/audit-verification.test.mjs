@@ -226,7 +226,7 @@ async function runTestSuite() {
       })
     });
     newAccAppId = accAppRes.accountApplicationId;
-    assert(accAppRes.status === 'PENDING_APPROVAL', 'New account application submitted with PENDING_APPROVAL status');
+    assert(accAppRes.status === 'PENDING_APPROVAL' || accAppRes.status === 'UNDER_REVIEW', 'New account application submitted with PENDING_APPROVAL status (superseded by UNDER_REVIEW in Module 36)');
   } catch (e) {
     assert(false, `Account application failed: ${e.detail}`);
   }
@@ -302,7 +302,8 @@ async function runTestSuite() {
       method: 'POST',
       body: JSON.stringify({
         identifier: 'manager@finedge.bank',
-        password: 'Manager@2026'
+        password: 'Manager@2026',
+        role: 'BANK_MANAGER'
       })
     });
     assert(mgrUser.role === 'BANK_MANAGER' && mgrUser.permissions.includes('kyc.approve'), 'Branch Manager authenticated with full administrative permissions');
@@ -317,7 +318,8 @@ async function runTestSuite() {
       method: 'POST',
       body: JSON.stringify({
         identifier: 'kyc.officer@finedge.bank',
-        password: 'KycOfficer@2026#Sec'
+        password: 'KycOfficer@2026#Sec',
+        role: 'KYC_OFFICER'
       })
     });
     assert(kycOfficer.role === 'KYC_OFFICER' && kycOfficer.permissions.includes('kyc.approve'), 'KYC Officer authenticated with compliance permissions');
@@ -429,7 +431,8 @@ async function runTestSuite() {
       method: 'POST',
       body: JSON.stringify({
         identifier: 'ops@finedge.bank',
-        password: 'Manager@2026'
+        password: 'OpsOfficer@2026#Acc',
+        role: 'ACCOUNT_OPS'
       })
     });
     assert(false, 'Deactivated staff should NOT be allowed to login');

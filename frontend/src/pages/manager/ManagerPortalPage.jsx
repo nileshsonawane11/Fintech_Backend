@@ -19,6 +19,7 @@ import {
   KeyRound
 } from 'lucide-react';
 import { Button } from '../../components/ui.jsx';
+import { SectionErrorBoundary } from '../../components/common/RouteErrorBoundary.jsx';
 import { hasSectionAccess } from '../../services/managerBridge.js';
 
 // Import split manager section components
@@ -272,7 +273,7 @@ export const ManagerPortalPage = () => {
             </div>
           </div>
         ) : (
-          <>
+          <SectionErrorBoundary title={'Unable to load ' + activeSection}>
             {activeSection === 'dashboard' && <ManagerDashboardSection />}
             {activeSection === 'customers' && <ManagerCustomersSection />}
             {activeSection === 'kyc' && <ManagerKycSection />}
@@ -289,7 +290,7 @@ export const ManagerPortalPage = () => {
             {activeSection === 'product-catalogue' && <ManagerProductCatalogueSection />}
             {activeSection === 'site-content' && <ManagerSiteContentSection />}
             {activeSection === 'platform-settings' && <ManagerPlatformSettingsSection />}
-          </>
+          </SectionErrorBoundary>
         )}
       </main>
       </div>

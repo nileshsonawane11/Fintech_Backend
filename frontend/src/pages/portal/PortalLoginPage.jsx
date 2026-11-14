@@ -61,13 +61,6 @@ export const PortalLoginPage = () => {
     }
   };
 
-  const populateDemo = (acc) => {
-    setIdentifier(acc.email || acc.phone || acc.mobileNumber);
-    setPassword(acc.password || 'Password@123');
-    setError('');
-  };
-
-  // Form states
   const [identifier, setIdentifier] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
@@ -103,29 +96,47 @@ export const PortalLoginPage = () => {
     return val.length >= 4 ? `••••••${val.slice(-4)}` : '••••••';
   };
 
-  const handleLoginSubmit = async (e) => {
-    e.preventDefault();
+  const handleLoginSubmit = async (e, overrideId, overridePwd, isAutoDemo = false) => {
+    if (e?.preventDefault) e.preventDefault();
+    if (loading) return;
     setError('');
     setFieldErrors({});
     setSuccessMsg('');
 
-    const trimmedId = identifier.trim();
+    const targetId = overrideId !== undefined ? overrideId : identifier;
+    const targetPwd = overridePwd !== undefined ? overridePwd : password;
+
+    const trimmedId = (targetId || '').trim();
     if (!trimmedId) {
       setFieldErrors({ identifier: 'Please enter your registered email, mobile, or Customer ID' });
       return;
     }
-    if (!password) {
+    if (!targetPwd) {
       setFieldErrors({ password: 'Password is required' });
       return;
     }
 
     // Module 50: Trace form submission
-    traceForm('CustomerLogin', { identifier: trimmedId, password });
+    traceForm('CustomerLogin', { identifier: trimmedId, password: targetPwd, role: 'CUSTOMER' });
 
     setLoading(true);
     try {
-      const result = await login(trimmedId, password);
+      const result = await login(trimmedId, targetPwd);
       if (result?.mfaRequired) {
+        if (isAutoDemo && isDemo) {
+          try {
+            traceForm('CustomerMfaVerify', { mfaReferenceId: result.mfaReferenceId, otp: '849201' });
+            await verifyMfa(result.mfaReferenceId, '849201');
+            navigate(location.state?.from?.pathname || location.state?.from || '/portal');
+            return;
+          } catch (mfaErr) {
+            setMfaReferenceId(result.mfaReferenceId);
+            setMfaOtp('849201');
+            setMode('mfa');
+            setSuccessMsg('Two-Factor Authentication required. Security code dispatched.');
+            return;
+          }
+        }
         setMfaReferenceId(result.mfaReferenceId);
         setMfaOtp('');
         setMode('mfa');
@@ -134,10 +145,21 @@ export const PortalLoginPage = () => {
         navigate(location.state?.from?.pathname || location.state?.from || '/portal');
       }
     } catch (err) {
-const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || err?.message || err?.title || 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.';
+      const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || err?.message || err?.title || 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.';
       setError(msg);
     } finally {
       setLoading(false);
+    }
+  };
+
+  const populateDemo = (acc) => {
+    const id = acc.email || acc.phone || acc.mobileNumber;
+    const pwd = acc.password || 'Password@123';
+    setIdentifier(id);
+    setPassword(pwd);
+    setError('');
+    if (isDemo) {
+      handleLoginSubmit(null, id, pwd, true);
     }
   };
 
