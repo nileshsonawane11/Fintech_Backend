@@ -101,8 +101,11 @@ export default function ManagerProductCatalogueSection() {
       setLoading(true);
       setError('');
       const list = await adminListProducts();
+      console.log(list)
       setProducts(list);
+      console.log(products)
     } catch (e) {
+      console.log(e)
       setError(e.detail || e.message || 'Could not load products catalogue.');
     } finally {
       setLoading(false);

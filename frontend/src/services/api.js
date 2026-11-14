@@ -1093,7 +1093,8 @@ export const getDefaultDb = () => {
         createdAt: offsetIso(5),
         updatedAt: offsetIso(5)
       }
-    ],
+    ]
+,
     loans: [],
     loanApplications: [],
     investmentHoldings: [],
@@ -1655,6 +1656,8 @@ export const apiRequest = async (endpoint, options = {}) => {
     } else {
       data = await response.text();
     }
+
+    console.log(response)
 
     if (!response.ok) {
       const errCode = data?.error?.code || data?.code || 'API_ERROR';

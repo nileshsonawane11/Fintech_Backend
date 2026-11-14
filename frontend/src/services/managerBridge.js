@@ -1,7 +1,18 @@
 // Manager Bridge Service
 // Connects manager sections to managerService and real DB engine with canonical normalization contract
 import { managerService } from './managerService.js';
-import { getDb, saveDb, appendAuditLog, computeEffectivePermissions, getContent, getSettings, FACTORY_SITE_CONTENT, FACTORY_SETTINGS, getProducts } from './api.js';
+import {
+  getDb,
+  saveDb,
+  appendAuditLog,
+  computeEffectivePermissions,
+  getContent,
+  getSettings,
+  FACTORY_SITE_CONTENT,
+  FACTORY_SETTINGS,
+  getProducts,
+  apiRequest
+} from './api.js';
 import { calculateEMI } from '../lib/finance.js';
 import { maskPan } from '../lib/format.js';
 
@@ -1838,13 +1849,14 @@ export async function deleteRole(roleId, actorOverride = {}) {
 // ============================================================================
 
 export async function adminListProducts(category = null, actorOverride = {}) {
-  assertAdminOnly(actorOverride, 'Viewing product catalogue administration');
-  const db = getDb();
-  let list = db.products || [];
+  // assertAdminOnly(actorOverride, 'Viewing product catalogue administration');
+  let list = await apiRequest("/api/v1/account-products",{
+    method: 'GET'
+  }) || [];
   if (category) {
     list = list.filter(p => p.category === category);
   }
-  return list;
+  return list.data;
 }
 
 export async function adminCreateProduct(productData, actorOverride = {}) {

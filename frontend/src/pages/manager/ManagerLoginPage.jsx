@@ -55,7 +55,8 @@ export const ManagerLoginPage = () => {
     setLoading(true);
     try {
       const res = await managerLogin(trimmed, password);
-      const role = res?.managerUser?.role;
+      console.log(res);
+      const role = res?.customer?.role;
       const defaultTarget = getFirstQueueForRole(role);
       const fromPath = location.state?.from?.pathname;
       const fromSection = fromPath?.replace(/^\/manager\/?/, '');
