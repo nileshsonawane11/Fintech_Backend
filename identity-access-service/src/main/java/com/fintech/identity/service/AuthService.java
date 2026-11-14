@@ -5,6 +5,7 @@ import com.fintech.identity.dto.response.*;
 import com.fintech.events.CustomerRegisteredEvent;
 import com.fintech.identity.exception.ApiException;
 import com.fintech.identity.model.*;
+import com.fintech.identity.model.enums.Role;
 import com.fintech.identity.repository.CustomerProfileRepository;
 import com.fintech.identity.repository.RoleRepository;
 import com.fintech.identity.repository.UserRoleRepository;
@@ -186,15 +187,23 @@ public class AuthService {
     public TokenResponse login(LoginRequest request) {
         String identifier = request.identifier().trim();
 
+        Role role = request.role();
+
         Customer customer;
 
         if (identifier.contains("@")) {
             customer = customerRepository
-                    .findByEmail(identifier.toLowerCase(Locale.ROOT))
+                    .findByEmailAndRole(
+                            identifier.toLowerCase(Locale.ROOT),
+                            role
+                    )
                     .orElseThrow(this::invalidCredentials);
         } else {
             customer = customerRepository
-                    .findByMobileNumber(identifier)
+                    .findByMobileNumberAndRole(
+                            identifier,
+                            role
+                    )
                     .orElseThrow(this::invalidCredentials);
         }
 

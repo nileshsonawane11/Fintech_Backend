@@ -74,7 +74,7 @@ export const ManagerLoginPage = () => {
 
     setLoading(true);
     try {
-      const res = await managerLogin(trimmed, password);
+      const res = await managerLogin(trimmed, password, targetRole);
       console.log(res);
       const role = res?.customer?.role;
       const defaultTarget = getFirstQueueForRole(role);

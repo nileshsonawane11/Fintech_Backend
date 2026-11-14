@@ -1816,7 +1816,7 @@ export const apiRequest = async (endpoint, options = {}) => {
   traceRequest(method, endpoint, bodyParsed);
 
   const url = `${BASE_URL}${endpoint}`;
-  const token = options.isManager ? getManagerToken() : getAccessToken();
+  const token = options.isManager ? getManagerToken() : getAccessToken()
 
   const headers = {
     'Content-Type': 'application/json',
@@ -1825,6 +1825,7 @@ export const apiRequest = async (endpoint, options = {}) => {
     'X-Device-Id': 'finedge-web-client-v2',
     ...options.headers
   };
+
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
