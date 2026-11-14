@@ -29,17 +29,10 @@ export const ManagerLoginPage = () => {
   const handleResetConfirm = () => {
     resetDemoDb();
     setResetOpen(false);
+    setUserHasTyped(false);
     if (typeof window !== 'undefined') {
       window.location.reload();
     }
-  };
-
-  const populateStaff = (s) => {
-    setRole(s.role || '');
-    setRoleError('');
-    setEmail(s.email);
-    setPassword(s.password);
-    setError('');
   };
 
   const [role, setRole] = useState('');
@@ -49,34 +42,40 @@ export const ManagerLoginPage = () => {
   const [showPassword, setShowPassword] = useState(false);
   const [error, setError] = useState('');
   const [loading, setLoading] = useState(false);
+  const [userHasTyped, setUserHasTyped] = useState(false);
 
-  const handleSubmit = async (e) => {
-    e.preventDefault();
+  const handleSubmit = async (e, overrideValues) => {
+    if (e?.preventDefault) e.preventDefault();
+    if (loading) return;
     setError('');
     setRoleError('');
 
-    if (!role) {
+    const targetRole = overrideValues?.role !== undefined ? overrideValues.role : role;
+    const targetEmail = overrideValues?.email !== undefined ? overrideValues.email : email;
+    const targetPassword = overrideValues?.password !== undefined ? overrideValues.password : password;
+
+    if (!targetRole) {
       setRoleError('Select the role you are signing in as.');
       return;
     }
 
-    const trimmed = email.trim();
+    const trimmed = (targetEmail || '').trim();
     if (!trimmed) {
       setError('Staff corporate email address is required.');
       return;
     }
-    if (!password) {
+    if (!targetPassword) {
       setError('Authentication password is required.');
       return;
     }
 
     // Module 50 / Module 54: Trace form submission before request
-    traceForm('StaffLogin', { role, email: trimmed, password });
+    traceForm('StaffLogin', { role: targetRole, email: trimmed, password: targetPassword });
 
     setLoading(true);
     try {
-      const res = await managerLogin(trimmed, password, role);
-      const resRole = res?.managerUser?.role || role;
+      const res = await managerLogin(trimmed, targetPassword, targetRole);
+      const resRole = res?.managerUser?.role || targetRole;
       const defaultTarget = getFirstQueueForRole(resRole);
       const fromPath = location.state?.from?.pathname;
       const fromSection = fromPath?.replace(/^\/manager\/?/, '');
@@ -90,6 +89,52 @@ export const ManagerLoginPage = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const populateStaff = (s) => {
+    const nextRole = s.role || '';
+    setRole(nextRole);
+    setRoleError('');
+    setEmail(s.email || '');
+    setPassword(s.password || '');
+    setError('');
+    setUserHasTyped(false);
+
+    if (isDemo && nextRole) {
+      handleSubmit(null, { role: nextRole, email: s.email, password: s.password });
+    }
+  };
+
+  const handleRoleChange = (e) => {
+    const newRole = e.target.value;
+    setRole(newRole);
+    setRoleError('');
+
+    if (!isDemo || !newRole) {
+      return;
+    }
+
+    const demoAccounts = getDemoStaffAccounts() || [];
+    const demoEmails = demoAccounts.map((a) => (a.email || '').trim().toLowerCase());
+    const currentEmailTrimmed = (email || '').trim().toLowerCase();
+
+    // Guard: if the email field currently holds a value that is NOT one of the seeded demo account emails
+    // (the user has typed something of their own), changing the dropdown changes ONLY the role
+    // — never overwrite typed credentials, never auto-submit.
+    if (userHasTyped || (currentEmailTrimmed && !demoEmails.includes(currentEmailTrimmed))) {
+      return;
+    }
+
+    const match = demoAccounts.find((a) => a.role === newRole);
+    if (!match) {
+      // If no demo account exists for the selected role, change only the role (no populate, no submit, no error).
+      return;
+    }
+
+    setEmail(match.email);
+    setPassword(match.password);
+    setError('');
+    handleSubmit(null, { role: newRole, email: match.email, password: match.password });
   };
 
   return (
@@ -118,10 +163,7 @@ export const ManagerLoginPage = () => {
             <Field label="Signing in as" required error={roleError}>
               <Select
                 value={role}
-                onChange={(e) => {
-                  setRole(e.target.value);
-                  setRoleError('');
-                }}
+                onChange={handleRoleChange}
                 error={!!roleError}
                 aria-label="Signing in as"
               >
@@ -140,7 +182,10 @@ export const ManagerLoginPage = () => {
                 <Input
                   type="email"
                   value={email}
-                  onChange={(e) => setEmail(e.target.value)}
+                  onChange={(e) => {
+                    setEmail(e.target.value);
+                    setUserHasTyped(true);
+                  }}
                   placeholder="officer@finedge.bank"
                   className="pl-9"
                   autoComplete="username"
@@ -154,7 +199,10 @@ export const ManagerLoginPage = () => {
                 <Input
                   type={showPassword ? 'text' : 'password'}
                   value={password}
-                  onChange={(e) => setPassword(e.target.value)}
+                  onChange={(e) => {
+                    setPassword(e.target.value);
+                    setUserHasTyped(true);
+                  }}
                   placeholder="Enter staff security password"
                   className="pl-9 pr-10"
                   autoComplete="current-password"

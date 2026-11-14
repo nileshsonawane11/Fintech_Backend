@@ -45,11 +45,11 @@ async function loginStaff(page, email = 'admin@finedge.bank', password = 'Admin@
     else if (email.includes('support')) selectedRole = 'CUSTOMER_SUPPORT';
     else selectedRole = 'ACCOUNT_OPS';
   }
+  await fillInput(page, 'input[type="email"], input[name="email"]', email);
+  await fillInput(page, 'input[type="password"]', password);
   if (selectedRole) {
     await page.select('select[aria-label="Signing in as"]', selectedRole);
   }
-  await fillInput(page, 'input[type="email"], input[name="email"]', email);
-  await fillInput(page, 'input[type="password"]', password);
   await page.click('button[type="submit"]');
   await new Promise(r => setTimeout(r, 1500));
 }
@@ -250,9 +250,9 @@ async function runPartB1toB4(browser) {
   // Verify new user can sign in
   await page.goto(`${BASE_URL}/manager/login`, { waitUntil: 'domcontentloaded' });
   await new Promise(r => setTimeout(r, 600));
-  await page.select('select[aria-label="Signing in as"]', 'ACCOUNT_OPS');
   await fillInput(page, 'input[type="email"], input[name="email"]', testUserEmail);
   await fillInput(page, 'input[type="password"]', 'Staff@2026#Sec');
+  await page.select('select[aria-label="Signing in as"]', 'ACCOUNT_OPS');
   await page.click('button[type="submit"]');
   await new Promise(r => setTimeout(r, 1500));
 

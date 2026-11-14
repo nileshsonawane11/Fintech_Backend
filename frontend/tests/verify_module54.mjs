@@ -138,9 +138,9 @@ async function main() {
     await runWithFreshPage(async (page) => {
       await page.goto(`${BASE_URL}/manager/login`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('select[aria-label="Signing in as"]');
-      await page.select('select[aria-label="Signing in as"]', 'ADMIN');
       await fillInput(page, 'input[type="email"]', 'admin@finedge.bank');
       await fillInput(page, 'input[type="password"]', 'Admin@2026#Sec');
+      await page.select('select[aria-label="Signing in as"]', 'ADMIN');
       await page.click('button[type="submit"]');
       await new Promise((r) => setTimeout(r, 1500));
 
@@ -160,9 +160,9 @@ async function main() {
     await runWithFreshPage(async (page) => {
       await page.goto(`${BASE_URL}/manager/login`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('select[aria-label="Signing in as"]');
-      await page.select('select[aria-label="Signing in as"]', 'BANK_MANAGER');
       await fillInput(page, 'input[type="email"]', 'manager@finedge.bank');
       await fillInput(page, 'input[type="password"]', 'Manager@2026');
+      await page.select('select[aria-label="Signing in as"]', 'BANK_MANAGER');
       await page.click('button[type="submit"]');
       await new Promise((r) => setTimeout(r, 1500));
 
@@ -188,9 +188,9 @@ async function main() {
       await runWithFreshPage(async (page) => {
         await page.goto(`${BASE_URL}/manager/login`, { waitUntil: 'domcontentloaded' });
         await page.waitForSelector('select[aria-label="Signing in as"]');
-        await page.select('select[aria-label="Signing in as"]', u.role);
         await fillInput(page, 'input[type="email"]', u.email);
         await fillInput(page, 'input[type="password"]', u.pass);
+        await page.select('select[aria-label="Signing in as"]', u.role);
         await page.click('button[type="submit"]');
         await new Promise((r) => setTimeout(r, 1500));
 
@@ -209,10 +209,10 @@ async function main() {
     await runWithFreshPage(async (page) => {
       await page.goto(`${BASE_URL}/manager/login`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('select[aria-label="Signing in as"]');
-      // manager@finedge.bank is BANK_MANAGER, select ADMIN
-      await page.select('select[aria-label="Signing in as"]', 'ADMIN');
       await fillInput(page, 'input[type="email"]', 'manager@finedge.bank');
       await fillInput(page, 'input[type="password"]', 'Manager@2026');
+      // manager@finedge.bank is BANK_MANAGER, select ADMIN
+      await page.select('select[aria-label="Signing in as"]', 'ADMIN');
       await page.click('button[type="submit"]');
       await new Promise((r) => setTimeout(r, 1200));
 
@@ -235,9 +235,9 @@ async function main() {
     await runWithFreshPage(async (page) => {
       await page.goto(`${BASE_URL}/manager/login`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('select[aria-label="Signing in as"]');
-      await page.select('select[aria-label="Signing in as"]', 'BANK_MANAGER');
       await fillInput(page, 'input[type="email"]', 'vikram.sharma@finedge.customer');
       await fillInput(page, 'input[type="password"]', 'Password@123');
+      await page.select('select[aria-label="Signing in as"]', 'BANK_MANAGER');
       await page.click('button[type="submit"]');
       await new Promise((r) => setTimeout(r, 1200));
 
@@ -308,28 +308,12 @@ async function main() {
         const kycBtn = buttons.find((b) => b.textContent.includes('KYC_OFFICER') || b.textContent.includes('kyc.officer@finedge.bank'));
         if (kycBtn) kycBtn.click();
       });
-      await new Promise((r) => setTimeout(r, 400));
-
-      const populatedValues = await page.evaluate(() => {
-        const select = document.querySelector('select[aria-label="Signing in as"]');
-        const emailInput = document.querySelector('input[type="email"]');
-        const passInput = document.querySelector('input[type="password"]');
-        return {
-          role: select ? select.value : '',
-          email: emailInput ? emailInput.value : '',
-          pass: passInput ? passInput.value : ''
-        };
-      });
-
-      assert.strictEqual(populatedValues.role, 'KYC_OFFICER', 'Row 9: Dropdown populated with KYC_OFFICER');
-      assert.strictEqual(populatedValues.email, 'kyc.officer@finedge.bank', 'Row 9: Email populated');
-      assert.ok(populatedValues.pass.length > 0, 'Row 9: Password populated');
-
-      // Submit and ensure login succeeds
-      await page.click('button[type="submit"]');
-      await new Promise((r) => setTimeout(r, 1500));
-      assert.ok(page.url().includes('/manager'), 'Row 9: Login via demo account succeeded');
-      logPass('Row 9: Demo access panel: click staff account -> email, password and dropdown populate together -> submit succeeds');
+      // In Module 55, clicking the demo card populates and immediately signs in
+      await page.waitForFunction(() => window.location.pathname.startsWith('/manager') && window.location.pathname !== '/manager/login', { timeout: 6000 });
+      assert.ok(page.url().includes('/manager'), 'Row 9: Login via demo account succeeded in one click');
+      const mgrUser = JSON.parse(await page.evaluate(() => localStorage.getItem('finedge_manager_user')));
+      assert.strictEqual(mgrUser.role, 'KYC_OFFICER', 'Row 9: Logged in as KYC_OFFICER');
+      logPass('Row 9: Demo access panel: click staff account -> email, password and dropdown populate together and session succeeds');
     });
 
     // ------------------------------------------------------------------------
@@ -387,9 +371,9 @@ async function main() {
 
       await page.goto(`${BASE_URL}/manager/login`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('select[aria-label="Signing in as"]');
-      await page.select('select[aria-label="Signing in as"]', 'BANK_MANAGER');
       await fillInput(page, 'input[type="email"]', 'manager@finedge.bank');
       await fillInput(page, 'input[type="password"]', 'Manager@2026');
+      await page.select('select[aria-label="Signing in as"]', 'BANK_MANAGER');
       await page.click('button[type="submit"]');
       await new Promise((r) => setTimeout(r, 1500));
 
@@ -431,9 +415,9 @@ async function main() {
       // Staff login + post-login action: view loan application
       await page.goto(`${BASE_URL}/manager/login`, { waitUntil: 'domcontentloaded' });
       await page.waitForSelector('select[aria-label="Signing in as"]');
-      await page.select('select[aria-label="Signing in as"]', 'BANK_MANAGER');
       await fillInput(page, 'input[type="email"]', 'manager@finedge.bank');
       await fillInput(page, 'input[type="password"]', 'Manager@2026');
+      await page.select('select[aria-label="Signing in as"]', 'BANK_MANAGER');
       await page.click('button[type="submit"]');
       await new Promise((r) => setTimeout(r, 1500));
 
