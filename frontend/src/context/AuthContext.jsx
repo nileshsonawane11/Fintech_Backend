@@ -214,7 +214,7 @@ export const AuthProvider = ({ children }) => {
   const managerLogin = async (identifier, password, role) => {
     setLoading(true);
     try {
-      const res = await authService.managerLogin({ identifier, password });
+      const res = await authService.managerLogin({ identifier, password, role });
       const recordRole = res.role || res?.customer?.role || res.user?.role;
       const isStaff = (recordRole && STAFF_ROLES.includes(recordRole)) || res.type === 'STAFF';
       if (!isStaff || recordRole === 'CUSTOMER' || !res?.customer?.id) {
