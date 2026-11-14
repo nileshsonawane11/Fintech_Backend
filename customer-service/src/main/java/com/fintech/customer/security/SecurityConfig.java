@@ -34,10 +34,6 @@ public class SecurityConfig {
                                 "/actuator/health/**",
                                 "/actuator/info"
                         ).permitAll()
-                        .requestMatchers("/ops/**")
-                        .hasAuthority("ROLE_KYC_OPS")
-                        .requestMatchers("/internal/**")
-                        .hasAuthority("ROLE_INTERNAL_SERVICE")
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
