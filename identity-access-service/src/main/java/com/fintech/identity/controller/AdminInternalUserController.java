@@ -35,7 +35,7 @@ public class AdminInternalUserController {
     @PostMapping("/operations")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAnyRole('ADMIN', 'MANAGER')")
-    @Operation(summary = "Create Operations User", description = "Create an operations staff user account (Requires ADMIN or MANAGER role)")
+    @Operation(summary = "Create Operations User (Admin, Manager Only)", description = "Create an operations staff user account (Requires ADMIN or MANAGER role)")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Operations user created successfully"),
             @ApiResponse(responseCode = "400", description = "Invalid payload or validation failure"),
@@ -51,7 +51,7 @@ public class AdminInternalUserController {
     @PostMapping("/managers")
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasRole('ADMIN')")
-    @Operation(summary = "Create Manager User", description = "Create a manager user account (Requires ADMIN role)")
+    @Operation(summary = "Create Manager User (Admin Only)", description = "Create a manager user account (Requires ADMIN role)")
     @ApiResponses({
             @ApiResponse(responseCode = "201", description = "Manager user created successfully"),
             @ApiResponse(responseCode = "400", description = "Invalid payload or validation failure"),
