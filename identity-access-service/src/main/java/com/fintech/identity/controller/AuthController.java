@@ -7,6 +7,12 @@ import com.fintech.identity.dto.response.RegisterResponse;
 import com.fintech.identity.dto.response.TokenResponse;
 import com.fintech.identity.service.AuthService;
 import com.fintech.identity.service.RefreshTokenService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -16,6 +22,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/auth")
+@Tag(name = "Authentication", description = "Endpoints for customer registration, authentication, OTP verification, MFA verification, and JWT refresh tokens")
 public class AuthController {
 
     private final AuthService authService;
@@ -28,6 +35,12 @@ public class AuthController {
 
     @PostMapping("/register")
     @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Register New Customer", description = "Register a new customer account and initiate OTP verification")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Customer registered successfully and OTP generated"),
+            @ApiResponse(responseCode = "400", description = "Invalid request payload or validation error"),
+            @ApiResponse(responseCode = "409", description = "Customer email or mobile already registered")
+    })
     public RegisterResponse register(
             @Valid @RequestBody RegisterRequest request
     ) {
@@ -35,6 +48,12 @@ public class AuthController {
     }
 
     @PostMapping("/otp/verify")
+    @Operation(summary = "Verify Registration OTP", description = "Verify one-time passcode to activate a customer account")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "OTP verified and account activated"),
+            @ApiResponse(responseCode = "400", description = "Invalid or expired OTP"),
+            @ApiResponse(responseCode = "404", description = "Registration session not found")
+    })
     public OtpVerificationResponse verifyOtp(
             @Valid @RequestBody VerifyOtpRequest request
     ) {
@@ -42,6 +61,11 @@ public class AuthController {
     }
 
     @PostMapping("/login")
+    @Operation(summary = "Customer Login", description = "Authenticate credentials and issue JWT tokens or MFA challenge")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Authenticated successfully, returns access token or MFA requirement"),
+            @ApiResponse(responseCode = "401", description = "Invalid credentials")
+    })
     public TokenResponse login(
             @Valid @RequestBody LoginRequest request
     ) {
@@ -49,14 +73,25 @@ public class AuthController {
     }
 
     @PostMapping("/mfa/verify")
+    @Operation(summary = "Verify MFA Code", description = "Verify multi-factor authentication passcode to obtain final JWT access token")
+    @SecurityRequirement(name = "BearerAuth")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "MFA code verified, access token issued"),
+            @ApiResponse(responseCode = "401", description = "Invalid or expired MFA token or code")
+    })
     public TokenResponse verifyMfa(
             @Valid @RequestBody VerifyMfaRequest request,
-            @AuthenticationPrincipal Jwt jwt
+            @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt
     ) {
         return authService.verifyMfa(request, jwt);
     }
 
     @PostMapping("/refresh")
+    @Operation(summary = "Rotate Refresh Token", description = "Exchange a valid refresh token for a newly issued access token and refreshed refresh token")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Token refreshed successfully"),
+            @ApiResponse(responseCode = "401", description = "Invalid or expired refresh token")
+    })
     public ResponseEntity<TokenResponse> refresh(
             @Valid @RequestBody RefreshTokenRequest request
     ) {
