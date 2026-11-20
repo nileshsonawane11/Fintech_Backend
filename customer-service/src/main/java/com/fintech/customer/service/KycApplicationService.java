@@ -9,7 +9,6 @@ import com.fintech.customer.model.kyc.state.KycStatus;
 import com.fintech.customer.repository.CustomerProfileRepository;
 import com.fintech.customer.repository.KycCaseRepository;
 import com.fintech.customer.security.FieldEncryptionService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -22,12 +21,19 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class KycApplicationService {
 
     private final CustomerProfileRepository customerProfileRepository;
     private final KycCaseRepository kycCaseRepository;
     private final FieldEncryptionService encryptionService;
+
+    public KycApplicationService(CustomerProfileRepository customerProfileRepository,
+                                 KycCaseRepository kycCaseRepository,
+                                 FieldEncryptionService encryptionService) {
+        this.customerProfileRepository = customerProfileRepository;
+        this.kycCaseRepository = kycCaseRepository;
+        this.encryptionService = encryptionService;
+    }
 
     @Transactional
     public KycApplicationResponse submitApplication(String identitySubject, KycApplicationRequest request) {

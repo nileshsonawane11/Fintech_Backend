@@ -1,4 +1,3 @@
-
 package com.fintech.gateway.config;
 
 import java.nio.file.Files;
@@ -50,6 +49,31 @@ public class JwtSecurityConfig {
                 .formLogin(ServerHttpSecurity.FormLoginSpec::disable)
 
                 .authorizeExchange(exchanges -> exchanges
+                        // Centralized Swagger UI and OpenAPI documentation resources
+                        .pathMatchers(
+                                "/swagger-ui.html",
+                                "/swagger-ui/**",
+                                "/v3/api-docs",
+                                "/v3/api-docs/**",
+                                "/webjars/**",
+                                "/identity/v3/api-docs",
+                                "/identity/v3/api-docs/**",
+                                "/customer/v3/api-docs",
+                                "/customer/v3/api-docs/**",
+                                "/ledger/v3/api-docs",
+                                "/ledger/v3/api-docs/**",
+                                "/account/v3/api-docs",
+                                "/account/v3/api-docs/**",
+                                "/payment/v3/api-docs",
+                                "/payment/v3/api-docs/**",
+                                "/card/v3/api-docs",
+                                "/card/v3/api-docs/**",
+                                "/loan/v3/api-docs",
+                                "/loan/v3/api-docs/**",
+                                "/notification/v3/api-docs",
+                                "/notification/v3/api-docs/**"
+                        ).permitAll()
+
                         // Registration, login, MFA and refresh endpoints
                         .pathMatchers(
                                 "/api/v1/auth/**",
@@ -59,10 +83,7 @@ public class JwtSecurityConfig {
 
                         // Health endpoint
                         .pathMatchers(
-                                "/actuator/health"
-                        ).permitAll()
-
-                        .pathMatchers(
+                                "/actuator/health",
                                 "/actuator/health/**"
                         ).permitAll()
 
@@ -80,7 +101,7 @@ public class JwtSecurityConfig {
     @Bean
     public CorsConfigurationSource corsConfigurationSource() {
         CorsConfiguration configuration = new CorsConfiguration();
-        configuration.setAllowedOrigins(List.of("http://localhost:5174"));
+        configuration.setAllowedOrigins(List.of("http://localhost:5173", "http://localhost:5174"));
         configuration.setAllowedMethods(List.of("*"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setAllowCredentials(true);

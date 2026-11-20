@@ -17,6 +17,8 @@ import java.util.List;
 @Configuration
 public class OpenApiConfig {
 
+    public static final String SECURITY_SCHEME_NAME = "BearerAuth";
+
     @Value("${server.port:8083}")
     private String serverPort;
 
@@ -30,16 +32,17 @@ public class OpenApiConfig {
                         .contact(new Contact().name("FinBank Core Banking Architecture").email("architecture@finbank.example.com"))
                         .license(new License().name("Proprietary").url("https://finbank.example.com/license")))
                 .servers(List.of(
+                        new Server().url("http://localhost:8080").description("API Gateway"),
                         new Server().url("/").description("Current Host Gateway Context"),
                         new Server().url("http://localhost:" + serverPort).description("Direct Ledger Service Instance")
                 ))
                 .components(new Components()
-                        .addSecuritySchemes("BearerAuth", new SecurityScheme()
-                                .name("BearerAuth")
+                        .addSecuritySchemes(SECURITY_SCHEME_NAME, new SecurityScheme()
+                                .name(SECURITY_SCHEME_NAME)
                                 .type(SecurityScheme.Type.HTTP)
                                 .scheme("bearer")
                                 .bearerFormat("JWT")
                                 .description("Enter RSA RS256 Bearer access token issued by Identity Service")))
-                .addSecurityItem(new SecurityRequirement().addList("BearerAuth"));
+                .addSecurityItem(new SecurityRequirement().addList(SECURITY_SCHEME_NAME));
     }
 }

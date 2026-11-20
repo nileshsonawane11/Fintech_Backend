@@ -1,4 +1,3 @@
-
 package com.fintech.customer.service;
 
 import com.fintech.customer.dto.response.KycApplicationDetailsResponse;
@@ -9,9 +8,8 @@ import com.fintech.customer.repository.CustomerAddressRepository;
 import com.fintech.customer.repository.KycCaseRepository;
 import com.fintech.customer.repository.KycDocumentRepository;
 
-import lombok.RequiredArgsConstructor;
-import lombok.extern.slf4j.Slf4j;
-
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -19,14 +17,22 @@ import java.util.*;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
-@Slf4j
 @Transactional(readOnly = true)
 public class KycOperationsService {
+
+    private static final Logger log = LoggerFactory.getLogger(KycOperationsService.class);
 
     private final KycCaseRepository kycCaseRepository;
     private final KycDocumentRepository kycDocumentRepository;
     private final CustomerAddressRepository customerAddressRepository;
+
+    public KycOperationsService(KycCaseRepository kycCaseRepository,
+                                KycDocumentRepository kycDocumentRepository,
+                                CustomerAddressRepository customerAddressRepository) {
+        this.kycCaseRepository = kycCaseRepository;
+        this.kycDocumentRepository = kycDocumentRepository;
+        this.customerAddressRepository = customerAddressRepository;
+    }
 
     public List<KycApplicationDetailsResponse> getKycApplicationDetails(
             String status,

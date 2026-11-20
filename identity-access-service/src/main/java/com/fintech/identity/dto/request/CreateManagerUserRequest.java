@@ -19,7 +19,7 @@ public record CreateManagerUserRequest(
         String email,
 
         @NotBlank(message = "Password is required")
-        @Size(min = 12, max = 72, message = "Password must contain between 12 and 72 characters")
+        @Size(min = 8, max = 20, message = "Password must contain between 12 and 72 characters")
         @Pattern(
                 regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z\\d]).+$",
                 message = "Password must contain uppercase, lowercase, digit and special character"
