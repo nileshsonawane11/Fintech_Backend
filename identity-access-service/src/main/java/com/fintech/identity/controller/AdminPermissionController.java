@@ -8,6 +8,8 @@ import com.fintech.identity.model.AuthorizationAuditLog;
 import com.fintech.identity.model.PermissionEntity;
 import com.fintech.identity.repository.AuthorizationAuditLogRepository;
 import com.fintech.identity.repository.PermissionRepository;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -24,6 +26,7 @@ import java.util.UUID;
 @RestController
 @RequestMapping("/api/v1/admin/permissions")
 @PreAuthorize("hasRole('ADMIN')")
+@Tag(name = "Admin Permissions", description = "Permission management APIs for Administrators")
 public class AdminPermissionController {
 
     private final PermissionRepository permissionRepository;
@@ -38,6 +41,7 @@ public class AdminPermissionController {
     }
 
     @GetMapping
+    @Operation(summary = "Get All Permissions", description = "Retrieve list of all registered system permissions")
     public List<PermissionResponse> getAllPermissions() {
         return permissionRepository.findAll().stream()
                 .map(p -> new PermissionResponse(
@@ -50,6 +54,7 @@ public class AdminPermissionController {
     @ResponseStatus(HttpStatus.CREATED)
     @PreAuthorize("hasAuthority('PERMISSION_CREATE')")
     @Transactional
+    @Operation(summary = "Create Permission", description = "Create a new system permission code")
     public PermissionResponse createPermission(
             @Valid @RequestBody CreatePermissionRequest request
     ) {
@@ -82,6 +87,7 @@ public class AdminPermissionController {
     @PutMapping("/{permissionId}")
     @PreAuthorize("hasAuthority('PERMISSION_UPDATE')")
     @Transactional
+    @Operation(summary = "Update Permission", description = "Update an existing system permission")
     public PermissionResponse updatePermission(
             @PathVariable UUID permissionId,
             @Valid @RequestBody UpdatePermissionRequest request
