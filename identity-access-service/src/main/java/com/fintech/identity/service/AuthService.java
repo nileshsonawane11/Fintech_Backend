@@ -27,6 +27,8 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Locale;
+import java.util.Optional;
+import java.util.UUID;
 
 @Service
 public class AuthService {
@@ -376,6 +378,111 @@ public class AuthService {
                     "Unable to hash refresh token.", ex
             );
         }
+    }
+
+    @Transactional(readOnly = true)
+    public IdentityMatchResponse matchIdentity(IdentityMatchRequest request) {
+        String mobile = request.mobileNumber().trim();
+        String email = request.email().trim().toLowerCase(Locale.ROOT);
+
+        Optional<Customer> byMobile = customerRepository.findByMobileNumber(mobile);
+        Optional<Customer> byEmail = customerRepository.findByEmail(email);
+
+        if (byMobile.isPresent() && byEmail.isPresent()) {
+            Customer mCust = byMobile.get();
+            Customer eCust = byEmail.get();
+            if (!mCust.getId().equals(eCust.getId())) {
+                throw new ApiException(
+                        HttpStatus.CONFLICT,
+                        "IDENTITY_CONFLICT",
+                        "The submitted mobile number and email address belong to different customer accounts."
+                );
+            }
+            return IdentityMatchResponse.matched(
+                    mCust.getId(),
+                    mCust.getFullName(),
+                    mCust.getMobileNumber(),
+                    mCust.getEmail(),
+                    mCust.getStatus().name()
+            );
+        }
+
+        if (byMobile.isPresent()) {
+            Customer cust = byMobile.get();
+            return IdentityMatchResponse.matched(
+                    cust.getId(),
+                    cust.getFullName(),
+                    cust.getMobileNumber(),
+                    cust.getEmail(),
+                    cust.getStatus().name()
+            );
+        }
+
+        if (byEmail.isPresent()) {
+            Customer cust = byEmail.get();
+            return IdentityMatchResponse.matched(
+                    cust.getId(),
+                    cust.getFullName(),
+                    cust.getMobileNumber(),
+                    cust.getEmail(),
+                    cust.getStatus().name()
+            );
+        }
+
+        return IdentityMatchResponse.noMatch();
+    }
+
+    @Transactional
+    public IdentityMatchResponse createApplicantIdentity(ApplicantIdentityRequest request) {
+        String mobile = request.mobileNumber().trim();
+        String email = request.email().trim().toLowerCase(Locale.ROOT);
+        String fullName = request.fullName().trim();
+
+        // 1. Check if identity already exists
+        IdentityMatchResponse existingMatch = matchIdentity(new IdentityMatchRequest(mobile, email));
+        if (existingMatch.matched()) {
+            return existingMatch;
+        }
+
+        // 2. Create customer with PENDING_VERIFICATION (no invented credentials, OTP verification preserved)
+        Customer customer = new Customer(
+                fullName,
+                mobile,
+                email,
+                passwordEncoder.encode("UNREGISTERED_APPLICANT_" + UUID.randomUUID()),
+                "APPLICANT_TERMS_V1",
+                false
+        );
+
+        Customer saved;
+        try {
+            saved = customerRepository.saveAndFlush(customer);
+        } catch (org.springframework.dao.DataIntegrityViolationException dive) {
+            // Re-match in case of concurrent insert
+            return matchIdentity(new IdentityMatchRequest(mobile, email));
+        }
+
+        if (customerProfileRepository != null) {
+            try {
+                customerProfileRepository.save(new CustomerProfile(saved.getId()));
+            } catch (Exception ignored) {}
+        }
+
+        if (roleRepository != null && userRoleRepository != null) {
+            try {
+                RoleEntity role = roleRepository.findByName("CUSTOMER")
+                        .orElseGet(() -> roleRepository.save(new RoleEntity("CUSTOMER", "Bank customer")));
+                userRoleRepository.save(new UserRole(saved.getId(), role.getId(), null));
+            } catch (Exception ignored) {}
+        }
+
+        return IdentityMatchResponse.matched(
+                saved.getId(),
+                saved.getFullName(),
+                saved.getMobileNumber(),
+                saved.getEmail(),
+                saved.getStatus().name()
+        );
     }
 
     private ApiException invalidCredentials() {

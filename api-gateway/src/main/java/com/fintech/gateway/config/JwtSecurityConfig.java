@@ -78,6 +78,8 @@ public class JwtSecurityConfig {
                         .pathMatchers(
                                 "/api/v1/auth/**",
                                 "/api/v1/account-products",
+                                "/api/v1/accounts/unregistered",
+                                "/api/v1/accounts/apply-unregistered",
                                 "/api/v1/customers/"
                         ).permitAll()
 

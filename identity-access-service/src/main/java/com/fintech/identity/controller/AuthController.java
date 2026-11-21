@@ -1,6 +1,7 @@
 package com.fintech.identity.controller;
 
 import com.fintech.identity.dto.request.*;
+import com.fintech.identity.dto.response.IdentityMatchResponse;
 import com.fintech.identity.dto.response.LoginResponse;
 import com.fintech.identity.dto.response.OtpVerificationResponse;
 import com.fintech.identity.dto.response.RegisterResponse;
@@ -98,5 +99,30 @@ public class AuthController {
         return ResponseEntity.ok(
                 refreshTokenService.rotate(request.refreshToken())
         );
+    }
+
+    @PostMapping("/identities/match")
+    @Operation(summary = "Match Identity", description = "Check if an identity exists by mobile number or email according to credential matching rules")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Match query completed"),
+            @ApiResponse(responseCode = "409", description = "Mobile number and email belong to different identities")
+    })
+    public ResponseEntity<IdentityMatchResponse> matchIdentity(
+            @Valid @RequestBody IdentityMatchRequest request
+    ) {
+        return ResponseEntity.ok(authService.matchIdentity(request));
+    }
+
+    @PostMapping("/identities/applicant")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(summary = "Create Applicant Identity", description = "Create an uncredentialed applicant identity with pending verification status")
+    @ApiResponses({
+            @ApiResponse(responseCode = "201", description = "Applicant identity created successfully"),
+            @ApiResponse(responseCode = "409", description = "Mobile or email conflict")
+    })
+    public ResponseEntity<IdentityMatchResponse> createApplicantIdentity(
+            @Valid @RequestBody ApplicantIdentityRequest request
+    ) {
+        return ResponseEntity.status(HttpStatus.CREATED).body(authService.createApplicantIdentity(request));
     }
 }

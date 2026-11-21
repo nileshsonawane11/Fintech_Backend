@@ -1,10 +1,13 @@
 package com.fintech.identity.service;
 
 import com.fintech.events.CustomerRegisteredEvent;
+import com.fintech.identity.dto.request.ApplicantIdentityRequest;
+import com.fintech.identity.dto.request.IdentityMatchRequest;
 import com.fintech.identity.dto.request.LoginRequest;
 import com.fintech.identity.dto.request.RegisterRequest;
 import com.fintech.identity.dto.request.VerifyMfaRequest;
 import com.fintech.identity.dto.request.VerifyOtpRequest;
+import com.fintech.identity.dto.response.IdentityMatchResponse;
 import com.fintech.identity.dto.response.OtpVerificationResponse;
 import com.fintech.identity.dto.response.RegisterResponse;
 import com.fintech.identity.dto.response.TokenResponse;
@@ -79,6 +82,7 @@ class AuthServiceTest {
     @DisplayName("Customer registration assigns CUSTOMER role and creates customer profile")
     void testCustomerRegistrationAssignsRoleAndProfile() {
         RegisterRequest request = new RegisterRequest(
+                "Test User",
                 "9876543210",
                 "test@example.com",
                 "Password123!",
@@ -115,7 +119,7 @@ class AuthServiceTest {
     @Test
     @DisplayName("Customer login successfully generates JWT and refresh token")
     void testCustomerLogin() {
-        LoginRequest request = new LoginRequest("test@example.com", "Password123!");
+        LoginRequest request = new LoginRequest("test@example.com", "Password123!", Role.CUSTOMER);
 
         Customer customer = new Customer(
                 "9876543210",
@@ -126,7 +130,7 @@ class AuthServiceTest {
         );
         customer.activate();
 
-        when(customerRepository.findByEmail("test@example.com")).thenReturn(Optional.of(customer));
+        when(customerRepository.findByEmailAndRole("test@example.com", Role.CUSTOMER)).thenReturn(Optional.of(customer));
         when(passwordEncoder.matches("Password123!", "hashed_pass")).thenReturn(true);
         when(jwtService.createAccessToken(customer)).thenReturn("mock_jwt_access_token");
         when(jwtService.getAccessTokenSeconds()).thenReturn(1800L);
@@ -222,5 +226,157 @@ class AuthServiceTest {
         assertNotNull(tokenResponse);
         assertEquals("access_token_mfa", tokenResponse.accessToken());
         verify(refreshTokenRepository).save(any(RefreshToken.class));
+    }
+
+    @Test
+    @DisplayName("matchIdentity returns matched when both mobile and email match same customer")
+    void testMatchIdentity_BothMatchSameIdentity() {
+        UUID customerId = UUID.randomUUID();
+        Customer customer = new Customer("9876543210", "test@example.com", "pass", "TERMS", true);
+        try {
+            var field = Customer.class.getDeclaredField("id");
+            field.setAccessible(true);
+            field.set(customer, customerId);
+        } catch (Exception ignored) {}
+
+        when(customerRepository.findByMobileNumber("9876543210")).thenReturn(Optional.of(customer));
+        when(customerRepository.findByEmail("test@example.com")).thenReturn(Optional.of(customer));
+
+        IdentityMatchResponse response = authService.matchIdentity(new IdentityMatchRequest("9876543210", "test@example.com"));
+
+        assertNotNull(response);
+        assertTrue(response.matched());
+        assertEquals(customerId, response.identityId());
+        assertEquals("9876543210", response.mobileNumber());
+        assertEquals("test@example.com", response.email());
+    }
+
+    @Test
+    @DisplayName("matchIdentity returns matched when only mobile matches")
+    void testMatchIdentity_OnlyMobileMatches() {
+        UUID customerId = UUID.randomUUID();
+        Customer customer = new Customer("9876543210", "old@example.com", "pass", "TERMS", true);
+        try {
+            var field = Customer.class.getDeclaredField("id");
+            field.setAccessible(true);
+            field.set(customer, customerId);
+        } catch (Exception ignored) {}
+
+        when(customerRepository.findByMobileNumber("9876543210")).thenReturn(Optional.of(customer));
+        when(customerRepository.findByEmail("new@example.com")).thenReturn(Optional.empty());
+
+        IdentityMatchResponse response = authService.matchIdentity(new IdentityMatchRequest("9876543210", "new@example.com"));
+
+        assertNotNull(response);
+        assertTrue(response.matched());
+        assertEquals(customerId, response.identityId());
+    }
+
+    @Test
+    @DisplayName("matchIdentity returns matched when only email matches")
+    void testMatchIdentity_OnlyEmailMatches() {
+        UUID customerId = UUID.randomUUID();
+        Customer customer = new Customer("9999999999", "test@example.com", "pass", "TERMS", true);
+        try {
+            var field = Customer.class.getDeclaredField("id");
+            field.setAccessible(true);
+            field.set(customer, customerId);
+        } catch (Exception ignored) {}
+
+        when(customerRepository.findByMobileNumber("9876543210")).thenReturn(Optional.empty());
+        when(customerRepository.findByEmail("test@example.com")).thenReturn(Optional.of(customer));
+
+        IdentityMatchResponse response = authService.matchIdentity(new IdentityMatchRequest("9876543210", "test@example.com"));
+
+        assertNotNull(response);
+        assertTrue(response.matched());
+        assertEquals(customerId, response.identityId());
+    }
+
+    @Test
+    @DisplayName("matchIdentity returns no match when neither mobile nor email match")
+    void testMatchIdentity_NeitherMatches() {
+        when(customerRepository.findByMobileNumber("9876543210")).thenReturn(Optional.empty());
+        when(customerRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
+
+        IdentityMatchResponse response = authService.matchIdentity(new IdentityMatchRequest("9876543210", "test@example.com"));
+
+        assertNotNull(response);
+        assertFalse(response.matched());
+        assertNull(response.identityId());
+    }
+
+    @Test
+    @DisplayName("matchIdentity throws 409 Conflict when mobile and email match different identities")
+    void testMatchIdentity_ConflictDifferentIdentities_ThrowsException() {
+        UUID customerId1 = UUID.randomUUID();
+        UUID customerId2 = UUID.randomUUID();
+
+        Customer customer1 = new Customer("9876543210", "cust1@example.com", "pass", "TERMS", true);
+        Customer customer2 = new Customer("9123456780", "cust2@example.com", "pass", "TERMS", true);
+        try {
+            var field = Customer.class.getDeclaredField("id");
+            field.setAccessible(true);
+            field.set(customer1, customerId1);
+            field.set(customer2, customerId2);
+        } catch (Exception ignored) {}
+
+        when(customerRepository.findByMobileNumber("9876543210")).thenReturn(Optional.of(customer1));
+        when(customerRepository.findByEmail("cust2@example.com")).thenReturn(Optional.of(customer2));
+
+        ApiException ex = assertThrows(ApiException.class, () ->
+                authService.matchIdentity(new IdentityMatchRequest("9876543210", "cust2@example.com")));
+
+        assertEquals(HttpStatus.CONFLICT, ex.getStatus());
+        assertEquals("IDENTITY_CONFLICT", ex.getCode());
+    }
+
+    @Test
+    @DisplayName("createApplicantIdentity creates pending verification identity when applicant does not exist")
+    void testCreateApplicantIdentity_WhenNotExists_CreatesNewCustomerPendingVerification() {
+        when(customerRepository.findByMobileNumber("9876543210")).thenReturn(Optional.empty());
+        when(customerRepository.findByEmail("test@example.com")).thenReturn(Optional.empty());
+
+        when(passwordEncoder.encode(any())).thenReturn("hashed_dummy");
+        when(customerRepository.saveAndFlush(any(Customer.class))).thenAnswer(inv -> {
+            Customer c = inv.getArgument(0);
+            try {
+                var field = Customer.class.getDeclaredField("id");
+                field.setAccessible(true);
+                field.set(c, UUID.randomUUID());
+            } catch (Exception ignored) {}
+            return c;
+        });
+
+        ApplicantIdentityRequest request = new ApplicantIdentityRequest("Pooja Patel", "9876543210", "test@example.com");
+        IdentityMatchResponse response = authService.createApplicantIdentity(request);
+
+        assertNotNull(response);
+        assertTrue(response.matched());
+        assertEquals("PENDING_VERIFICATION", response.status());
+        verify(customerRepository).saveAndFlush(any(Customer.class));
+    }
+
+    @Test
+    @DisplayName("createApplicantIdentity reuses existing identity if already registered")
+    void testCreateApplicantIdentity_WhenAlreadyExists_ReusesExisting() {
+        UUID existingId = UUID.randomUUID();
+        Customer existing = new Customer("9876543210", "test@example.com", "pass", "TERMS", true);
+        try {
+            var field = Customer.class.getDeclaredField("id");
+            field.setAccessible(true);
+            field.set(existing, existingId);
+        } catch (Exception ignored) {}
+
+        when(customerRepository.findByMobileNumber("9876543210")).thenReturn(Optional.of(existing));
+        when(customerRepository.findByEmail("test@example.com")).thenReturn(Optional.of(existing));
+
+        ApplicantIdentityRequest request = new ApplicantIdentityRequest("Pooja Patel", "9876543210", "test@example.com");
+        IdentityMatchResponse response = authService.createApplicantIdentity(request);
+
+        assertNotNull(response);
+        assertTrue(response.matched());
+        assertEquals(existingId, response.identityId());
+        verify(customerRepository, never()).saveAndFlush(any());
     }
 }

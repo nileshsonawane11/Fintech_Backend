@@ -49,4 +49,29 @@ public record AccountProductResponse(
         // Interest rate configuration
         List<Map<String, Object>> rateSlabs
 
-) {}
+) {
+    public AccountProductResponse(
+            String productCode,
+            String productName,
+            String description,
+            AccountType accountType,
+            String currency,
+            BigDecimal minimumBalance,
+            BigDecimal minimumInitialFunding,
+            BigDecimal interestRate,
+            BigDecimal dailyTransferLimit,
+            BigDecimal monthlyTransferLimit,
+            Integer minimumAge,
+            Integer maximumAge,
+            boolean requiresKyc,
+            boolean active
+    ) {
+        this(
+                productCode, productName, description, accountType, currency,
+                minimumBalance, minimumInitialFunding, interestRate,
+                dailyTransferLimit, monthlyTransferLimit, minimumAge, maximumAge,
+                requiresKyc, active, null, null, null, null, null,
+                null, null, null, null, null, null, null, null, null
+        );
+    }
+}

@@ -1,6 +1,7 @@
 package com.fintech.account.controller;
 
 import com.fintech.account.dto.request.AccountApplicationRequest;
+import com.fintech.account.dto.request.UnregisteredAccountApplicationRequest;
 import com.fintech.account.dto.response.AccountApplicationResponse;
 import com.fintech.account.dto.response.CursorPagedResponse;
 import com.fintech.account.enums.ApplicationStatus;
@@ -42,6 +43,27 @@ public class AccountApplicationController {
         String identitySubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedSubject();
         AccountApplicationResponse response = applicationService.apply(identitySubject, idempotencyKey, request);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+    }
+
+    @PostMapping("/unregistered")
+    @Operation(summary = "Apply for Account (Unregistered Applicant)", description = "Submit an account application for an unregistered applicant with automatic customer and identity resolution")
+    public ResponseEntity<AccountApplicationResponse> applyUnregistered(
+            @Parameter(description = "Idempotency key UUID", required = false)
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody UnregisteredAccountApplicationRequest request) {
+
+        AccountApplicationResponse response = applicationService.applyUnregistered(idempotencyKey, request);
+        return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
+    }
+
+    @PostMapping("/apply-unregistered")
+    @Operation(summary = "Apply for Account (Unregistered Applicant Alias)", description = "Submit an account application for an unregistered applicant with automatic customer and identity resolution")
+    public ResponseEntity<AccountApplicationResponse> applyUnregisteredAlias(
+            @Parameter(description = "Idempotency key UUID", required = false)
+            @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
+            @Valid @RequestBody UnregisteredAccountApplicationRequest request) {
+
+        return applyUnregistered(idempotencyKey, request);
     }
 
     @GetMapping("/applications")

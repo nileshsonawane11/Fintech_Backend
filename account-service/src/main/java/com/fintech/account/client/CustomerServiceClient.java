@@ -82,6 +82,27 @@ public class CustomerServiceClient {
         return profile;
     }
 
+    public CustomerProfileDto provisionApplicantProfile(ApplicantProfileRequest request) {
+        log.info("Provisioning applicant profile in Customer Service for identity: {}", request.identitySubject());
+
+        try {
+            return restClient.post()
+                    .uri("/api/v1/customers/applicant")
+                    .body(request)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
+                        log.warn("Customer Service returned client error during profile provisioning: status={}", res.getStatusCode());
+                        throw AccountException.unprocessable("CUSTOMER_PROVISIONING_FAILED", "Failed to provision customer profile in Customer Service.");
+                    })
+                    .body(CustomerProfileDto.class);
+        } catch (AccountException ae) {
+            throw ae;
+        } catch (Exception ex) {
+            log.error("Failed to connect to Customer Service during provisioning: {}", ex.getMessage());
+            throw AccountException.serviceUnavailable("Customer Service is currently unavailable for profile provisioning.");
+        }
+    }
+
     private String extractBearerToken() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth != null && auth.getPrincipal() instanceof Jwt jwt) {
