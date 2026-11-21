@@ -4,7 +4,9 @@ import com.fintech.account.dto.response.BalanceResponse;
 import com.fintech.account.exception.AccountException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.RestClient;
 
@@ -19,11 +21,20 @@ public class LedgerServiceClientImpl implements LedgerServiceClient {
     private final RestClient restClient;
     private final boolean mockLedgerEnabled;
 
+    public LedgerServiceClientImpl(String ledgerServiceUrl, boolean mockLedgerEnabled) {
+        this(RestClient.builder(), ledgerServiceUrl, mockLedgerEnabled);
+    }
+
+    @Autowired
     public LedgerServiceClientImpl(
-            @Value("${app.services.ledger-service.url:http://localhost:8083}") String ledgerServiceUrl,
+            @LoadBalanced RestClient.Builder restClientBuilder,
+            @Value("${app.services.ledger-service.service-id:${app.services.ledger-service.url:LEDGER-SERVICE}}") String ledgerServiceIdentifier,
             @Value("${app.services.ledger-service.mock-enabled:true}") boolean mockLedgerEnabled) {
-        this.restClient = RestClient.builder()
-                .baseUrl(ledgerServiceUrl)
+        String baseUrl = ledgerServiceIdentifier.startsWith("http://") || ledgerServiceIdentifier.startsWith("https://")
+                ? ledgerServiceIdentifier
+                : "http://" + ledgerServiceIdentifier;
+        this.restClient = restClientBuilder
+                .baseUrl(baseUrl)
                 .build();
         this.mockLedgerEnabled = mockLedgerEnabled;
     }

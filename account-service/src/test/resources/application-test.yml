@@ -6,7 +6,7 @@ spring:
     name: ACCOUNT-SERVICE
 
   datasource:
-    url: jdbc:h2:mem:fintech_account;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DEFAULT_NULL_ORDERINGS=HIGH;DB_CLOSE_DELAY=-1
+    url: jdbc:h2:mem:fintech_account;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
     driver-class-name: org.h2.Driver
     username: sa
     password: ""
@@ -17,6 +17,7 @@ spring:
       ddl-auto: create-drop
     properties:
       hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
         format_sql: false
 
   flyway:
@@ -51,6 +52,11 @@ app:
       nominee-events: account.nominee-events.v1
   services:
     customer-service:
+      service-id: CUSTOMER-SERVICE
       url: http://localhost:8084
+    identity-service:
+      service-id: IDENTITY-SERVICE
+      url: http://localhost:8081
     ledger-service:
+      service-id: LEDGER-SERVICE
       url: http://localhost:8083

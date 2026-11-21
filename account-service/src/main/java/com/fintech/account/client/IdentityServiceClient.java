@@ -3,7 +3,9 @@ package com.fintech.account.client;
 import com.fintech.account.exception.AccountException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.stereotype.Component;
 import org.springframework.web.client.HttpClientErrorException;
@@ -16,9 +18,13 @@ public class IdentityServiceClient {
 
     private final RestClient restClient;
 
-    public IdentityServiceClient(@Value("${app.services.identity-service.url:http://localhost:8081}") String identityServiceUrl) {
-        this.restClient = RestClient.builder()
-                .baseUrl(identityServiceUrl)
+    public IdentityServiceClient(
+            @LoadBalanced RestClient.Builder restClientBuilder,
+            @Value("${app.services.identity-service.service-id:IDENTITY-SERVICE}")
+            String identityServiceId) {
+
+        this.restClient = restClientBuilder
+                .baseUrl("http://" + identityServiceId)
                 .build();
     }
 

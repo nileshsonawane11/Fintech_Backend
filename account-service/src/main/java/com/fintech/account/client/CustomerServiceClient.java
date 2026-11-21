@@ -3,7 +3,9 @@ package com.fintech.account.client;
 import com.fintech.account.exception.AccountException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,9 +20,13 @@ public class CustomerServiceClient {
 
     private final RestClient restClient;
 
-    public CustomerServiceClient(@Value("${app.services.customer-service.url:http://localhost:8084}") String customerServiceUrl) {
-        this.restClient = RestClient.builder()
-                .baseUrl(customerServiceUrl)
+    public CustomerServiceClient(
+            @LoadBalanced RestClient.Builder restClientBuilder,
+            @Value("${app.services.customer-service.service-id:CUSTOMER-SERVICE}")
+            String customerServiceId) {
+
+        this.restClient = restClientBuilder
+                .baseUrl("http://" + customerServiceId)
                 .build();
     }
 

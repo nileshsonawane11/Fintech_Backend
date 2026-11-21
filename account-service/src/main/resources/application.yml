@@ -62,11 +62,11 @@ app:
       notification-events: notification-events
   services:
     customer-service:
-      url: ${CUSTOMER_SERVICE_URL:http://localhost:8084}
+      service-id: ${CUSTOMER_SERVICE_ID:CUSTOMER-SERVICE}
     identity-service:
-      url: ${IDENTITY_SERVICE_URL:http://localhost:8081}
+      service-id: ${IDENTITY_SERVICE_ID:IDENTITY-SERVICE}
     ledger-service:
-      url: ${LEDGER_SERVICE_URL:http://localhost:8083}
+      service-id: ${LEDGER_SERVICE_ID:LEDGER-SERVICE}
 
 management:
   endpoints:
