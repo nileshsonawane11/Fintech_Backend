@@ -70,7 +70,7 @@ public class KycApplicationController {
     @Operation(summary = "Get Specific KYC Application", description = "Retrieve a specific KYC application case by its unique UUID")
     public ResponseEntity<KycApplicationResponse> getKycApplication(
             @Parameter(hidden = true) Principal principal,
-            @Parameter(description = "KYC Case UUID") @PathVariable UUID kycCaseId) {
+            @Parameter(description = "KYC Case UUID") @PathVariable String kycCaseId) {
 
         String identitySubject = principal.getName();
         KycApplicationResponse response = kycApplicationService.getApplicationById(identitySubject, kycCaseId);
@@ -85,7 +85,7 @@ public class KycApplicationController {
     })
     public ResponseEntity<Void> cancelKycApplication(
             @Parameter(hidden = true) Principal principal,
-            @Parameter(description = "KYC Case UUID") @PathVariable UUID kycCaseId) {
+            @Parameter(description = "KYC Case UUID") @PathVariable String kycCaseId) {
 
         String identitySubject = principal.getName();
         kycApplicationService.cancelApplication(identitySubject, kycCaseId);

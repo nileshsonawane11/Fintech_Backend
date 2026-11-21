@@ -1,5 +1,7 @@
 package com.fintech.customer.controller;
 
+import com.fintech.customer.dto.request.DirectDocumentUploadRequest;
+import com.fintech.customer.model.document.DocumentType;
 import com.fintech.customer.service.KycDocumentService;
 import com.fintech.customer.dto.request.DocumentUploadRequest;
 import com.fintech.customer.dto.response.DocumentResponse;
@@ -16,6 +18,7 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.nio.file.Path;
 import jakarta.validation.Valid;
@@ -25,6 +28,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.annotation.AuthenticationPrincipal;
 import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
 
 import java.util.List;
 import java.util.Map;
@@ -68,17 +72,33 @@ public class KycDocumentController {
         );
     }
 
-    @PostMapping("/upload")
+    @PostMapping(value = "/upload", consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     @Operation(summary = "Direct Document Upload", description = "Upload document payload directly in a single multipart-compatible request")
     public DocumentResponse processDirectUpload(
-            @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
-            @Valid @RequestBody DocumentUploadRequest request,
-            @RequestBody byte[] content
-    ){
+            @AuthenticationPrincipal Jwt jwt,
+            @RequestParam("documentType") DocumentType documentType,
+            @RequestParam("documentName") String documentName,
+            @RequestPart("file") MultipartFile file
+    ) throws IOException {
+
+        DirectDocumentUploadRequest request = new DirectDocumentUploadRequest();
+
+        request.setDocumentType(documentType);
+        request.setFileName(documentName);
+        request.setContentType(file.getContentType());
+        request.setContentSizeBytes(file.getSize());
+
+        DocumentUploadRequest command = new DocumentUploadRequest(
+                request.getDocumentType(),
+                request.getFileName(),
+                request.getContentType(),
+                request.getContentSizeBytes()
+        );
+
         return documentService.processDirectUpload(
                 jwt.getSubject(),
-                request,
-                content
+                command,
+                file.getBytes()
         );
     }
 
@@ -134,7 +154,8 @@ public class KycDocumentController {
             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
             @Parameter(description = "Document reference UUID") @PathVariable("documentReferenceId") String documentReferenceId,
             @RequestHeader(HttpHeaders.CONTENT_TYPE) String contentType,
-            @RequestBody byte[] content) {
+            @RequestBody byte[] content
+    ) {
 
         documentService.uploadContent(
                 jwt.getSubject(),
