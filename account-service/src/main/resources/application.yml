@@ -63,6 +63,8 @@ app:
   services:
     customer-service:
       url: ${CUSTOMER_SERVICE_URL:http://localhost:8084}
+    identity-service:
+      url: ${IDENTITY_SERVICE_URL:http://localhost:8081}
     ledger-service:
       url: ${LEDGER_SERVICE_URL:http://localhost:8083}
 

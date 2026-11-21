@@ -28,9 +28,7 @@ public class CustomerProvisioningService {
         CustomerProfile profile = new CustomerProfile();
 
         profile.setId(UUID.randomUUID());
-        profile.setCustomerId(
-                UUID.randomUUID().toString().replace("-", "")
-        );
+        profile.setCustomerId("CUS-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
         profile.setFullName(payload.get("fullname").toString());
         profile.setEmailMasked(payload.get("email").toString());
         profile.setMobileMasked(payload.get("mobile").toString());

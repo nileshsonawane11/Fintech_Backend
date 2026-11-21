@@ -2,14 +2,18 @@ package com.fintech.account.service;
 
 import com.fintech.account.client.CustomerProfileDto;
 import com.fintech.account.client.CustomerServiceClient;
+import com.fintech.account.client.IdentityMatchResponse;
+import com.fintech.account.client.IdentityServiceClient;
 import com.fintech.account.dto.request.AccountApplicationRequest;
 import com.fintech.account.dto.request.ApproveApplicationRequest;
 import com.fintech.account.dto.request.NomineeRequest;
 import com.fintech.account.dto.request.RejectApplicationRequest;
+import com.fintech.account.dto.request.UnregisteredAccountApplicationRequest;
 import com.fintech.account.dto.response.AccountApplicationResponse;
 import com.fintech.account.dto.response.ApplicationApprovalResponse;
 import com.fintech.account.entity.Account;
 import com.fintech.account.entity.AccountApplication;
+import com.fintech.account.entity.AccountNominee;
 import com.fintech.account.entity.AccountProduct;
 import com.fintech.account.enums.AccountStatus;
 import com.fintech.account.enums.AccountType;
@@ -17,8 +21,10 @@ import com.fintech.account.enums.ApplicationStatus;
 import com.fintech.account.enums.NomineeRelationship;
 import com.fintech.account.exception.AccountException;
 import com.fintech.account.repository.AccountApplicationRepository;
+import com.fintech.account.repository.AccountNomineeRepository;
 import com.fintech.account.repository.AccountProductRepository;
 import com.fintech.account.repository.AccountRepository;
+import com.fintech.account.security.EncryptionUtil;
 import com.fintech.account.util.AuditLogger;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
@@ -66,6 +72,15 @@ class AccountApplicationServiceTest {
 
     @Mock
     private AuditLogger auditLogger;
+
+    @Mock
+    private IdentityServiceClient identityServiceClient;
+
+    @Mock
+    private AccountNomineeRepository nomineeRepository;
+
+    @Mock
+    private EncryptionUtil encryptionUtil;
 
     @InjectMocks
     private AccountApplicationService applicationService;
@@ -252,5 +267,153 @@ class AccountApplicationServiceTest {
         when(applicationRepository.findByApplicationNumber("ACC-APP-900123")).thenReturn(Optional.of(application));
 
         assertThrows(AccountException.class, () -> applicationService.cancelMyApplication("sub-123", "ACC-APP-900123"));
+    }
+
+    @Test
+    void applyUnregistered_whenNewApplicant_shouldCreateIdentityProfileAndApplication() {
+        UnregisteredAccountApplicationRequest request = new UnregisteredAccountApplicationRequest(
+                "SAVINGS_REGULAR",
+                new BigDecimal("25000.00"),
+                "Rahul Verma",
+                LocalDate.of(1995, 5, 15),
+                "MALE",
+                "9876543210",
+                "rahul.verma@example.com",
+                "Flat 101, MG Road",
+                "Near Metro",
+                "Bengaluru",
+                "Karnataka",
+                "560001",
+                "ABCDE1234F",
+                "123456789012",
+                new NomineeRequest("Pooja Verma", NomineeRelationship.SPOUSE, LocalDate.of(1996, 6, 20), "9876543211", 100)
+        );
+
+        UUID newIdentityId = UUID.randomUUID();
+        when(identityServiceClient.matchIdentity(any(), any()))
+                .thenReturn(new IdentityMatchResponse(false, null, null, null, null, null));
+        when(identityServiceClient.createApplicantIdentity(eq("Rahul Verma"), eq("9876543210"), eq("rahul.verma@example.com")))
+                .thenReturn(new IdentityMatchResponse(true, newIdentityId, "Rahul Verma", "9876543210", "rahul.verma@example.com", "PENDING_VERIFICATION"));
+        when(customerServiceClient.provisionApplicantProfile(any())).thenReturn(testCustomer);
+        when(productRepository.findByProductCode("SAVINGS_REGULAR")).thenReturn(Optional.of(testProduct));
+        when(applicationRepository.existsByIdentitySubjectAndProductCodeAndApplicationStatusIn(eq(newIdentityId.toString()), eq("SAVINGS_REGULAR"), any()))
+                .thenReturn(false);
+        when(numberGenerator.generateApplicationNumber()).thenReturn("ACC-APP-888001");
+        when(applicationRepository.save(any(AccountApplication.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(encryptionUtil.encrypt(any())).thenReturn("encrypted_mobile");
+
+        AccountApplicationResponse response = applicationService.applyUnregistered(null, request);
+
+        assertNotNull(response);
+        assertEquals("ACC-APP-888001", response.accountApplicationId());
+        assertEquals("CUS-100234", response.customerId());
+        assertEquals(ApplicationStatus.PENDING_APPROVAL, response.status());
+
+        verify(identityServiceClient).createApplicantIdentity("Rahul Verma", "9876543210", "rahul.verma@example.com");
+        verify(customerServiceClient).provisionApplicantProfile(any());
+        verify(nomineeRepository).save(any(AccountNominee.class));
+        verify(outboxEventService).enqueueEvent(eq("ACC-APP-888001"), eq("AccountApplication"), eq("AccountApplicationSubmittedEvent"), any());
+    }
+
+    @Test
+    void applyUnregistered_whenExistingApplicant_shouldReuseIdentityWithoutCreatingNew() {
+        UnregisteredAccountApplicationRequest request = new UnregisteredAccountApplicationRequest(
+                "SAVINGS_REGULAR",
+                new BigDecimal("25000.00"),
+                "Rahul Verma",
+                LocalDate.of(1995, 5, 15),
+                "MALE",
+                "9876543210",
+                "rahul.verma@example.com",
+                "Flat 101, MG Road",
+                "Near Metro",
+                "Bengaluru",
+                "Karnataka",
+                "560001",
+                "ABCDE1234F",
+                "123456789012",
+                null
+        );
+
+        UUID existingId = UUID.randomUUID();
+        when(identityServiceClient.matchIdentity(any(), any()))
+                .thenReturn(new IdentityMatchResponse(true, existingId, "Rahul Verma", "9876543210", "rahul.verma@example.com", "ACTIVE"));
+        when(customerServiceClient.provisionApplicantProfile(any())).thenReturn(testCustomer);
+        when(productRepository.findByProductCode("SAVINGS_REGULAR")).thenReturn(Optional.of(testProduct));
+        when(applicationRepository.existsByIdentitySubjectAndProductCodeAndApplicationStatusIn(eq(existingId.toString()), eq("SAVINGS_REGULAR"), any()))
+                .thenReturn(false);
+        when(numberGenerator.generateApplicationNumber()).thenReturn("ACC-APP-888002");
+        when(applicationRepository.save(any(AccountApplication.class))).thenAnswer(inv -> inv.getArgument(0));
+
+        AccountApplicationResponse response = applicationService.applyUnregistered(null, request);
+
+        assertNotNull(response);
+        assertEquals("ACC-APP-888002", response.accountApplicationId());
+        verify(identityServiceClient, never()).createApplicantIdentity(any(), any(), any());
+        verify(customerServiceClient).provisionApplicantProfile(any());
+    }
+
+    @Test
+    void applyUnregistered_whenIdentityConflict_shouldPropagateConflictException() {
+        UnregisteredAccountApplicationRequest request = new UnregisteredAccountApplicationRequest(
+                "SAVINGS_REGULAR",
+                new BigDecimal("25000.00"),
+                "Rahul Verma",
+                LocalDate.of(1995, 5, 15),
+                "MALE",
+                "9876543210",
+                "rahul.verma@example.com",
+                "Flat 101, MG Road",
+                "Near Metro",
+                "Bengaluru",
+                "Karnataka",
+                "560001",
+                "ABCDE1234F",
+                "123456789012",
+                null
+        );
+
+        when(identityServiceClient.matchIdentity(any(), any()))
+                .thenThrow(AccountException.conflict("IDENTITY_CONFLICT", "Mobile and email belong to different identities"));
+
+        AccountException ex = assertThrows(AccountException.class,
+                () -> applicationService.applyUnregistered(null, request));
+
+        assertEquals("IDENTITY_CONFLICT", ex.getCode());
+        verify(customerServiceClient, never()).provisionApplicantProfile(any());
+    }
+
+    @Test
+    void applyUnregistered_whenDuplicateApplicationExists_shouldThrowConflict() {
+        UnregisteredAccountApplicationRequest request = new UnregisteredAccountApplicationRequest(
+                "SAVINGS_REGULAR",
+                new BigDecimal("25000.00"),
+                "Rahul Verma",
+                LocalDate.of(1995, 5, 15),
+                "MALE",
+                "9876543210",
+                "rahul.verma@example.com",
+                "Flat 101, MG Road",
+                "Near Metro",
+                "Bengaluru",
+                "Karnataka",
+                "560001",
+                "ABCDE1234F",
+                "123456789012",
+                null
+        );
+
+        UUID existingId = UUID.randomUUID();
+        when(identityServiceClient.matchIdentity(any(), any()))
+                .thenReturn(new IdentityMatchResponse(true, existingId, "Rahul Verma", "9876543210", "rahul.verma@example.com", "ACTIVE"));
+        when(customerServiceClient.provisionApplicantProfile(any())).thenReturn(testCustomer);
+        when(productRepository.findByProductCode("SAVINGS_REGULAR")).thenReturn(Optional.of(testProduct));
+        when(applicationRepository.existsByIdentitySubjectAndProductCodeAndApplicationStatusIn(eq(existingId.toString()), eq("SAVINGS_REGULAR"), any()))
+                .thenReturn(true);
+
+        AccountException ex = assertThrows(AccountException.class,
+                () -> applicationService.applyUnregistered(null, request));
+
+        assertEquals("DUPLICATE_APPLICATION", ex.getCode());
     }
 }
