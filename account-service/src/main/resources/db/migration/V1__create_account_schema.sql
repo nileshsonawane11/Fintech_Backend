@@ -23,8 +23,38 @@ CREATE TABLE IF NOT EXISTS account_products (
     updated_at TIMESTAMP WITH TIME ZONE NOT NULL,
     created_by VARCHAR(100) NOT NULL,
     updated_by VARCHAR(100) NOT NULL,
+    slug VARCHAR(100) NOT NULL UNIQUE,
+    category VARCHAR(50) NOT NULL,
+    tagline VARCHAR(255),
+    interest_note TEXT,
+    status VARCHAR(30) NOT NULL DEFAULT 'ACTIVE',
+    amb JSONB,
+    fees JSONB,
+    charges JSONB,
+    documents JSONB,
+    eligibility JSONB,
+    faqs JSONB,
+    features JSONB,
+    how_to_apply JSONB,
+    rate_slabs JSONB,
     version BIGINT NOT NULL DEFAULT 0
 );
+
+ALTER TABLE account_products
+    ADD COLUMN IF NOT EXISTS slug VARCHAR(100),
+    ADD COLUMN IF NOT EXISTS category VARCHAR(50),
+    ADD COLUMN IF NOT EXISTS tagline VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS interest_note TEXT,
+    ADD COLUMN IF NOT EXISTS status VARCHAR(30) DEFAULT 'ACTIVE',
+    ADD COLUMN IF NOT EXISTS amb JSONB,
+    ADD COLUMN IF NOT EXISTS fees JSONB,
+    ADD COLUMN IF NOT EXISTS charges JSONB,
+    ADD COLUMN IF NOT EXISTS documents JSONB,
+    ADD COLUMN IF NOT EXISTS eligibility JSONB,
+    ADD COLUMN IF NOT EXISTS faqs JSONB,
+    ADD COLUMN IF NOT EXISTS features JSONB,
+    ADD COLUMN IF NOT EXISTS how_to_apply JSONB,
+    ADD COLUMN IF NOT EXISTS rate_slabs JSONB;
 
 CREATE INDEX idx_account_products_type_active ON account_products (account_type, active);
 
