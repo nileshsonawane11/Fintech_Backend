@@ -34,6 +34,7 @@ spring:
     locations: classpath:db/migration
     baseline-on-migrate: true
     validate-on-migrate: true
+    create-schemas: true
 
   jackson:
     time-zone: UTC
