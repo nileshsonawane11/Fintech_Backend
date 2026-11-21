@@ -107,13 +107,13 @@ public class KycApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public KycApplicationResponse getApplicationById(String identitySubject, UUID kycCaseId) {
+    public KycApplicationResponse getApplicationById(String identitySubject, String kycCaseId) {
         KycCase kycCase = getKycCaseAndVerifyOwnership(identitySubject, kycCaseId);
         return toResponse(kycCase);
     }
 
     @Transactional
-    public void cancelApplication(String identitySubject, UUID kycCaseId) {
+    public void cancelApplication(String identitySubject, String kycCaseId) {
         KycCase kycCase = getKycCaseAndVerifyOwnership(identitySubject, kycCaseId);
 
         if (kycCase.getStatus() != KycStatus.UNDER_REVIEW && kycCase.getStatus() != KycStatus.SUBMITTED) {
@@ -140,9 +140,9 @@ public class KycApplicationService {
                 ));
     }
 
-    private KycCase getKycCaseAndVerifyOwnership(String identitySubject, UUID kycCaseId) {
+    private KycCase getKycCaseAndVerifyOwnership(String identitySubject, String kycCaseId) {
         // Since KycCase now has a String 'kycCaseId' column, you can look it up directly as a String
-        return kycCaseRepository.findByIdAndCustomerProfile_IdentitySubject(kycCaseId, identitySubject)
+        return kycCaseRepository.findByKycCaseIdAndCustomerProfile_IdentitySubject(kycCaseId, identitySubject)
                 .orElseThrow(() -> new ApiException(
                         HttpStatus.NOT_FOUND,
                         "KYC_NOT_FOUND",
