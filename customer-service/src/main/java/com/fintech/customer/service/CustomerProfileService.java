@@ -62,9 +62,9 @@ public class CustomerProfileService {
                 profile.getCustomerId(),
                 profile.getFullName(),
                 profile.getDateOfBirth(),
-                null, // Populate by decrypting mobileNumberEncrypted.
-                null, // Populate by decrypting emailEncrypted.
-                null, // Prefer a masked PAN, not the full PAN.
+                profile.getMobileMasked(), // Populate by decrypting mobileNumberEncrypted.
+                profile.getEmailMasked(), // Populate by decrypting emailEncrypted.
+                profile.getPanMasked(), // Prefer a masked PAN, not the full PAN.
                 profile.getKycStatus(),
                 profile.getRiskCategory(),
                 profile.getCreatedAt()

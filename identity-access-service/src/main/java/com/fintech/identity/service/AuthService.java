@@ -119,6 +119,9 @@ public class AuthService {
         applicationEventPublisher.publishEvent(
                 new CustomerRegisteredEvent(
                         saved.getId(),
+                        saved.getFullName(),
+                        saved.getEmail(),
+                        saved.getMobileNumber(),
                         Instant.now()
                 )
         );
