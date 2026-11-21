@@ -13,6 +13,9 @@ import org.springframework.http.ProblemDetail;
 import org.springframework.http.ResponseEntity;
 
 import org.springframework.http.converter.HttpMessageNotReadableException;
+import org.springframework.security.access.AccessDeniedException;
+import org.springframework.security.authorization.AuthorizationDeniedException;
+import org.springframework.security.core.AuthenticationException;
 import org.springframework.web.HttpRequestMethodNotSupportedException;
 import org.springframework.web.bind.MethodArgumentNotValidException;
 import org.springframework.web.bind.MissingServletRequestParameterException;
@@ -244,7 +247,45 @@ public class GlobalExceptionHandler {
         return response(problem, request);
     }
 
-    // 9. Final fallback for unexpected controller/application exceptions
+    // 9. Method-level authorization denied
+    @ExceptionHandler(AuthorizationDeniedException.class)
+    public ResponseEntity<ProblemDetail> handleAuthorizationDenied(
+            AuthorizationDeniedException ex,
+            HttpServletRequest request) {
+
+        ProblemDetail problem = buildProblem(
+                HttpStatus.FORBIDDEN,
+                "Access denied",
+                "You do not have permission to access this resource.",
+                "ACCESS_DENIED",
+                BASE_ERROR_TYPE + "access-denied",
+                request,
+                List.of()
+        );
+
+        return response(problem, request);
+    }
+
+    // 10. URL-level authorization denied
+    @ExceptionHandler(AccessDeniedException.class)
+    public ResponseEntity<ProblemDetail> handleAccessDenied(
+            AccessDeniedException ex,
+            HttpServletRequest request) {
+
+        ProblemDetail problem = buildProblem(
+                HttpStatus.FORBIDDEN,
+                "Access denied",
+                "You do not have permission to access this resource.",
+                "ACCESS_DENIED",
+                BASE_ERROR_TYPE + "access-denied",
+                request,
+                List.of()
+        );
+
+        return response(problem, request);
+    }
+
+    // 11. Final fallback for unexpected controller/application exceptions
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleUnexpectedException(
             Exception ex,

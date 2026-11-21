@@ -21,6 +21,7 @@ import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -33,6 +34,7 @@ import java.util.stream.Collectors;
 @RequestMapping("/ops/api/v1/kyc")
 @Tag(name = "Operations - KYC", description = "Operations staff endpoints for KYC case review, approval, and rejection")
 @SecurityRequirement(name = "BearerAuth")
+@PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'OPERATIONS')")
 public class OpsKycController {
 
     private final KycCaseRepository kycCaseRepository;
