@@ -19,7 +19,12 @@ import org.mockito.InjectMocks;
 import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.SliceImpl;
+
 import java.math.BigDecimal;
+import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 import java.util.function.Supplier;
@@ -140,5 +145,41 @@ class AccountHoldServiceTest {
         assertNotNull(response);
         assertEquals(HoldStatus.RELEASED, testHold.getHoldStatus());
         verify(outboxEventService).enqueueEvent(eq("HOLD-551122"), eq("AccountHold"), eq("AccountHoldReleasedEvent"), any());
+    }
+
+    @Test
+    void listOpsHolds_whenNoFilters_shouldReturnPagedResponse() {
+        when(holdRepository.findOpsHoldsWithCursor(isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), eq(PageRequest.of(0, 20))))
+                .thenReturn(new SliceImpl<>(List.of(testHold), PageRequest.of(0, 20), false));
+
+        var response = holdService.listOpsHolds(null, null, null, null, null, null, null, 20);
+
+        assertNotNull(response);
+        assertEquals(1, response.data().size());
+        assertEquals("HOLD-551122", response.data().get(0).holdId());
+        assertFalse(response.pagination().hasMore());
+        assertNull(response.pagination().nextCursor());
+    }
+
+    @Test
+    void listOpsHolds_withPaginationAndHasMore_shouldComputeNextCursor() {
+        AccountHold hold2 = new AccountHold();
+        hold2.setHoldId("HOLD-551121");
+        hold2.setAccountId("ACC-1001");
+        hold2.setAmount(new BigDecimal("500.00"));
+        hold2.setCurrency("INR");
+        hold2.setReasonCode("SUSPICIOUS");
+        hold2.setHoldStatus(HoldStatus.ACTIVE);
+
+        when(holdRepository.findOpsHoldsWithCursor(eq("ACC-1001"), eq("CUS-100"), eq(HoldStatus.ACTIVE), eq("SUSPICIOUS"), any(), any(), eq("HOLD-999"), eq(PageRequest.of(0, 2))))
+                .thenReturn(new SliceImpl<>(List.of(testHold, hold2), PageRequest.of(0, 2), true));
+
+        var response = holdService.listOpsHolds("ACC-1001", "CUS-100", HoldStatus.ACTIVE, "SUSPICIOUS", Instant.now().minusSeconds(3600), Instant.now(), "HOLD-999", 2);
+
+        assertNotNull(response);
+        assertEquals(2, response.data().size());
+        assertTrue(response.pagination().hasMore());
+        assertEquals("HOLD-551121", response.pagination().nextCursor());
+        assertEquals(2, response.pagination().limit());
     }
 }

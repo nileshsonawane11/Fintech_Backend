@@ -240,7 +240,7 @@ public class AccountHoldService {
             Instant fromDate, Instant toDate, String cursor, int limit) {
         int pageSize = (limit <= 0 || limit > 100) ? 20 : limit;
         Slice<AccountHold> slice = holdRepository.findOpsHoldsWithCursor(
-                accountId, status, reasonCode, fromDate, toDate, cursor, PageRequest.of(0, pageSize));
+                accountId, customerId, status, reasonCode, fromDate, toDate, cursor, PageRequest.of(0, pageSize));
 
         List<AccountHoldResponse> items = slice.getContent().stream()
                 .map(this::toResponse)

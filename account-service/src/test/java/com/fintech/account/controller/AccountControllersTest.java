@@ -247,6 +247,37 @@ class AccountControllersTest {
     }
 
     @Test
+    void testOpsHoldController_listOpsHolds() {
+        AccountHoldResponse holdResp = new AccountHoldResponse(
+                "HOLD-551122", "ACC-1001", new BigDecimal("1500.00"), "INR", "DISPUTE",
+                HoldStatus.ACTIVE, "Remarks", "OPS", null, Instant.now(), null, null
+        );
+        CursorPagedResponse<AccountHoldResponse> pagedResponse =
+                CursorPagedResponse.of(List.of(holdResp), null, false, 20);
+
+        when(holdService.listOpsHolds(
+                eq("ACC-1001"), eq("CUS-100"), eq(HoldStatus.ACTIVE), eq("DISPUTE"),
+                any(), any(), eq("cursor-1"), eq(20)
+        )).thenReturn(pagedResponse);
+
+        Instant fromDate = Instant.now().minusSeconds(3600);
+        Instant toDate = Instant.now();
+
+        ResponseEntity<CursorPagedResponse<AccountHoldResponse>> res =
+                opsHoldController.listOpsHolds(
+                        "ACC-1001", "CUS-100", HoldStatus.ACTIVE, "DISPUTE",
+                        fromDate, toDate, 20, "cursor-1");
+
+        assertEquals(HttpStatus.OK, res.getStatusCode());
+        assertNotNull(res.getBody());
+        assertEquals(1, res.getBody().data().size());
+        assertEquals("HOLD-551122", res.getBody().data().get(0).holdId());
+        verify(holdService).listOpsHolds(
+                "ACC-1001", "CUS-100", HoldStatus.ACTIVE, "DISPUTE",
+                fromDate, toDate, "cursor-1", 20);
+    }
+
+    @Test
     void testNomineeController_crud() {
         NomineeRequest req = new NomineeRequest("Sunita", NomineeRelationship.SPOUSE, LocalDate.of(1995, 1, 1), "9812345678", 100);
         UUID nomineeId = UUID.randomUUID();
