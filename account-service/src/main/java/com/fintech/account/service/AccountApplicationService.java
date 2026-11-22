@@ -486,6 +486,7 @@ public class AccountApplicationService {
         return toDetailedResponse(application);
     }
 
+    @Transactional
     public ApplicationApprovalResponse approveApplication(
             String applicationNumber, String approvedBy, String idempotencyKey, ApproveApplicationRequest request) {
         return idempotencyService.execute(
