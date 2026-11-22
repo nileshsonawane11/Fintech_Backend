@@ -32,6 +32,14 @@ spring:
           public-key-location: classpath:keys/public.pem
           issuer-uri: ${JWT_ISSUER:fintech-identity-service}
 
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      retries: 3
+
 eureka:
   client:
     service-url:
@@ -40,6 +48,19 @@ eureka:
     fetch-registry: true
   instance:
     prefer-ip-address: true
+
+app:
+  services:
+    account-service:
+      service-id: ${ACCOUNT_SERVICE_ID:ACCOUNT-SERVICE}
+    customer-service:
+      service-id: ${CUSTOMER_SERVICE_ID:CUSTOMER-SERVICE}
+  kafka:
+    topics:
+      card-events: ${CARD_EVENTS_TOPIC:card.events.v1}
+      card-application-events: ${CARD_APPLICATION_EVENTS_TOPIC:card.application-events.v1}
+  outbox:
+    poll-interval-ms: 3000
 
 management:
   endpoints:

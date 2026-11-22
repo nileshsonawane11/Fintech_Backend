@@ -250,6 +250,62 @@ public class AccountProduct {
         return slug;
     }
 
+    public void setSlug(String slug) {
+        this.slug = slug;
+    }
+
+    public void setCategory(String category) {
+        this.category = category;
+    }
+
+    public void setTagline(String tagline) {
+        this.tagline = tagline;
+    }
+
+    public void setInterestNote(String interestNote) {
+        this.interestNote = interestNote;
+    }
+
+    public void setStatus(String status) {
+        this.status = status;
+    }
+
+    public void setAmb(Map<String, Object> amb) {
+        this.amb = amb;
+    }
+
+    public void setFees(Map<String, Object> fees) {
+        this.fees = fees;
+    }
+
+    public void setCharges(List<Map<String, Object>> charges) {
+        this.charges = charges;
+    }
+
+    public void setDocuments(List<String> documents) {
+        this.documents = documents;
+    }
+
+    public void setEligibility(List<String> eligibility) {
+        this.eligibility = eligibility;
+    }
+
+    public void setFaqs(List<Map<String, Object>> faqs) {
+        this.faqs = faqs;
+    }
+
+    public void setFeatures(List<String> features) {
+        this.features = features;
+    }
+
+    public void setHowToApply(List<String> howToApply) {
+        this.howToApply = howToApply;
+    }
+
+    public void setRateSlabs(List<Map<String, Object>> rateSlabs) {
+        this.rateSlabs = rateSlabs;
+    }
+
     public void setCurrency(String currency) {
         this.currency = currency;
     }

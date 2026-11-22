@@ -4,6 +4,7 @@ import com.fintech.card.entity.CardApplication;
 import org.springframework.data.jpa.repository.JpaRepository;
 import org.springframework.stereotype.Repository;
 
+import java.util.Collection;
 import java.util.List;
 import java.util.Optional;
 
@@ -18,5 +19,12 @@ public interface CardApplicationRepository extends JpaRepository<CardApplication
 
     List<CardApplication> findByCustomerIdOrderByCreatedAtDesc(String customerId);
 
+    List<CardApplication> findByIdentitySubjectOrderByCreatedAtDesc(String identitySubject);
+
+    List<CardApplication> findByIdentitySubjectOrCustomerIdOrderByCreatedAtDesc(String identitySubject, String customerId);
+
     List<CardApplication> findAllByOrderByCreatedAtDesc();
+
+    boolean existsByCustomerIdAndLinkedAccountIdAndCardTypeAndStatusIn(
+            String customerId, String linkedAccountId, String cardType, Collection<String> statuses);
 }

@@ -2,6 +2,7 @@ package com.fintech.card.dto.response;
 
 import io.swagger.v3.oas.annotations.media.Schema;
 
+import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.time.OffsetDateTime;
 
@@ -20,6 +21,12 @@ public class CardApplicationResponse {
     @Schema(description = "Issuance tracking reference number", example = "CARD-APP-400123")
     private String reference;
 
+    @Schema(description = "Customer identifier", example = "CUS-100234")
+    private String customerId;
+
+    @Schema(description = "Identity subject from authentication token", example = "CUS-100234")
+    private String identitySubject;
+
     @Schema(description = "Card type applied for (CREDIT, DEBIT, FOREX_TRAVEL)", example = "CREDIT")
     private String cardType;
 
@@ -34,6 +41,18 @@ public class CardApplicationResponse {
 
     @Schema(description = "Product slug identifier", example = "edge-cashback-credit")
     private String productSlug;
+
+    @Schema(description = "Linked funding account identifier", example = "ACC-1001")
+    private String linkedAccountId;
+
+    @Schema(description = "Delivery address identifier", example = "ADDR-1001")
+    private String deliveryAddressId;
+
+    @Schema(description = "Requested credit limit", example = "50000.00")
+    private BigDecimal requestedLimit;
+
+    @Schema(description = "Approved credit limit", example = "50000.00")
+    private BigDecimal approvedLimit;
 
     @Schema(description = "Status of the application (e.g. PENDING_APPROVAL, UNDER_REVIEW, APPROVED)", example = "PENDING_APPROVAL")
     private String status;
@@ -69,6 +88,12 @@ public class CardApplicationResponse {
     public String getReference() { return reference; }
     public void setReference(String reference) { this.reference = reference; }
 
+    public String getCustomerId() { return customerId; }
+    public void setCustomerId(String customerId) { this.customerId = customerId; }
+
+    public String getIdentitySubject() { return identitySubject; }
+    public void setIdentitySubject(String identitySubject) { this.identitySubject = identitySubject; }
+
     public String getCardType() { return cardType; }
     public void setCardType(String cardType) { this.cardType = cardType; }
 
@@ -89,6 +114,18 @@ public class CardApplicationResponse {
 
     public String getProductSlug() { return productSlug; }
     public void setProductSlug(String productSlug) { this.productSlug = productSlug; }
+
+    public String getLinkedAccountId() { return linkedAccountId; }
+    public void setLinkedAccountId(String linkedAccountId) { this.linkedAccountId = linkedAccountId; }
+
+    public String getDeliveryAddressId() { return deliveryAddressId; }
+    public void setDeliveryAddressId(String deliveryAddressId) { this.deliveryAddressId = deliveryAddressId; }
+
+    public BigDecimal getRequestedLimit() { return requestedLimit; }
+    public void setRequestedLimit(BigDecimal requestedLimit) { this.requestedLimit = requestedLimit; }
+
+    public BigDecimal getApprovedLimit() { return approvedLimit; }
+    public void setApprovedLimit(BigDecimal approvedLimit) { this.approvedLimit = approvedLimit; }
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }

@@ -18,6 +18,9 @@ public class Card {
     @Column(name = "customer_id", nullable = false)
     private String customerId;
 
+    @Column(name = "identity_subject", length = 100)
+    private String identitySubject;
+
     @Column(name = "card_type", nullable = false)
     private String cardType;
 
@@ -67,6 +70,9 @@ public class Card {
 
     public String getCustomerId() { return customerId; }
     public void setCustomerId(String customerId) { this.customerId = customerId; }
+
+    public String getIdentitySubject() { return identitySubject; }
+    public void setIdentitySubject(String identitySubject) { this.identitySubject = identitySubject; }
 
     public String getCardType() { return cardType; }
     public void setCardType(String cardType) { this.cardType = cardType; }

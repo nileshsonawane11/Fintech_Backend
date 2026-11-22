@@ -17,6 +17,9 @@ public class OpsCardApplicationResponse {
     @Schema(description = "Customer CIF identifier", example = "CUS-100234")
     private String customerId;
 
+    @Schema(description = "Identity subject from authentication token", example = "CUS-100234")
+    private String identitySubject;
+
     @Schema(description = "Applicant full name", example = "Vikramaditya Sharma")
     private String customerName;
 
@@ -67,6 +70,9 @@ public class OpsCardApplicationResponse {
 
     public String getCustomerId() { return customerId; }
     public void setCustomerId(String customerId) { this.customerId = customerId; }
+
+    public String getIdentitySubject() { return identitySubject; }
+    public void setIdentitySubject(String identitySubject) { this.identitySubject = identitySubject; }
 
     public String getCustomerName() { return customerName; }
     public void setCustomerName(String customerName) { this.customerName = customerName; }

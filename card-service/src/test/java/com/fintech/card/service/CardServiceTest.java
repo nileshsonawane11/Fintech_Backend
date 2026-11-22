@@ -6,6 +6,7 @@ import com.fintech.card.dto.request.UpdateCardControlsRequest;
 import com.fintech.card.dto.response.BlockCardResponse;
 import com.fintech.card.dto.response.CardControlResponse;
 import com.fintech.card.dto.response.CardListResponse;
+import com.fintech.card.dto.response.CardResponse;
 import com.fintech.card.dto.response.PayCardResponse;
 import com.fintech.card.entity.Card;
 import com.fintech.card.entity.CardControl;
@@ -63,7 +64,7 @@ class CardServiceTest {
         ctrl.setDailyLimit(new BigDecimal("150000.00"));
         card.setCardControl(ctrl);
 
-        when(cardRepository.findByCustomerId("CUS-100234")).thenReturn(List.of(card));
+        when(cardRepository.findByIdentitySubjectOrCustomerId("CUS-100234", "CUS-100234")).thenReturn(List.of(card));
 
         CardListResponse response = cardService.getCustomerCards("CUS-100234");
         assertNotNull(response);
@@ -169,5 +170,21 @@ class CardServiceTest {
         assertTrue(response.getReference().startsWith("PAY-CARD-"));
         assertEquals(new BigDecimal("5000.00"), response.getPaidAmount());
         assertEquals(BigDecimal.ZERO, response.getOutstandingAfter());
+    }
+
+    @Test
+    void testGetCardById_MatchesByIdentitySubject() {
+        Card card = new Card();
+        card.setCardId("CARD-3001");
+        card.setCustomerId("CUS-100234");
+        card.setIdentitySubject("auth0|vikram");
+        card.setStatus("ACTIVE");
+
+        when(cardRepository.findByCardId("CARD-3001")).thenReturn(Optional.of(card));
+
+        CardResponse response = cardService.getCardById("auth0|vikram", "CARD-3001");
+        assertNotNull(response);
+        assertEquals("CARD-3001", response.getCardId());
+        assertEquals("auth0|vikram", response.getIdentitySubject());
     }
 }
