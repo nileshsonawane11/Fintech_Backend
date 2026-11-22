@@ -59,6 +59,34 @@ public class AccountProductService {
                     "An account product with code '" + request.productCode() + "' already exists.");
         }
 
+        if (request.minimumAge() != null && request.maximumAge() != null && request.maximumAge() < request.minimumAge()) {
+            throw AccountException.badRequest("Maximum age (" + request.maximumAge() + ") cannot be less than minimum age (" + request.minimumAge() + ")");
+        }
+
+        String slug = request.slug();
+        if (slug != null && !slug.isBlank()) {
+            slug = slug.trim();
+            if (productRepository.existsBySlug(slug)) {
+                throw AccountException.conflict("SLUG_ALREADY_EXISTS",
+                        "An account product with slug '" + slug + "' already exists.");
+            }
+        } else {
+            slug = generateSlug(request.productName(), request.productCode());
+            if (productRepository.existsBySlug(slug)) {
+                slug = slug + "-" + request.productCode().toLowerCase().replace('_', '-');
+            }
+        }
+
+        String category = request.category();
+        if (category == null || category.isBlank()) {
+            category = request.accountType() != null ? request.accountType().name() : "SAVINGS";
+        }
+
+        String status = request.status();
+        if (status == null || status.isBlank()) {
+            status = "ACTIVE";
+        }
+
         AccountProduct product = new AccountProduct();
         product.setProductCode(request.productCode());
         product.setProductName(request.productName());
@@ -77,6 +105,22 @@ public class AccountProductService {
         product.setCreatedBy(createdBy != null ? createdBy : "ADMIN");
         product.setUpdatedBy(createdBy != null ? createdBy : "ADMIN");
 
+        product.setSlug(slug);
+        product.setCategory(category);
+        product.setTagline(request.tagline());
+        product.setStatus(status);
+        product.setInterestNote(request.interestNote());
+
+        product.setAmb(request.amb());
+        product.setFees(request.fees());
+        product.setCharges(request.charges());
+        product.setDocuments(request.documents());
+        product.setEligibility(request.eligibility());
+        product.setFaqs(request.faqs());
+        product.setFeatures(request.features());
+        product.setHowToApply(request.howToApply());
+        product.setRateSlabs(request.rateSlabs());
+
         AccountProduct saved = productRepository.save(product);
         auditLogger.logAudit("CREATE_PRODUCT", "AccountProduct", saved.getProductCode(), createdBy,
                 "Product created with code: " + saved.getProductCode());
@@ -89,18 +133,109 @@ public class AccountProductService {
         AccountProduct product = productRepository.findByProductCode(productCode)
                 .orElseThrow(() -> AccountException.notFound("Account product not found with code: " + productCode));
 
-        product.setProductName(request.productName());
-        product.setDescription(request.description());
-        product.setMinimumBalance(request.minimumBalance());
-        product.setMinimumInitialFunding(request.minimumInitialFunding());
-        product.setInterestRate(request.interestRate());
-        product.setDailyTransferLimit(request.dailyTransferLimit());
-        product.setMonthlyTransferLimit(request.monthlyTransferLimit());
-        product.setMinimumAge(request.minimumAge());
-        product.setMaximumAge(request.maximumAge());
+        Integer effectiveMinAge = request.minimumAge() != null ? request.minimumAge() : product.getMinimumAge();
+        Integer effectiveMaxAge = request.maximumAge() != null ? request.maximumAge() : product.getMaximumAge();
+        if (effectiveMinAge != null && effectiveMaxAge != null && effectiveMaxAge < effectiveMinAge) {
+            throw AccountException.badRequest("Maximum age (" + effectiveMaxAge + ") cannot be less than minimum age (" + effectiveMinAge + ")");
+        }
+
+        if (request.productName() != null) {
+            if (request.productName().isBlank()) {
+                throw AccountException.badRequest("Product name cannot be blank");
+            }
+            product.setProductName(request.productName());
+        }
+        if (request.description() != null) {
+            product.setDescription(request.description());
+        }
+        if (request.minimumBalance() != null) {
+            product.setMinimumBalance(request.minimumBalance());
+        }
+        if (request.minimumInitialFunding() != null) {
+            product.setMinimumInitialFunding(request.minimumInitialFunding());
+        }
+        if (request.interestRate() != null) {
+            product.setInterestRate(request.interestRate());
+        }
+        if (request.dailyTransferLimit() != null) {
+            product.setDailyTransferLimit(request.dailyTransferLimit());
+        }
+        if (request.monthlyTransferLimit() != null) {
+            product.setMonthlyTransferLimit(request.monthlyTransferLimit());
+        }
+        if (request.minimumAge() != null) {
+            product.setMinimumAge(request.minimumAge());
+        }
+        if (request.maximumAge() != null) {
+            product.setMaximumAge(request.maximumAge());
+        }
         if (request.requiresKyc() != null) {
             product.setRequiresKyc(request.requiresKyc());
         }
+        if (request.active() != null) {
+            product.setActive(request.active());
+        }
+
+        // Additional product identification & text fields
+        if (request.slug() != null) {
+            String slug = request.slug().trim();
+            if (slug.isBlank()) {
+                throw AccountException.badRequest("Slug cannot be blank");
+            }
+            if (!slug.equals(product.getSlug()) && productRepository.existsBySlug(slug)) {
+                throw AccountException.conflict("SLUG_ALREADY_EXISTS",
+                        "An account product with slug '" + slug + "' already exists.");
+            }
+            product.setSlug(slug);
+        }
+        if (request.category() != null) {
+            if (request.category().isBlank()) {
+                throw AccountException.badRequest("Category cannot be blank");
+            }
+            product.setCategory(request.category());
+        }
+        if (request.tagline() != null) {
+            product.setTagline(request.tagline());
+        }
+        if (request.status() != null) {
+            if (request.status().isBlank()) {
+                throw AccountException.badRequest("Status cannot be blank");
+            }
+            product.setStatus(request.status());
+        }
+        if (request.interestNote() != null) {
+            product.setInterestNote(request.interestNote());
+        }
+
+        // Additional JSONB fields
+        if (request.amb() != null) {
+            product.setAmb(request.amb());
+        }
+        if (request.fees() != null) {
+            product.setFees(request.fees());
+        }
+        if (request.charges() != null) {
+            product.setCharges(request.charges());
+        }
+        if (request.documents() != null) {
+            product.setDocuments(request.documents());
+        }
+        if (request.eligibility() != null) {
+            product.setEligibility(request.eligibility());
+        }
+        if (request.faqs() != null) {
+            product.setFaqs(request.faqs());
+        }
+        if (request.features() != null) {
+            product.setFeatures(request.features());
+        }
+        if (request.howToApply() != null) {
+            product.setHowToApply(request.howToApply());
+        }
+        if (request.rateSlabs() != null) {
+            product.setRateSlabs(request.rateSlabs());
+        }
+
         product.setUpdatedBy(updatedBy != null ? updatedBy : "ADMIN");
 
         AccountProduct saved = productRepository.save(product);
@@ -108,6 +243,17 @@ public class AccountProductService {
                 "Product updated: " + saved.getProductCode());
 
         return toResponse(saved);
+    }
+
+    private String generateSlug(String productName, String productCode) {
+        String base = (productName != null && !productName.isBlank()) ? productName : productCode;
+        if (base == null || base.isBlank()) {
+            return "product-" + java.util.UUID.randomUUID().toString().substring(0, 8);
+        }
+        String slug = base.toLowerCase().trim()
+                .replaceAll("[^a-z0-9]+", "-")
+                .replaceAll("^-|-$", "");
+        return slug.isEmpty() ? "product-" + java.util.UUID.randomUUID().toString().substring(0, 8) : slug;
     }
 
     @Transactional

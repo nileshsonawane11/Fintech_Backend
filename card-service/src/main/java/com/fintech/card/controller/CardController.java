@@ -59,8 +59,8 @@ public class CardController {
             @Parameter(description = "Unique idempotency key for safe request retries")
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody CardApplicationRequest request) {
-        String customerId = jwt.getSubject();
-        CardApplicationResponse response = cardApplicationService.applyForCard(customerId, idempotencyKey, request);
+        String identitySubject = jwt.getSubject();
+        CardApplicationResponse response = cardApplicationService.applyForCard(identitySubject, idempotencyKey, request);
         return ResponseEntity.status(HttpStatus.ACCEPTED).body(response);
     }
 
@@ -74,8 +74,8 @@ public class CardController {
     })
     public ResponseEntity<CardListResponse> getCustomerCards(
             @AuthenticationPrincipal Jwt jwt) {
-        String customerId = jwt.getSubject();
-        CardListResponse response = cardService.getCustomerCards(customerId);
+        String identitySubject = jwt.getSubject();
+        CardListResponse response = cardService.getCustomerCards(identitySubject);
         return ResponseEntity.ok(response);
     }
 
@@ -92,8 +92,8 @@ public class CardController {
             @AuthenticationPrincipal Jwt jwt,
             @Parameter(description = "Business or UUID card identifier", example = "CARD-3001")
             @PathVariable String cardId) {
-        String customerId = jwt.getSubject();
-        CardResponse response = cardService.getCardById(customerId, cardId);
+        String identitySubject = jwt.getSubject();
+        CardResponse response = cardService.getCardById(identitySubject, cardId);
         return ResponseEntity.ok(response);
     }
 
@@ -107,8 +107,27 @@ public class CardController {
     })
     public ResponseEntity<List<CardApplicationResponse>> getCustomerApplications(
             @AuthenticationPrincipal Jwt jwt) {
-        String customerId = jwt.getSubject();
-        List<CardApplicationResponse> response = cardApplicationService.getCustomerApplications(customerId);
+        String identitySubject = jwt.getSubject();
+        List<CardApplicationResponse> response = cardApplicationService.getCustomerApplications(identitySubject);
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/applications/{applicationId}")
+    @Operation(summary = "Get Card Application Details",
+            description = "Retrieves details of a specific card application submitted by the authenticated customer.")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Card application details retrieved successfully",
+                    content = @Content(schema = @Schema(implementation = CardApplicationResponse.class))),
+            @ApiResponse(responseCode = "404", description = "Application not found"),
+            @ApiResponse(responseCode = "403", description = "Forbidden - Not your application"),
+            @ApiResponse(responseCode = "401", description = "Unauthorized")
+    })
+    public ResponseEntity<CardApplicationResponse> getApplicationById(
+            @AuthenticationPrincipal Jwt jwt,
+            @Parameter(description = "Card application identifier", example = "CARD-APP-400123")
+            @PathVariable String applicationId) {
+        String identitySubject = jwt.getSubject();
+        CardApplicationResponse response = cardApplicationService.getApplicationById(identitySubject, applicationId, false);
         return ResponseEntity.ok(response);
     }
 
@@ -127,11 +146,11 @@ public class CardController {
             @Parameter(description = "Card identifier", example = "CARD-3001")
             @PathVariable String cardId,
             @RequestBody(required = false) BlockCardRequest request) {
-        String customerId = jwt.getSubject();
+        String identitySubject = jwt.getSubject();
         if (request == null) {
             request = new BlockCardRequest();
         }
-        BlockCardResponse response = cardService.blockCard(customerId, cardId, request);
+        BlockCardResponse response = cardService.blockCard(identitySubject, cardId, request);
         return ResponseEntity.ok(response);
     }
 
@@ -150,8 +169,8 @@ public class CardController {
             @Parameter(description = "Card identifier", example = "CARD-3001")
             @PathVariable String cardId,
             @RequestBody UpdateCardControlsRequest request) {
-        String customerId = jwt.getSubject();
-        CardControlResponse response = cardService.updateControls(customerId, cardId, request);
+        String identitySubject = jwt.getSubject();
+        CardControlResponse response = cardService.updateControls(identitySubject, cardId, request);
         return ResponseEntity.ok(response);
     }
 
@@ -170,8 +189,8 @@ public class CardController {
             @Parameter(description = "Card identifier", example = "CARD-3001")
             @PathVariable String cardId,
             @Valid @RequestBody PayCardRequest request) {
-        String customerId = jwt.getSubject();
-        PayCardResponse response = cardService.payCard(customerId, cardId, request);
+        String identitySubject = jwt.getSubject();
+        PayCardResponse response = cardService.payCard(identitySubject, cardId, request);
         return ResponseEntity.ok(response);
     }
 
@@ -192,11 +211,11 @@ public class CardController {
             @Parameter(description = "Unique idempotency key for tokenization")
             @RequestHeader(value = "Idempotency-Key", required = false) String idempotencyKey,
             @Valid @RequestBody CreateCardTokenRequest request) {
-        String customerId = jwt.getSubject();
+        String identitySubject = jwt.getSubject();
         String effectiveIdempotencyKey = (idempotencyKey != null && !idempotencyKey.isBlank())
                 ? idempotencyKey
                 : java.util.UUID.randomUUID().toString();
-        CardTokenResponse response = cardTokenService.createToken(customerId, cardId, effectiveIdempotencyKey, request);
+        CardTokenResponse response = cardTokenService.createToken(identitySubject, cardId, effectiveIdempotencyKey, request);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 }

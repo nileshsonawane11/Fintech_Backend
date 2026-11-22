@@ -16,6 +16,9 @@ public class CardResponse {
     @Schema(description = "Identifier of the card owner customer", example = "CUS-100234")
     private String customerId;
 
+    @Schema(description = "Identity subject from authentication token", example = "CUS-100234")
+    private String identitySubject;
+
     @Schema(description = "Card type (CREDIT, DEBIT, FOREX_TRAVEL)", example = "CREDIT")
     private String cardType;
 
@@ -102,6 +105,9 @@ public class CardResponse {
 
     public String getCustomerId() { return customerId; }
     public void setCustomerId(String customerId) { this.customerId = customerId; }
+
+    public String getIdentitySubject() { return identitySubject; }
+    public void setIdentitySubject(String identitySubject) { this.identitySubject = identitySubject; }
 
     public String getCardType() { return cardType; }
     public void setCardType(String cardType) {

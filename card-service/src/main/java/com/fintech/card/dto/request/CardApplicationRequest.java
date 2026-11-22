@@ -1,9 +1,12 @@
 package com.fintech.card.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonIgnore;
+import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import io.swagger.v3.oas.annotations.media.Schema;
 
 import java.math.BigDecimal;
 
+@JsonIgnoreProperties(ignoreUnknown = true)
 @Schema(description = "Request body payload for applying for a new payment or credit card")
 public class CardApplicationRequest {
 
@@ -116,6 +119,7 @@ public class CardApplicationRequest {
     public void setReason(String reason) { this.reason = reason; }
 
     // Convenience resolvers for flexible frontend payloads
+    @JsonIgnore
     public String getEffectiveCardType() {
         if (cardType != null && !cardType.isBlank()) {
             return cardType.toUpperCase();
@@ -129,6 +133,7 @@ public class CardApplicationRequest {
         return "CREDIT";
     }
 
+    @JsonIgnore
     public String getEffectiveCardName() {
         if (cardName != null && !cardName.isBlank()) return cardName;
         if (productName != null && !productName.isBlank()) return productName;
@@ -138,6 +143,7 @@ public class CardApplicationRequest {
         return "FinEdge Edge Cashback Card";
     }
 
+    @JsonIgnore
     public String getEffectiveProductSlug() {
         if (productSlug != null && !productSlug.isBlank()) return productSlug;
         if (cardSlug != null && !cardSlug.isBlank()) return cardSlug;
@@ -147,23 +153,27 @@ public class CardApplicationRequest {
         return "edge-cashback-credit";
     }
 
+    @JsonIgnore
     public String getEffectiveLinkedAccountId() {
         if (linkedAccountId != null && !linkedAccountId.isBlank()) return linkedAccountId;
         if (accountId != null && !accountId.isBlank()) return accountId;
-        return "ACC-1001";
+        return null;
     }
 
+    @JsonIgnore
     public String getEffectiveDeliveryAddressId() {
         if (deliveryAddressId != null && !deliveryAddressId.isBlank()) return deliveryAddressId;
-        return "ADDR-1001";
+        return null;
     }
 
+    @JsonIgnore
     public BigDecimal getEffectiveRequestedLimit() {
         if (requestedLimit != null) return requestedLimit;
         if (limit != null) return limit;
         return new BigDecimal("50000.00");
     }
 
+    @JsonIgnore
     public String getEffectiveCustomerName() {
         if (applicantName != null && !applicantName.isBlank()) return applicantName;
         if (fullName != null && !fullName.isBlank()) return fullName;

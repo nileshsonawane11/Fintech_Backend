@@ -3,8 +3,11 @@ package com.fintech.account.dto.request;
 import com.fintech.account.enums.AccountType;
 import jakarta.validation.constraints.*;
 import java.math.BigDecimal;
+import java.util.List;
+import java.util.Map;
 
 public record CreateProductRequest(
+        // Core account configuration fields
         @NotBlank(message = "Product code is required")
         @Pattern(regexp = "^[A-Z0-9_]{3,50}$", message = "Product code must be uppercase letters, numbers, and underscores (3-50 chars)")
         String productCode,
@@ -55,5 +58,69 @@ public record CreateProductRequest(
 
         Boolean requiresKyc,
 
-        Boolean active
-) {}
+        Boolean active,
+
+        // Product identification & content
+        @Size(max = 100, message = "Slug must not exceed 100 characters")
+        String slug,
+
+        @Size(max = 50, message = "Category must not exceed 50 characters")
+        String category,
+
+        @Size(max = 255, message = "Tagline must not exceed 255 characters")
+        String tagline,
+
+        @Size(max = 30, message = "Status must not exceed 30 characters")
+        String status,
+
+        String interestNote,
+
+        // Product configuration (JSONB)
+        Map<String, Object> amb,
+
+        Map<String, Object> fees,
+
+        List<Map<String, Object>> charges,
+
+        // Product information lists (JSONB)
+        List<String> documents,
+
+        List<String> eligibility,
+
+        List<Map<String, Object>> faqs,
+
+        List<String> features,
+
+        List<String> howToApply,
+
+        // Interest rate configuration (JSONB)
+        List<Map<String, Object>> rateSlabs
+) {
+    public CreateProductRequest(
+            String productCode,
+            String productName,
+            String description,
+            AccountType accountType,
+            String currency,
+            BigDecimal minimumBalance,
+            BigDecimal minimumInitialFunding,
+            BigDecimal interestRate,
+            BigDecimal dailyTransferLimit,
+            BigDecimal monthlyTransferLimit,
+            Integer minimumAge,
+            Integer maximumAge,
+            Boolean requiresKyc,
+            Boolean active
+    ) {
+        this(
+                productCode, productName, description, accountType, currency,
+                minimumBalance, minimumInitialFunding, interestRate,
+                dailyTransferLimit, monthlyTransferLimit, minimumAge, maximumAge,
+                requiresKyc, active,
+                null, null, null, null, null,
+                null, null, null,
+                null, null, null, null, null,
+                null
+        );
+    }
+}

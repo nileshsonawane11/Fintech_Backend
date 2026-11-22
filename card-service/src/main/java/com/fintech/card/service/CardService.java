@@ -29,27 +29,27 @@ public class CardService {
         this.cardRepository = cardRepository;
     }
 
-    public CardListResponse getCustomerCards(String customerId) {
-        List<Card> cards = cardRepository.findByCustomerId(customerId);
+    public CardListResponse getCustomerCards(String identitySubject) {
+        List<Card> cards = cardRepository.findByIdentitySubjectOrCustomerId(identitySubject, identitySubject);
         List<CardResponse> cardResponses = cards.stream()
                 .map(this::toCardResponse)
                 .collect(Collectors.toList());
         return new CardListResponse(cardResponses);
     }
 
-    public CardResponse getCardById(String customerId, String cardId) {
+    public CardResponse getCardById(String identitySubject, String cardId) {
         Card card = findCardOrThrow(cardId);
-        if (!card.getCustomerId().equals(customerId)) {
+        if (!isCardOwnedBy(card, identitySubject)) {
             throw new ApiException("CARD_NOT_FOUND", "Card not found: " + cardId, HttpStatus.NOT_FOUND);
         }
         return toCardResponse(card);
     }
 
     @Transactional
-    public BlockCardResponse blockCard(String customerId, String cardId, BlockCardRequest request) {
+    public BlockCardResponse blockCard(String identitySubject, String cardId, BlockCardRequest request) {
         Card card = findCardOrThrow(cardId);
 
-        if (!card.getCustomerId().equals(customerId)) {
+        if (!isCardOwnedBy(card, identitySubject)) {
             throw new ApiException("CARD_NOT_FOUND", "Card not found: " + cardId, HttpStatus.NOT_FOUND);
         }
 
@@ -74,10 +74,10 @@ public class CardService {
     }
 
     @Transactional
-    public CardControlResponse updateControls(String customerId, String cardId, UpdateCardControlsRequest request) {
+    public CardControlResponse updateControls(String identitySubject, String cardId, UpdateCardControlsRequest request) {
         Card card = findCardOrThrow(cardId);
 
-        if (!card.getCustomerId().equals(customerId)) {
+        if (!isCardOwnedBy(card, identitySubject)) {
             throw new ApiException("CARD_NOT_FOUND", "Card not found: " + cardId, HttpStatus.NOT_FOUND);
         }
 
@@ -157,10 +157,10 @@ public class CardService {
         return new PayCardResponse(true, paymentRef, request.getAmount(), remainingOutstanding);
     }
 
-    public Card findActiveCard(String customerId, String cardId) {
+    public Card findActiveCard(String identitySubject, String cardId) {
         Card card = findCardOrThrow(cardId);
 
-        if (!card.getCustomerId().equals(customerId)) {
+        if (!isCardOwnedBy(card, identitySubject)) {
             throw new ApiException("CARD_NOT_FOUND", "Card not found: " + cardId, HttpStatus.NOT_FOUND);
         }
 
@@ -171,11 +171,18 @@ public class CardService {
         return card;
     }
 
-    public void verifyCardOwnership(String customerId, String cardId) {
+    public void verifyCardOwnership(String identitySubject, String cardId) {
         Card card = findCardOrThrow(cardId);
-        if (!card.getCustomerId().equals(customerId)) {
+        if (!isCardOwnedBy(card, identitySubject)) {
             throw new ApiException("CARD_NOT_FOUND", "Card not found: " + cardId, HttpStatus.NOT_FOUND);
         }
+    }
+
+    private boolean isCardOwnedBy(Card card, String identitySubject) {
+        if (card.getIdentitySubject() != null) {
+            return card.getIdentitySubject().equalsIgnoreCase(identitySubject);
+        }
+        return card.getCustomerId() != null && card.getCustomerId().equalsIgnoreCase(identitySubject);
     }
 
     private Card findCardOrThrow(String cardId) {
@@ -189,6 +196,7 @@ public class CardService {
         dto.setId(card.getCardId());
         dto.setCardId(card.getCardId());
         dto.setCustomerId(card.getCustomerId());
+        dto.setIdentitySubject(card.getIdentitySubject());
         dto.setCardType(card.getCardType());
         dto.setKind(card.getCardType());
         dto.setMaskedCardNumber(card.getMaskedCardNumber());

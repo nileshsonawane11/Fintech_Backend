@@ -19,6 +19,10 @@ public interface AccountProductRepository extends JpaRepository<AccountProduct, 
 
     boolean existsByProductCode(String productCode);
 
+    Optional<AccountProduct> findBySlug(String slug);
+
+    boolean existsBySlug(String slug);
+
     @Query("SELECT p FROM AccountProduct p WHERE " +
            "(:type IS NULL OR p.accountType = :type) AND " +
            "(:active IS NULL OR p.active = :active) AND " +

@@ -105,6 +105,24 @@ class CardControllerTest {
     }
 
     @Test
+    void testGetCustomerApplications() {
+        CardApplicationResponse response = new CardApplicationResponse();
+        response.setId("CARD-APP-123456");
+        response.setCardApplicationId("CARD-APP-123456");
+        response.setIdentitySubject("CUS-100234");
+        response.setStatus("PENDING_APPROVAL");
+
+        when(cardApplicationService.getCustomerApplications("CUS-100234"))
+                .thenReturn(List.of(response));
+
+        ResponseEntity<List<CardApplicationResponse>> entity = cardController.getCustomerApplications(mockJwt);
+        assertEquals(HttpStatus.OK, entity.getStatusCode());
+        assertNotNull(entity.getBody());
+        assertEquals(1, entity.getBody().size());
+        assertEquals("CUS-100234", entity.getBody().get(0).getIdentitySubject());
+    }
+
+    @Test
     void testBlockCard() {
         BlockCardRequest request = new BlockCardRequest();
         request.setReason("LOST");
@@ -192,5 +210,21 @@ class CardControllerTest {
         ResponseEntity<OpsCardApplicationResponse> rejectEntity = opsCardController.rejectApplication("CARD-APP-1002", new RejectCardApplicationRequest());
         assertEquals(HttpStatus.OK, rejectEntity.getStatusCode());
         assertEquals("REJECTED", rejectEntity.getBody().getStatus());
+    }
+
+    @Test
+    void testGetApplicationById() {
+        CardApplicationResponse response = new CardApplicationResponse();
+        response.setId("CARD-APP-123456");
+        response.setCardApplicationId("CARD-APP-123456");
+        response.setStatus("PENDING_APPROVAL");
+
+        when(cardApplicationService.getApplicationById(eq("CUS-100234"), eq("CARD-APP-123456"), eq(false)))
+                .thenReturn(response);
+
+        ResponseEntity<CardApplicationResponse> entity = cardController.getApplicationById(mockJwt, "CARD-APP-123456");
+        assertEquals(HttpStatus.OK, entity.getStatusCode());
+        assertNotNull(entity.getBody());
+        assertEquals("CARD-APP-123456", entity.getBody().getCardApplicationId());
     }
 }
