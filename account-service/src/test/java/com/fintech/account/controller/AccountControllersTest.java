@@ -151,6 +151,35 @@ class AccountControllersTest {
     }
 
     @Test
+    void testOpsApplicationController_listApplications() {
+        AccountApplicationResponse appResp = AccountApplicationResponse.ofSummary(
+                "ACC-APP-900123", "CUS-100234", "SAVINGS_REGULAR", ApplicationStatus.PENDING_APPROVAL, Instant.now());
+        CursorPagedResponse<AccountApplicationResponse> pagedResponse =
+                CursorPagedResponse.of(List.of(appResp), null, false, 20);
+
+        when(applicationService.listOpsApplications(
+                eq(ApplicationStatus.PENDING_APPROVAL), eq("CUS-100234"), eq("SAVINGS_REGULAR"),
+                any(), any(), eq("cursor-1"), eq(20)
+        )).thenReturn(pagedResponse);
+
+        Instant fromDate = Instant.now().minusSeconds(3600);
+        Instant toDate = Instant.now();
+
+        ResponseEntity<CursorPagedResponse<AccountApplicationResponse>> res =
+                opsApplicationController.listApplications(
+                        ApplicationStatus.PENDING_APPROVAL, "CUS-100234", "SAVINGS_REGULAR",
+                        fromDate, toDate, 20, "cursor-1");
+
+        assertEquals(HttpStatus.OK, res.getStatusCode());
+        assertNotNull(res.getBody());
+        assertEquals(1, res.getBody().data().size());
+        assertEquals("ACC-APP-900123", res.getBody().data().get(0).accountApplicationId());
+        verify(applicationService).listOpsApplications(
+                ApplicationStatus.PENDING_APPROVAL, "CUS-100234", "SAVINGS_REGULAR",
+                fromDate, toDate, "cursor-1", 20);
+    }
+
+    @Test
     void testAccountController_detailsAndStatus() {
         AccountDetailResponse detailResp = new AccountDetailResponse(
                 "ACC-1001", "************1234", AccountType.SAVINGS, "SAVINGS_REGULAR",

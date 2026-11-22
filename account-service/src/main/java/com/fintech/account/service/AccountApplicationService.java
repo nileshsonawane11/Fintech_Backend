@@ -463,8 +463,12 @@ public class AccountApplicationService {
             ApplicationStatus status, String customerId, String productCode,
             Instant fromDate, Instant toDate, String cursor, int limit) {
         int pageSize = (limit <= 0 || limit > 100) ? 20 : limit;
+        String sanitizedCustomerId = (customerId != null && !customerId.isBlank()) ? customerId.trim() : null;
+        String sanitizedProductCode = (productCode != null && !productCode.isBlank()) ? productCode.trim() : null;
+        String sanitizedCursor = (cursor != null && !cursor.isBlank()) ? cursor.trim() : null;
+
         Slice<AccountApplication> slice = applicationRepository.findOpsApplicationsWithCursor(
-                status, customerId, productCode, fromDate, toDate, cursor, PageRequest.of(0, pageSize));
+                status, sanitizedCustomerId, sanitizedProductCode, fromDate, toDate, sanitizedCursor, PageRequest.of(0, pageSize));
 
         List<AccountApplicationResponse> items = slice.getContent().stream()
                 .map(this::toDetailedResponse)
