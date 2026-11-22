@@ -11,6 +11,12 @@ import com.fintech.account.dto.request.RejectApplicationRequest;
 import com.fintech.account.dto.request.UnregisteredAccountApplicationRequest;
 import com.fintech.account.dto.response.AccountApplicationResponse;
 import com.fintech.account.dto.response.ApplicationApprovalResponse;
+import com.fintech.account.dto.response.CursorPagedResponse;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Slice;
+import org.springframework.data.domain.SliceImpl;
+import java.time.Instant;
+import java.util.List;
 import com.fintech.account.entity.Account;
 import com.fintech.account.entity.AccountApplication;
 import com.fintech.account.entity.AccountNominee;
@@ -415,5 +421,73 @@ class AccountApplicationServiceTest {
                 () -> applicationService.applyUnregistered(null, request));
 
         assertEquals("DUPLICATE_APPLICATION", ex.getCode());
+    }
+
+    @Test
+    void listOpsApplications_withFiltersAndHasNext_shouldReturnPagedResponseWithCursor() {
+        AccountApplication app1 = new AccountApplication();
+        app1.setApplicationNumber("ACC-APP-1002");
+        app1.setCustomerId("CUS-100");
+        app1.setProductCode("SAVINGS_REGULAR");
+        app1.setApplicationStatus(ApplicationStatus.PENDING_APPROVAL);
+        app1.setInitialFundingAmount(new BigDecimal("10000.00"));
+        app1.setCurrency("INR");
+        app1.setSubmittedAt(Instant.now());
+
+        AccountApplication app2 = new AccountApplication();
+        app2.setApplicationNumber("ACC-APP-1001");
+        app2.setCustomerId("CUS-100");
+        app2.setProductCode("SAVINGS_REGULAR");
+        app2.setApplicationStatus(ApplicationStatus.PENDING_APPROVAL);
+        app2.setInitialFundingAmount(new BigDecimal("10000.00"));
+        app2.setCurrency("INR");
+        app2.setSubmittedAt(Instant.now());
+
+        Slice<AccountApplication> slice = new SliceImpl<>(List.of(app1, app2), PageRequest.of(0, 2), true);
+
+        when(applicationRepository.findOpsApplicationsWithCursor(
+                eq(ApplicationStatus.PENDING_APPROVAL),
+                eq("CUS-100"),
+                eq("SAVINGS_REGULAR"),
+                any(), any(), isNull(),
+                eq(PageRequest.of(0, 2))
+        )).thenReturn(slice);
+
+        CursorPagedResponse<AccountApplicationResponse> response = applicationService.listOpsApplications(
+                ApplicationStatus.PENDING_APPROVAL, "  CUS-100  ", " SAVINGS_REGULAR ",
+                Instant.now().minusSeconds(3600), Instant.now(), "   ", 2);
+
+        assertNotNull(response);
+        assertEquals(2, response.data().size());
+        assertTrue(response.pagination().hasMore());
+        assertEquals("ACC-APP-1001", response.pagination().nextCursor());
+        assertEquals(2, response.pagination().limit());
+    }
+
+    @Test
+    void listOpsApplications_withNoNextPage_shouldReturnNullNextCursor() {
+        AccountApplication app = new AccountApplication();
+        app.setApplicationNumber("ACC-APP-1001");
+        app.setCustomerId("CUS-100");
+        app.setProductCode("SAVINGS_REGULAR");
+        app.setApplicationStatus(ApplicationStatus.APPROVED);
+        app.setInitialFundingAmount(new BigDecimal("5000.00"));
+        app.setCurrency("INR");
+        app.setSubmittedAt(Instant.now());
+
+        Slice<AccountApplication> slice = new SliceImpl<>(List.of(app), PageRequest.of(0, 20), false);
+
+        when(applicationRepository.findOpsApplicationsWithCursor(
+                isNull(), isNull(), isNull(), isNull(), isNull(), isNull(), eq(PageRequest.of(0, 20))
+        )).thenReturn(slice);
+
+        CursorPagedResponse<AccountApplicationResponse> response = applicationService.listOpsApplications(
+                null, null, null, null, null, null, 0);
+
+        assertNotNull(response);
+        assertEquals(1, response.data().size());
+        assertFalse(response.pagination().hasMore());
+        assertNull(response.pagination().nextCursor());
+        assertEquals(20, response.pagination().limit());
     }
 }
