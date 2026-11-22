@@ -23,7 +23,7 @@ import org.springframework.web.bind.annotation.*;
 import java.time.Instant;
 
 @RestController
-@RequestMapping
+@RequestMapping("/ops/api/v1/accounts")
 @Tag(name = "Operations - Account Holds", description = "Operations endpoints for placing, inspecting, releasing, and cancelling account holds")
 @SecurityRequirement(name = "BearerAuth")
 public class OpsAccountHoldController {
@@ -34,7 +34,7 @@ public class OpsAccountHoldController {
         this.holdService = holdService;
     }
 
-    @PostMapping("/ops/api/v1/accounts/{accountId}/holds")
+    @PostMapping("/{accountId}/holds")
     @Operation(summary = "Place Account Hold", description = "Place a financial hold on an account with ledger reservation")
     @PreAuthorize("hasAuthority('ACCOUNT_HOLD_CREATE') or hasRole('OPERATIONS') or hasRole('ADMIN')")
     public ResponseEntity<AccountHoldResponse> placeHold(
@@ -49,7 +49,7 @@ public class OpsAccountHoldController {
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
-    @GetMapping("/ops/api/v1/accounts/{accountId}/holds")
+    @GetMapping("/{accountId}/holds")
     @Operation(summary = "List Account Holds", description = "List all holds placed on a specific account")
     @PreAuthorize("hasAuthority('ACCOUNT_HOLD_READ') or hasRole('OPERATIONS') or hasRole('ADMIN')")
     public ResponseEntity<CursorPagedResponse<AccountHoldResponse>> listAccountHolds(
@@ -62,7 +62,7 @@ public class OpsAccountHoldController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/ops/api/v1/holds/{holdId}")
+    @GetMapping("/holds/{holdId}")
     @Operation(summary = "Get Hold Details", description = "Retrieve full details of a specific hold")
     @PreAuthorize("hasAuthority('ACCOUNT_HOLD_READ') or hasRole('OPERATIONS') or hasRole('ADMIN')")
     public ResponseEntity<AccountHoldResponse> getHoldDetails(
@@ -72,7 +72,7 @@ public class OpsAccountHoldController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/ops/api/v1/holds/{holdId}/release")
+    @PostMapping("/holds/{holdId}/release")
     @Operation(summary = "Release Account Hold", description = "Release an active hold and unblock funds in Ledger Service")
     @PreAuthorize("hasAuthority('ACCOUNT_HOLD_RELEASE') or hasRole('OPERATIONS') or hasRole('ADMIN')")
     public ResponseEntity<AccountHoldResponse> releaseHold(
@@ -85,7 +85,7 @@ public class OpsAccountHoldController {
         return ResponseEntity.ok(response);
     }
 
-    @PostMapping("/ops/api/v1/holds/{holdId}/cancel")
+    @PostMapping("/holds/{holdId}/cancel")
     @Operation(summary = "Cancel Account Hold", description = "Cancel a hold when permitted by business rules")
     @PreAuthorize("hasAuthority('ACCOUNT_HOLD_RELEASE') or hasRole('OPERATIONS') or hasRole('ADMIN')")
     public ResponseEntity<Void> cancelHold(
@@ -99,7 +99,7 @@ public class OpsAccountHoldController {
         return ResponseEntity.ok().build();
     }
 
-    @GetMapping("/ops/api/v1/holds")
+    @GetMapping("/holds")
     @Operation(summary = "List Holds for Operations", description = "Global search across all bank account holds")
     @PreAuthorize("hasAuthority('ACCOUNT_HOLD_READ') or hasRole('OPERATIONS') or hasRole('ADMIN')")
     public ResponseEntity<CursorPagedResponse<AccountHoldResponse>> listOpsHolds(

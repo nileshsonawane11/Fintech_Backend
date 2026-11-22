@@ -52,6 +52,7 @@ public class AccountHoldService {
         this.auditLogger = auditLogger;
     }
 
+    @Transactional
     public AccountHoldResponse placeHold(String accountId, String idempotencyKey, CreateHoldRequest request, String createdBy) {
         return idempotencyService.execute(
                 idempotencyKey,
