@@ -36,7 +36,7 @@ public interface CardProductRepository extends JpaRepository<CardProduct, UUID> 
            "(:includeDeleted = TRUE OR p.isDeleted = FALSE) AND " +
            "(:cardType IS NULL OR p.cardType = :cardType) AND " +
            "(:active IS NULL OR p.isActive = :active) AND " +
-           "(:search IS NULL OR LOWER(p.productCode) LIKE LOWER(CONCAT('%', :search, '%')) OR LOWER(p.productName) LIKE LOWER(CONCAT('%', :search, '%')))")
+           "(:search IS NULL OR LOWER(p.productCode) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%')) OR LOWER(p.productName) LIKE LOWER(CONCAT('%', CAST(:search AS String), '%')))")
     Page<CardProduct> findAdminProducts(
             @Param("cardType") CardType cardType,
             @Param("active") Boolean active,
