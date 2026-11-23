@@ -68,6 +68,8 @@ public class JwtSecurityConfig {
                                 "/payment/v3/api-docs/**",
                                 "/card/v3/api-docs",
                                 "/card/v3/api-docs/**",
+                                "/public/api/v1/card-products",
+                                "/public/api/v1/card-products/**",
                                 "/loan/v3/api-docs",
                                 "/loan/v3/api-docs/**",
                                 "/notification/v3/api-docs",

@@ -25,7 +25,7 @@ public class OpenApiConfig {
         return new OpenAPI()
                 .info(new Info()
                         .title("FinBank Card Service API")
-                        .description("Production-grade microservice responsible for card applications, issuance, lifecycle, channel controls, daily limits, PIN settings, tokenization, and bill payments.")
+                        .description("Production-grade microservice responsible for card product catalog, card applications, issuance, lifecycle, channel controls, daily limits, PIN settings, tokenization, and bill payments.")
                         .version("1.0.0")
                         .contact(new Contact().name("FinBank Architecture Team").email("architecture@finbank.example.com"))
                         .license(new License().name("Proprietary").url("https://finbank.example.com/license")))
