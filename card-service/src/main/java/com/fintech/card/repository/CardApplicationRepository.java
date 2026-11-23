@@ -27,4 +27,6 @@ public interface CardApplicationRepository extends JpaRepository<CardApplication
 
     boolean existsByCustomerIdAndLinkedAccountIdAndCardTypeAndStatusIn(
             String customerId, String linkedAccountId, String cardType, Collection<String> statuses);
+
+    boolean existsByProductSlugIgnoreCase(String productSlug);
 }

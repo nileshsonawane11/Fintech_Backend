@@ -108,7 +108,7 @@ spring:
             - id: card-service
               uri: lb://CARD-SERVICE
               predicates:
-                - Path=/api/v1/cards/**,/ops/api/v1/cards/**
+                - Path=/api/v1/cards/**,/ops/api/v1/cards/**,/api/v1/card-products/**,/api/v1/public/card-products/**,/public/api/v1/card-products/**,/ops/api/v1/card-products/**
 
             # Loan Service
             - id: loan-service

@@ -23,6 +23,26 @@ public class CardProductCatalog {
         ));
 
         registerProduct(new CardProduct(
+                "edge_cashback_card",
+                "FinEdge Edge Cashback Credit Card",
+                "CREDIT",
+                Set.of("SAVINGS", "CURRENT", "SALARY"),
+                new BigDecimal("10000.00"),
+                new BigDecimal("1000000.00"),
+                new BigDecimal("50000.00")
+        ));
+
+        registerProduct(new CardProduct(
+                "edge-cashback-card",
+                "FinEdge Edge Cashback Credit Card",
+                "CREDIT",
+                Set.of("SAVINGS", "CURRENT", "SALARY"),
+                new BigDecimal("10000.00"),
+                new BigDecimal("1000000.00"),
+                new BigDecimal("50000.00")
+        ));
+
+        registerProduct(new CardProduct(
                 "platinum-rewards-credit",
                 "FinEdge Platinum Rewards Card",
                 "CREDIT",
@@ -34,6 +54,26 @@ public class CardProductCatalog {
 
         registerProduct(new CardProduct(
                 "classic-debit",
+                "FinEdge Classic Debit Card",
+                "DEBIT",
+                Set.of("SAVINGS", "CURRENT", "SALARY"),
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO
+        ));
+
+        registerProduct(new CardProduct(
+                "classic_debit_card",
+                "FinEdge Classic Debit Card",
+                "DEBIT",
+                Set.of("SAVINGS", "CURRENT", "SALARY"),
+                BigDecimal.ZERO,
+                BigDecimal.ZERO,
+                BigDecimal.ZERO
+        ));
+
+        registerProduct(new CardProduct(
+                "classic-debit-card",
                 "FinEdge Classic Debit Card",
                 "DEBIT",
                 Set.of("SAVINGS", "CURRENT", "SALARY"),

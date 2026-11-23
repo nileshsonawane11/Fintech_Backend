@@ -5,6 +5,7 @@ import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.convert.converter.Converter;
 import org.springframework.core.io.Resource;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.http.SessionCreationPolicy;
@@ -24,6 +25,7 @@ import java.security.interfaces.RSAPublicKey;
 
 @Configuration
 @EnableWebSecurity
+@EnableMethodSecurity(prePostEnabled = true)
 public class SecurityConfig {
 
     private final Converter<Jwt, org.springframework.security.authentication.AbstractAuthenticationToken>
@@ -49,9 +51,12 @@ public class SecurityConfig {
                                 "/v3/api-docs/**",
                                 "/swagger-ui/**",
                                 "/swagger-ui.html",
-                                "/swagger-ui/index.html"
+                                "/swagger-ui/index.html",
+                                "/public/api/v1/card-products",
+                                "/public/api/v1/card-products/**"
                         ).permitAll()
                         .requestMatchers("/ops/**").hasAnyRole("OPERATIONS", "ADMIN", "MANAGER", "BANK_MANAGER", "ACCOUNT_OPS")
+                        .requestMatchers("/api/v1/card-products/**").hasAnyRole("ADMIN", "OPERATIONS", "MANAGER", "BANK_MANAGER", "ACCOUNT_OPS")
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2
