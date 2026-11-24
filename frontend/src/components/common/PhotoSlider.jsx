@@ -119,7 +119,7 @@ export function PhotoSlider({ slides = WHY_FINEDGE_SLIDES, className = '' }) {
       aria-label="Why FinEdge photography showcase"
       tabIndex={0}
       onKeyDown={handleKeyDown}
-      className={`group relative flex flex-col focus:outline-none focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-offset-2 rounded-2xl ${className}`}
+      className={`group relative flex flex-col focus:outline-none focus-visible:ring-2 focus-visible:ring-bank-primary-border focus-visible:ring-offset-2 rounded-2xl ${className}`}
     >
       {/* Visual Frame */}
       <div
@@ -177,7 +177,7 @@ export function PhotoSlider({ slides = WHY_FINEDGE_SLIDES, className = '' }) {
                   <p className="text-xs sm:text-sm font-medium tracking-wide drop-shadow-sm text-porcelain-100">
                     {slide.caption}
                   </p>
-                  <span className="shrink-0 text-xs font-semibold tabular-nums px-2 py-0.5 rounded-full bg-midnight-900/80 backdrop-blur-xs border border-porcelain-50/20 text-porcelain-200">
+                  <span className="shrink-0 text-xs font-semibold tabular-nums px-2 py-0.5 rounded-full bg-ink-900/80 backdrop-blur-xs border border-white/20 text-white">
                     {idx + 1} / {total}
                   </span>
                 </div>
@@ -191,7 +191,7 @@ export function PhotoSlider({ slides = WHY_FINEDGE_SLIDES, className = '' }) {
           type="button"
           onClick={handlePrev}
           aria-label="Previous photograph"
-          className="cursor-pointer absolute left-3 top-1/2 -translate-y-1/2 z-20 flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-midnight-950/70 text-porcelain-50 backdrop-blur-sm border border-porcelain-50/15 shadow-sm transition-all duration-160 hover:bg-midnight-900 hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-gold-500"
+          className="cursor-pointer absolute left-3 top-1/2 -translate-y-1/2 z-20 flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-white/90 text-ink-900 backdrop-blur-sm border border-ink-200 shadow-md transition-all duration-160 hover:bg-white hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-bank-primary"
         >
           <ChevronLeft className="h-5 w-5" aria-hidden="true" />
         </button>
@@ -200,7 +200,7 @@ export function PhotoSlider({ slides = WHY_FINEDGE_SLIDES, className = '' }) {
           type="button"
           onClick={handleNext}
           aria-label="Next photograph"
-          className="cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 z-20 flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-midnight-950/70 text-porcelain-50 backdrop-blur-sm border border-porcelain-50/15 shadow-sm transition-all duration-160 hover:bg-midnight-900 hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-gold-500"
+          className="cursor-pointer absolute right-3 top-1/2 -translate-y-1/2 z-20 flex h-11 w-11 min-h-[44px] min-w-[44px] items-center justify-center rounded-full bg-white/90 text-ink-900 backdrop-blur-sm border border-ink-200 shadow-md transition-all duration-160 hover:bg-white hover:scale-105 active:scale-95 focus-visible:outline-2 focus-visible:outline-bank-primary"
         >
           <ChevronRight className="h-5 w-5" aria-hidden="true" />
         </button>
@@ -220,12 +220,12 @@ export function PhotoSlider({ slides = WHY_FINEDGE_SLIDES, className = '' }) {
                 aria-selected={isActive}
                 aria-label={`Go to slide ${idx + 1}: ${slide.caption}`}
                 onClick={() => setActiveIndex(idx)}
-                className="cursor-pointer min-h-[44px] min-w-[28px] inline-flex items-center justify-center p-1.5 focus-visible:outline-2 focus-visible:outline-gold-500 rounded-full"
+                className="cursor-pointer min-h-[44px] min-w-[28px] inline-flex items-center justify-center p-1.5 focus-visible:outline-2 focus-visible:outline-bank-primary rounded-full"
               >
                 <span
                   className={`block rounded-full transition-all duration-180 ${
                     isActive
-                      ? 'h-2 w-6 bg-gold-500'
+                      ? 'h-2 w-6 bg-bank-primary'
                       : 'h-2 w-2 bg-ink-300 hover:bg-ink-400'
                   }`}
                 />
@@ -246,7 +246,7 @@ export function PhotoSlider({ slides = WHY_FINEDGE_SLIDES, className = '' }) {
                 onClick={() => setActiveIndex(idx)}
                 className={`cursor-pointer relative h-9 w-14 overflow-hidden rounded-md border transition-all duration-160 ${
                   isActive
-                    ? 'border-gold-500 ring-2 ring-gold-500/30 shadow-xs'
+                    ? 'border-bank-primary-border ring-2 ring-bank-primary-border/30 shadow-xs'
                     : 'border-ink-200 opacity-60 hover:opacity-100 hover:border-ink-400'
                 }`}
               >

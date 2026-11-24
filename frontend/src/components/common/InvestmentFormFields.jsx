@@ -181,7 +181,7 @@ export const InvestmentFormFields = ({
                     value={formData.fullName}
                     onChange={(e) => handleChange('fullName', e.target.value)}
                     placeholder="As printed on your PAN card"
-                    className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                    className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                   />
                   {errors.fullName && <p className="text-xs text-danger-600 mt-1">{errors.fullName}</p>}
                 </div>
@@ -195,7 +195,7 @@ export const InvestmentFormFields = ({
                     type="date"
                     value={formData.dob}
                     onChange={(e) => handleChange('dob', e.target.value)}
-                    className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                    className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                   />
                   <p className="text-xs text-ink-500 mt-1">Drives eligibility and senior citizen rate (60+).</p>
                   {errors.dob && <p className="text-xs text-danger-600 mt-1">{errors.dob}</p>}
@@ -216,7 +216,7 @@ export const InvestmentFormFields = ({
                   value={formData.mobile}
                   onChange={(e) => handleChange('mobile', e.target.value.replace(/\D/g, ''))}
                   placeholder="10-digit mobile number"
-                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white pl-12 pr-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white pl-12 pr-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                 />
               </div>
               {errors.mobile && <p className="text-xs text-danger-600 mt-1">{errors.mobile}</p>}
@@ -232,7 +232,7 @@ export const InvestmentFormFields = ({
                 value={formData.email}
                 onChange={(e) => handleChange('email', e.target.value)}
                 placeholder="name@domain.com"
-                className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
               />
               {errors.email && <p className="text-xs text-danger-600 mt-1">{errors.email}</p>}
             </div>
@@ -248,7 +248,7 @@ export const InvestmentFormFields = ({
                 value={formData.panNumber}
                 onChange={(e) => handleChange('panNumber', e.target.value.toUpperCase())}
                 placeholder="ABCDE1234F"
-                className="h-[42px] w-full uppercase rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm font-mono text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                className="h-[42px] w-full uppercase rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm font-mono text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
               />
               <p className="text-xs text-ink-500 mt-1">10-character alphanumeric PAN format.</p>
               {errors.panNumber && <p className="text-xs text-danger-600 mt-1">{errors.panNumber}</p>}
@@ -277,7 +277,7 @@ export const InvestmentFormFields = ({
               name="fundingAccountId"
               value={formData.fundingAccountId || accounts[0]?.accountId}
               onChange={(e) => handleChange('fundingAccountId', e.target.value)}
-              className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+              className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
             >
               {accounts.map((acc) => (
                 <option key={acc.accountId} value={acc.accountId}>
@@ -301,7 +301,7 @@ export const InvestmentFormFields = ({
                 value={formData.fundingAccountNumber}
                 onChange={(e) => handleChange('fundingAccountNumber', e.target.value.replace(/\D/g, ''))}
                 placeholder="14-digit operative account number"
-                className={`h-[42px] w-full rounded-lg border px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors ${
+                className={`h-[42px] w-full rounded-lg border px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors ${
                   formData.noFinEdgeAccountYet ? 'bg-ink-50/80 text-ink-400 border-ink-200 cursor-not-allowed' : 'bg-white border-ink-200'
                 }`}
               />
@@ -316,7 +316,7 @@ export const InvestmentFormFields = ({
                 name="noFinEdgeAccountYet"
                 checked={formData.noFinEdgeAccountYet}
                 onChange={(e) => handleChange('noFinEdgeAccountYet', e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
               />
               <span className="text-xs leading-relaxed text-ink-700 font-medium">
                 I don't have a FinEdge account yet — I want to apply now and open an Everyday Savings Account before booking completes.
@@ -351,7 +351,7 @@ export const InvestmentFormFields = ({
                     value={formData.fdDepositAmount}
                     onChange={(e) => handleChange('fdDepositAmount', e.target.value)}
                     placeholder="e.g. 100000"
-                    className="h-[42px] w-full rounded-lg border border-ink-200 bg-white pl-8 pr-3.5 py-2 text-sm font-semibold text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                    className="h-[42px] w-full rounded-lg border border-ink-200 bg-white pl-8 pr-3.5 py-2 text-sm font-semibold text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                   />
                 </div>
                 <p className="text-xs text-ink-500 mt-1">
@@ -368,7 +368,7 @@ export const InvestmentFormFields = ({
                   name="fdTenureBand"
                   value={formData.fdTenureBand}
                   onChange={(e) => handleChange('fdTenureBand', e.target.value)}
-                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                 >
                   {(product?.rateGrid || []).map((band) => (
                     <option key={band.tenure} value={band.tenure}>
@@ -387,7 +387,7 @@ export const InvestmentFormFields = ({
                   name="fdPayoutOption"
                   value={formData.fdPayoutOption || 'Cumulative'}
                   onChange={(e) => handleChange('fdPayoutOption', e.target.value)}
-                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                 >
                   {(product?.payoutOptions || ['Cumulative (paid at maturity)', 'Monthly payout', 'Quarterly payout']).map((opt) => (
                     <option key={opt} value={opt}>
@@ -404,7 +404,7 @@ export const InvestmentFormFields = ({
                     name="fdAutoRenew"
                     checked={formData.fdAutoRenew}
                     onChange={(e) => handleChange('fdAutoRenew', e.target.checked)}
-                    className="h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                    className="h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
                   />
                   <span className="text-xs font-medium text-ink-800">
                     Auto-renew principal and interest at maturity
@@ -422,43 +422,43 @@ export const InvestmentFormFields = ({
             )}
 
             {/* Live Maturity Panel */}
-            <div className="mt-5 rounded-xl border border-midnight-100 bg-midnight-900 text-porcelain-50 p-4 shadow-sm">
-              <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-                <span className="text-xs font-semibold uppercase tracking-wider text-porcelain-300">
+            <div className="mt-5 rounded-xl border border-ink-200 bg-porcelain-50 text-ink-900 p-4 shadow-sm">
+              <div className="flex items-center justify-between border-b border-ink-200 pb-2.5">
+                <span className="text-xs font-semibold uppercase tracking-wider text-ink-600">
                   Estimated Maturity Returns
                 </span>
-                <span className="text-xs text-gold-400 font-semibold">{fdRate.toFixed(2)}% p.a. applied</span>
+                <span className="text-xs text-bank-primary font-semibold">{fdRate.toFixed(2)}% p.a. applied</span>
               </div>
 
               {fdResult ? (
                 <div className="mt-3 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-porcelain-300">Deposit Amount</span>
-                    <span className="font-semibold text-white">{formatINR(fdResult.principal)}</span>
+                    <span className="text-ink-600">Deposit Amount</span>
+                    <span className="font-semibold text-ink-900">{formatINR(fdResult.principal)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-porcelain-300">Tenure Band</span>
-                    <span className="text-white">{fdBand?.tenure}</span>
+                    <span className="text-ink-600">Tenure Band</span>
+                    <span className="text-ink-900">{fdBand?.tenure}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-porcelain-300">Total Interest Earned</span>
+                    <span className="text-ink-600">Total Interest Earned</span>
                     <span className="font-semibold text-emerald-400">+{formatINR(fdResult.interestEarned)}</span>
                   </div>
-                  <div className="flex justify-between text-base font-bold border-t border-white/10 pt-2 text-gold-300">
+                  <div className="flex justify-between text-base font-bold border-t border-ink-200 pt-2 text-bank-primary">
                     <span>Maturity Value</span>
                     <span>{formatINR(fdResult.maturityValue)}</span>
                   </div>
 
                   {formData.fdPayoutOption?.includes('Monthly') && (
-                    <div className="mt-2 text-xs border-t border-white/10 pt-2 text-porcelain-200 flex justify-between">
+                    <div className="mt-2 text-xs border-t border-ink-200 pt-2 text-ink-500 flex justify-between">
                       <span>Indicative monthly payout:</span>
-                      <span className="font-semibold text-white">{formatINR(fdIndicativeMonthly)}</span>
+                      <span className="font-semibold text-ink-900">{formatINR(fdIndicativeMonthly)}</span>
                     </div>
                   )}
                   {formData.fdPayoutOption?.includes('Quarterly') && (
-                    <div className="mt-2 text-xs border-t border-white/10 pt-2 text-porcelain-200 flex justify-between">
+                    <div className="mt-2 text-xs border-t border-ink-200 pt-2 text-ink-500 flex justify-between">
                       <span>Indicative quarterly payout:</span>
-                      <span className="font-semibold text-white">{formatINR(fdIndicativeQuarterly)}</span>
+                      <span className="font-semibold text-ink-900">{formatINR(fdIndicativeQuarterly)}</span>
                     </div>
                   )}
                   {formData.fdPayoutOption && !formData.fdPayoutOption.includes('Cumulative') && (
@@ -466,12 +466,12 @@ export const InvestmentFormFields = ({
                   )}
                 </div>
               ) : (
-                <p className="mt-3 text-xs text-porcelain-300 italic">Enter a valid deposit amount to view calculated maturity returns.</p>
+                <p className="mt-3 text-xs text-ink-600 italic">Enter a valid deposit amount to view calculated maturity returns.</p>
               )}
 
               {/* Amendment C: Tax Information Line */}
-              <div className="mt-3 border-t border-white/10 pt-2.5 flex items-start gap-2 text-xs leading-relaxed text-porcelain-300">
-                <Info className="h-3.5 w-3.5 text-gold-400 shrink-0 mt-0.5" />
+              <div className="mt-3 border-t border-ink-200 pt-2.5 flex items-start gap-2 text-xs leading-relaxed text-ink-600">
+                <Info className="h-3.5 w-3.5 text-bank-primary shrink-0 mt-0.5" />
                 <span>Interest is taxable as per your slab; the bank deducts TDS when interest exceeds the threshold prescribed under the Income-tax Act.</span>
               </div>
             </div>
@@ -485,7 +485,7 @@ export const InvestmentFormFields = ({
                 name="fdConsentTerms"
                 checked={formData.fdConsentTerms}
                 onChange={(e) => handleChange('fdConsentTerms', e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
               />
               <span className="text-xs leading-relaxed text-ink-700">
                 I agree to the Fixed Deposit Terms & Conditions. Premature withdrawal is allowed with a 1% p.a. rate reduction for the period actually run. Deposits are insured by the DICGC up to ₹5,00,000 per depositor per bank.<span className="text-danger-600"> *</span>
@@ -521,7 +521,7 @@ export const InvestmentFormFields = ({
                     value={formData.rdMonthlyAmount}
                     onChange={(e) => handleChange('rdMonthlyAmount', e.target.value)}
                     placeholder="e.g. 5000"
-                    className="h-[42px] w-full rounded-lg border border-ink-200 bg-white pl-8 pr-3.5 py-2 text-sm font-semibold text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                    className="h-[42px] w-full rounded-lg border border-ink-200 bg-white pl-8 pr-3.5 py-2 text-sm font-semibold text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                   />
                 </div>
                 <p className="text-xs text-ink-500 mt-1">
@@ -538,7 +538,7 @@ export const InvestmentFormFields = ({
                   name="rdTenureBand"
                   value={formData.rdTenureBand}
                   onChange={(e) => handleChange('rdTenureBand', e.target.value)}
-                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                 >
                   {(product?.rateBands || []).map((band) => (
                     <option key={band.tenure} value={band.tenure}>
@@ -559,7 +559,7 @@ export const InvestmentFormFields = ({
                     name="rdConsentStandingInstruction"
                     checked={formData.rdConsentStandingInstruction}
                     onChange={(e) => handleChange('rdConsentStandingInstruction', e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                    className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
                   />
                   <span className="text-xs leading-relaxed text-ink-800 font-medium">
                     Debit {formData.rdMonthlyAmount ? formatINR(Number(formData.rdMonthlyAmount)) : 'instalment'} from my funding account every month on day:
@@ -589,40 +589,40 @@ export const InvestmentFormFields = ({
             </div>
 
             {/* Live Maturity Panel */}
-            <div className="mt-5 rounded-xl border border-midnight-100 bg-midnight-900 text-porcelain-50 p-4 shadow-sm">
-              <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-                <span className="text-xs font-semibold uppercase tracking-wider text-porcelain-300">
+            <div className="mt-5 rounded-xl border border-ink-200 bg-porcelain-50 text-ink-900 p-4 shadow-sm">
+              <div className="flex items-center justify-between border-b border-ink-200 pb-2.5">
+                <span className="text-xs font-semibold uppercase tracking-wider text-ink-600">
                   Estimated Maturity Returns
                 </span>
-                <span className="text-xs text-gold-400 font-semibold">{(rdRate ?? 6.55).toFixed(2)}% p.a. applied</span>
+                <span className="text-xs text-bank-primary font-semibold">{(rdRate ?? 6.55).toFixed(2)}% p.a. applied</span>
               </div>
 
               {rdResult ? (
                 <div className="mt-3 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-porcelain-300">Monthly Deposit</span>
-                    <span className="font-semibold text-white">{formatINR(rdNumAmount)}</span>
+                    <span className="text-ink-600">Monthly Deposit</span>
+                    <span className="font-semibold text-ink-900">{formatINR(rdNumAmount)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-porcelain-300">Total Deposited ({rdTenureMonths} months)</span>
-                    <span className="font-semibold text-white">{formatINR(rdResult.totalDeposited)}</span>
+                    <span className="text-ink-600">Total Deposited ({rdTenureMonths} months)</span>
+                    <span className="font-semibold text-ink-900">{formatINR(rdResult.totalDeposited)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-porcelain-300">Total Interest Earned</span>
+                    <span className="text-ink-600">Total Interest Earned</span>
                     <span className="font-semibold text-emerald-400">+{formatINR(rdResult.interestEarned)}</span>
                   </div>
-                  <div className="flex justify-between text-base font-bold border-t border-white/10 pt-2 text-gold-300">
+                  <div className="flex justify-between text-base font-bold border-t border-ink-200 pt-2 text-bank-primary">
                     <span>Maturity Value</span>
                     <span>{formatINR(rdResult.maturityValue)}</span>
                   </div>
                 </div>
               ) : (
-                <p className="mt-3 text-xs text-porcelain-300 italic">Enter a monthly instalment amount to view calculated maturity returns.</p>
+                <p className="mt-3 text-xs text-ink-600 italic">Enter a monthly instalment amount to view calculated maturity returns.</p>
               )}
 
               {/* Amendment C: Tax Information Line */}
-              <div className="mt-3 border-t border-white/10 pt-2.5 flex items-start gap-2 text-xs leading-relaxed text-porcelain-300">
-                <Info className="h-3.5 w-3.5 text-gold-400 shrink-0 mt-0.5" />
+              <div className="mt-3 border-t border-ink-200 pt-2.5 flex items-start gap-2 text-xs leading-relaxed text-ink-600">
+                <Info className="h-3.5 w-3.5 text-bank-primary shrink-0 mt-0.5" />
                 <span>Interest is taxable as per your slab; the bank deducts TDS when interest exceeds the threshold prescribed under the Income-tax Act.</span>
               </div>
             </div>
@@ -636,7 +636,7 @@ export const InvestmentFormFields = ({
                 name="rdConsentTerms"
                 checked={formData.rdConsentTerms}
                 onChange={(e) => handleChange('rdConsentTerms', e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
               />
               <span className="text-xs leading-relaxed text-ink-700">
                 I agree to the Recurring Deposit Terms & Conditions. Premature closure is permitted with interest calculated for the period actually run minus a 1% p.a. rate reduction.<span className="text-danger-600"> *</span>
@@ -667,7 +667,7 @@ export const InvestmentFormFields = ({
                     key={cat.name}
                     className={`flex items-start justify-between gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
                       isSelected
-                        ? 'border-midnight-800 bg-midnight-50/70'
+                        ? 'border-bank-primary bg-bank-primary-light/70'
                         : 'border-ink-200 hover:border-ink-300 bg-white'
                     }`}
                   >
@@ -678,7 +678,7 @@ export const InvestmentFormFields = ({
                         value={cat.name}
                         checked={isSelected}
                         onChange={() => handleChange('sipFundCategory', cat.name)}
-                        className="mt-0.5 h-4 w-4 text-midnight-900 focus:ring-gold-500"
+                        className="mt-0.5 h-4 w-4 text-midnight-900 focus:ring-bank-primary-border"
                       />
                       <div>
                         <div className="flex flex-wrap items-baseline gap-2">
@@ -712,7 +712,7 @@ export const InvestmentFormFields = ({
                     value={formData.sipMonthlyAmount}
                     onChange={(e) => handleChange('sipMonthlyAmount', e.target.value)}
                     placeholder="e.g. 10000"
-                    className="h-[42px] w-full rounded-lg border border-ink-200 bg-white pl-8 pr-3.5 py-2 text-sm font-semibold text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                    className="h-[42px] w-full rounded-lg border border-ink-200 bg-white pl-8 pr-3.5 py-2 text-sm font-semibold text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                   />
                 </div>
                 <p className="text-xs text-ink-500 mt-1">Starts at {formatINRWhole(product?.minMonthly || 500)}/mo.</p>
@@ -727,7 +727,7 @@ export const InvestmentFormFields = ({
                   name="sipDate"
                   value={formData.sipDate || '5'}
                   onChange={(e) => handleChange('sipDate', e.target.value)}
-                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                 >
                   {Array.from({ length: 28 }, (_, i) => i + 1).map((d) => (
                     <option key={d} value={d}>
@@ -745,7 +745,7 @@ export const InvestmentFormFields = ({
                   name="sipDurationYears"
                   value={formData.sipDurationYears || '10'}
                   onChange={(e) => handleChange('sipDurationYears', e.target.value)}
-                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                 >
                   {[1, 2, 3, 5, 7, 10, 15, 20, 25, 30].map((y) => (
                     <option key={y} value={y}>
@@ -765,7 +765,7 @@ export const InvestmentFormFields = ({
                 name="sipStepUp"
                 value={formData.sipStepUp || 'None'}
                 onChange={(e) => handleChange('sipStepUp', e.target.value)}
-                className="h-[42px] w-full sm:w-64 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                className="h-[42px] w-full sm:w-64 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
               >
                 {(product?.stepUpOptions || ['None', '5% per year', '10% per year']).map((opt) => (
                   <option key={opt} value={opt}>
@@ -781,19 +781,19 @@ export const InvestmentFormFields = ({
             </div>
 
             {/* Illustration Panel (VERBATIM copy from Calculators page) */}
-            <div className="mt-5 rounded-xl border border-midnight-100 bg-midnight-900 text-porcelain-50 p-4 shadow-sm">
-              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-white/10 pb-2.5">
-                <span className="text-xs font-semibold uppercase tracking-wider text-porcelain-300">
+            <div className="mt-5 rounded-xl border border-ink-200 bg-porcelain-50 text-ink-900 p-4 shadow-sm">
+              <div className="flex flex-wrap items-center justify-between gap-2 border-b border-ink-200 pb-2.5">
+                <span className="text-xs font-semibold uppercase tracking-wider text-ink-600">
                   Projected value (illustration only)
                 </span>
-                <span className="text-xs text-gold-400 font-semibold">{sipReturnPct}% p.a. assumed growth</span>
+                <span className="text-xs text-bank-primary font-semibold">{sipReturnPct}% p.a. assumed growth</span>
               </div>
 
               {/* Assumed Return Slider */}
-              <div className="mt-3 bg-white/5 rounded-lg p-3 border border-white/10 space-y-1.5">
+              <div className="mt-3 bg-white/5 rounded-lg p-3 border border-ink-200 space-y-1.5">
                 <div className="flex justify-between text-xs">
-                  <span className="text-porcelain-300 font-medium">Assumed annual return:</span>
-                  <span className="font-semibold text-gold-300 font-mono">{sipReturnPct}% p.a.</span>
+                  <span className="text-ink-600 font-medium">Assumed annual return:</span>
+                  <span className="font-semibold text-bank-primary font-mono">{sipReturnPct}% p.a.</span>
                 </div>
                 <input
                   type="range"
@@ -802,9 +802,9 @@ export const InvestmentFormFields = ({
                   step={0.5}
                   value={sipReturnPct}
                   onChange={(e) => handleChange('sipAssumedReturn', parseFloat(e.target.value))}
-                  className="w-full h-1.5 bg-midnight-800 rounded-lg appearance-none cursor-pointer accent-gold-400"
+                  className="w-full h-1.5 bg-ink-200 rounded-lg appearance-none cursor-pointer accent-bank-primary"
                 />
-                <p className="text-xs text-porcelain-400 leading-snug">
+                <p className="text-xs text-ink-500 leading-snug">
                   An assumption you choose for this illustration — not a rate the bank offers or expects.
                 </p>
               </div>
@@ -812,23 +812,23 @@ export const InvestmentFormFields = ({
               {sipResult ? (
                 <div className="mt-3 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-porcelain-300">Monthly Investment</span>
-                    <span className="font-semibold text-white">{formatINR(sipNumAmount)}</span>
+                    <span className="text-ink-600">Monthly Investment</span>
+                    <span className="font-semibold text-ink-900">{formatINR(sipNumAmount)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-porcelain-300">Total Invested ({sipNumYears} years)</span>
-                    <span className="font-semibold text-white">{formatINR(sipResult.totalInvested)}</span>
+                    <span className="text-ink-600">Total Invested ({sipNumYears} years)</span>
+                    <span className="font-semibold text-ink-900">{formatINR(sipResult.totalInvested)}</span>
                   </div>
-                  <div className="flex justify-between text-base font-bold border-t border-white/10 pt-2 text-gold-300">
+                  <div className="flex justify-between text-base font-bold border-t border-ink-200 pt-2 text-bank-primary">
                     <span>Projected Value</span>
                     <span>{formatINR(sipResult.maturityValue)}</span>
                   </div>
                 </div>
               ) : (
-                <p className="mt-3 text-xs text-porcelain-300 italic">Enter a monthly investment amount to view calculated illustration.</p>
+                <p className="mt-3 text-xs text-ink-600 italic">Enter a monthly investment amount to view calculated illustration.</p>
               )}
 
-              <p className="mt-3 text-xs text-porcelain-400 border-t border-white/10 pt-2 leading-relaxed">
+              <p className="mt-3 text-xs text-porcelain-400 border-t border-ink-200 pt-2 leading-relaxed">
                 What the deposits above would grow to IF markets returned exactly the assumed rate every year. They will not.
               </p>
             </div>
@@ -842,7 +842,7 @@ export const InvestmentFormFields = ({
                 name="sipDeclRisk"
                 checked={formData.sipDeclRisk}
                 onChange={(e) => handleChange('sipDeclRisk', e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
               />
               <span className="text-xs leading-relaxed text-ink-700">
                 I understand <strong className="text-midnight-950">{selectedSipCategory.name}</strong> is a <strong className="text-midnight-950">{selectedSipCategory.riskLevel}</strong> risk, market-linked investment. Returns are not guaranteed, this is not a bank deposit, and it is not covered by deposit insurance.<span className="text-danger-600"> *</span>
@@ -856,7 +856,7 @@ export const InvestmentFormFields = ({
                 name="sipDeclKycPan"
                 checked={formData.sipDeclKycPan}
                 onChange={(e) => handleChange('sipDeclKycPan', e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
               />
               <span className="text-xs leading-relaxed text-ink-700">
                 I confirm I have completed KYC and hold a valid Permanent Account Number (PAN).<span className="text-danger-600"> *</span>
@@ -870,7 +870,7 @@ export const InvestmentFormFields = ({
                 name="sipConsentMandate"
                 checked={formData.sipConsentMandate}
                 onChange={(e) => handleChange('sipConsentMandate', e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
               />
               <span className="text-xs leading-relaxed text-ink-700">
                 I authorise auto-debit of {formData.sipMonthlyAmount ? formatINR(Number(formData.sipMonthlyAmount)) : 'the instalment'} from my funding account on the {formData.sipDate || 5}th of every month. I understand I can pause or modify this mandate anytime.<span className="text-danger-600"> *</span>
@@ -885,7 +885,7 @@ export const InvestmentFormFields = ({
                 name="sipDeclFatca"
                 checked={formData.sipDeclFatca}
                 onChange={(e) => handleChange('sipDeclFatca', e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
               />
               <span className="text-xs leading-relaxed text-ink-700">
                 I confirm that I am a tax resident of India and not a tax resident of any other country under FATCA/CRS.<span className="text-danger-600"> *</span>
@@ -916,7 +916,7 @@ export const InvestmentFormFields = ({
                   value={formData.ssyGuardianName}
                   onChange={(e) => handleChange('ssyGuardianName', e.target.value)}
                   placeholder="Guardian's legal name"
-                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                 />
                 {errors.ssyGuardianName && <p className="text-xs text-danger-600 mt-1">{errors.ssyGuardianName}</p>}
               </div>
@@ -929,7 +929,7 @@ export const InvestmentFormFields = ({
                   name="ssyGuardianRelationship"
                   value={formData.ssyGuardianRelationship || 'Father'}
                   onChange={(e) => handleChange('ssyGuardianRelationship', e.target.value)}
-                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                 >
                   <option value="Father">Father</option>
                   <option value="Mother">Mother</option>
@@ -949,7 +949,7 @@ export const InvestmentFormFields = ({
                   type="date"
                   value={formData.ssyGuardianDob}
                   onChange={(e) => handleChange('ssyGuardianDob', e.target.value)}
-                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                 />
                 <p className="text-xs text-ink-500 mt-1">Must be 18+ years of age.</p>
                 {errors.ssyGuardianDob && <p className="text-xs text-danger-600 mt-1">{errors.ssyGuardianDob}</p>}
@@ -972,7 +972,7 @@ export const InvestmentFormFields = ({
                   value={formData.ssyChildName}
                   onChange={(e) => handleChange('ssyChildName', e.target.value)}
                   placeholder="As per birth certificate"
-                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                 />
                 {errors.ssyChildName && <p className="text-xs text-danger-600 mt-1">{errors.ssyChildName}</p>}
               </div>
@@ -986,7 +986,7 @@ export const InvestmentFormFields = ({
                   type="date"
                   value={formData.ssyChildDob}
                   onChange={(e) => handleChange('ssyChildDob', e.target.value)}
-                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                  className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                 />
                 <p className="text-xs text-ink-500 mt-1">
                   Scheme rule: Girl child must be under 10 years of age at account opening.
@@ -1023,7 +1023,7 @@ export const InvestmentFormFields = ({
                     value={formData.ssyAnnualDeposit}
                     onChange={(e) => handleChange('ssyAnnualDeposit', e.target.value)}
                     placeholder="e.g. 150000"
-                    className="h-[42px] w-full rounded-lg border border-ink-200 bg-white pl-8 pr-3.5 py-2 text-sm font-semibold text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                    className="h-[42px] w-full rounded-lg border border-ink-200 bg-white pl-8 pr-3.5 py-2 text-sm font-semibold text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                   />
                 </div>
                 <p className="text-xs text-ink-500 mt-1">
@@ -1044,38 +1044,38 @@ export const InvestmentFormFields = ({
             </div>
 
             {/* Projection Panel */}
-            <div className="mt-5 rounded-xl border border-midnight-100 bg-midnight-900 text-porcelain-50 p-4 shadow-sm">
-              <div className="flex items-center justify-between border-b border-white/10 pb-2.5">
-                <span className="text-xs font-semibold uppercase tracking-wider text-porcelain-300">
+            <div className="mt-5 rounded-xl border border-ink-200 bg-porcelain-50 text-ink-900 p-4 shadow-sm">
+              <div className="flex items-center justify-between border-b border-ink-200 pb-2.5">
+                <span className="text-xs font-semibold uppercase tracking-wider text-ink-600">
                   Maturity value at 21 years (projection)
                 </span>
-                <span className="text-xs text-gold-400 font-semibold">{product?.rate || 8.05}% p.a.</span>
+                <span className="text-xs text-bank-primary font-semibold">{product?.rate || 8.05}% p.a.</span>
               </div>
 
               {ssyResult ? (
                 <div className="mt-3 space-y-2">
                   <div className="flex justify-between text-sm">
-                    <span className="text-porcelain-300">Deposit applied per year</span>
-                    <span className="font-semibold text-white">{formatINR(ssyResult.appliedAnnualDeposit)}</span>
+                    <span className="text-ink-600">Deposit applied per year</span>
+                    <span className="font-semibold text-ink-900">{formatINR(ssyResult.appliedAnnualDeposit)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-porcelain-300">Total deposited (15 years)</span>
-                    <span className="font-semibold text-white">{formatINR(ssyResult.totalDeposited)}</span>
+                    <span className="text-ink-600">Total deposited (15 years)</span>
+                    <span className="font-semibold text-ink-900">{formatINR(ssyResult.totalDeposited)}</span>
                   </div>
                   <div className="flex justify-between text-sm">
-                    <span className="text-porcelain-300">Interest earned (projected)</span>
+                    <span className="text-ink-600">Interest earned (projected)</span>
                     <span className="font-semibold text-emerald-400">+{formatINR(ssyResult.interestEarned)}</span>
                   </div>
-                  <div className="flex justify-between text-base font-bold border-t border-white/10 pt-2 text-gold-300">
+                  <div className="flex justify-between text-base font-bold border-t border-ink-200 pt-2 text-bank-primary">
                     <span>Maturity value (21 years)</span>
                     <span>{formatINR(ssyResult.maturityValue)}</span>
                   </div>
                 </div>
               ) : (
-                <p className="mt-3 text-xs text-porcelain-300 italic">Enter an annual deposit amount to view calculated scheme projection.</p>
+                <p className="mt-3 text-xs text-ink-600 italic">Enter an annual deposit amount to view calculated scheme projection.</p>
               )}
 
-              <p className="mt-3 text-xs text-porcelain-400 border-t border-white/10 pt-2 leading-relaxed">
+              <p className="mt-3 text-xs text-porcelain-400 border-t border-ink-200 pt-2 leading-relaxed">
                 {product?.rateNote || 'Illustrative rate for this platform. The actual SSY rate is set by the Government of India and revised periodically.'}
               </p>
             </div>
@@ -1089,7 +1089,7 @@ export const InvestmentFormFields = ({
                 name="ssyDeclSingleAccount"
                 checked={formData.ssyDeclSingleAccount}
                 onChange={(e) => handleChange('ssyDeclSingleAccount', e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
               />
               <span className="text-xs leading-relaxed text-ink-700">
                 I confirm this is the only Sukanya Samriddhi account for this child.<span className="text-danger-600"> *</span>
@@ -1103,7 +1103,7 @@ export const InvestmentFormFields = ({
                 name="ssyDeclMaxTwo"
                 checked={formData.ssyDeclMaxTwo}
                 onChange={(e) => handleChange('ssyDeclMaxTwo', e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
               />
               <span className="text-xs leading-relaxed text-ink-700">
                 I confirm there are not more than two SSY accounts opened across my family.<span className="text-danger-600"> *</span>
@@ -1117,7 +1117,7 @@ export const InvestmentFormFields = ({
                 name="ssyDeclDuration"
                 checked={formData.ssyDeclDuration}
                 onChange={(e) => handleChange('ssyDeclDuration', e.target.checked)}
-                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
               />
               <span className="text-xs leading-relaxed text-ink-700">
                 I understand deposits are made for 15 years and the account matures after 21 years (or upon marriage after age 18).<span className="text-danger-600"> *</span>
@@ -1154,7 +1154,7 @@ export const InvestmentFormFields = ({
                 value={formData.nomineeName}
                 onChange={(e) => handleChange('nomineeName', e.target.value)}
                 placeholder="Full legal name"
-                className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
               />
             </div>
 
@@ -1166,7 +1166,7 @@ export const InvestmentFormFields = ({
                 name="nomineeRelationship"
                 value={formData.nomineeRelationship}
                 onChange={(e) => handleChange('nomineeRelationship', e.target.value)}
-                className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
               >
                 <option value="">Select relationship</option>
                 <option value="Spouse">Spouse</option>
@@ -1189,7 +1189,7 @@ export const InvestmentFormFields = ({
                 type="date"
                 value={formData.nomineeDob}
                 onChange={(e) => handleChange('nomineeDob', e.target.value)}
-                className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
               />
             </div>
           </div>
@@ -1206,7 +1206,7 @@ export const InvestmentFormFields = ({
             name="optInMarketing"
             checked={formData.optInMarketing}
             onChange={(e) => handleChange('optInMarketing', e.target.checked)}
-            className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+            className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
           />
           <span className="text-xs leading-relaxed text-ink-600">
             I would like to receive product updates, market insights and notifications from FinEdge Bank.

@@ -494,6 +494,12 @@ export function normalizeInvestmentApplication(i, db) {
     dob: i.nominee.dob || i.nominee.dateOfBirth || ''
   } : null;
 
+  const details = i.investmentDetails || {};
+  const tenureMonths = Number(i.tenureMonths || details.tenureMonths || (i.tenureYears ? i.tenureYears * 12 : (i.tenureDays ? Math.round(i.tenureDays / 30) : 12)));
+  const tenureBand = i.tenureBand || details.tenureBand || `${tenureMonths} months`;
+  const appliedRate = Number(i.appliedRate ?? i.rate ?? i.interestRate ?? details.appliedRate ?? 7.25);
+  const maturityAmount = i.maturityAmount != null ? Number(i.maturityAmount) : (i.maturityValue != null ? Number(i.maturityValue) : (details.maturityAmount != null ? Number(details.maturityAmount) : null));
+
   return {
     ...i,
     id,
@@ -503,16 +509,30 @@ export function normalizeInvestmentApplication(i, db) {
     applicantName: cust?.fullName || i.applicant?.fullName || i.applicantName || i.fullName || '—',
     productName: i.productName || 'FinEdge Term Deposit',
     kind: i.kind || 'FD',
-    amount: Number(i.amount ?? i.monthlyAmount ?? 50000),
-    depositAmount: Number(i.amount ?? i.monthlyAmount ?? 50000),
-    rate: Number(i.rate ?? i.interestRate ?? 7.25),
-    interestRate: Number(i.rate ?? i.interestRate ?? 7.25),
-    tenureMonths: Number(i.tenureMonths || (i.tenureYears ? i.tenureYears * 12 : 12)),
-    maturityAmount: i.maturityAmount != null ? Number(i.maturityAmount) : null,
+    amount: Number(i.amount ?? i.depositAmount ?? i.monthlyAmount ?? 50000),
+    depositAmount: Number(i.depositAmount ?? i.amount ?? i.monthlyAmount ?? 50000),
+    rate: appliedRate,
+    interestRate: appliedRate,
+    appliedRate,
+    tenureMonths,
+    tenureBand,
+    maturityAmount,
+    maturityValue: maturityAmount,
     submittedAt: i.submittedAt || i.createdAt || new Date().toISOString(),
     status: i.status || 'SUBMITTED',
     holdingId: i.holdingId || null,
-    nominee
+    nominee,
+    investmentDetails: {
+      ...details,
+      tenureMonths,
+      tenureBand,
+      appliedRate,
+      depositAmount: Number(i.amount ?? i.depositAmount ?? 50000),
+      principal: Number(i.amount ?? i.principal ?? 50000),
+      maturityAmount,
+      maturityValue: maturityAmount,
+      ...i.investmentDetails
+    }
   };
 }
 
@@ -1918,6 +1938,17 @@ export async function adminListProducts(category = null, actorOverride = {}) {
   return list.data;
 }
 
+
+const LOAN_RATE_BOUNDS = {
+  'business-loan': { min: 10.90, max: 15.50, label: 'Business Growth Loan' },
+  'home-loan': { min: 8.35, max: 10.15, label: 'Home Loan' },
+  'agriculture-loan': { min: 6.85, max: 9.25, label: 'Krishi Agriculture Loan' },
+  'vehicle-loan': { min: 8.90, max: 11.75, label: 'Vehicle Loan' },
+  'gold-loan': { min: 8.60, max: 11.00, label: 'Gold Loan' },
+  'loan-against-property': { min: 9.15, max: 12.40, label: 'Loan Against Property' },
+  'education-loan': { min: 9.40, max: 12.85, label: 'Education Loan' },
+};
+
 export async function adminCreateProduct(productData, actorOverride = {}) {
   const actor = assertAdminOnly(actorOverride, 'Creating product');
   const db = getDb();
@@ -1931,6 +1962,20 @@ export async function adminCreateProduct(productData, actorOverride = {}) {
 
   const slug = productData.slug || productData.name.trim().toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/(^-|-$)/g, '');
   if (!slug) throw { status: 422, code: 'VALIDATION_ERROR', detail: 'A valid slug could not be derived from the product name.' };
+
+  if (productData.category === 'loan') {
+    const bound = LOAN_RATE_BOUNDS[slug] || (productData.name && productData.name.toLowerCase().includes('business') ? LOAN_RATE_BOUNDS['business-loan'] : null);
+    if (bound) {
+      if (productData.rateMin !== undefined && productData.rateMin < bound.min) {
+        throw { status: 422, code: 'VALIDATION_ERROR', detail: `${bound.label} minimum interest rate cannot be below ${bound.min.toFixed(2)}% p.a. (allowable range: ${bound.min.toFixed(2)}% – ${bound.max.toFixed(2)}%).` };
+      }
+      if (productData.rateMax !== undefined && productData.rateMax > bound.max) {
+        throw { status: 422, code: 'VALIDATION_ERROR', detail: `${bound.label} maximum interest rate cannot exceed ${bound.max.toFixed(2)}% p.a. (allowable range: ${bound.min.toFixed(2)}% – ${bound.max.toFixed(2)}%).` };
+      }
+    } else if (productData.rateMin !== undefined && productData.rateMin < 6.85) {
+      throw { status: 422, code: 'VALIDATION_ERROR', detail: 'Loan minimum interest rate cannot be below 6.85% p.a.' };
+    }
+  }
 
   if ((db.products || []).some(p => p.slug === slug)) {
     throw { status: 409, code: 'PRODUCT_EXISTS', detail: `A product with slug "${slug}" already exists.` };
@@ -1982,6 +2027,20 @@ export async function adminUpdateProduct(slug, updates, reason, actorOverride = 
 
   const product = (db.products || []).find(p => p.slug === slug);
   if (!product) throw { status: 404, code: 'PRODUCT_NOT_FOUND', detail: 'Product not found.' };
+  const isLoan = (updates.category || product.category) === 'loan';
+  if (isLoan) {
+    const bound = LOAN_RATE_BOUNDS[slug] || ((updates.name || product.name) && (updates.name || product.name).toLowerCase().includes('business') ? LOAN_RATE_BOUNDS['business-loan'] : null);
+    if (bound) {
+      if (updates.rateMin !== undefined && updates.rateMin < bound.min) {
+        throw { status: 422, code: 'VALIDATION_ERROR', detail: `${bound.label} minimum interest rate cannot be below ${bound.min.toFixed(2)}% p.a. (allowable range: ${bound.min.toFixed(2)}% – ${bound.max.toFixed(2)}%).` };
+      }
+      if (updates.rateMax !== undefined && updates.rateMax > bound.max) {
+        throw { status: 422, code: 'VALIDATION_ERROR', detail: `${bound.label} maximum interest rate cannot exceed ${bound.max.toFixed(2)}% p.a. (allowable range: ${bound.min.toFixed(2)}% – ${bound.max.toFixed(2)}%).` };
+      }
+    } else if (updates.rateMin !== undefined && updates.rateMin < 6.85) {
+      throw { status: 422, code: 'VALIDATION_ERROR', detail: 'Loan minimum interest rate cannot be below 6.85% p.a.' };
+    }
+  }
 
   if (updates.rateMin !== undefined && (updates.rateMin < 0 || updates.rateMin > 30)) {
     throw { status: 422, code: 'VALIDATION_ERROR', detail: 'Interest rate must be between 0% and 30% p.a.' };

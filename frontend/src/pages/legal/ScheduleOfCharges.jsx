@@ -26,8 +26,8 @@ export default function ScheduleOfCharges() {
       subtitle="Every standard fee FinEdge charges, in one place, in rupees. If a service is not listed here, it is free. Charges are shown before you confirm any transaction that attracts one — a fee is never a surprise on a statement."
       sections={SECTIONS}
     >
-      <div className="mb-2 flex gap-3 rounded-card border border-gold-300 bg-gold-50 p-4">
-        <Info className="mt-0.5 h-5 w-5 shrink-0 text-gold-700" aria-hidden />
+      <div className="mb-2 flex gap-3 rounded-card border border-bank-primary-border bg-bank-primary-light p-4">
+        <Info className="mt-0.5 h-5 w-5 shrink-0 text-bank-primary" aria-hidden />
         <p className="text-sm leading-6 text-ink-700">
           <strong className="text-ink-900">Illustrative figures:</strong>{" "}
           FinEdge is a demonstration bank, so every amount in this schedule
@@ -42,12 +42,23 @@ export default function ScheduleOfCharges() {
         <LegalTable
           caption="Average monthly balance (AMB) requirements and account charges"
           head={["Account", "AMB required", "Non-maintenance charge", "Debit card annual fee"]}
-          rows={ACCOUNTS.map((a) => [
-            a.name,
-            a.amb.amount === 0 ? "Zero balance" : (a.amb.nonMetroAmount && a.amb.nonMetroAmount !== a.amb.amount ? `${formatINRWhole(a.amb.amount)} (${formatINRWhole(a.amb.nonMetroAmount)} non-metro)` : formatINRWhole(a.amb.amount)),
-            a.amb.penaltyPerMonth ? `${formatINRWhole(a.amb.penaltyPerMonth)} per month` : "Nil",
-            a.fees.debitCardAnnual === 0 ? "Nil" : `${formatINRWhole(a.fees.debitCardAnnual)}/yr`,
-          ])}
+          rows={ACCOUNTS.map((a) => {
+            const ambDisplay = typeof a.amb === 'number'
+              ? (a.amb === 0 ? "Zero balance" : formatINRWhole(a.amb))
+              : (a.amb?.amount === 0 ? "Zero balance" : (a.amb?.nonMetroAmount && a.amb.nonMetroAmount !== a.amb.amount ? `${formatINRWhole(a.amb.amount)} (${formatINRWhole(a.amb.nonMetroAmount)} non-metro)` : formatINRWhole(a.amb?.amount || 0)));
+            const penaltyDisplay = (typeof a.amb === 'object' && a.amb?.penaltyPerMonth)
+              ? `${formatINRWhole(a.amb.penaltyPerMonth)} per month`
+              : (a.penalty || "Nil");
+            const cardFeeDisplay = (a.fees && typeof a.fees.debitCardAnnual === 'number')
+              ? (a.fees.debitCardAnnual === 0 ? "Nil" : `${formatINRWhole(a.fees.debitCardAnnual)}/yr`)
+              : (typeof a.debitCardAnnualFee === 'number' ? (a.debitCardAnnualFee === 0 ? "Nil" : `${formatINRWhole(a.debitCardAnnualFee)}/yr`) : "Nil");
+            return [
+              a.name,
+              ambDisplay,
+              penaltyDisplay,
+              cardFeeDisplay,
+            ];
+          })}
         />
         <LegalTable
           caption="Account services"

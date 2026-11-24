@@ -1,5 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { Link, NavLink, useLocation } from 'react-router-dom';
+import { Link, NavLink, useLocation, useNavigate } from 'react-router-dom';
 import {
   ChevronDown,
   Landmark,
@@ -14,6 +14,8 @@ import {
   Scale,
   ShieldCheck,
   Lock,
+  Search,
+  Sparkles,
 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Button } from '../ui.jsx';
@@ -55,7 +57,7 @@ function getCardFact(card) {
 function getInvestmentMeta(inv) {
   const Icon = INVESTMENT_ICONS[inv.slug] || ScrollText;
   if (inv.kind === 'FD') {
-    const top = Math.max(...(inv.rateGrid?.map((r) => r.general) || [6.95]));
+    const top = Math.max(...(inv.rateGrid?.map((r) => r.senior) || [7.45]));
     return { fact: `Up to ${top.toFixed(2)}% p.a.`, type: 'Guaranteed', icon: Icon };
   }
   if (inv.kind === 'RD') {
@@ -125,7 +127,7 @@ function MenuRow({
     <Link
       to={to}
       onClick={onClick}
-      className={`group cursor-pointer flex items-center rounded-xl transition-colors duration-160 hover:bg-midnight-50 active:bg-midnight-100/60 focus-visible:outline-2 focus-visible:outline-gold-500 ${
+      className={`group cursor-pointer flex items-center rounded-xl transition-colors duration-160 hover:bg-bank-primary-light/60 active:bg-bank-primary-light focus-visible:outline-2 focus-visible:outline-bank-primary ${
         isMobile
           ? 'px-3 py-2.5 min-h-[64px] gap-3'
           : 'px-[14px] py-3 min-h-[68px] gap-[14px]'
@@ -133,11 +135,11 @@ function MenuRow({
     >
       {/* Tile: Cards 64x40 mini card art OR standard 48x48 icon tile */}
       {card ? (
-        <span className="w-16 h-10 shrink-0 rounded-lg overflow-hidden border border-ink-100/60 bg-midnight-950 p-0.5 shadow-xs flex items-center justify-center">
+        <span className="w-16 h-10 shrink-0 rounded-lg overflow-hidden border border-ink-100/60 bg-ink-950 p-0.5 shadow-xs flex items-center justify-center">
           <MiniCardThumb card={card} />
         </span>
       ) : Icon ? (
-        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50 transition-colors duration-160 group-hover:text-gold-300">
+        <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-bank-primary-light text-bank-primary transition-colors duration-160 group-hover:bg-bank-primary group-hover:text-white">
           <Icon className="h-6 w-6" aria-hidden />
         </span>
       ) : null}
@@ -147,15 +149,15 @@ function MenuRow({
         <div className="flex-1 min-w-0 flex flex-wrap items-center justify-between gap-x-2 gap-y-1">
           <div className="min-w-0 flex-1">
             <div className="flex items-baseline gap-2 min-w-0">
-              <span className="truncate text-base font-semibold text-ink-900 group-hover:text-midnight-950 transition-colors duration-160">
+              <span className="truncate text-base font-semibold text-ink-900 group-hover:text-bank-primary transition-colors duration-160">
                 {name}
               </span>
               {chip && (
                 <span
                   className={`shrink-0 text-xs px-2 py-0.5 rounded-md font-semibold tracking-wide ${
                     chip === 'Guaranteed'
-                      ? 'bg-midnight-900 text-porcelain-50'
-                      : 'border border-gold-500 text-gold-700 bg-gold-50/60'
+                      ? 'bg-bank-primary text-white'
+                      : 'border border-bank-primary-border text-bank-primary bg-bank-primary-light'
                   }`}
                 >
                   {chip}
@@ -170,12 +172,12 @@ function MenuRow({
           </div>
           <div className="flex-none text-right flex items-center gap-1.5 shrink-0 ml-auto max-[400px]:w-full max-[400px]:justify-end">
             {fact && (
-              <span className="tnum text-[15px] font-semibold text-midnight-950 tabular-nums whitespace-nowrap">
+              <span className="tnum text-[15px] font-semibold text-ink-900 tabular-nums whitespace-nowrap">
                 {fact}
               </span>
             )}
             <ArrowRight
-              className="h-4 w-4 text-ink-400 group-hover:text-midnight-900 group-active:text-midnight-900 group-active:translate-x-0.5 opacity-40 group-active:opacity-100 transition-all duration-160 menu-row-arrow shrink-0"
+              className="h-4 w-4 text-ink-400 group-hover:text-bank-primary group-active:text-bank-primary group-active:translate-x-0.5 opacity-40 group-active:opacity-100 transition-all duration-160 menu-row-arrow shrink-0"
               aria-hidden
             />
           </div>
@@ -184,15 +186,15 @@ function MenuRow({
         <>
           <div className="flex-1 min-w-0">
             <div className="flex items-baseline gap-2 min-w-0">
-              <span className="truncate text-base font-semibold text-ink-900 group-hover:text-midnight-950 transition-colors duration-160">
+              <span className="truncate text-base font-semibold text-ink-900 group-hover:text-bank-primary transition-colors duration-160">
                 {name}
               </span>
               {chip && (
                 <span
                   className={`shrink-0 text-xs px-2 py-0.5 rounded-md font-semibold tracking-wide ${
                     chip === 'Guaranteed'
-                      ? 'bg-midnight-900 text-porcelain-50'
-                      : 'border border-gold-500 text-gold-700 bg-gold-50/60'
+                      ? 'bg-bank-primary text-white'
+                      : 'border border-bank-primary-border text-bank-primary bg-bank-primary-light'
                   }`}
                 >
                   {chip}
@@ -207,12 +209,12 @@ function MenuRow({
           </div>
           <div className="flex-none text-right flex items-center gap-2 shrink-0 ml-3">
             {fact && (
-              <span className="tnum text-[15px] font-semibold text-midnight-950 tabular-nums whitespace-nowrap">
+              <span className="tnum text-[15px] font-semibold text-ink-900 tabular-nums whitespace-nowrap">
                 {fact}
               </span>
             )}
             <ArrowRight
-              className="h-4 w-4 text-ink-400 group-hover:text-midnight-900 group-hover:translate-x-0.5 group-active:text-midnight-900 group-active:translate-x-0.5 opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-all duration-160 menu-row-arrow shrink-0"
+              className="h-4 w-4 text-ink-400 group-hover:text-bank-primary group-hover:translate-x-0.5 group-active:text-bank-primary group-active:translate-x-0.5 opacity-0 group-hover:opacity-100 group-active:opacity-100 transition-all duration-160 menu-row-arrow shrink-0"
               aria-hidden
             />
           </div>
@@ -271,7 +273,7 @@ function MegaMenuPanel({
       <div
         role={role}
         aria-label={ariaLabel}
-        className="w-full rounded-2xl border border-ink-100 border-t-2 border-t-gold-500 bg-white shadow-2xl shadow-modal p-2.5 animate-menu-enter overflow-hidden"
+        className="w-full rounded-2xl border border-ink-200/80 border-t-2 border-t-bank-primary bg-white shadow-xl p-2.5 animate-menu-enter overflow-hidden"
       >
         {children}
       </div>
@@ -279,15 +281,21 @@ function MegaMenuPanel({
   );
 }
 
-export function Logo({ light = false }) {
+export function Logo({ light = false, isScrolled = false, isHero = false }) {
+  const showWhiteText = light || (isHero && !isScrolled);
   return (
-    <Link to="/" className="flex items-center gap-2.5" aria-label="FinEdge Bank — home">
-      <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-midnight-900 text-gold-300 shadow-sm">
-        <Landmark className="h-5 w-5" aria-hidden />
+    <Link to="/" className="flex items-center gap-2.5 group shrink-0" aria-label="FinEdge Bank — home">
+      <span className="flex h-10 w-10 items-center justify-center rounded-xl bg-[#981a1d] text-white shadow-sm font-black text-lg tracking-tight">
+        FE
       </span>
-      <span className={`font-display text-lg font-semibold leading-tight tracking-tight ${light ? 'text-porcelain-50' : 'text-midnight-950'}`}>
-        FinEdge Bank
-      </span>
+      <div>
+        <span className={`block font-sans text-xl font-extrabold leading-none tracking-tight transition-colors ${showWhiteText ? 'text-white' : 'text-gray-950'}`}>
+          FinEdge
+        </span>
+        <span className="text-[10px] uppercase font-bold tracking-[0.2em] text-[#981a1d] block mt-0.5 leading-none">
+          BANK
+        </span>
+      </div>
     </Link>
   );
 }
@@ -296,17 +304,49 @@ export const Header = () => {
   const [openMenu, setOpenMenu] = useState(null);
   const [mobileOpen, setMobileOpen] = useState(false);
   const [mobileAccordion, setMobileAccordion] = useState(null);
+  const [isScrolled, setIsScrolled] = useState(false);
+  const [showBackToTop, setShowBackToTop] = useState(false);
+  const [searchOpen, setSearchOpen] = useState(false);
+  const [searchQuery, setSearchQuery] = useState('');
   const location = useLocation();
+  const navigate = useNavigate();
   const { user } = useAuth();
   const navRef = useRef(null);
   const triggerRefs = useRef({});
   const hoverTimerRef = useRef(null);
+
+  const isHero = location.pathname === '/';
+
+  useEffect(() => {
+    const handleScroll = () => {
+      const sy = window.scrollY;
+      setIsScrolled(sy > 20);
+      setShowBackToTop(sy > 300);
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+    handleScroll();
+    return () => window.removeEventListener('scroll', handleScroll);
+  }, []);
+
+  const handleSearchSubmit = (e) => {
+    e.preventDefault();
+    if (!searchQuery.trim()) return;
+    const q = searchQuery.toLowerCase();
+    if (q.includes('loan')) navigate('/loans');
+    else if (q.includes('card')) navigate('/cards');
+    else if (q.includes('fd') || q.includes('invest') || q.includes('sip') || q.includes('rd') || q.includes('ssy')) navigate('/investments');
+    else if (q.includes('calc') || q.includes('emi')) navigate('/calculators');
+    else navigate('/accounts');
+    setSearchQuery('');
+    setSearchOpen(false);
+  };
 
   // Close menus on route change
   useEffect(() => {
     if (hoverTimerRef.current) clearTimeout(hoverTimerRef.current);
     setOpenMenu(null);
     setMobileOpen(false);
+    setSearchOpen(false);
   }, [location.pathname]);
 
   // Close on outside click
@@ -377,12 +417,32 @@ export const Header = () => {
 
   const isCurrentActive = (path) => location.pathname === path;
 
+  const getTriggerClass = (menuKey, path) => {
+    const isActive = openMenu === menuKey || isCurrentActive(path);
+    if (isHero && !isScrolled) {
+      return `relative flex items-center gap-1 rounded-full px-3.5 py-1.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-white ${
+        isActive
+          ? 'bg-white/20 text-white font-bold'
+          : 'text-white/90 hover:text-white hover:bg-white/10 font-semibold'
+      }`;
+    }
+    return `relative flex items-center gap-1 rounded-full px-3.5 py-1.5 text-sm transition-colors focus-visible:outline-2 focus-visible:outline-[#981a1d] ${
+      isActive
+        ? 'bg-red-50 text-[#981a1d] font-bold'
+        : 'text-[#981a1d] hover:text-[#7a1215] hover:bg-red-50/60 font-semibold'
+    }`;
+  };
+
   return (
     <>
       <AccessibilityBar />
-      <header className="sticky top-0 z-40 border-b border-ink-100 bg-porcelain-50/95 backdrop-blur">
-        <div className="mx-auto flex h-16 max-w-7xl items-center gap-4 px-4 sm:px-6">
-          <Logo />
+      <header className={`sticky top-0 z-40 transition-colors duration-200 ${
+        isHero && !isScrolled
+          ? 'bg-ink-950/95 sm:bg-transparent text-white border-b border-white/10'
+          : 'bg-white text-ink-950 shadow-md border-b border-gray-100'
+      }`}>
+        <div className="idfc-container flex h-18 items-center justify-between gap-4">
+          <Logo isHero={isHero} isScrolled={isScrolled} />
 
           {/* Desktop Navigation with Data-Driven Mega Menus */}
           <nav
@@ -403,23 +463,17 @@ export const Header = () => {
                 aria-expanded={openMenu === 'Accounts'}
                 aria-haspopup="true"
                 onClick={() => handleTriggerClick('Accounts')}
-                className={`relative flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-gold-500 ${
-                  openMenu === 'Accounts'
-                    ? 'bg-porcelain-200/80 text-midnight-950 font-semibold'
-                    : isCurrentActive('/accounts')
-                    ? 'text-midnight-950 font-semibold'
-                    : 'text-ink-700 hover:text-midnight-900 hover:bg-midnight-50/50'
-                }`}
+                className={getTriggerClass('Accounts', '/accounts')}
               >
                 <span>Accounts</span>
                 <ChevronDown
-                  className={`h-4 w-4 text-ink-400 transition-transform duration-160 ${
-                    openMenu === 'Accounts' ? 'rotate-180 text-gold-600' : ''
-                  }`}
+                  className={`h-4 w-4 transition-transform duration-160 ${
+                    openMenu === 'Accounts' ? 'rotate-180' : ''
+                  } ${isHero && !isScrolled ? 'text-white/70' : 'text-[#981a1d]'}`}
                   aria-hidden
                 />
                 {isCurrentActive('/accounts') && (
-                  <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-gold-400 rounded-full" />
+                  <span className={`absolute bottom-0 left-3 right-3 h-[2px] rounded-full ${isHero && !isScrolled ? 'bg-white' : 'bg-[#981a1d]'}`} />
                 )}
               </button>
 
@@ -474,23 +528,17 @@ export const Header = () => {
                 aria-expanded={openMenu === 'Cards'}
                 aria-haspopup="true"
                 onClick={() => handleTriggerClick('Cards')}
-                className={`relative flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-gold-500 ${
-                  openMenu === 'Cards'
-                    ? 'bg-porcelain-200/80 text-midnight-950 font-semibold'
-                    : isCurrentActive('/cards')
-                    ? 'text-midnight-950 font-semibold'
-                    : 'text-ink-700 hover:text-midnight-900 hover:bg-midnight-50/50'
-                }`}
+                className={getTriggerClass('Cards', '/cards')}
               >
                 <span>Cards</span>
                 <ChevronDown
-                  className={`h-4 w-4 text-ink-400 transition-transform duration-160 ${
-                    openMenu === 'Cards' ? 'rotate-180 text-gold-600' : ''
-                  }`}
+                  className={`h-4 w-4 transition-transform duration-160 ${
+                    openMenu === 'Cards' ? 'rotate-180' : ''
+                  } ${isHero && !isScrolled ? 'text-white/70' : 'text-[#981a1d]'}`}
                   aria-hidden
                 />
                 {isCurrentActive('/cards') && (
-                  <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-gold-400 rounded-full" />
+                  <span className={`absolute bottom-0 left-3 right-3 h-[2px] rounded-full ${isHero && !isScrolled ? 'bg-white' : 'bg-[#981a1d]'}`} />
                 )}
               </button>
 
@@ -573,23 +621,17 @@ export const Header = () => {
                 aria-expanded={openMenu === 'Loans'}
                 aria-haspopup="true"
                 onClick={() => handleTriggerClick('Loans')}
-                className={`relative flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-gold-500 ${
-                  openMenu === 'Loans'
-                    ? 'bg-porcelain-200/80 text-midnight-950 font-semibold'
-                    : isCurrentActive('/loans')
-                    ? 'text-midnight-950 font-semibold'
-                    : 'text-ink-700 hover:text-midnight-900 hover:bg-midnight-50/50'
-                }`}
+                className={getTriggerClass('Loans', '/loans')}
               >
                 <span>Loans</span>
                 <ChevronDown
-                  className={`h-4 w-4 text-ink-400 transition-transform duration-160 ${
-                    openMenu === 'Loans' ? 'rotate-180 text-gold-600' : ''
-                  }`}
+                  className={`h-4 w-4 transition-transform duration-160 ${
+                    openMenu === 'Loans' ? 'rotate-180' : ''
+                  } ${isHero && !isScrolled ? 'text-white/70' : 'text-[#981a1d]'}`}
                   aria-hidden
                 />
                 {isCurrentActive('/loans') && (
-                  <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-gold-400 rounded-full" />
+                  <span className={`absolute bottom-0 left-3 right-3 h-[2px] rounded-full ${isHero && !isScrolled ? 'bg-white' : 'bg-[#981a1d]'}`} />
                 )}
               </button>
 
@@ -644,23 +686,17 @@ export const Header = () => {
                 aria-expanded={openMenu === 'Investments'}
                 aria-haspopup="true"
                 onClick={() => handleTriggerClick('Investments')}
-                className={`relative flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-gold-500 ${
-                  openMenu === 'Investments'
-                    ? 'bg-porcelain-200/80 text-midnight-950 font-semibold'
-                    : isCurrentActive('/investments')
-                    ? 'text-midnight-950 font-semibold'
-                    : 'text-ink-700 hover:text-midnight-900 hover:bg-midnight-50/50'
-                }`}
+                className={getTriggerClass('Investments', '/investments')}
               >
                 <span>Investments</span>
                 <ChevronDown
-                  className={`h-4 w-4 text-ink-400 transition-transform duration-160 ${
-                    openMenu === 'Investments' ? 'rotate-180 text-gold-600' : ''
-                  }`}
+                  className={`h-4 w-4 transition-transform duration-160 ${
+                    openMenu === 'Investments' ? 'rotate-180' : ''
+                  } ${isHero && !isScrolled ? 'text-white/70' : 'text-[#981a1d]'}`}
                   aria-hidden
                 />
                 {isCurrentActive('/investments') && (
-                  <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-gold-400 rounded-full" />
+                  <span className={`absolute bottom-0 left-3 right-3 h-[2px] rounded-full ${isHero && !isScrolled ? 'bg-white' : 'bg-[#981a1d]'}`} />
                 )}
               </button>
 
@@ -707,14 +743,12 @@ export const Header = () => {
             <NavLink
               to="/calculators"
               className={({ isActive }) =>
-                `relative rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-gold-500 ${
-                  isActive ? 'text-midnight-950 font-semibold' : 'text-ink-700 hover:text-midnight-900 hover:bg-midnight-50/50'
-                }`
+                `${getTriggerClass('Calculators', '/calculators')}`
               }
             >
-              Calculators
+              <span>Calculators</span>
               {isCurrentActive('/calculators') && (
-                <span className="absolute bottom-0 left-3 right-3 h-[2px] bg-gold-400 rounded-full" />
+                <span className={`absolute bottom-0 left-3 right-3 h-[2px] rounded-full ${isHero && !isScrolled ? 'bg-white' : 'bg-[#981a1d]'}`} />
               )}
             </NavLink>
 
@@ -731,17 +765,13 @@ export const Header = () => {
                 aria-expanded={openMenu === 'Support'}
                 aria-haspopup="true"
                 onClick={() => handleTriggerClick('Support')}
-                className={`relative flex items-center gap-1 rounded-lg px-3 py-2 text-sm font-medium transition-colors focus-visible:outline-2 focus-visible:outline-gold-500 ${
-                  openMenu === 'Support'
-                    ? 'bg-porcelain-200/80 text-midnight-950 font-semibold'
-                    : 'text-ink-700 hover:text-midnight-900 hover:bg-midnight-50/50'
-                }`}
+                className={getTriggerClass('Support', '/grievance-redressal')}
               >
                 <span>Support</span>
                 <ChevronDown
-                  className={`h-4 w-4 text-ink-400 transition-transform duration-160 ${
-                    openMenu === 'Support' ? 'rotate-180 text-gold-600' : ''
-                  }`}
+                  className={`h-4 w-4 transition-transform duration-160 ${
+                    openMenu === 'Support' ? 'rotate-180' : ''
+                  } ${isHero && !isScrolled ? 'text-white/70' : 'text-[#981a1d]'}`}
                   aria-hidden
                 />
               </button>
@@ -769,7 +799,7 @@ export const Header = () => {
                       <p className="text-xs text-ink-500">Toll-Free Helpline</p>
                       <a
                         href="tel:18002674100"
-                        className="font-bold text-midnight-950 hover:text-gold-600 transition-colors"
+                        className="font-bold text-ink-950 hover:text-bank-primary transition-colors"
                       >
                         1800 267 4100
                       </a>
@@ -781,14 +811,30 @@ export const Header = () => {
             </div>
           </nav>
 
-          {/* Desktop Right Side Header Actions: Primary Login + Secondary Staff Console */}
-          <div className="ml-auto flex items-center gap-3">
-            <div className="hidden sm:flex items-center gap-3">
+          {/* Desktop Right Side Header Actions: Search outline pill + Login solid pill + Staff secondary pill */}
+          <div className="ml-auto flex items-center gap-2.5">
+            {/* Search Outline Pill */}
+            <button
+              type="button"
+              onClick={() => setSearchOpen(true)}
+              className={`rounded-full px-4 py-1.5 text-xs font-semibold flex items-center gap-1.5 transition-colors border ${
+                isHero && !isScrolled
+                  ? 'border-white/60 text-white hover:border-white hover:bg-white/10'
+                  : 'border-[#981a1d] text-[#981a1d] hover:bg-[#981a1d]/5'
+              }`}
+              aria-label="Search products"
+            >
+              <Search className="w-3.5 h-3.5" />
+              <span>Search</span>
+            </button>
+
+            <div className="hidden sm:flex items-center gap-2.5">
+              {/* Login Solid Pill */}
               {user ? (
                 <Button
                   as={Link}
                   to="/portal"
-                  variant="primary"
+                  variant={isHero && !isScrolled ? 'white' : 'primary'}
                   size="md"
                   className="shadow-sm"
                 >
@@ -798,25 +844,31 @@ export const Header = () => {
                 <Button
                   as={Link}
                   to="/portal/login"
-                  variant="primary"
+                  variant={isHero && !isScrolled ? 'white' : 'primary'}
                   size="md"
                   className="shadow-sm"
                 >
-                  Login
+                  Customer Login
                 </Button>
               )}
-              <Link
+
+              {/* Staff Secondary Pill */}
+              <Button
+                as={Link}
                 to="/manager/login"
-                className="rounded-lg px-3 py-2 text-sm font-medium text-midnight-800 transition-colors hover:bg-midnight-50/70 hover:text-midnight-950"
+                variant={isHero && !isScrolled ? 'outlineWhite' : 'secondary'}
+                size="md"
               >
-                Staff Console
-              </Link>
+                Staff Login
+              </Button>
             </div>
 
             {/* Mobile Hamburger Toggle */}
             <button
               type="button"
-              className="min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg p-2.5 text-ink-700 transition-colors hover:text-midnight-900 lg:hidden"
+              className={`min-h-[44px] min-w-[44px] flex items-center justify-center rounded-lg p-2.5 transition-colors lg:hidden ${
+                isHero && !isScrolled ? 'text-white hover:bg-white/10' : 'text-ink-700 hover:text-midnight-900'
+              }`}
               onClick={() => setMobileOpen((v) => !v)}
               aria-label="Toggle menu"
             >
@@ -828,7 +880,7 @@ export const Header = () => {
         {/* Mobile Menu Sheet */}
         {mobileOpen && (
           <nav
-            className="animate-fade-in border-t border-ink-100 bg-porcelain-50 px-4 py-4 lg:hidden space-y-3 max-h-[calc(100vh-4rem)] overflow-y-auto"
+            className="animate-fade-in border-t border-ink-100 bg-white px-4 py-4 lg:hidden space-y-3 max-h-[calc(100vh-4rem)] overflow-y-auto"
             aria-label="Mobile Navigation"
           >
             {/* Mobile Header: Primary Login Button at top, Staff Console secondary row below */}
@@ -840,7 +892,7 @@ export const Header = () => {
                   onClick={closeMenu}
                   variant="primary"
                   size="md"
-                  className="w-full justify-center shadow-sm"
+                  className="w-full justify-center"
                 >
                   My Dashboard
                 </Button>
@@ -851,18 +903,21 @@ export const Header = () => {
                   onClick={closeMenu}
                   variant="primary"
                   size="md"
-                  className="w-full justify-center shadow-sm"
+                  className="w-full justify-center"
                 >
-                  Login
+                  Customer Login
                 </Button>
               )}
-              <Link
+              <Button
+                as={Link}
                 to="/manager/login"
                 onClick={closeMenu}
-                className="flex min-h-[44px] w-full items-center justify-center rounded-lg py-2.5 px-3 text-sm font-semibold text-midnight-800 hover:bg-midnight-50/70 transition-colors"
+                variant="secondary"
+                size="md"
+                className="w-full justify-center"
               >
-                Staff Console
-              </Link>
+                Staff Login
+              </Button>
             </div>
 
             {/* Accounts Accordion */}
@@ -1085,6 +1140,106 @@ export const Header = () => {
           </nav>
         )}
       </header>
+
+      {/* Floating Quick-Apply Tab (Part A) */}
+      <div
+        onClick={() => {
+          if (location.pathname === '/') {
+            const el = document.getElementById('product-tabs');
+            if (el) el.scrollIntoView({ behavior: 'smooth' });
+          } else {
+            window.location.href = '/#product-tabs';
+          }
+        }}
+        className="fixed right-0 top-1/2 -translate-y-1/2 z-40 bg-[#c59a3f] hover:bg-[#b88c32] text-black font-extrabold text-[11px] uppercase tracking-wider py-4 px-2.5 rounded-l-2xl shadow-2xl border-l border-t border-b border-amber-600/30 hidden sm:flex flex-col items-center gap-1.5 cursor-pointer transition-all hover:-translate-x-1 select-none"
+        title="Apply Now"
+        role="button"
+        tabIndex={0}
+        onKeyDown={(e) => {
+          if (e.key === 'Enter' || e.key === ' ') {
+            e.preventDefault();
+            if (location.pathname === '/') {
+              const el = document.getElementById('product-tabs');
+              if (el) el.scrollIntoView({ behavior: 'smooth' });
+            } else {
+              window.location.href = '/#product-tabs';
+            }
+          }
+        }}
+      >
+        <Sparkles className="w-4 h-4 text-black shrink-0" />
+        <div className="flex flex-col items-center leading-tight font-black text-center">
+          <span>APPLY</span>
+          <span>NOW</span>
+        </div>
+      </div>
+
+      {/* Floating Back-to-Top Button (Part A) */}
+      {showBackToTop && (
+        <button
+          type="button"
+          onClick={() => window.scrollTo({ top: 0, behavior: 'smooth' })}
+          className="fixed bottom-6 right-6 z-40 w-11 h-11 rounded-full bg-black text-white hover:bg-gray-800 shadow-2xl flex flex-col items-center justify-center transition-all duration-200 hover:scale-105 active:scale-95 group focus-visible:outline-2 focus-visible:outline-[#981a1d]"
+          aria-label="Scroll back to top"
+        >
+          <span className="text-xs font-bold leading-none">↑</span>
+          <span className="text-[9px] font-bold tracking-wider leading-none mt-0.5">TOP</span>
+        </button>
+      )}
+
+      {/* Search Overlay Dialog (Part A) */}
+      {searchOpen && (
+        <div 
+          className="fixed inset-0 z-50 flex items-start justify-center pt-24 px-4 bg-black/60 backdrop-blur-xs animate-fade-in"
+          onClick={() => setSearchOpen(false)}
+        >
+          <div 
+            className="w-full max-w-lg bg-white rounded-2xl shadow-2xl border border-gray-100 p-6 animate-scale-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <form onSubmit={handleSearchSubmit} className="relative">
+              <Search className="w-5 h-5 text-gray-400 absolute left-4 top-1/2 -translate-y-1/2" />
+              <input
+                type="text"
+                autoFocus
+                placeholder="Search products, loans, cards, investments, calculators..."
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                className="w-full pl-12 pr-12 py-3 rounded-full border border-gray-200 focus:border-[#981a1d] focus:ring-2 focus:ring-[#981a1d]/20 outline-none text-sm text-gray-900"
+              />
+              <button
+                type="button"
+                onClick={() => setSearchOpen(false)}
+                className="absolute right-4 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-700 font-bold"
+              >
+                ✕
+              </button>
+            </form>
+            <div className="mt-4 flex flex-wrap items-center gap-2 text-xs">
+              <span className="text-gray-400 py-1 font-medium">Quick Links:</span>
+              {[
+                { label: 'Savings Account', path: '/accounts' },
+                { label: 'Home Loan', path: '/loans' },
+                { label: 'Credit Cards', path: '/cards' },
+                { label: 'Fixed Deposit', path: '/investments' },
+                { label: 'Calculators', path: '/calculators' },
+              ].map((item) => (
+                <button
+                  key={item.label}
+                  type="button"
+                  onClick={() => {
+                    navigate(item.path);
+                    setSearchOpen(false);
+                  }}
+                  className="px-3 py-1 rounded-full bg-gray-100 hover:bg-red-50 hover:text-[#981a1d] text-gray-700 font-medium transition-colors"
+                >
+                  {item.label}
+                </button>
+              ))}
+            </div>
+          </div>
+        </div>
+      )}
     </>
   );
 };

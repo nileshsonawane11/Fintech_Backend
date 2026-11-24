@@ -1,13 +1,13 @@
 import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useEffect, useRef, useState } from 'react';
-import { FileText, ShieldCheck, Upload } from 'lucide-react';
+import { Eye, FileText, ShieldCheck, Trash2, Upload, X } from 'lucide-react';
 import {
-  Button, Card, Checkbox, Field, FormError, Input, PageLoading,
+  Button, Card, Checkbox, Field, FormError, Input, Modal, PageLoading,
   SectionHeader, StatusChip, useToast,
 } from '../../../components/ui.jsx';
 import { useAuth, useDbTick } from '../../../context/AuthContext.jsx';
 import { formatDate, formatDateTime, formatINR, maskPan, statusLabel } from '../../../lib/format.js';
-import { getMyKyc, submitKyc } from '../../../services/portalBridge.js';
+import { getMyKyc, submitKyc, uploadKycDocument, deleteKycDocument } from '../../../services/portalBridge.js';
 
 const DOC_TYPES = [
   { type: 'PAN', label: 'PAN card', hint: 'Clear photo or scan of your PAN card' },
@@ -28,7 +28,27 @@ function Row({ label, children }) {
 }
 
 function emptyDocs() {
-  return Object.fromEntries(DOC_TYPES.map((d) => [d.type, { name: '', state: '' }]));
+  return Object.fromEntries(DOC_TYPES.map((d) => [d.type, { name: '', state: '', dataUrl: null, size: null }]));
+}
+
+function getDocFallbackDataUrl(type, name) {
+  const label = DOC_TYPES.find(d => d.type === type)?.label || type || 'Document';
+  const fileName = name || `${type.toLowerCase()}.pdf`;
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" width="700" height="480" viewBox="0 0 700 480">
+    <rect width="700" height="480" fill="#fcfcfc" stroke="#e2e8f0" stroke-width="2"/>
+    <rect x="0" y="0" width="700" height="70" fill="#981A1D"/>
+    <text x="32" y="44" font-family="system-ui, sans-serif" font-size="22" font-weight="700" fill="#ffffff">FinEdge Bank — KYC Document Record</text>
+    <rect x="32" y="100" width="636" height="340" rx="8" fill="#ffffff" stroke="#e2e8f0"/>
+    <text x="64" y="150" font-family="system-ui, sans-serif" font-size="16" font-weight="700" fill="#0f172a">Document Type: ${label} (${type})</text>
+    <text x="64" y="190" font-family="system-ui, sans-serif" font-size="15" fill="#334155">File Name: ${fileName}</text>
+    <text x="64" y="230" font-family="system-ui, sans-serif" font-size="14" fill="#64748b">Status: UPLOADED &amp; RECORDED ON SERVER</text>
+    <text x="64" y="260" font-family="system-ui, sans-serif" font-size="13" fill="#94a3b8">Verified simulation record for demonstration session</text>
+    <line x1="64" y1="290" x2="636" y2="290" stroke="#f1f5f9" stroke-width="2"/>
+    <rect x="64" y="320" width="240" height="90" rx="6" fill="#fef2f2" stroke="#981A1D" stroke-dasharray="4"/>
+    <text x="80" y="355" font-family="system-ui, sans-serif" font-size="14" font-weight="700" fill="#981A1D">OFFICIALLY RECORDED</text>
+    <text x="80" y="380" font-family="system-ui, sans-serif" font-size="12" fill="#475569">FinEdge Operations Central</text>
+  </svg>`;
+  return 'data:image/svg+xml;utf8,' + encodeURIComponent(svg);
 }
 
 export default function KycPage() {
@@ -50,6 +70,11 @@ export default function KycPage() {
     occupation: '', annualIncome: '',
   });
   const [docs, setDocs] = useState(emptyDocs);
+  const [stagedDocs, setStagedDocs] = useState({});
+  const [previewDoc, setPreviewDoc] = useState(null);
+  const [uploadingDoc, setUploadingDoc] = useState({});
+  const [deletingDoc, setDeletingDoc] = useState({});
+
   const [consent, setConsent] = useState(false);
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
@@ -87,8 +112,15 @@ export default function KycPage() {
     });
     const next = emptyDocs();
     for (const d of data?.kycCase?.documents || []) {
-      const key = String(d.type || '').toUpperCase();
-      if (next[key]) next[key] = { name: d.name || '', state: d.state || 'UPLOADED' };
+      const key = String(d.type || d.documentType || '').toUpperCase();
+      if (next[key]) {
+        next[key] = {
+          name: d.name || d.fileName || '',
+          state: d.state || 'UPLOADED',
+          dataUrl: d.dataUrl || null,
+          size: d.size || null,
+        };
+      }
     }
     setDocs(next);
   }, [data]);
@@ -117,9 +149,91 @@ export default function KycPage() {
     return (e) => {
       const file = e.target.files?.[0];
       if (!file) return;
-      setDocs((prev) => ({ ...prev, [type]: { name: file.name, state: 'UPLOADED' } }));
+      const reader = new FileReader();
+      reader.onload = () => {
+        setStagedDocs((prev) => ({
+          ...prev,
+          [type]: {
+            file,
+            name: file.name,
+            size: file.size,
+            dataUrl: reader.result,
+            mimeType: file.type
+          }
+        }));
+      };
+      reader.readAsDataURL(file);
+      e.target.value = '';
       setErrors((prev) => ({ ...prev, [`doc_${type}`]: undefined }));
     };
+  }
+
+  async function handleUploadDoc(type) {
+    const staged = stagedDocs[type];
+    if (!staged) return;
+    setUploadingDoc((prev) => ({ ...prev, [type]: true }));
+    try {
+      await uploadKycDocument(customerId, {
+        type,
+        name: staged.name,
+        dataUrl: staged.dataUrl,
+        size: staged.size
+      });
+      setDocs((prev) => ({
+        ...prev,
+        [type]: {
+          name: staged.name,
+          state: 'UPLOADED',
+          dataUrl: staged.dataUrl,
+          size: staged.size
+        }
+      }));
+      setStagedDocs((prev) => {
+        const next = { ...prev };
+        delete next[type];
+        return next;
+      });
+      toast({ title: 'Document uploaded', body: `${staged.name} has been uploaded to your KYC record.` });
+      setRefresh((r) => r + 1);
+    } catch (err) {
+      toast({ variant: 'error', title: 'Upload failed', body: err?.message || 'Failed to upload document.' });
+    } finally {
+      setUploadingDoc((prev) => ({ ...prev, [type]: false }));
+    }
+  }
+
+  function handleCancelDoc(type) {
+    setStagedDocs((prev) => {
+      const next = { ...prev };
+      delete next[type];
+      return next;
+    });
+  }
+
+  function handleViewDoc(type, doc) {
+    const dataUrl = doc?.dataUrl || getDocFallbackDataUrl(type, doc?.name);
+    setPreviewDoc({
+      type,
+      name: doc?.name || type,
+      dataUrl
+    });
+  }
+
+  async function handleDeleteDoc(type) {
+    setDeletingDoc((prev) => ({ ...prev, [type]: true }));
+    try {
+      await deleteKycDocument(customerId, type);
+      setDocs((prev) => ({
+        ...prev,
+        [type]: { name: '', state: '', dataUrl: null, size: null }
+      }));
+      toast({ title: 'Document deleted', body: 'Document has been removed from your record.' });
+      setRefresh((r) => r + 1);
+    } catch (err) {
+      toast({ variant: 'error', title: 'Delete failed', body: err?.message || 'Failed to delete document.' });
+    } finally {
+      setDeletingDoc((prev) => ({ ...prev, [type]: false }));
+    }
   }
 
   function validate() {
@@ -137,7 +251,9 @@ export default function KycPage() {
     if (!form.occupation.trim()) next.occupation = 'Enter your occupation.';
     if (!(Number(form.annualIncome) > 0)) next.annualIncome = 'Enter your annual income.';
     for (const d of DOC_TYPES) {
-      if (!docs[d.type]?.name) next[`doc_${d.type}`] = `Upload your ${d.label.toLowerCase()}.`;
+      if (!docs[d.type]?.name && !stagedDocs[d.type]?.name) {
+        next[`doc_${d.type}`] = `Upload your ${d.label.toLowerCase()}.`;
+      }
     }
     if (!consent) next.consent = 'Please give your consent to continue.';
     setErrors(next);
@@ -179,16 +295,23 @@ export default function KycPage() {
       occupation: form.occupation.trim(),
       annualIncome: Number(form.annualIncome),
     };
-    const documents = DOC_TYPES.map((d) => ({
-      name: docs[d.type].name,
-      type: d.type,
-      state: 'UPLOADED',
-    }));
+    const documents = DOC_TYPES.map((d) => {
+      const doc = docs[d.type];
+      const staged = stagedDocs[d.type];
+      return {
+        name: doc?.name || staged?.name || `${d.type.toLowerCase()}.pdf`,
+        type: d.type,
+        dataUrl: doc?.dataUrl || staged?.dataUrl || null,
+        size: doc?.size || staged?.size || null,
+        state: 'UPLOADED',
+      };
+    });
     try {
       await submitKyc(customerId, payload, documents);
       setJustSubmitted(true);
       setEditing(false);
       setConsent(false);
+      setStagedDocs({});
       setRefresh((r) => r + 1);
       toast({ title: 'KYC submitted', body: 'Your details are now pending review by a FinEdge officer.' });
     } catch (err) {
@@ -208,7 +331,7 @@ export default function KycPage() {
         titleAs="h1"
         eyebrow="KYC"
         title="Know Your Customer"
-        description="Your identity record with FinEdge. Document verification on this platform is a simulation — an officer reviews what you submit before your status changes."
+        description="Your identity record with FinEdge. Upload verified identity documents to complete or update your account record."
       />
       <FormError message={loadError} />
 
@@ -230,7 +353,7 @@ export default function KycPage() {
           {kycStatus === 'PENDING' && (
             <p className="flex items-start gap-2 text-[13px] leading-relaxed text-ink-600">
               <ShieldCheck className="mt-0.5 h-4 w-4 shrink-0 text-midnight-700" aria-hidden />
-              Your KYC is pending. A FinEdge officer will review your details and documents (simulation) and update this status.
+              Your KYC is pending. A FinEdge officer will review your details and documents and update this status.
             </p>
           )}
           {!showForm && (
@@ -248,7 +371,7 @@ export default function KycPage() {
 
       {!showForm ? (
         <Card className="p-5">
-          <h3 className="mb-2 font-display text-lg font-semibold text-midnight-950">Your recorded details</h3>
+          <h3 className="mb-2 font-sans text-lg font-semibold text-midnight-950">Your recorded details</h3>
           <dl>
             <Row label="Full name">{customer.fullName || '—'}</Row>
             <Row label="PAN">{maskPan(customer.pan)}</Row>
@@ -268,9 +391,29 @@ export default function KycPage() {
                 {kycCase.documents.map((d, i) => (
                   <li key={`${d.type}-${i}`} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-ink-100 bg-porcelain-50 px-3 py-2.5">
                     <span className="flex items-center gap-2 text-sm text-ink-800">
-                      <FileText className="h-4 w-4 text-midnight-700" aria-hidden /> {d.name || statusLabel(d.type)}
+                      <FileText className="h-4 w-4 text-midnight-700 shrink-0" aria-hidden />
+                      <span className="font-medium">{d.name || statusLabel(d.type)}</span>
                     </span>
-                    <StatusChip status={d.state} />
+                    <div className="flex items-center gap-2">
+                      <StatusChip status={d.state || 'UPLOADED'} />
+                      <Button
+                        size="sm"
+                        variant="secondary"
+                        onClick={() => handleViewDoc(d.type, d)}
+                      >
+                        <Eye className="h-3.5 w-3.5 mr-1" />
+                        View
+                      </Button>
+                      <Button
+                        size="sm"
+                        variant="danger"
+                        onClick={() => handleDeleteDoc(d.type)}
+                        loading={deletingDoc[d.type]}
+                      >
+                        <Trash2 className="h-3.5 w-3.5 mr-1" />
+                        Delete
+                      </Button>
+                    </div>
                   </li>
                 ))}
               </ul>
@@ -279,11 +422,11 @@ export default function KycPage() {
         </Card>
       ) : (
         <Card className="p-5">
-          <h3 className="font-display text-lg font-semibold text-midnight-950">
+          <h3 className="font-sans text-lg font-semibold text-midnight-950">
             {kycStatus === 'NOT_STARTED' ? 'Submit your KYC' : 'Update your KYC'}
           </h3>
           <p className="mt-1 text-sm leading-relaxed text-ink-600">
-            Every field below is sent for verification. Document verification is a simulation on this platform — files are recorded by name and reviewed by an officer, not machine-verified.
+            Every field below is recorded for verification. FinEdge officers review submitted documents for regulatory compliance.
           </p>
           <form onSubmit={handleSubmit} className="mt-5 space-y-5" noValidate>
             <FormError message={formError} />
@@ -332,28 +475,112 @@ export default function KycPage() {
             <fieldset className="space-y-3">
               <legend className="text-sm font-semibold text-ink-900">Documents</legend>
               <p className="text-[13px] leading-relaxed text-ink-500">
-                Choose a file for each document. Only the file name is recorded in this simulation — the document itself is not uploaded or machine-verified.
+                Choose a file for each document. Once chosen, click Upload to store the document on the server.
               </p>
               <div className="grid gap-3 sm:grid-cols-2">
                 {DOC_TYPES.map((d) => {
                   const doc = docs[d.type] || { name: '', state: '' };
+                  const staged = stagedDocs[d.type];
+                  const isUploaded = Boolean(doc.name);
+
                   return (
-                    <div key={d.type} className="rounded-lg border border-ink-100 bg-porcelain-50 px-3 py-3">
-                      <p className="text-sm font-semibold text-ink-900">{d.label}</p>
-                      <p className="mt-0.5 text-xs text-ink-500">{d.hint}</p>
-                      <label className="mt-2.5 inline-flex min-h-[44px] cursor-pointer items-center gap-2 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm font-semibold text-midnight-900 hover:border-midnight-400 shadow-xs">
-                        <Upload className="h-4 w-4" aria-hidden />
-                        {doc.name ? 'Replace file' : 'Choose file'}
-                        <input type="file" className="sr-only" onChange={onDocFile(d.type)} aria-label={`Upload ${d.label}`} />
-                      </label>
-                      {doc.name && (
-                        <p className="mt-2 flex flex-wrap items-center gap-2 text-[13px] text-ink-700">
-                          <span className="break-all">{doc.name}</span>
+                    <div key={d.type} className="rounded-lg border border-ink-100 bg-porcelain-50 p-4">
+                      <div className="flex items-start justify-between gap-2">
+                        <div>
+                          <p className="text-sm font-semibold text-ink-900">{d.label}</p>
+                          <p className="mt-0.5 text-xs text-ink-500">{d.hint}</p>
+                        </div>
+                        {isUploaded && !staged && (
                           <StatusChip status={doc.state || 'UPLOADED'} />
-                        </p>
+                        )}
+                      </div>
+
+                      {/* Case 1: Staged file (Chosen, not yet uploaded) -> ONLY Upload and Cancel */}
+                      {staged ? (
+                        <div data-testid="kyc-staged-row" className="mt-3 rounded-lg border border-primary-200 bg-primary-50/50 p-3">
+                          <div className="flex items-center gap-2 text-xs font-medium text-ink-800">
+                            <FileText className="h-4 w-4 text-bank-primary shrink-0" />
+                            <span className="font-semibold truncate">{staged.name}</span>
+                            <span className="text-ink-500 ml-auto whitespace-nowrap">Ready to upload</span>
+                          </div>
+                          <div className="mt-3 flex items-center gap-2">
+                            <Button
+                              size="sm"
+                              type="button"
+                              onClick={() => handleUploadDoc(d.type)}
+                              loading={uploadingDoc[d.type]}
+                            >
+                              <Upload className="h-3.5 w-3.5 mr-1" />
+                              Upload
+                            </Button>
+                            <Button
+                              size="sm"
+                              type="button"
+                              variant="secondary"
+                              onClick={() => handleCancelDoc(d.type)}
+                            >
+                              Cancel
+                            </Button>
+                          </div>
+                        </div>
+                      ) : isUploaded ? (
+                        /* Case 2: Document uploaded -> View and Delete available */
+                        <div className="mt-3 rounded-lg border border-ink-200 bg-white p-3">
+                          <div className="flex items-center gap-2 text-xs font-medium text-ink-800">
+                            <FileText className="h-4 w-4 text-emerald-600 shrink-0" />
+                            <span className="font-semibold truncate">{doc.name}</span>
+                          </div>
+                          <div className="mt-3 flex flex-wrap items-center gap-2">
+                            <Button
+                              size="sm"
+                              type="button"
+                              variant="secondary"
+                              onClick={() => handleViewDoc(d.type, doc)}
+                            >
+                              <Eye className="h-3.5 w-3.5 mr-1" />
+                              View
+                            </Button>
+                            <Button
+                              size="sm"
+                              type="button"
+                              variant="danger"
+                              onClick={() => handleDeleteDoc(d.type)}
+                              loading={deletingDoc[d.type]}
+                            >
+                              <Trash2 className="h-3.5 w-3.5 mr-1" />
+                              Delete
+                            </Button>
+                            <label className="inline-flex cursor-pointer items-center gap-1 text-xs font-semibold text-ink-600 hover:text-bank-primary ml-auto py-1 px-2 rounded hover:bg-porcelain-100">
+                              Replace
+                              <input
+                                type="file"
+                                className="sr-only"
+                                onChange={onDocFile(d.type)}
+                                aria-label={`Replace ${d.label}`}
+                              />
+                            </label>
+                          </div>
+                        </div>
+                      ) : (
+                        /* Case 3: Empty / No file chosen -> Choose file */
+                        <div className="mt-3">
+                          <label className="inline-flex min-h-[40px] cursor-pointer items-center gap-2 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm font-semibold text-midnight-900 hover:border-midnight-400 shadow-xs">
+                            <Upload className="h-4 w-4 text-ink-500" aria-hidden />
+                            Choose file
+                            <input
+                              type="file"
+                              className="sr-only"
+                              onChange={onDocFile(d.type)}
+                              aria-label={`Upload ${d.label}`}
+                            />
+                          </label>
+                        </div>
                       )}
+
                       {errors[`doc_${d.type}`] && (
-                        <p className="mt-1 text-xs font-medium text-danger-600" role="alert">{errors[`doc_${d.type}`]}</p>
+                        <p className="mt-2 text-xs font-medium text-danger-600" role="alert">
+                          {errors[`doc_${d.type}`]}
+                        </p>
                       )}
                     </div>
                   );
@@ -384,6 +611,41 @@ export default function KycPage() {
           </form>
         </Card>
       )}
+
+      {/* Document Viewer Modal */}
+      <Modal
+        open={Boolean(previewDoc)}
+        onClose={() => setPreviewDoc(null)}
+        title={`KYC Document: ${previewDoc?.name || ''}`}
+        wide
+      >
+        <div className="flex flex-col items-center justify-center p-2 min-h-[350px]">
+          {previewDoc?.dataUrl?.startsWith('data:image/') ? (
+            <img
+              src={previewDoc.dataUrl}
+              alt={previewDoc.name}
+              className="max-h-[70vh] max-w-full rounded border border-ink-100 object-contain shadow-xs"
+            />
+          ) : previewDoc?.dataUrl?.startsWith('data:application/pdf') ? (
+            <iframe
+              src={previewDoc.dataUrl}
+              title={previewDoc.name}
+              className="h-[70vh] w-full rounded border border-ink-100"
+            />
+          ) : (
+            <iframe
+              src={previewDoc?.dataUrl}
+              title={previewDoc?.name}
+              className="h-[70vh] w-full rounded border border-ink-100 bg-white"
+            />
+          )}
+        </div>
+        <div className="mt-4 flex justify-end">
+          <Button variant="secondary" onClick={() => setPreviewDoc(null)}>
+            Close
+          </Button>
+        </div>
+      </Modal>
     </div>
   );
 }

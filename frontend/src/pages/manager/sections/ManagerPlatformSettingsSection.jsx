@@ -193,8 +193,8 @@ export default function ManagerPlatformSettingsSection() {
       <Card className="p-6">
         <div className="flex items-center justify-between pb-4 border-b border-ink-100 mb-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50">
-              <ArrowLeftRight className="h-5 w-5 text-gold-300" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-bank-primary-light text-bank-primary">
+              <ArrowLeftRight className="h-5 w-5 text-bank-primary" />
             </div>
             <div>
               <h3 className="text-base font-semibold text-midnight-950">Payment Rails: Fees & Daily Limits</h3>
@@ -255,8 +255,8 @@ export default function ManagerPlatformSettingsSection() {
       <Card className="p-6">
         <div className="flex items-center justify-between pb-4 border-b border-ink-100 mb-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50">
-              <Clock className="h-5 w-5 text-gold-300" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-bank-primary-light text-bank-primary">
+              <Clock className="h-5 w-5 text-bank-primary" />
             </div>
             <div>
               <h3 className="text-base font-semibold text-midnight-950">Portal Inactivity Lock Timer</h3>
@@ -289,8 +289,8 @@ export default function ManagerPlatformSettingsSection() {
       <Card className="p-6">
         <div className="flex items-center justify-between pb-4 border-b border-ink-100 mb-6">
           <div className="flex items-center gap-3">
-            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50">
-              <AlertTriangle className="h-5 w-5 text-gold-300" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-bank-primary-light text-bank-primary">
+              <AlertTriangle className="h-5 w-5 text-bank-primary" />
             </div>
             <div>
               <h3 className="text-base font-semibold text-midnight-950">Operational SLA Queue Thresholds</h3>

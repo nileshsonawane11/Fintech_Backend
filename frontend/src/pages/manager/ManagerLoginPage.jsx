@@ -1,6 +1,6 @@
 import { useServerMode } from '../../lib/serverMode.js';
-import React, { useState } from 'react';
-import { Link, useNavigate, useLocation } from 'react-router-dom';
+import React, { useState, useEffect } from 'react';
+import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff, ShieldCheck, Lock, Mail, ArrowRight, ChevronDown, KeyRound, Info } from 'lucide-react';
 import { Button, Card, Field, FormError, Input, Modal, Select } from '../../components/ui.jsx';
 import { useAuth } from '../../context/AuthContext';
@@ -21,10 +21,31 @@ const STAFF_ROLE_OPTIONS = [
 export const ManagerLoginPage = () => {
   const navigate = useNavigate();
   const location = useLocation();
-  const { managerLogin } = useAuth();
+  const [searchParams] = useSearchParams();
+  const { managerUser, isManagerAuthenticated, managerLogin, managerLogout } = useAuth();
   const { isDemo } = useServerMode();
-  const [demoOpen, setDemoOpen] = useState(false);
+  const [demoOpen, setDemoOpen] = useState(true);
   const [resetOpen, setResetOpen] = useState(false);
+
+  // Status & Feedback - Part 1(d) Session expiry notice
+  const isSessionExpired = Boolean(
+    location.state?.sessionExpired || 
+    location.state?.reason === 'session_expired' || 
+    searchParams.get('reason') === 'session_expired' ||
+    searchParams.get('expired') === 'true'
+  );
+
+  // Part 1(a): A logged-in staff member visiting /manager/login is redirected to their operations dashboard
+  useEffect(() => {
+    if (isSessionExpired) {
+      if (managerLogout) managerLogout();
+      return;
+    }
+    if (managerUser || isManagerAuthenticated) {
+      const dest = location.state?.from?.pathname || location.state?.from || '/manager/dashboard';
+      navigate(dest, { replace: true });
+    }
+  }, [managerUser, isManagerAuthenticated, navigate, location, isSessionExpired, managerLogout]);
 
   const handleResetConfirm = () => {
     resetDemoDb();
@@ -40,7 +61,11 @@ export const ManagerLoginPage = () => {
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
-  const [error, setError] = useState('');
+
+  // Status & Feedback - Part 1(d) Session expiry notice
+  const [error, setError] = useState(
+    isSessionExpired ? 'Your session has expired due to inactivity. Please sign in again.' : ''
+  );
   const [loading, setLoading] = useState(false);
   const [userHasTyped, setUserHasTyped] = useState(false);
 
@@ -101,7 +126,7 @@ export const ManagerLoginPage = () => {
     setError('');
     setUserHasTyped(false);
 
-    if (isDemo && nextRole) {
+    if (nextRole) {
       handleSubmit(null, { role: nextRole, email: s.email, password: s.password });
     }
   };
@@ -143,11 +168,11 @@ export const ManagerLoginPage = () => {
       <div className="w-full max-w-[420px]">
         <Card className="p-6 sm:p-8 shadow-card border border-ink-100 bg-white">
           <div className="mb-6 flex items-center gap-3">
-            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-midnight-900 text-gold-300 shadow-sm">
+            <span className="flex h-10 w-10 items-center justify-center rounded-lg bg-bank-primary text-white shadow-sm">
               <ShieldCheck className="h-5 w-5" aria-hidden />
             </span>
             <div>
-              <h1 className="font-display text-xl font-semibold text-midnight-950">Staff Operations Terminal</h1>
+              <h1 className="font-sans text-xl font-bold text-ink-900">Staff Operations Terminal</h1>
               <p className="text-xs text-ink-500">FinEdge Bank Internal Operations</p>
             </div>
           </div>
@@ -238,10 +263,10 @@ export const ManagerLoginPage = () => {
               <button
                 type="button"
                 onClick={() => setDemoOpen(!demoOpen)}
-                className="flex w-full items-center justify-between text-left text-xs font-semibold text-midnight-900"
+                className="flex w-full items-center justify-between text-left text-xs font-semibold text-ink-900"
               >
                 <span className="flex items-center gap-1.5">
-                  <KeyRound className="h-4 w-4 text-gold-600" />
+                  <KeyRound className="h-4 w-4 text-bank-primary" />
                   <span>Demo access</span>
                 </span>
                 <ChevronDown className={`h-4 w-4 transition-transform ${demoOpen ? 'rotate-180' : ''}`} />
@@ -259,10 +284,10 @@ export const ManagerLoginPage = () => {
                         key={s.email}
                         type="button"
                         onClick={() => populateStaff(s)}
-                        className="w-full rounded-md border border-ink-200 bg-porcelain-50 p-2 text-left transition-colors hover:border-gold-400 hover:bg-gold-50/30"
+                        className="w-full rounded-md border border-ink-200 bg-porcelain-50 p-2 text-left transition-colors hover:border-bank-primary hover:bg-bank-primary-light/40"
                       >
                         <div className="flex items-center justify-between">
-                          <span className="font-semibold text-midnight-900">{s.role}</span>
+                          <span className="font-semibold text-ink-900">{s.role}</span>
                           <span className="font-mono text-xs text-ink-500">{s.email}</span>
                         </div>
                         <p className="mt-0.5 text-xs text-ink-600 line-clamp-1">{s.clearance || s.department || s.name}</p>
@@ -303,7 +328,7 @@ export const ManagerLoginPage = () => {
           </Modal>
 
           <div className="mt-6 text-center text-xs text-ink-500">
-            <Link to="/portal/login" className="text-midnight-800 underline hover:text-midnight-950">
+            <Link to="/portal/login" className="text-bank-primary underline hover:text-bank-primary-hover">
               Return to Customer Online Banking Portal
             </Link>
           </div>

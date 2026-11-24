@@ -240,214 +240,221 @@ export default function AccountsPage() {
   ];
 
   return (
-    <div className="mx-auto w-full max-w-7xl px-4 py-14 sm:px-6 lg:py-20">
-      <SectionHeader
-        titleAs="h1"
-        eyebrow="Accounts"
-        title="Accounts for every stage of life"
-        description="Savings, current, salary, student and minor accounts — one illustrative rate and fee schedule, read straight from the product catalogue. Tick Compare on up to three accounts to see them side by side."
-      />
+    <div className="w-full bg-white text-neutral-900">
+      {/* PART I: BLUSH MINI-HERO ON TOP WITH BREADCRUMB PILL */}
+      <section className="bg-[#fdecec] py-10 sm:py-14 border-b border-red-100">
+        <div className="idfc-container mx-auto px-4 sm:px-6 lg:px-8">
+          <nav aria-label="Breadcrumb" className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/90 text-xs font-semibold text-neutral-700 border border-red-150 shadow-xs mb-4">
+            <Link to="/" className="hover:text-[#981a1d] transition-colors">Home</Link>
+            <span className="text-neutral-400">/</span>
+            <span className="text-[#981a1d] font-bold">Accounts</span>
+          </nav>
 
-      {/* Category Filter Chips (Module 52 D14) */}
-      <div className="mb-6 flex flex-wrap gap-2" role="radiogroup" aria-label="Account Categories">
-        {CATEGORY_CHIPS.map((chip) => {
-          const isSelected = category === chip.id;
-          return (
-            <button
-              key={chip.id}
-              type="button"
-              role="radio"
-              aria-checked={isSelected}
-              onClick={() => setCategory(chip.id)}
-              className={`rounded-full px-4 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
-                isSelected
-                  ? 'bg-midnight-950 text-white shadow-xs'
-                  : 'bg-porcelain-100 text-ink-700 hover:bg-porcelain-200 hover:text-ink-950 border border-ink-200'
-              }`}
-            >
-              {chip.label}
-            </button>
-          );
-        })}
-      </div>
+          <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-950">
+            Accounts for every stage of life
+          </h1>
+          <p className="mt-2 text-sm sm:text-base text-neutral-700 max-w-2xl">
+            Savings, current, salary, student and minor accounts — one illustrative rate and fee schedule, read straight from the product catalogue. Tick Compare on up to three accounts to see them side by side.
+          </p>
+        </div>
+      </section>
 
-      {/* Search Bar with Result Count and Clear Control (Fix 7) */}
-      <div className="mb-8 flex flex-wrap items-center justify-between gap-4">
-        <div className="relative w-full max-w-md">
-          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-ink-400" aria-hidden />
-          <Input
-            type="search"
-            value={inputValue}
-            onChange={(e) => setInputValue(e.target.value)}
-            placeholder="Search accounts — try “student” or “salary”"
-            aria-label="Search accounts"
-            className="pl-9 pr-9"
-          />
-          {inputValue && (
-            <button
-              type="button"
-              onClick={() => { handleClearSearch(); setCategory("all"); }}
-              className="absolute right-2.5 top-1/2 -translate-y-1/2 rounded-full p-1 text-ink-400 hover:bg-ink-100 hover:text-ink-700"
-              aria-label="Clear search"
-            >
-              <X className="h-3.5 w-3.5" />
-            </button>
+      <section className="py-12 bg-white">
+        <div className="idfc-container mx-auto px-4 sm:px-6 lg:px-8">
+          {/* Category Filter Chips as Pills */}
+          <div className="mb-6 flex flex-wrap gap-2" role="radiogroup" aria-label="Account Categories">
+            {CATEGORY_CHIPS.map((chip) => {
+              const isSelected = category === chip.id;
+              return (
+                <button
+                  key={chip.id}
+                  type="button"
+                  role="radio"
+                  aria-checked={isSelected}
+                  onClick={() => setCategory(chip.id)}
+                  className={`rounded-full px-5 py-2 text-xs sm:text-sm font-bold transition-all cursor-pointer ${
+                    isSelected
+                      ? 'bg-[#981a1d] text-white shadow-xs'
+                      : 'bg-neutral-100 text-neutral-700 hover:bg-neutral-200'
+                  }`}
+                >
+                  {chip.label}
+                </button>
+              );
+            })}
+          </div>
+
+          {/* Search Bar with Result Count and Clear Control */}
+          <div className="mb-8 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-4">
+            <div className="relative w-full max-w-md">
+              <Search className="pointer-events-none absolute left-3.5 top-1/2 h-4 w-4 -translate-y-1/2 text-neutral-400" aria-hidden />
+              <input
+                type="text"
+                value={inputValue}
+                onChange={(e) => setInputValue(e.target.value)}
+                placeholder="Search accounts — try “student” or “salary”"
+                aria-label="Search accounts"
+                className="w-full pl-10 pr-10 py-2.5 rounded-full border border-neutral-300 text-xs sm:text-sm text-neutral-900 focus:border-[#981a1d] focus:outline-hidden shadow-xs"
+              />
+              {inputValue && (
+                <button
+                  type="button"
+                  onClick={() => { handleClearSearch(); setCategory("all"); }}
+                  className="absolute right-3 top-1/2 -translate-y-1/2 rounded-full p-1 text-neutral-400 hover:text-neutral-700 cursor-pointer"
+                  aria-label="Clear search"
+                >
+                  <X className="h-3.5 w-3.5" />
+                </button>
+              )}
+            </div>
+            <p className="text-xs font-semibold text-neutral-500">
+              Showing <span className="font-bold text-neutral-900">{filtered.length}</span> {filtered.length === 1 ? 'account' : 'accounts'}
+            </p>
+          </div>
+
+          {/* Empty State when no accounts match */}
+          {filtered.length === 0 ? (
+            <EmptyState
+              icon={Search}
+              title={`No accounts match “${inputValue}”`}
+              body={`Nothing in the accounts catalogue matches your query. Try searching for “student”, “salary”, or “savings”, or reset the search to view all ${ACCOUNTS.length} accounts.`}
+              action={
+                <Button variant="secondary" onClick={handleClearSearch}>
+                  Clear search
+                </Button>
+              }
+            />
+          ) : (
+            /* PART C: FLAT COLOUR-BLOCK PRODUCT GRID (Accounts = primary red #981a1d) */
+            <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-6">
+              {filtered.map((account, index) => {
+                const Icon = ACCOUNT_ICONS[account.slug] || PiggyBank;
+                const checked = compare.includes(account.slug);
+
+                return (
+                  <Reveal key={account.slug} treatment="B" staggerIndex={index}>
+                    <div
+                      id={account.slug}
+                      className="relative rounded-2xl p-6 sm:p-7 text-white flex flex-col justify-between overflow-hidden shadow-sm transition-all duration-200 hover:-translate-y-1 hover:shadow-lg min-h-[360px]"
+                      style={{ backgroundColor: '#981a1d' }}
+                    >
+                      {/* Product Header */}
+                      <div className="relative z-10">
+                        <div className="flex items-center justify-between gap-2 mb-3">
+                          <span className="text-[11px] font-bold uppercase tracking-wider text-red-100 bg-white/15 px-2.5 py-0.5 rounded-full">
+                            {account.accountType}
+                          </span>
+                          <span className="text-xs font-medium text-red-200/80">
+                            Ref: {account.slug}
+                          </span>
+                        </div>
+
+                        <h3 className="font-sans font-bold text-xl sm:text-2xl text-white tracking-tight">
+                          {shortProductName(account.name)}
+                        </h3>
+                        <p className="mt-1 text-xs sm:text-sm text-red-100/80 leading-relaxed line-clamp-2">
+                          {account.tagline}
+                        </p>
+
+                        <div className="mt-5 pt-3 border-t border-white/15 grid grid-cols-2 gap-3 text-xs">
+                          <div>
+                            <span className="text-red-200/70 block">Interest Rate</span>
+                            <span className="font-mono font-bold text-sm text-white">
+                              {account.rateSlabs?.length ? accountRateFact(account) : 'Zero interest'}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-red-200/70 block">Average Monthly Bal.</span>
+                            <span className="font-mono font-semibold text-xs text-white">
+                              {accountAmbFact(account)}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-red-200/70 block">Debit Card Fee</span>
+                            <span className="font-medium text-white">
+                              {accountCardFeeFact(account)}
+                            </span>
+                          </div>
+                          <div>
+                            <span className="text-red-200/70 block">Non-Maintenance</span>
+                            <span className="font-medium text-white">
+                              {accountPenaltyFact(account)}
+                            </span>
+                          </div>
+                        </div>
+                      </div>
+
+                      {/* Bottom Actions + Compare */}
+                      <div className="mt-6 pt-4 border-t border-white/15 relative z-10 space-y-3">
+                        <div className="flex items-center justify-between gap-3">
+                          <button
+                            onClick={() => setSelectedProductForApply(account)}
+                            className="px-5 py-2.5 rounded-full border border-white text-white font-bold text-xs hover:bg-white hover:text-[#981a1d] transition-colors cursor-pointer"
+                          >
+                            Open Account
+                          </button>
+                          <Link
+                            to={`/accounts/${account.slug}`}
+                            className="text-xs font-semibold text-white/90 underline decoration-white/50 hover:text-white hover:decoration-white transition-colors"
+                          >
+                            View details →
+                          </Link>
+                        </div>
+
+                        <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs text-red-200/90">
+                          <label className="flex items-center gap-2 cursor-pointer select-none">
+                            <input
+                              type="checkbox"
+                              checked={checked}
+                              onChange={() => toggleCompare(account.slug)}
+                              className="rounded-sm accent-white h-3.5 w-3.5"
+                            />
+                            <span>Compare account</span>
+                          </label>
+                          <button
+                            type="button"
+                            onClick={() => handleOpenDetail(account)}
+                            className="text-red-200 hover:text-white underline cursor-pointer text-xs"
+                          >
+                            Specs
+                          </button>
+                        </div>
+                      </div>
+
+                      {/* Cropped line icon at bottom right */}
+                      <div className="absolute -right-6 -bottom-6 text-white/10 pointer-events-none select-none">
+                        <Icon className="w-36 h-36" strokeWidth={1.2} />
+                      </div>
+                    </div>
+                  </Reveal>
+                );
+              })}
+            </div>
           )}
         </div>
-        <p className="text-sm font-medium text-ink-500">
-          Showing <span className="font-semibold text-midnight-950">{filtered.length}</span> {filtered.length === 1 ? 'account' : 'accounts'}
-        </p>
-      </div>
-
-      {/* Empty State when no accounts match (Fix 7) */}
-      {filtered.length === 0 ? (
-        <EmptyState
-          icon={Search}
-          title={`No accounts match “${inputValue}”`}
-          body={`Nothing in the accounts catalogue matches your query. Try searching for “student”, “salary”, or “savings”, or reset the search to view all ${ACCOUNTS.length} accounts.`}
-          action={
-            <Button variant="secondary" onClick={handleClearSearch}>
-              Clear search
-            </Button>
-          }
-        />
-      ) : (
-        /* Balanced Grid (Fix 3: 6-column layout with 3 cards row 1, 2 cards row 2) */
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-6 gap-6">
-          {filtered.map((account, index) => {
-            const Icon = ACCOUNT_ICONS[account.slug] || PiggyBank;
-            const checked = compare.includes(account.slug);
-            const spanClass = getCardGridSpan(index, filtered.length);
-
-            return (
-              <Reveal key={account.slug} treatment="B" staggerIndex={index} className={spanClass}>
-                <Card
-                id={account.slug}
-                className="h-full flex flex-col p-6 scroll-mt-24 shadow-card transition-all duration-180 ease-out hover:-translate-y-0.5 hover:shadow-raised motion-reduce:hover:translate-y-0"
-              >
-                {/* Product Header: 48x48 Dark Tile (Fix 2) */}
-                <div className="flex items-start justify-between gap-3">
-                  <span className="flex h-12 w-12 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50 shadow-xs">
-                    <Icon className="h-6 w-6" aria-hidden />
-                  </span>
-                  <span className="text-xs font-semibold uppercase tracking-wider text-gold-700 bg-gold-50/80 px-2.5 py-1 rounded-md border border-gold-200">
-                    {account.accountType}
-                  </span>
-                </div>
-
-                <h3 className="mt-4 font-display text-xl font-semibold leading-snug text-midnight-950">
-                  {shortProductName(account.name)}
-                </h3>
-                <p className="mt-1.5 text-sm leading-relaxed text-ink-600 line-clamp-2">
-                  {account.tagline}
-                </p>
-
-                {/* Facts Table: 100% Derived from products.js (Fix 1) */}
-                <dl className="mt-4 space-y-2 border-t border-ink-100 pt-4 text-sm">
-                  <div className="flex items-baseline justify-between gap-3">
-                    <dt className="text-ink-500">Interest</dt>
-                    <dd className="text-right text-sm font-semibold text-midnight-950 tnum">
-                      {account.rateSlabs?.length ? accountRateFact(account) : 'No interest'}
-                    </dd>
-                  </div>
-                  {account.overdraftRate && (
-                    <div className="flex items-baseline justify-between gap-3">
-                      <dt className="text-ink-500">Overdraft rate</dt>
-                      <dd className="text-right text-sm font-semibold text-midnight-950 tnum">
-                        {account.overdraftRate.toFixed(2)}% p.a. (on utilisation)
-                      </dd>
-                    </div>
-                  )}
-                  <div className="flex items-baseline justify-between gap-3">
-                    <dt className="text-ink-500">Avg. monthly balance</dt>
-                    <dd className="text-right font-semibold text-ink-900">
-                      {accountAmbFact(account)}
-                    </dd>
-                  </div>
-                  <div className="flex items-baseline justify-between gap-3">
-                    <dt className="text-ink-500">Non-maintenance charge</dt>
-                    <dd className="text-right font-semibold text-ink-900">
-                      {accountPenaltyFact(account)}
-                    </dd>
-                  </div>
-                  <div className="flex items-baseline justify-between gap-3">
-                    <dt className="text-ink-500">Debit card annual fee</dt>
-                    <dd className="text-right font-semibold text-ink-900">
-                      {accountCardFeeFact(account)}
-                    </dd>
-                  </div>
-                </dl>
-
-                {/* Features List */}
-                {Array.isArray(account.features) && account.features.length > 0 && (
-                  <ul className="mt-4 space-y-1.5 flex-1">
-                    {account.features.slice(0, 3).map((f) => (
-                      <li key={f} className="flex gap-2 text-[13px] leading-snug text-ink-600">
-                        <span className="mt-1.5 h-1.5 w-1.5 shrink-0 rounded-full bg-gold-500" aria-hidden />
-                        <span>{f}</span>
-                      </li>
-                    ))}
-                  </ul>
-                )}
-
-                {/* Bottom Pinned Controls: Checkbox & Aligned Buttons (Fix 3) */}
-                <div className="mt-auto pt-5">
-                  <div className="border-t border-ink-100 pt-3.5 mb-3">
-                    <Checkbox
-                      label={`Compare ${shortProductName(account.name)}`}
-                      checked={checked}
-                      onChange={() => toggleCompare(account.slug)}
-                    />
-                  </div>
-
-                  <div className="flex flex-wrap gap-2">
-                    <Button
-                      ref={(el) => (detailsTriggerRefs.current[account.slug] = el)}
-                      variant="secondary"
-                      className="flex-1"
-                      onClick={() => handleOpenDetail(account)}
-                      aria-label={`View details for ${account.name}`}
-                    >
-                      View details
-                    </Button>
-                    <Button
-                      variant="primary"
-                      className="flex-1"
-                      onClick={() => setSelectedProductForApply(account)}
-                      aria-label={`Apply now for ${account.name}`}
-                    >
-                      Apply now
-                    </Button>
-                  </div>
-                </div>
-              </Card>
-              </Reveal>
-            );
-          })}
-        </div>
-      )}
+      </section>
 
       {/* Persistent / Responsive Comparison Tray (Fix 6) */}
       {compare.length > 0 && (
         <div
-          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-4xl rounded-2xl border border-midnight-800 bg-midnight-950/95 text-porcelain-50 p-3 sm:p-4 shadow-2xl backdrop-blur flex flex-wrap items-center justify-between gap-3 animate-fade-in"
+          className="fixed bottom-4 left-1/2 -translate-x-1/2 z-40 w-[calc(100%-2rem)] max-w-4xl rounded-2xl border border-ink-200/80 bg-white/95 text-ink-900 p-3 sm:p-4 shadow-2xl backdrop-blur flex flex-wrap items-center justify-between gap-3 animate-fade-in"
           role="region"
           aria-label="Comparison Tray"
         >
           <div className="flex flex-wrap items-center gap-2 min-w-0">
-            <span className="text-xs sm:text-sm font-medium text-porcelain-200 shrink-0">
+            <span className="text-xs sm:text-sm font-medium text-ink-600 shrink-0">
               Comparing ({compare.length} of {MAX_COMPARE}):
             </span>
             {selected.map((acc) => (
               <span
                 key={acc.slug}
-                className="inline-flex items-center gap-1.5 rounded-lg bg-midnight-800 px-2.5 py-1 text-xs font-semibold text-porcelain-50 border border-porcelain-50/15"
+                className="inline-flex items-center gap-1.5 rounded-lg bg-porcelain-100 px-2.5 py-1 text-xs font-semibold text-ink-900 border border-ink-200"
               >
                 <span>{shortProductName(acc.name)}</span>
                 <button
                   type="button"
                   onClick={() => toggleCompare(acc.slug)}
-                  className="rounded hover:bg-midnight-700 text-porcelain-300 hover:text-white p-0.5"
+                  className="rounded hover:bg-porcelain-200 text-ink-400 hover:text-ink-700 p-0.5"
                   aria-label={`Remove ${shortProductName(acc.name)}`}
                 >
                   <X className="h-3 w-3" />
@@ -460,12 +467,12 @@ export default function AccountsPage() {
             <button
               type="button"
               onClick={() => setCompare([])}
-              className="text-xs font-medium text-porcelain-300 hover:text-white underline underline-offset-4 px-2 py-1"
+              className="text-xs font-medium text-ink-500 hover:text-ink-900 underline underline-offset-4 px-2 py-1"
             >
               Clear all
             </button>
             <Button
-              variant="brass"
+              variant="primary"
               size="sm"
               onClick={() => {
                 const el = document.getElementById('compare-matrix');
@@ -485,9 +492,9 @@ export default function AccountsPage() {
         <section id="compare-matrix" aria-label="Account comparison" className="mt-14 scroll-mt-24 border-t border-ink-100 pt-10">
           <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
             <div>
-              <p className="text-xs font-semibold uppercase tracking-wider text-gold-700">Side by Side Comparison</p>
-              <h3 className="mt-1 flex items-center gap-2 font-display text-2xl font-semibold text-midnight-950">
-                <Scale className="h-6 w-6 text-gold-600" aria-hidden /> Comparing {selected.length} accounts
+              <p className="text-xs font-semibold uppercase tracking-wider text-bank-primary">Side by Side Comparison</p>
+              <h3 className="mt-1 flex items-center gap-2 font-sans text-2xl font-semibold text-midnight-950">
+                <Scale className="h-6 w-6 text-bank-primary" aria-hidden /> Comparing {selected.length} accounts
               </h3>
             </div>
             <Button variant="ghost" size="sm" onClick={() => setCompare([])}>
@@ -602,7 +609,7 @@ export default function AccountsPage() {
                 <p className="mt-1.5 text-xs text-ink-500">Interest is computed on daily end-of-day balances and credited quarterly.</p>
               </div>
             ) : detailAccount.overdraftRate ? (
-              <div className="rounded-xl border border-gold-300 bg-gold-50 p-4 text-xs sm:text-sm text-ink-800">
+              <div className="rounded-xl border border-bank-primary-border bg-bank-primary-light p-4 text-xs sm:text-sm text-ink-800">
                 <p className="font-semibold text-midnight-950">Overdraft Facility</p>
                 <p className="mt-1">
                   Overdraft interest is charged at {detailAccount.overdraftRate.toFixed(2)}% p.a. on the utilized balance. Current accounts earn zero interest on credit balances per RBI norms.
@@ -629,7 +636,7 @@ export default function AccountsPage() {
                 <ul className="space-y-2">
                   {detailAccount.documents?.map((item, idx) => (
                     <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-ink-700">
-                      <span className="h-1.5 w-1.5 rounded-full bg-gold-500 shrink-0 mt-2" />
+                      <span className="h-1.5 w-1.5 rounded-full bg-bank-primary shrink-0 mt-2" />
                       <span>{item}</span>
                     </li>
                   ))}

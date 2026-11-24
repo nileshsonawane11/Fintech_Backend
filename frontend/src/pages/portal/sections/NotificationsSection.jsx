@@ -116,7 +116,7 @@ export default function NotificationsPage() {
                     <span className="min-w-0 flex-1">
                       <span className={`flex items-center gap-2 text-sm text-ink-900 ${isUnread ? 'font-semibold' : 'font-medium'}`}>
                         {n.title || 'Notification'}
-                        {isUnread && <span className="h-2 w-2 shrink-0 rounded-full bg-gold-500" aria-hidden />}
+                        {isUnread && <span className="h-2 w-2 shrink-0 rounded-full bg-bank-primary" aria-hidden />}
                       </span>
                       {n.body && <span className="mt-0.5 block text-[13px] leading-relaxed text-ink-600">{n.body}</span>}
                       <span className="mt-1 block text-xs text-ink-500">{formatDateTime(n.createdAt)}</span>

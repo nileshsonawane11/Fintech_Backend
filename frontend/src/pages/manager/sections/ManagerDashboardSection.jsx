@@ -190,7 +190,7 @@ export default function ManagerDashboardPage() {
           {referenceStats.map((s) => (
             <Card key={s.label} className="p-4">
               <span className="text-xs font-medium uppercase tracking-wide text-ink-500">{s.label}</span>
-              <span className="tnum mt-1 block font-display text-xl font-semibold text-midnight-950">{s.value}</span>
+              <span className="tnum mt-1 block font-sans text-xl font-semibold text-midnight-950">{s.value}</span>
             </Card>
           ))}
         </div>

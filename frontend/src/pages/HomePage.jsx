@@ -1,1054 +1,1435 @@
-import React, { useState, useEffect, useRef } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useState, useEffect, useRef, useMemo } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowRight,
-  ChevronDown,
-  ChevronUp,
+  ChevronLeft,
+  ChevronRight,
   CreditCard,
   HandCoins,
   Landmark,
-  PiggyBank,
   ShieldCheck,
   TrendingUp,
   Wallet,
-  Calendar,
+  Calculator,
+  Lock,
+  Percent,
+  Sparkles,
   CheckCircle2,
-  FileText,
   PhoneCall,
-  AlertTriangle,
+  FileText,
+  BadgePercent,
+  Coins,
+  Building,
+  GraduationCap,
 } from 'lucide-react';
-import { Card, SectionHeader, Modal, Button } from '../components/ui.jsx';
-import Reveal from '../components/Reveal.jsx';
-import { TiltCard } from '../components/TiltCard.jsx';
-import { CardVisual } from '../components/common/CardVisual.jsx';
-import { PhotoSlider } from '../components/common/PhotoSlider.jsx';
+import { useAuth } from '../context/AuthContext';
+import { Button } from '../components/ui.jsx';
 import { ApplyModal } from '../components/common/ApplyModal.jsx';
-import { HeroEdgeGoldCard } from '../components/HeroEdgeGoldCard.jsx';
-import { formatINRWhole, formatDate, shortProductName } from '../lib/format.js';
 import {
-  BRAND,
+  ACCOUNTS,
+  LOANS,
+  CREDIT_CARDS,
+  DEBIT_CARDS,
+  INVESTMENTS,
   RATE_DISCLAIMER,
-  RATES_AT_A_GLANCE,
+  BRAND,
   getProductBySlug,
-  getProductsByCategory,
+  accountRateFact,
 } from '../data/products.js';
-import { OFFERS, GENERAL_FAQS } from '../data/content.js';
 import { ACCOUNT_ICONS, LOAN_ICONS, INVESTMENT_ICONS } from '../data/productIcons.js';
-import { getContent } from '../services/api.js';
+import { formatINR, formatINRWhole, shortProductName } from '../lib/format.js';
+import { calculateEMI, calculateFD, calculateRD, calculateSIP } from '../lib/finance.js';
 
-const CATEGORY_PATH = {
-  account: '/accounts',
-  loan: '/loans',
-  card: '/cards',
-  investment: '/investments',
-};
+export function HomePage() {
+  const { user } = useAuth();
+  const navigate = useNavigate();
 
-function productPath(product) {
-  const base = CATEGORY_PATH[product.category] || '/accounts';
-  return `${base}/${product.slug}`;
-}
-
-function explorePath(product) {
-  const base = CATEGORY_PATH[product.category] || '/accounts';
-  return `${base}#${product.slug}`;
-}
-
-/** Headline figure for a product card — derived from product data without staff jargon. */
-function headlineFor(product) {
-  if (product.category === 'account') {
-    if (product.rateSlabs && product.rateSlabs.length > 0) {
-      const top = Math.max(...product.rateSlabs.map((s) => s.rate));
-      return `Up to ${top.toFixed(2)}% p.a. interest`;
-    }
-    if (product.overdraftRate) return `Overdraft at ${product.overdraftRate.toFixed(2)}% p.a.`;
-    return product.amb?.label || 'Zero balance';
-  }
-  if (product.category === 'loan') {
-    if (product.rateMin != null && product.rateMax != null) {
-      return product.rateMin === product.rateMax
-        ? `${product.rateMin.toFixed(2)}% p.a.`
-        : `From ${product.rateMin.toFixed(2)}% p.a.`;
-    }
-    return 'Fixed APR pricing';
-  }
-  if (product.category === 'card') {
-    if (product.annualFee === 0) return 'No annual fee';
-    if (product.annualFee != null) return `${formatINRWhole(product.annualFee)} annual fee`;
-    return 'Lifetime free';
-  }
-  if (product.category === 'investment') {
-    if (product.rateGrid) {
-      const top = Math.max(...product.rateGrid.map((r) => r.general));
-      return `Up to ${top.toFixed(2)}% p.a.`;
-    }
-    if (product.rateBands) {
-      const top = Math.max(...product.rateBands.map((b) => b.rate));
-      return `Up to ${top.toFixed(2)}% p.a.`;
-    }
-    if (product.rate != null) return `${product.rate.toFixed(2)}% p.a.`;
-    if (product.minMonthly != null) return `Start with ${formatINRWhole(product.minMonthly)}/month`;
-    return 'Market linked';
-  }
-  return '—';
-}
-
-const CATEGORY_TABS = [
-  { key: 'account', label: 'Accounts', icon: Wallet, to: '/accounts' },
-  { key: 'card', label: 'Cards', icon: CreditCard, to: '/cards' },
-  { key: 'loan', label: 'Loans', icon: HandCoins, to: '/loans' },
-  { key: 'investment', label: 'Investments', icon: TrendingUp, to: '/investments' },
-];
-
-/** Customer-facing trust cards for Why FinEdge (Fix 4). */
-const TRUST_POINTS = [
-  {
-    icon: FileText,
-    title: 'One published schedule',
-    body: 'Every rate and fee comes from a single published schedule; product pages and the Schedule of Charges can never disagree.',
-    linkText: 'Schedule of Charges',
-    linkTo: '/schedule-of-charges',
-  },
-  {
-    icon: ShieldCheck,
-    title: 'Charges before you apply',
-    body: 'The full fee table is published on every product page before any form. No surprise maintenance fees or unannounced processing deductions.',
-    linkText: 'Explore our accounts',
-    linkTo: '/accounts',
-  },
-  {
-    icon: PhoneCall,
-    title: 'A human when you need one',
-    body: `Direct phone support at 1800 267 4100 (${BRAND.support.hours}), along with a transparent multi-level Grievance Redressal framework.`,
-    linkText: 'Grievance Redressal',
-    linkTo: '/grievance-redressal',
-    extraLinkText: 'Call 1800 267 4100',
-    extraHref: 'tel:18002674100',
-  },
-];
-
-/** 5 Customer-facing FAQs kept on homepage per Fix 1 */
-const HOMEPAGE_FAQ_QUESTIONS = [
-  'Is FinEdge Bank a real bank?',
-  'How do I open an account?',
-  'What documents do I need for KYC?',
-  'Is my data safe on this platform?',
-  'How do I raise a complaint or a service request?',
-];
-
-function HomeHero({ savingsRow, homeLoanRow, edgeGoldDebit }) {
-  const heroContent = typeof getContent === 'function' ? getContent('hero') : null;
-  const headline = heroContent?.headline || 'Banking that grows with you — accounts, cards, loans and investments in one place.';
-  const subtext = heroContent?.subtext || `Open an account in minutes, borrow with the rate shown before you apply, and grow your savings with deposits and investments whose charges are stated up front. ${BRAND.name} is a demonstration platform — every workflow works end to end, with simulations labelled honestly.`;
-  const primaryCtaLabel = heroContent?.primaryCtaLabel || 'Open an account';
-  const primaryCtaTo = heroContent?.primaryCtaTo || '/accounts';
-  const secondaryCtaLabel = heroContent?.secondaryCtaLabel || 'Try the calculators';
-  const secondaryCtaTo = heroContent?.secondaryCtaTo || '/calculators';
-  const heroRef = useRef(null);
-  const bgPhotoRef = useRef(null);
-  const parallaxRafId = useRef(null);
-
-  // Background photo scroll parallax (max 24px translate, passive listener, zero React state)
-  // Fine pointer / desktop only (hover: hover and pointer: fine)
-  useEffect(() => {
-    const isTouch = typeof window !== 'undefined' && (window.matchMedia('(hover: none)').matches || window.matchMedia('(pointer: coarse)').matches);
-    const isReduced = typeof window !== 'undefined' && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
-    if (isTouch || isReduced) return undefined;
-
-    const onScroll = () => {
-      if (parallaxRafId.current || !bgPhotoRef.current) return;
-      parallaxRafId.current = requestAnimationFrame(() => {
-        parallaxRafId.current = null;
-        if (!bgPhotoRef.current) return;
-        const scrollY = window.scrollY || 0;
-        const transY = Math.min(24, Math.max(0, scrollY * 0.08));
-        bgPhotoRef.current.style.transform = `translate3d(0, ${transY.toFixed(1)}px, 0)`;
-      });
-    };
-
-    window.addEventListener('scroll', onScroll, { passive: true });
-    return () => {
-      window.removeEventListener('scroll', onScroll);
-      if (parallaxRafId.current) cancelAnimationFrame(parallaxRafId.current);
-    };
-  }, []);
-
-  return (
-    <section
-      ref={heroRef}
-      data-testid="hero-section"
-      className="relative overflow-hidden bg-midnight-950 text-porcelain-50 pt-0 pb-16 sm:pb-20 lg:min-h-[680px] lg:py-28 flex flex-col justify-center"
-      aria-label="Welcome to FinEdge Bank"
-    >
-      {/* 1. Mobile Contained Photo Band (<= 1023px) */}
-      <div className="relative w-full aspect-[1920/1281] lg:hidden overflow-hidden bg-midnight-950 hero-bg-enter">
-        <picture className="w-full h-full block">
-          <source
-            type="image/webp"
-            srcSet="/images/hero-bg-768.webp 768w, /images/hero-bg-1280.webp 1280w, /images/hero-bg-1920.webp 1920w, /images/hero-bg-2560.webp 2560w, /images/hero-bg-3840.webp 3840w"
-            sizes="100vw"
-          />
-          <img
-            src="/images/hero-bg-1920.webp"
-            alt=""
-            aria-hidden="true"
-            fetchPriority="high"
-            loading="eager"
-            decoding="async"
-            width="1920"
-            height="1281"
-            className="w-full h-full object-contain object-top block"
-            style={{
-              filter: 'saturate(0.6) contrast(1.05)',
-            }}
-          />
-        </picture>
-        {/* Bottom gradient on the band dissolving into the midnight content zone */}
-        <div
-          className="absolute inset-x-0 bottom-0 h-24 sm:h-28 pointer-events-none"
-          style={{
-            background: 'linear-gradient(to top, rgba(5,15,29,1) 0%, rgba(5,15,29,0.7) 40%, transparent 100%)',
-          }}
-        />
-      </div>
-
-      {/* 2. Desktop Full-background landscape photograph with responsive WebP + scroll parallax (>= 1024px) */}
-      <div
-        ref={bgPhotoRef}
-        className="hidden lg:block absolute -top-6 -bottom-6 inset-x-0 pointer-events-none overflow-hidden"
-        style={{
-          transform: 'none',
-          willChange: 'transform',
-        }}
-      >
-        <picture className="h-full w-full block">
-          <source
-            type="image/webp"
-            srcSet="/images/hero-bg-768.webp 768w, /images/hero-bg-1280.webp 1280w, /images/hero-bg-1920.webp 1920w, /images/hero-bg-2560.webp 2560w, /images/hero-bg-3840.webp 3840w"
-            sizes="100vw"
-          />
-          <img
-            src="/images/hero-bg-1920.webp"
-            alt=""
-            aria-hidden="true"
-            fetchPriority="high"
-            loading="eager"
-            decoding="async"
-            width="1920"
-            height="1281"
-            className="h-full w-full object-cover object-[right_center] hero-bg-enter"
-            style={{
-              filter: 'saturate(0.6) contrast(1.05)',
-            }}
-          />
-        </picture>
-      </div>
-
-      {/* Desktop Readability Overlays */}
-      {/* Desktop Left-to-Right Midnight Wash */}
-      <div
-        className="absolute inset-0 pointer-events-none hidden lg:block"
-        style={{
-          background:
-            'linear-gradient(90deg, rgba(5,15,29,0.96) 0%, rgba(5,15,29,0.88) 45%, rgba(5,15,29,0.45) 70%, rgba(5,15,29,0.22) 100%)',
-        }}
-      />
-      {/* Desktop Bottom Grounding Gradient */}
-      <div
-        className="absolute inset-0 pointer-events-none hidden lg:block"
-        style={{
-          background:
-            'linear-gradient(to top, rgba(5,15,29,0.65) 0%, rgba(5,15,29,0.55) 15%, transparent 35%)',
-        }}
-      />
-      {/* Desktop Subtle Top Radial Gold Wash */}
-      <div className="absolute inset-0 bg-[radial-gradient(ellipse_80%_80%_at_50%_-20%,rgba(184,147,63,0.08),transparent)] pointer-events-none hidden lg:block" />
-
-      {/* 3. Foreground Content Container */}
-      <div className="relative z-10 mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 w-full pt-4 sm:pt-6 lg:pt-0">
-        <div className="relative">
-          {/* Left Zone: Copy, CTAs & Stats (never overlapped by card) */}
-          <div
-            data-testid="hero-left-zone"
-            className="max-w-xl lg:max-w-[48%] xl:max-w-[50%]"
-          >
-            <div className="inline-flex items-center gap-2 rounded-full border border-gold-400/30 bg-midnight-900/80 px-3.5 py-1 text-xs font-semibold uppercase tracking-[0.14em] text-gold-300 backdrop-blur-sm">
-              <Landmark className="h-3.5 w-3.5 text-gold-400" />
-              <span>Banking with a finer edge</span>
-            </div>
-
-            <h1 className="hero-enter-headline mt-4 font-display text-4xl font-semibold leading-tight text-porcelain-50 sm:text-5xl">
-              {headline}
-            </h1>
-
-            <p className="hero-enter-subtext mt-5 text-base leading-relaxed text-porcelain-200/90 sm:text-lg">
-              {subtext}
-            </p>
-
-            {/* CTAs: Porcelain primary button on midnight band */}
-            <div className="hero-enter-cta mt-8 flex flex-wrap items-center gap-x-6 gap-y-4">
-              <Link
-                to={primaryCtaTo}
-                className="inline-flex select-none items-center justify-center gap-2 rounded-lg font-semibold transition-[color,background-color,border-color,transform] duration-150 ease-out active:translate-y-px min-h-11 px-5 text-sm bg-porcelain-50 text-midnight-950 border border-transparent shadow-sm hover:bg-porcelain-200"
-              >
-                {primaryCtaLabel} <ArrowRight className="h-4 w-4 text-midnight-900" aria-hidden />
-              </Link>
-              <Link
-                to={secondaryCtaTo}
-                className="text-sm font-medium text-porcelain-50 underline decoration-porcelain-50/50 underline-offset-4 transition-colors hover:decoration-porcelain-50"
-              >
-                {secondaryCtaLabel}
-              </Link>
-            </div>
-
-            {/* Stats Row: Derived from single rates source */}
-            <div className="mt-10 grid grid-cols-2 gap-4 border-t border-porcelain-50/10 pt-6 sm:grid-cols-3">
-              <div className="hero-stat-e" style={{ '--stat-delay': '550ms' }}>
-                <p className="text-xs text-porcelain-300">Savings account</p>
-                <p className="font-display text-lg font-semibold text-gold-300 sm:text-xl">
-                  {savingsRow?.display || 'Up to 6.75% p.a.'}
-                </p>
-                <p className="mt-1 text-[13px] text-porcelain-300">Interest credited quarterly</p>
-              </div>
-              <div className="hero-stat-e" style={{ '--stat-delay': '620ms' }}>
-                <p className="text-xs text-porcelain-300">Home loan (from)</p>
-                <p className="font-display text-lg font-semibold text-gold-300 sm:text-xl">
-                  {homeLoanRow?.display || 'From 8.35% p.a.'}
-                </p>
-              </div>
-              <div className="hero-stat-e col-span-2 sm:col-span-1" style={{ '--stat-delay': '690ms' }}>
-                <p className="text-xs text-porcelain-300">{shortProductName(edgeGoldDebit?.name || 'Edge Gold Debit')}</p>
-                <p className="font-display text-lg font-semibold text-gold-300 sm:text-xl">
-                  {edgeGoldDebit ? `${formatINRWhole(edgeGoldDebit.annualFee)}/yr` : '₹599/yr'}
-                </p>
-              </div>
-            </div>
-          </div>
-
-          {/* Right Zone: 3D Flagship Card */}
-          {/* On mobile: normal flow below stats. On desktop: absolute lower-right foreground. */}
-          <div
-            data-testid="hero-right-zone"
-            className="mt-10 lg:mt-0 mx-auto lg:mx-0 w-full max-w-[380px] sm:max-w-[420px] lg:max-w-none lg:w-[clamp(380px,34vw,500px)] lg:absolute lg:right-4 xl:right-8 lg:bottom-6 xl:bottom-8 z-20"
-          >
-            <div className="hero-card-entrance">
-              <div className="relative">
-                {/* Radial gold glow behind card */}
-                <div className="absolute -inset-8 rounded-full bg-[radial-gradient(ellipse_at_center,rgba(184,147,63,0.22),transparent_70%)] pointer-events-none -z-10" />
-
-                {/* Shared 3D TiltCard with locked hero settings */}
-                <TiltCard
-                  maxTilt={12}
-                  perspective={1000}
-                  lerpFactor={0.12}
-                  enableFloat={true}
-                  glare={true}
-                  shadow={true}
-                  shadowBaseY={25}
-                  shadowFactor={2.2}
-                  shadowBlur={45}
-                  restingShadow="0 20px 45px -10px rgba(10, 30, 53, 0.45)"
-                  borderRadius="18px"
-                  sweepKey="hero-edge-gold-card"
-                  data-testid="hero-card-tilt"
-                  className="w-full"
-                >
-                  <HeroEdgeGoldCard />
-                </TiltCard>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-    </section>
-  );
-}
-
-export default function HomePage() {
-  const [openFaq, setOpenFaq] = useState(0);
-  const [activeTab, setActiveTab] = useState('account');
-  const [tabTransitioning, setTabTransitioning] = useState(false);
-  const dirTabsRef = useRef(null);
-  const [dirIndicator, setDirIndicator] = useState({ left: 0, width: 0, opacity: 0 });
-
-  useEffect(() => {
-    if (!dirTabsRef.current) return;
-    const btn = dirTabsRef.current.querySelector(`[data-tab-key="${activeTab}"]`);
-    if (btn) {
-      setDirIndicator({ left: btn.offsetLeft, width: btn.offsetWidth, opacity: 1 });
-    }
-  }, [activeTab]);
-  const [expandedRates, setExpandedRates] = useState(false);
-  const [expandedOffers, setExpandedOffers] = useState(false);
-  const [detailModalAccount, setDetailModalAccount] = useState(null);
+  // State
+  const [heroSlide, setHeroSlide] = useState(0);
+  const [heroPaused, setHeroPaused] = useState(false);
+  const [activeTab, setActiveTab] = useState('popular');
+  const [featureIndex, setFeatureIndex] = useState(0);
   const [applyModalProduct, setApplyModalProduct] = useState(null);
 
-  // Single rates source from data files
-  const savingsRow = RATES_AT_A_GLANCE.find((r) => r.productSlug === 'everyday-savings');
-  const homeLoanRow = RATES_AT_A_GLANCE.find((r) => r.productSlug === 'home-loan');
-  const edgeGoldDebit = getProductBySlug('edge-gold-debit');
+  // Calculator State
+  const [calcTab, setCalcTab] = useState('emi'); // 'emi', 'fd', 'rd', 'savings', 'sip'
+  const [emiAmount, setEmiAmount] = useState(2500000);
+  const [emiRate, setEmiRate] = useState(8.35);
+  const [emiTenureYears, setEmiTenureYears] = useState(20);
 
-  // Rates split into two clean categories (Fix 5: Savings & Deposits | Borrowing)
-  const depositRates = RATES_AT_A_GLANCE.filter(
-    (r) =>
-      r.label.toLowerCase().includes('savings') ||
-      r.label.toLowerCase().includes('deposit') ||
-      r.label.toLowerCase().includes('sukanya')
-  );
-  const borrowingRates = RATES_AT_A_GLANCE.filter((r) => r.label.toLowerCase().includes('loan'));
+  const [fdAmount, setFdAmount] = useState(100000);
+  const [fdTenureMonths, setFdTenureMonths] = useState(36);
+  const [isSenior, setIsSenior] = useState(false);
 
-  const visibleDepositRates = expandedRates ? depositRates : depositRates.slice(0, 2);
-  const visibleBorrowingRates = expandedRates ? borrowingRates : borrowingRates.slice(0, 2);
+  const [rdMonthly, setRdMonthly] = useState(5000);
+  const [rdTenureMonths, setRdTenureMonths] = useState(24);
 
-  // Store-backed Site Content (Module 49)
-  const rawOffers = (typeof getContent === 'function' ? getContent('offers') : null) || OFFERS;
-  const activeOffers = (Array.isArray(rawOffers) ? rawOffers : OFFERS).filter((o) => o.active !== false);
-  const sortedOffers = [...activeOffers].sort((a, b) => new Date(a.validTill || a.validity || '2099-12-31') - new Date(b.validTill || b.validity || '2099-12-31'));
-  const visibleOffers = expandedOffers ? sortedOffers : sortedOffers.slice(0, 3);
+  const [savingsBal, setSavingsBal] = useState(200000);
 
-  const rawWhy = typeof getContent === 'function' ? getContent('whyPoints') : null;
-  const whyPointsList = (Array.isArray(rawWhy) && rawWhy.length > 0)
-    ? rawWhy.filter((w) => w.active !== false).sort((a, b) => (a.order || 0) - (b.order || 0))
-    : TRUST_POINTS;
+  const [sipMonthly, setSipMonthly] = useState(5000);
+  const [sipRate, setSipRate] = useState(12.0);
+  const [sipYears, setSipYears] = useState(10);
 
-  const rawFaqs = (typeof getContent === 'function' ? getContent('faqs') : null) || GENERAL_FAQS;
-  const homepageFaqs = (Array.isArray(rawFaqs) ? rawFaqs : GENERAL_FAQS)
-    .filter((f) => f.active !== false)
-    .sort((a, b) => (a.order || 0) - (b.order || 0));
+  // -------------------------------------------------------------------------
+  // 1. HERO CAROUSEL DATA (7 Slides strictly from FinEdge real data)
+  // -------------------------------------------------------------------------
+  const heroSlides = [
+    {
+      id: 'savings',
+      category: 'SAVINGS ACCOUNT',
+      headline: 'Earn up to 7.00% p.a. with monthly compounding',
+      subline: 'Monthly interest credit credited straight to your balance. 100% digital paperless video KYC onboarding.',
+      ctaText: 'Open Savings Account',
+      ctaSlug: 'everyday-savings',
+      ctaCategory: 'accounts',
+      product: getProductBySlug('everyday-savings'),
+      bgGradient: 'from-[#140406] via-[#240a0e] to-[#0f0304]',
+      heroImage: '/images/hero-savings.webp',
+      renderVisual: () => (
+        <div className="relative w-full max-w-sm ml-auto p-6 rounded-3xl bg-black/45 backdrop-blur-md border border-white/20 shadow-2xl space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-amber-300">Peak Savings Rate</span>
+            <Percent className="w-5 h-5 text-amber-400" />
+          </div>
+          <div className="text-4xl sm:text-5xl font-black text-amber-100 tracking-tight">7.00% <span className="text-base font-semibold text-amber-300">p.a.</span></div>
+          <p className="text-xs text-gray-300 leading-relaxed">Monthly compounding with interest credited directly to your daily balance.</p>
+          <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs text-amber-200">
+            <span>Zero Paperwork</span>
+            <span>⚡ Instant Video KYC</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'fd',
+      category: 'FIXED DEPOSIT',
+      headline: 'Book Fixed Deposits at up to 7.45% p.a.',
+      subline: 'Guaranteed compound returns with flexible tenures from 7 days to 10 years. DICGC insured up to ₹5 Lakhs.',
+      ctaText: 'Open Fixed Deposit',
+      ctaSlug: 'tax-saver-fd-5yr',
+      ctaCategory: 'investments',
+      product: getProductBySlug('tax-saver-fd-5yr'),
+      bgGradient: 'from-[#081326] via-[#0d1e3d] to-[#050b17]',
+      heroImage: '/images/hero-fd.webp',
+      renderVisual: () => (
+        <div className="relative w-full max-w-sm ml-auto p-6 rounded-3xl bg-black/45 backdrop-blur-md border border-sky-400/25 shadow-2xl space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-sky-300">Guaranteed Return</span>
+            <ShieldCheck className="w-5 h-5 text-sky-400" />
+          </div>
+          <div className="text-4xl sm:text-5xl font-black text-white tracking-tight">7.45% <span className="text-base font-semibold text-sky-300">p.a.</span></div>
+          <p className="text-xs text-gray-300 leading-relaxed">Senior citizen peak yield (6.95% regular). DICGC insurance coverage up to ₹5 Lakhs.</p>
+          <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs text-sky-200">
+            <span>Flexible Tenures</span>
+            <span>7 Days to 10 Years</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'cards',
+      category: 'CREDIT CARDS',
+      headline: 'FinEdge First Metal Credit Card',
+      subline: 'Zero annual fee forever. 10X reward points that never expire, airport lounge access and 1% forex markup.',
+      ctaText: user ? 'Apply for Metal Card' : 'Login to Apply',
+      ctaSlug: 'aura-metal-card',
+      ctaCategory: 'cards',
+      product: getProductBySlug('aura-metal-card'),
+      bgGradient: 'from-[#111111] via-[#1c1c1c] to-[#0a0a0a]',
+      heroImage: '/images/hero-cards.webp',
+      renderVisual: () => (
+        <div className="relative w-full max-w-xs ml-auto p-5 rounded-2xl bg-black/60 backdrop-blur-md border border-white/20 shadow-2xl space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-gray-300">Aura Metal Edition</span>
+            <CreditCard className="w-5 h-5 text-gray-200" />
+          </div>
+          <div className="text-3xl sm:text-4xl font-black text-white tracking-tight">Zero <span className="text-sm font-semibold text-gray-300">Annual Fee</span></div>
+          <p className="text-xs text-gray-300 leading-relaxed">10X reward points that never expire, airport lounge access and low 1% forex markup fee.</p>
+          <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs text-gray-200">
+            <span>Contactless NFC</span>
+            <span>Lifetime Free</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'gold-loan',
+      category: 'GOLD LOAN',
+      headline: 'Instant Gold Loans starting from 8.60% p.a.',
+      subline: 'Highest per-gram valuation with door-step or in-branch valuation. Instant fund transfer in 20 minutes.',
+      ctaText: user ? 'Apply for Gold Loan' : 'Login to Apply',
+      ctaSlug: 'gold-loan',
+      ctaCategory: 'loans',
+      product: getProductBySlug('gold-loan'),
+      bgGradient: 'from-[#1f1304] via-[#332007] to-[#120a01]',
+      heroImage: '/images/hero-gold-loan.webp',
+      renderVisual: () => (
+        <div className="relative w-full max-w-sm ml-auto p-6 rounded-3xl bg-black/45 backdrop-blur-md border border-amber-500/25 shadow-2xl space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-amber-300">Instant Valuation</span>
+            <Coins className="w-5 h-5 text-amber-400" />
+          </div>
+          <div className="text-4xl sm:text-5xl font-black text-amber-100 tracking-tight">8.60% <span className="text-base font-semibold text-amber-300">p.a.</span></div>
+          <p className="text-xs text-gray-300 leading-relaxed">Highest per-gram valuation with verified purity testing and funds transferred in 20 minutes.</p>
+          <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs text-amber-200">
+            <span>Up to 75% LTV</span>
+            <span>⚡ Disbursal in 20 Min</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'home-loan',
+      category: 'HOME FINANCING',
+      headline: 'Dream Home Loans starting from 8.35% p.a.',
+      subline: 'Transparent processing, zero prepayment charges on floating rates, and tenure up to 30 years.',
+      ctaText: user ? 'Apply for Home Loan' : 'Login to Apply',
+      ctaSlug: 'home-loan',
+      ctaCategory: 'loans',
+      product: getProductBySlug('home-loan'),
+      bgGradient: 'from-[#051426] via-[#09223e] to-[#040e1a]',
+      heroImage: '/images/hero-home-loan.webp',
+      renderVisual: () => (
+        <div className="relative w-full max-w-sm ml-auto p-6 rounded-3xl bg-black/45 backdrop-blur-md border border-sky-500/25 shadow-2xl space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-sky-300">Home Financing</span>
+            <Building className="w-5 h-5 text-sky-400" />
+          </div>
+          <div className="text-4xl sm:text-5xl font-black text-white tracking-tight">8.35% <span className="text-base font-semibold text-sky-300">p.a.</span></div>
+          <p className="text-xs text-gray-300 leading-relaxed">Transparent processing, zero prepayment charges on floating rates, tenure up to 30 years.</p>
+          <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs text-sky-200">
+            <span>Zero Foreclosure Fee</span>
+            <span>Up to 30 Years</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'ssy',
+      category: 'TAX-FREE INVESTMENTS',
+      headline: 'Secure her future with Sukanya Samriddhi Yojana',
+      subline: 'Government guaranteed 8.05% p.a. tax-free returns under Section 80C with sovereign protection.',
+      ctaText: user ? 'Book SSY Online' : 'Login to Apply',
+      ctaSlug: 'sukanya-samriddhi',
+      ctaCategory: 'investments',
+      product: getProductBySlug('sukanya-samriddhi'),
+      bgGradient: 'from-[#1e0729] via-[#320d44] to-[#120419]',
+      heroImage: '/images/hero-ssy.webp',
+      renderVisual: () => (
+        <div className="relative w-full max-w-xs ml-auto p-5 rounded-2xl bg-black/60 backdrop-blur-md border border-purple-400/30 shadow-2xl space-y-2.5">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-purple-300">Sukanya Samriddhi</span>
+            <Sparkles className="w-4 h-4 text-purple-400" />
+          </div>
+          <div className="text-3xl sm:text-4xl font-black text-white tracking-tight">8.05% <span className="text-sm font-semibold text-purple-300">p.a.</span></div>
+          <p className="text-xs text-purple-100/90 leading-relaxed">Government guaranteed annual yield with triple tax exemption (EEE) under Section 80C.</p>
+          <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs text-purple-200">
+            <span>Triple Tax Free</span>
+            <span>Sovereign Guarantee</span>
+          </div>
+        </div>
+      ),
+    },
+    {
+      id: 'trust',
+      category: 'SCHEDULED COMMERCIAL BANK',
+      headline: 'FinEdge Bank: Certified security & regulatory trust',
+      subline: 'Governed by the Banking Regulation Act, 1949. All depositor funds protected up to ₹5 Lakhs by DICGC.',
+      ctaText: 'Explore Transparent Banking',
+      ctaSlug: 'everyday-savings',
+      ctaCategory: 'accounts',
+      product: getProductBySlug('everyday-savings'),
+      bgGradient: 'from-[#170507] via-[#24090c] to-[#0e0304]',
+      heroImage: '/images/hero-trust.webp',
+      renderVisual: () => (
+        <div className="relative w-full max-w-sm ml-auto p-6 rounded-3xl bg-black/45 backdrop-blur-md border border-red-500/25 shadow-2xl space-y-3">
+          <div className="flex items-center justify-between">
+            <span className="text-[11px] font-bold uppercase tracking-widest text-red-300">Regulatory Assurance</span>
+            <ShieldCheck className="w-5 h-5 text-red-400" />
+          </div>
+          <div className="text-4xl sm:text-5xl font-black text-white tracking-tight">₹5 Lakh <span className="text-base font-semibold text-red-300">DICGC</span></div>
+          <p className="text-xs text-gray-300 leading-relaxed">Scheduled Commercial Bank governed under Banking Regulation Act, 1949 with deposit protection.</p>
+          <div className="pt-2 border-t border-white/10 flex items-center justify-between text-xs text-red-200">
+            <span>RBI Regulated</span>
+            <span>100% Capital Adequacy</span>
+          </div>
+        </div>
+      ),
+    },
+  ];
 
-  // Products for active category tab (one row of 3)
-  const activeProducts = getProductsByCategory(activeTab);
-  const featuredProducts = activeProducts.slice(0, 3);
-  const currentTabMeta = CATEGORY_TABS.find((t) => t.key === activeTab) || CATEGORY_TABS[0];
+  // Hero Autoplay
+  useEffect(() => {
+    if (heroPaused) return;
+    const timer = setInterval(() => {
+      setHeroSlide((prev) => (prev + 1) % heroSlides.length);
+    }, 5000);
+    return () => clearInterval(timer);
+  }, [heroPaused, heroSlides.length]);
 
-  const handleTabChange = (key) => {
-    if (key === activeTab) return;
-    setTabTransitioning(true);
-    setTimeout(() => {
-      setActiveTab(key);
-      setTabTransitioning(false);
-    }, 160);
+  const currentSlide = heroSlides[heroSlide];
+
+  // -------------------------------------------------------------------------
+  // 2. PRODUCT TABS & COLOUR-BLOCK CARDS (Part C)
+  // -------------------------------------------------------------------------
+  const popularProducts = useMemo(() => {
+    return [
+      { product: getProductBySlug('everyday-savings'), category: 'account', colorClass: 'bg-[#981a1d]' },
+      { product: getProductBySlug('home-loan'), category: 'loan', colorClass: 'bg-[#0c2340]' },
+      { product: getProductBySlug('ashva-metal-card'), category: 'card', colorClass: 'bg-[#1e293b]' },
+    ].filter((p) => p.product);
+  }, []);
+
+  const getCardColorByCategory = (cat) => {
+    switch (cat) {
+      case 'account':
+        return 'bg-[#981a1d]'; // primary red
+      case 'card':
+        return 'bg-[#1e293b]'; // dark slate
+      case 'loan':
+        return 'bg-[#0c2340]'; // deep blue
+      case 'investment':
+        return 'bg-[#2e1065]'; // deep plum
+      default:
+        return 'bg-[#981a1d]';
+    }
   };
 
+  const getProductRoute = (prod) => {
+    if (!prod) return '/accounts';
+    if (prod.isCalculator) return `/calculators?tab=${prod.slug}`;
+    const cat = prod.category;
+    if (cat === 'loan') return `/loans/${prod.slug}`;
+    if (cat === 'card') return `/cards/${prod.slug}`;
+    if (cat === 'investment') return `/investments/${prod.slug}`;
+    return `/accounts/${prod.slug}`;
+  };
+
+  const handleApplyClick = (product) => {
+    if (!product) return;
+    if (product.isCalculator) {
+      const el = document.getElementById('calculators-section');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+      else navigate(`/calculators?tab=${product.slug}`);
+      return;
+    }
+    const cat = product.category;
+    if (cat === 'account') {
+      // Accounts apply without login (M60 A4 / M61 Part 2)
+      setApplyModalProduct(product);
+    } else {
+      // Cards, Loans, Investments: require login
+      if (!user) {
+        navigate('/portal/login');
+      } else {
+        setApplyModalProduct(product);
+      }
+    }
+  };
+
+  const getApplyButtonLabel = (product) => {
+    if (!product) return 'Apply Now';
+    if (product.isCalculator) return 'Calculate Now';
+    const cat = product.category;
+    if (cat === 'account') {
+      return 'Open Account';
+    }
+    if (cat === 'investment') {
+      return user ? 'Book Now' : 'Login to Apply';
+    }
+    return user ? 'Apply Now' : 'Login to Apply';
+  };
+
+  // Products to display in current tab
+  const tabProducts = useMemo(() => {
+    if (activeTab === 'popular') {
+      return popularProducts;
+    }
+    if (activeTab === 'accounts') {
+      return ACCOUNTS.slice(0, 3).map((p) => ({ product: p, category: 'account', colorClass: 'bg-[#981a1d]' }));
+    }
+    if (activeTab === 'loans') {
+      return LOANS.slice(0, 3).map((p) => ({ product: p, category: 'loan', colorClass: 'bg-[#0c2340]' }));
+    }
+    if (activeTab === 'cards') {
+      return CREDIT_CARDS.slice(0, 3).map((p) => ({ product: p, category: 'card', colorClass: 'bg-[#1e293b]' }));
+    }
+    if (activeTab === 'investments') {
+      return INVESTMENTS.slice(0, 3).map((p) => ({ product: p, category: 'investment', colorClass: 'bg-[#2e1065]' }));
+    }
+    if (activeTab === 'calculators') {
+      return [
+        { product: { name: 'Loan EMI Calculator', slug: 'emi', category: 'calculators', rateFact: '8.35% base', tagline: 'Plan monthly instalments, principal repayment, and amortisation schedule.', isCalculator: true }, category: 'loan', colorClass: 'bg-[#0c2340]' },
+        { product: { name: 'Fixed Deposit Calculator', slug: 'fd', category: 'calculators', rateFact: '7.45% p.a.', tagline: 'Compute quarterly compounding returns, maturity corpus, and senior citizen bonus.', isCalculator: true }, category: 'investment', colorClass: 'bg-[#2e1065]' },
+        { product: { name: 'Recurring Deposit Calculator', slug: 'rd', category: 'calculators', rateFact: '7.00% p.a.', tagline: 'Estimate maturity values for disciplined monthly savings with quarterly compounding.', isCalculator: true }, category: 'account', colorClass: 'bg-[#981a1d]' },
+      ];
+    }
+    return [];
+  }, [activeTab, popularProducts]);
+
+  // -------------------------------------------------------------------------
+  // 3. WHY FINEDGE FEATURE CAROUSEL (Part D)
+  // -------------------------------------------------------------------------
+  const whyPoints = [
+    {
+      id: 1,
+      title: 'One published schedule',
+      body: 'Every rate and fee comes from a single published schedule; product pages and the Schedule of Charges can never disagree.',
+      gradientBg: 'from-[#981a1d] via-[#7e1417] to-[#4f0c0e]',
+      icon: FileText,
+      link: '/schedule-of-charges',
+    },
+    {
+      id: 2,
+      title: 'Charges before you apply',
+      body: 'The full fee table is published on every product page before any form. Zero hidden charges or unexpected deductions.',
+      gradientBg: 'from-[#0c2340] via-[#091b31] to-[#040e1c]',
+      icon: ShieldCheck,
+      link: '/accounts',
+    },
+    {
+      id: 3,
+      title: 'A human when you need one',
+      body: `Direct toll-free phone support at 1800 267 4100 (${BRAND.support.hours}), backed by a multi-level statutory redressal framework.`,
+      gradientBg: 'from-[#1e293b] via-[#16202e] to-[#0f172a]',
+      icon: PhoneCall,
+      link: '/grievance-redressal',
+    },
+    {
+      id: 4,
+      title: 'Monthly interest credit',
+      body: 'High-yield savings accounts credit interest monthly into your account, accelerating compound growth on daily balances.',
+      gradientBg: 'from-[#2e1065] via-[#240c50] to-[#170535]',
+      icon: Percent,
+      link: '/accounts/everyday-savings',
+    },
+    {
+      id: 5,
+      title: 'DICGC insurance protection',
+      body: 'All depositor funds across savings, current, and fixed deposits are insured up to ₹5,00,000 under DICGC regulations.',
+      gradientBg: 'from-[#981a1d] via-[#751114] to-[#4a0b0d]',
+      icon: Landmark,
+      link: '/disclosures',
+    },
+    {
+      id: 6,
+      title: 'Zero foreclosure penalties',
+      body: 'Floating rate retail loans carry transparent zero-prepayment charges, letting you prepay without surprise exit penalties.',
+      gradientBg: 'from-[#0c2340] via-[#0b274c] to-[#07162b]',
+      icon: Coins,
+      link: '/loans',
+    },
+  ];
+
+  const handlePrevFeature = () => {
+    setFeatureIndex((prev) => (prev === 0 ? whyPoints.length - 3 : prev - 1));
+  };
+  const handleNextFeature = () => {
+    setFeatureIndex((prev) => (prev >= whyPoints.length - 3 ? 0 : prev + 1));
+  };
+
+  // -------------------------------------------------------------------------
+  // 4. FINANCIAL CALCULATORS MATH (Part E)
+  // -------------------------------------------------------------------------
+  const emiOutput = useMemo(() => {
+    return calculateEMI(emiAmount, emiRate, emiTenureYears * 12);
+  }, [emiAmount, emiRate, emiTenureYears]);
+
+  const fdOutput = useMemo(() => {
+    // Determine rate from standard grid
+    let rate = 6.95;
+    if (fdTenureMonths < 12) rate = 6.05;
+    else if (fdTenureMonths <= 24) rate = 6.85;
+    else if (fdTenureMonths <= 36) rate = 6.95;
+    else if (fdTenureMonths <= 60) rate = 6.90;
+    else rate = 6.75;
+    try {
+      const res = calculateFD({
+        principal: fdAmount,
+        annualRatePct: rate,
+        tenureMonths: fdTenureMonths,
+        seniorCitizen: isSenior,
+      });
+      return {
+        maturity: res.maturityValue,
+        interest: res.interestEarned,
+        rateAppliedPct: res.rateAppliedPct,
+      };
+    } catch {
+      return { maturity: fdAmount, interest: 0, rateAppliedPct: rate };
+    }
+  }, [fdAmount, fdTenureMonths, isSenior]);
+
+  const rdOutput = useMemo(() => {
+    try {
+      const res = calculateRD({
+        monthlyDeposit: rdMonthly,
+        annualRatePct: 7.0,
+        tenureMonths: rdTenureMonths,
+      });
+      return {
+        totalDeposited: res.totalDeposited,
+        maturity: res.maturityValue,
+        interest: res.interestEarned,
+      };
+    } catch {
+      return { totalDeposited: rdMonthly * rdTenureMonths, maturity: rdMonthly * rdTenureMonths, interest: 0 };
+    }
+  }, [rdMonthly, rdTenureMonths]);
+
+  const savingsOutput = useMemo(() => {
+    const monthlyCredit = Math.round(savingsBal * (7.0 / 1200));
+    const annualCompound = Math.round(savingsBal * (Math.pow(1 + 7.0 / 1200, 12) - 1));
+    return { monthlyCredit, annualCompound };
+  }, [savingsBal]);
+
+  const sipOutput = useMemo(() => {
+    try {
+      const res = calculateSIP({
+        monthlyInvestment: sipMonthly,
+        expectedReturnPct: sipRate,
+        tenureMonths: sipYears * 12,
+      });
+      return {
+        invested: res.totalInvested,
+        gain: res.estimatedGain,
+        maturity: res.maturityValue,
+      };
+    } catch {
+      return { invested: sipMonthly * sipYears * 12, gain: 0, maturity: sipMonthly * sipYears * 12 };
+    }
+  }, [sipMonthly, sipRate, sipYears]);
+
   return (
-    <div>
+    <div className="min-h-screen bg-white">
       {/* ====================================================================== */}
-      {/* (a) HERO SECTION (Full-background banner with Option A layout & 3D card) */}
+      {/* PART B: HOMEPAGE HERO CAROUSEL (~70vh, dark, CSS/SVG 3D scenes) */}
       {/* ====================================================================== */}
-      <HomeHero
-        savingsRow={savingsRow}
-        homeLoanRow={homeLoanRow}
-        edgeGoldDebit={edgeGoldDebit}
-      />
+      <section
+        className={`relative w-full overflow-hidden bg-gradient-to-r ${currentSlide.bgGradient} text-white transition-colors duration-700 -mt-18 pt-24 pb-28 sm:pb-32`}
+        onMouseEnter={() => setHeroPaused(true)}
+        onMouseLeave={() => setHeroPaused(false)}
+        aria-label="FinEdge Highlight Carousel"
+      >
+        {/* Full-bleed Realistic Image Background with Scrim Overlay */}
+        <div className="absolute inset-0 pointer-events-none overflow-hidden select-none">
+          <img
+            key={currentSlide.id}
+            src={currentSlide.heroImage}
+            alt=""
+            className="w-full h-full object-cover object-right"
+          />
+          {/* Scrim Overlay: heaviest on left copy zone, easing towards subject on right */}
+          <div className="absolute inset-0 bg-gradient-to-r from-black/95 via-black/80 via-45% to-black/30 lg:from-black/95 lg:via-black/75 lg:via-50% lg:to-black/20" />
+          {/* Mobile full-coverage scrim for 100% contrast when text stacks over visual */}
+          <div className="absolute inset-0 bg-black/50 sm:bg-transparent" />
+        </div>
 
-      {/* ====================================================================== */}
-      {/* (b) PRODUCT DIRECTORY (White background - Fix 1 & 2) */}
-      {/* ====================================================================== */}
-      <section id="discovery" className="py-20 sm:py-24 bg-white border-b border-ink-100" aria-label="Explore products">
-        <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-          {/* Header — Treatment A */}
-          <Reveal treatment="A">
-            <div className="flex flex-col md:flex-row md:items-end md:justify-between gap-6 mb-10">
-              <div>
-                <p className="reveal-eyebrow-line text-xs font-semibold uppercase tracking-[0.14em] text-gold-600">Product Directory</p>
-                <h2 className="reveal-title mt-1 font-display text-2xl sm:text-3xl font-semibold text-midnight-950">
-                  Engineered for every milestone
-                </h2>
-                <p className="reveal-description mt-1.5 text-sm text-ink-600 max-w-xl">
-                  Choose a category to preview popular solutions with transparent rates, upfront fee schedules, and direct application pathways.
-                </p>
+        <div className="idfc-container relative z-10 min-h-[460px] flex flex-col justify-between">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center my-auto">
+            {/* Copy Left (~45-50%, vertically centred, left-aligned) */}
+            <div className="lg:col-span-6 space-y-5 text-left">
+              <span className="inline-block px-3 py-1 rounded-full text-[11px] font-bold tracking-widest uppercase bg-white/10 text-white border border-white/20 backdrop-blur-xs">
+                {currentSlide.category}
+              </span>
+              <h1 className="text-3xl sm:text-4xl lg:text-[46px] font-bold text-white leading-[1.18] tracking-tight">
+                {currentSlide.headline}
+              </h1>
+              <p className="text-gray-300 text-sm sm:text-base leading-relaxed max-w-xl">
+                {currentSlide.subline}
+              </p>
+
+              {/* CTA Row: ONE solid red pill CTA + ONE white "Know More" text link beside it */}
+              <div className="pt-2 flex flex-wrap items-center gap-4">
+                <Button
+                  onClick={() => handleApplyClick(currentSlide.product)}
+                  variant="primary"
+                  size="lg"
+                  className="shadow-lg shadow-red-950/60"
+                >
+                  {currentSlide.ctaText}
+                </Button>
+                <Link
+                  to={getProductRoute(currentSlide.product)}
+                  className="text-white hover:underline text-sm font-semibold inline-flex items-center gap-1.5 transition-colors"
+                >
+                  <span>Know More</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
               </div>
+            </div>
 
-              {/* Fix 3: Category Tabs with animated sliding gold underline */}
-              <div ref={dirTabsRef} className="relative flex items-center border-b border-ink-200 overflow-x-auto scrollbar-none" role="tablist">
-                {CATEGORY_TABS.map((tab) => {
-                  const Icon = tab.icon;
-                  const isActive = activeTab === tab.key;
-                  return (
+            {/* Visual Right (~50%, bleeding to the edge) */}
+            <div className="lg:col-span-6 flex justify-center lg:justify-end">
+              {currentSlide.renderVisual()}
+            </div>
+          </div>
+
+          {/* Controls: bottom-left, quiet white-on-dark (chevron, dots, chevron) */}
+          <div className="flex items-center gap-4 pt-4 pb-2 z-20">
+            <button
+              onClick={() => setHeroSlide((prev) => (prev === 0 ? heroSlides.length - 1 : prev - 1))}
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+              aria-label="Previous hero slide"
+            >
+              <ChevronLeft className="w-4 h-4" />
+            </button>
+            <div className="flex items-center gap-2">
+              {heroSlides.map((_, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => setHeroSlide(idx)}
+                  className={`h-2 rounded-full transition-all duration-300 ${
+                    heroSlide === idx ? 'w-6 bg-white' : 'w-2 bg-white/30 hover:bg-white/50'
+                  }`}
+                  aria-label={`Go to slide ${idx + 1}`}
+                />
+              ))}
+            </div>
+            <button
+              onClick={() => setHeroSlide((prev) => (prev === heroSlides.length - 1 ? 0 : prev + 1))}
+              className="w-8 h-8 rounded-full bg-white/10 hover:bg-white/20 text-white flex items-center justify-center transition-colors"
+              aria-label="Next hero slide"
+            >
+              <ChevronRight className="w-4 h-4" />
+            </button>
+          </div>
+        </div>
+      </section>
+
+      {/* ====================================================================== */}
+      {/* PART C: PRODUCT TABS + COLOUR-BLOCK CARDS (Overlapping Hero) */}
+      {/* ====================================================================== */}
+      <section id="product-tabs" className="relative z-20 bg-white pb-20 pt-0">
+        <div className="idfc-container -mt-14 sm:-mt-16">
+          {/* Frosted Glass Tab Bar: white ~65% opacity, backdrop blur, rounded-t-2xl, centered */}
+          <div className="bg-white/75 backdrop-blur-md border border-white/60 shadow-lg rounded-2xl p-1.5 mb-8">
+            <div className="flex items-center justify-start md:justify-center gap-1 overflow-x-auto no-scrollbar" role="tablist">
+              {[
+                { id: 'popular', label: 'Popular', icon: Sparkles },
+                { id: 'accounts', label: 'Accounts', icon: Wallet },
+                { id: 'loans', label: 'Loans', icon: HandCoins },
+                { id: 'cards', label: 'Cards', icon: CreditCard },
+                { id: 'investments', label: 'Investments', icon: TrendingUp },
+                { id: 'calculators', label: 'Calculators', icon: Calculator },
+              ].map((tab, idx) => {
+                const Icon = tab.icon;
+                const isSelected = activeTab === tab.id;
+                return (
+                  <React.Fragment key={tab.id}>
+                    {idx > 0 && <div className="h-6 w-px bg-gray-200/60 hidden md:block" />}
                     <button
-                      key={tab.key}
-                      data-tab-key={tab.key}
-                      id={`home-dir-tab-${tab.key}`}
                       role="tab"
-                      type="button"
-                      aria-selected={isActive}
-                      aria-controls={`home-dir-panel-${tab.key}`}
-                      onClick={() => handleTabChange(tab.key)}
-                      className={`relative min-h-[44px] pb-3 pt-2 px-4 text-sm font-semibold transition-colors duration-150 flex items-center gap-2 shrink-0 ${
-                        isActive ? 'text-midnight-950 font-bold' : 'text-ink-600 hover:text-midnight-900'
+                      aria-selected={isSelected}
+                      onClick={() => {
+                        setActiveTab(tab.id);
+                        if (tab.id === 'calculators') {
+                          const el = document.getElementById('calculators-section');
+                          if (el) el.scrollIntoView({ behavior: 'smooth' });
+                        }
+                      }}
+                      className={`relative flex flex-col sm:flex-row items-center gap-1.5 px-4 sm:px-6 py-2.5 rounded-xl text-xs sm:text-sm font-semibold transition-all whitespace-nowrap ${
+                        isSelected
+                          ? 'bg-white shadow-xs text-gray-950 font-bold'
+                          : 'text-gray-600 hover:text-gray-950 hover:bg-white/40'
                       }`}
                     >
-                      <Icon className={`h-4 w-4 ${isActive ? 'text-gold-600' : 'text-ink-400'}`} />
+                      <Icon className={`w-4 h-4 ${isSelected ? 'text-[#981a1d]' : 'text-gray-500'}`} />
                       <span>{tab.label}</span>
+                      {isSelected && (
+                        <span className="absolute bottom-0 left-4 right-4 h-1 bg-[#981a1d] rounded-full" />
+                      )}
                     </button>
-                  );
-                })}
-                <span
-                  className="pointer-events-none absolute bottom-0 h-0.5 bg-gold-500 rounded-full transition-all duration-240 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
-                  style={{
-                    transform: `translateX(${dirIndicator.left}px)`,
-                    width: `${dirIndicator.width}px`,
-                    opacity: dirIndicator.opacity,
-                    boxShadow: '0 1px 3px rgba(184, 147, 63, 0.4)',
-                  }}
-                  aria-hidden
-                />
+                  </React.Fragment>
+                );
+              })}
+            </div>
+          </div>
+
+          {/* 3 Cards Per Row: FLAT COLOUR block per category */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {tabProducts.map(({ product, category, colorClass }) => {
+              const Icon =
+                category === 'account'
+                  ? ACCOUNT_ICONS[product.slug] || Wallet
+                  : category === 'loan'
+                  ? LOAN_ICONS[product.slug] || HandCoins
+                  : category === 'card'
+                  ? CreditCard
+                  : INVESTMENT_ICONS[product.slug] || TrendingUp;
+
+              const applyLabel = getApplyButtonLabel(product);
+
+              return (
+                <div
+                  key={product.slug}
+                  className={`relative overflow-hidden rounded-2xl ${colorClass} text-white p-7 shadow-xs hover:shadow-lg transition-all duration-200 flex flex-col justify-between min-h-[320px]`}
+                >
+                  {/* Top content */}
+                  <div className="relative z-10 space-y-3">
+                    <div className="flex justify-between items-start">
+                      <span className="text-[10px] uppercase font-bold tracking-widest text-white/70">
+                        {product.category || category}
+                      </span>
+                      <span className="px-2.5 py-0.5 rounded-full bg-white/15 text-white text-[11px] font-semibold backdrop-blur-xs">
+                        {product.slug === 'fixed-deposit'
+                          ? 'Up to 7.45% p.a.'
+                          : product.slug === 'recurring-deposit'
+                          ? 'Up to 6.55% p.a.'
+                          : product.slug === 'sukanya-samriddhi'
+                          ? '8.05% p.a.'
+                          : product.rateFact || (typeof product.rate === 'number' ? `${product.rate.toFixed(2)}% p.a.` : product.rate) || (product.rateMin ? `From ${product.rateMin.toFixed(2)}% p.a.` : (product.category === 'account' ? accountRateFact(product) : 'Flagship'))}
+                      </span>
+                    </div>
+
+                    <h3 className="text-xl font-bold text-white leading-snug">
+                      {shortProductName(product.name)}
+                    </h3>
+
+                    <p className="text-white/80 text-xs sm:text-sm leading-relaxed line-clamp-3">
+                      {product.tagline || product.overview}
+                    </p>
+                  </div>
+
+                  {/* Actions: bottom-left, white outline pill CTA + white underline Know more */}
+                  <div className="relative z-10 pt-6 mt-auto flex items-center justify-between border-t border-white/15">
+                    <button
+                      type="button"
+                      onClick={() => handleApplyClick(product)}
+                      className="border border-white text-white hover:bg-white hover:text-gray-950 px-5 py-2 rounded-full text-xs sm:text-sm font-semibold transition-colors shadow-xs"
+                    >
+                      {applyLabel}
+                    </button>
+
+                    <Link
+                      to={getProductRoute(product)}
+                      className="text-white hover:text-white/90 text-xs sm:text-sm font-semibold underline underline-offset-4 decoration-white/60 hover:decoration-white transition-colors"
+                    >
+                      Know more
+                    </Link>
+                  </div>
+
+                  {/* Large white lucide line icon at bottom-right, deliberately cropped by card edge */}
+                  <Icon
+                    className="absolute -bottom-6 -right-6 w-36 h-36 text-white/10 pointer-events-none select-none"
+                    strokeWidth={1.2}
+                    aria-hidden
+                  />
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ====================================================================== */}
+      {/* PART D: "WHY FINEDGE" FEATURE CAROUSEL (White Background) */}
+      {/* ====================================================================== */}
+      <section className="bg-white py-20 sm:py-24 border-t border-gray-100" aria-label="Why FinEdge Features">
+        <div className="idfc-container">
+          {/* Header Row: Left-aligned H2 + grey sub-line; Right: Know more -> + black circular arrows */}
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between mb-10 gap-4">
+            <div>
+              <h2 className="text-3xl sm:text-[34px] font-bold text-gray-900 text-left leading-snug">
+                Why FinEdge Bank
+              </h2>
+              <p className="text-[15px] sm:text-base text-gray-600 mt-2">
+                Banking built on verified published terms, complete transparency, and upfront truth.
+              </p>
+            </div>
+            <div className="flex items-center gap-4 shrink-0">
+              <Link
+                to="/disclosures"
+                className="text-sm font-semibold text-[#981a1d] hover:underline inline-flex items-center gap-1"
+              >
+                <span>Know more</span>
+                <ArrowRight className="w-4 h-4" />
+              </Link>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={handlePrevFeature}
+                  className="w-10 h-10 rounded-full bg-black hover:bg-gray-800 text-white flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
+                  aria-label="Previous features"
+                >
+                  <ChevronLeft className="w-5 h-5" />
+                </button>
+                <button
+                  onClick={handleNextFeature}
+                  className="w-10 h-10 rounded-full bg-black hover:bg-gray-800 text-white flex items-center justify-center transition-colors disabled:opacity-30 disabled:cursor-not-allowed shadow-sm"
+                  aria-label="Next features"
+                >
+                  <ChevronRight className="w-5 h-5" />
+                </button>
               </div>
             </div>
-          </Reveal>
+          </div>
 
-            {/* Curated 3 Cards for Active Category (Fix 2: Shared directory card component) */}
-            <div
-              id={`home-dir-panel-${activeTab}`}
-              role="tabpanel"
-              aria-labelledby={`home-dir-tab-${activeTab}`}
-              className={`grid gap-6 sm:grid-cols-2 lg:grid-cols-3 transition-opacity duration-160 ${
-                tabTransitioning ? 'opacity-0' : 'opacity-100'
-              }`}
-            >
-              {featuredProducts.map((product, idx) => {
-                const isCardTab = activeTab === 'card';
-                const isAccountTab = activeTab === 'account';
-                const isLoanTab = activeTab === 'loan';
-                const isInvestmentTab = activeTab === 'investment';
+          {/* 3 visible cards horizontally */}
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {whyPoints.slice(featureIndex, featureIndex + 3).map((point) => {
+              const Icon = point.icon;
+              return (
+                <div
+                  key={point.id}
+                  className="rounded-2xl border border-gray-200/80 bg-white overflow-hidden shadow-xs hover:shadow-md transition-shadow flex flex-col justify-between"
+                >
+                  {/* Rich SVG Geometric Banner with Frosted Glass Badge */}
+                  <div className={`relative overflow-hidden bg-gradient-to-r ${point.gradientBg} h-32 flex items-center justify-between px-6 text-white select-none`}>
+                    {/* SVG Guilloche & Dot Matrix Texture */}
+                    <svg className="absolute inset-0 w-full h-full opacity-20 pointer-events-none" xmlns="http://www.w3.org/2000/svg">
+                      <defs>
+                        <pattern id={`pat-${point.id}`} width="24" height="24" patternUnits="userSpaceOnUse">
+                          <circle cx="3" cy="3" r="1.5" fill="#ffffff" />
+                          <path d="M 0 24 L 24 0 M 0 0 L 24 24" fill="none" stroke="#ffffff" strokeWidth="0.75" strokeOpacity="0.4" />
+                        </pattern>
+                      </defs>
+                      <rect width="100%" height="100%" fill={`url(#pat-${point.id})`} />
+                    </svg>
 
-                const ProductIcon =
-                  (isAccountTab && ACCOUNT_ICONS[product.slug]) ||
-                  (isLoanTab && LOAN_ICONS[product.slug]) ||
-                  (isInvestmentTab && INVESTMENT_ICONS[product.slug]) ||
-                  Wallet;
-
-                return (
-                  <Reveal key={idx} treatment="B" staggerIndex={idx}>
-                    <div className="group flex h-full flex-col rounded-xl border border-ink-100 bg-white p-6 shadow-xs transition-all duration-180 hover:-translate-y-0.5 hover:shadow-card hover:border-midnight-300 active:translate-y-0 active:scale-[0.99] active:shadow-xs">
-                      {/* Visual slot per tab (Fix 1: Aspect-ratio box reserving art's true rendered height) */}
-                      {isCardTab ? (
-                        <div className="w-full mb-4">
-                          <TiltCard maxTilt={6} glare={true} shadow={true} sweepKey={product.slug}>
-                            <CardVisual card={product} shadow={false} />
-                          </TiltCard>
-                        </div>
-                      ) : (
-                        <div className="flex items-center justify-between gap-2 mb-4">
-                          <div className="flex items-center gap-3">
-                            <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50 shadow-xs transition-colors group-hover:bg-midnight-800">
-                              <ProductIcon className="h-5 w-5 transition-colors group-hover:text-gold-300" />
-                            </div>
-                            <span className="rounded-full bg-midnight-50 px-2.5 py-0.5 text-xs font-semibold text-midnight-900">
-                              {product.category.toUpperCase()}
-                            </span>
-                          </div>
-
-                          {/* Investments chip (Guaranteed vs Market-linked) */}
-                          {isInvestmentTab && product.riskClass && (
-                            product.riskClass === 'guaranteed' ? (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-emerald-50 text-emerald-800 border border-emerald-200 px-2.5 py-0.5 text-xs font-semibold">
-                                <ShieldCheck className="h-3.5 w-3.5" /> Guaranteed
-                              </span>
-                            ) : (
-                              <span className="inline-flex items-center gap-1 rounded-full bg-amber-50 text-amber-800 border border-amber-200 px-2.5 py-0.5 text-xs font-semibold">
-                                <AlertTriangle className="h-3.5 w-3.5" /> Market-linked
-                              </span>
-                            )
-                          )}
-                        </div>
-                      )}
-
-                      <h3 className="text-base font-semibold text-midnight-950">
-                        {shortProductName(product.name)}
-                      </h3>
-                      <p className="mt-1 flex-1 text-xs leading-relaxed text-ink-600">
-                        {product.tagline}
-                      </p>
-
-                      {/* Metric box (Fix 0: Label removed entirely, fact speaks) */}
-                      <div className="mt-4 rounded-lg bg-porcelain-50 p-3 border border-ink-100">
-                        <p className="font-display text-sm font-semibold text-midnight-950">{headlineFor(product)}</p>
+                    <div className="relative z-10 flex items-center gap-3">
+                      <div className="w-12 h-12 rounded-2xl bg-white/15 backdrop-blur-md border border-white/30 flex items-center justify-center shadow-inner">
+                        <Icon className="w-6 h-6 text-white" />
                       </div>
+                      <span className="text-[11px] font-bold uppercase tracking-wider text-white/90 bg-black/25 px-2.5 py-0.5 rounded-full border border-white/15 backdrop-blur-xs">
+                        Pillar 0{point.id}
+                      </span>
+                    </div>
 
-                      {/* Truthful actions (Fix 2) */}
-                      <div className="mt-5 flex items-center justify-between gap-3 border-t border-ink-100 pt-3.5">
-                        {isAccountTab ? (
-                          <button
-                            type="button"
-                            onClick={() => setDetailModalAccount(product)}
-                            className="text-xs font-semibold text-midnight-800 underline decoration-midnight-300 hover:text-midnight-600 transition-colors"
-                          >
-                            View details
-                          </button>
-                        ) : (
-                          <Link
-                            to={productPath(product)}
-                            className="text-xs font-semibold text-midnight-800 underline decoration-midnight-300 hover:text-midnight-600 transition-colors"
-                          >
-                            View details
-                          </Link>
-                        )}
-                        <Link
-                          to={explorePath(product)}
-                          className="group/btn inline-flex items-center gap-1 rounded-lg bg-midnight-900 px-3 py-1.5 text-xs font-semibold text-porcelain-50 transition-colors hover:bg-midnight-800 active:scale-[0.98]"
-                        >
-                          Explore <ArrowRight className="h-3 w-3 transition-transform duration-150 group-hover/btn:translate-x-0.5 group-active/btn:translate-x-0.5" />
-                        </Link>
+                    <span className="relative z-10 text-3xl font-black text-white/25 font-mono">
+                      0{point.id}
+                    </span>
+                  </div>
+
+                  {/* Below it: bold H3 title, body, and red Read more arrow link */}
+                  <div className="p-6 space-y-3 flex-1 flex flex-col justify-between">
+                    <div>
+                      <h3 className="text-lg font-bold text-gray-900 leading-snug">
+                        {point.title}
+                      </h3>
+                      <p className="mt-2 text-xs sm:text-sm text-gray-600 leading-relaxed">
+                        {point.body}
+                      </p>
+                    </div>
+
+                    <div className="pt-4 border-t border-gray-100 mt-4">
+                      <Link
+                        to={point.link}
+                        className="text-xs sm:text-sm font-semibold text-[#981a1d] hover:underline inline-flex items-center gap-1 transition-colors"
+                      >
+                        <span>Read more</span>
+                        <ArrowRight className="w-3.5 h-3.5" />
+                      </Link>
+                    </div>
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+      </section>
+
+      {/* ====================================================================== */}
+      {/* PART E: CALCULATORS SECTION (Light Grey #f5f6f7 Background) */}
+      {/* ====================================================================== */}
+      <section id="calculators-section" className="bg-[#f5f6f7] py-20 sm:py-24 border-t border-gray-200/60" aria-label="Financial Calculators">
+        <div className="idfc-container">
+          <div className="mb-10 text-left">
+            <h2 className="text-3xl sm:text-[34px] font-bold text-gray-900 leading-snug">
+              Financial Calculators
+            </h2>
+            <p className="text-[15px] sm:text-base text-gray-600 mt-2">
+              Plan your finances with verifiable mathematical models built to statutory compounding standards.
+            </p>
+          </div>
+
+          {/* ONE Wide White Card (~14px/16px radius, soft shadow), split left/right */}
+          <div className="bg-white rounded-2xl shadow-sm border border-gray-200/80 p-6 sm:p-10">
+            {/* Calculator Tabs on Top of the Card */}
+            <div className="flex items-center gap-2 overflow-x-auto pb-4 mb-8 border-b border-gray-100 no-scrollbar" role="tablist">
+              {[
+                { id: 'emi', label: 'Home Loan EMI' },
+                { id: 'fd', label: 'Fixed Deposit (FD)' },
+                { id: 'rd', label: 'Recurring Deposit (RD)' },
+                { id: 'savings', label: 'Savings Compounding' },
+                { id: 'sip', label: 'SIP Wealth Growth' },
+              ].map((tab) => {
+                const isSelected = calcTab === tab.id;
+                return (
+                  <button
+                    key={tab.id}
+                    role="tab"
+                    aria-selected={isSelected}
+                    onClick={() => setCalcTab(tab.id)}
+                    className={`relative pb-3 px-3 text-xs sm:text-sm font-bold transition-colors whitespace-nowrap ${
+                      isSelected ? 'text-[#981a1d]' : 'text-gray-500 hover:text-gray-800'
+                    }`}
+                  >
+                    <span>{tab.label}</span>
+                    {isSelected && (
+                      <span className="absolute bottom-0 left-0 right-0 h-1 bg-[#981a1d] rounded-full" />
+                    )}
+                  </button>
+                );
+              })}
+            </div>
+
+            {/* Split Left (55%) / Right (45%) */}
+            <div className="grid grid-cols-1 lg:grid-cols-12 gap-10 items-center">
+              {/* Left Column: Input Box ABOVE Slider */}
+              <div className="lg:col-span-7 space-y-6">
+                {/* 1. EMI Controls */}
+                {calcTab === 'emi' && (
+                  <div className="space-y-6">
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs sm:text-sm font-semibold text-gray-700">Loan Amount</label>
+                        <div className="border border-gray-300 rounded-lg px-3 py-1 text-sm font-bold text-gray-900 bg-gray-50">
+                          ₹ {formatINRWhole(emiAmount)}
+                        </div>
+                      </div>
+                      <input
+                        type="range"
+                        min="500000"
+                        max="10000000"
+                        step="50000"
+                        value={emiAmount}
+                        onChange={(e) => setEmiAmount(Number(e.target.value))}
+                        className="idfc-slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-400 mt-1.5 font-medium">
+                        <span>₹5 Lakhs</span>
+                        <span>₹1 Crore</span>
                       </div>
                     </div>
-                  </Reveal>
-                );
-              })}
-            </div>
 
-            {/* Category Expansion Footer */}
-            <div className="mt-10 text-center">
-              <Link
-                to={currentTabMeta.to}
-                className="inline-flex items-center gap-2 rounded-lg border border-ink-200 bg-porcelain-50 px-5 py-2.5 text-sm font-semibold text-midnight-900 shadow-xs transition-colors hover:bg-porcelain-100 hover:border-midnight-400"
-              >
-                View all {currentTabMeta.label} ({activeProducts.length} products) <ArrowRight className="h-4 w-4" />
-              </Link>
-            </div>
-          </div>
-        </section>
-
-      {/* ====================================================================== */}
-      {/* (c) RATES AT A GLANCE (Porcelain background - Fix 1 & Fix 5) */}
-      {/* ====================================================================== */}
-      <section className="bg-porcelain-50 py-20 sm:py-24 border-b border-ink-100" aria-label="Rates at a glance">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            {/* Header — Treatment A */}
-            <Reveal treatment="A">
-              <div className="mb-8">
-                <p className="reveal-eyebrow-line text-xs font-semibold uppercase tracking-[0.14em] text-gold-600">Interest Rates</p>
-                <h2 className="reveal-title mt-1 font-display text-2xl sm:text-3xl font-semibold text-midnight-950">
-                  Rates at a glance
-                </h2>
-                <p className="reveal-description mt-1.5 text-sm text-ink-600">
-                  Single published rates updated daily across deposit tiers and lending product schedules.
-                </p>
-              </div>
-            </Reveal>
-
-            {/* Fix 5: Full container width on desktop as two group columns */}
-            {/* Treatment C: rate rows cascade in with top-border scaleX */}
-            <div className="grid gap-6 lg:grid-cols-2">
-              {/* Column 1: Savings & Deposits */}
-              <Reveal treatment="C" as="div" className="overflow-hidden rounded-xl border border-ink-100 bg-white shadow-xs">
-                <div className="border-b border-ink-100 bg-porcelain-100/60 px-5 py-3">
-                  <h3 className="text-sm font-semibold text-midnight-900">
-                    Savings &amp; Deposits
-                  </h3>
-                </div>
-                <ul className="divide-y divide-ink-100">
-                  {visibleDepositRates.map((row, idx) => (
-                    <li key={`${row.label}-${row.productSlug}`} className="reveal-row" style={{'--stagger-index': idx}}>
-                      <Link
-                        to={productPath(getProductBySlug(row.productSlug) || { category: 'investment', slug: row.productSlug })}
-                        className="group flex items-center justify-between gap-4 px-5 py-3.5 transition-colors hover:bg-midnight-50/50"
-                      >
-                        <span className="text-sm font-medium text-ink-800 group-hover:text-midnight-900">{row.label}</span>
-                        <span className="tnum shrink-0 text-sm font-semibold text-midnight-950 group-hover:text-gold-600">{row.display}</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </Reveal>
-
-              {/* Column 2: Borrowing (Fix 4: starts 150ms after first column) */}
-              <Reveal treatment="C" as="div" style={{ '--column-delay': '150ms' }} className="overflow-hidden rounded-xl border border-ink-100 bg-white shadow-xs">
-                <div className="border-b border-ink-100 bg-porcelain-100/60 px-5 py-3">
-                  <h3 className="text-sm font-semibold text-midnight-900">
-                    Borrowing
-                  </h3>
-                </div>
-                <ul className="divide-y divide-ink-100">
-                  {visibleBorrowingRates.map((row, idx) => (
-                    <li key={`${row.label}-${row.productSlug}`} className="reveal-row" style={{'--stagger-index': idx}}>
-                      <Link
-                        to={productPath(getProductBySlug(row.productSlug) || { category: 'loan', slug: row.productSlug })}
-                        className="group flex items-center justify-between gap-4 px-5 py-3.5 transition-colors hover:bg-midnight-50/50"
-                      >
-                        <span className="text-sm font-medium text-ink-800 group-hover:text-midnight-900">{row.label}</span>
-                        <span className="tnum shrink-0 text-sm font-semibold text-midnight-950 group-hover:text-gold-600">{row.display}</span>
-                      </Link>
-                    </li>
-                  ))}
-                </ul>
-              </Reveal>
-            </div>
-
-            {/* Expander toggle (Fix 0: "View all rates", zero jargon; Fix 4: fades in last) */}
-            <Reveal treatment="B" style={{ transitionDelay: '800ms' }} className="mt-6 text-center">
-              <button
-                type="button"
-                onClick={() => setExpandedRates((v) => !v)}
-                className="inline-flex min-h-[44px] items-center gap-1.5 text-xs font-semibold text-midnight-800 hover:text-midnight-600 transition-colors py-2 px-4 rounded-lg hover:bg-porcelain-200 shadow-xs"
-              >
-                {expandedRates ? (
-                  <>
-                    <span>Show fewer rates</span>
-                    <ChevronUp className="h-4 w-4" />
-                  </>
-                ) : (
-                  <>
-                    <span>View all rates</span>
-                    <ChevronDown className="h-4 w-4" />
-                  </>
-                )}
-              </button>
-            </Reveal>
-
-            <p className="mt-4 text-xs leading-relaxed text-ink-500">{RATE_DISCLAIMER}</p>
-          </div>
-        </section>
-
-      {/* ====================================================================== */}
-      {/* (d) CURRENT OFFERS (White background - Fix 1) */}
-      {/* ====================================================================== */}
-      {visibleOffers.length > 0 && (
-      <section className="bg-white py-20 sm:py-24 border-b border-ink-100" aria-label="Current seasonal offers">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            {/* Header — Treatment A */}
-            <Reveal treatment="A">
-              <div className="mb-10">
-                <p className="reveal-eyebrow-line text-xs font-semibold uppercase tracking-[0.14em] text-gold-600">Special Privileges</p>
-                <h2 className="reveal-title mt-1 font-display text-2xl sm:text-3xl font-semibold text-midnight-950">Current seasonal offers</h2>
-                <p className="reveal-description mt-1.5 text-sm text-ink-600 max-w-2xl">Promotions running on FinEdge products right now. Validity periods and eligibility terms are stated clearly on each offer.</p>
-              </div>
-            </Reveal>
-            {/* Fix 1: 3 offers visible by default, expander reveals the remaining 3 */}
-            <div className="grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
-              {visibleOffers.map((offer, idx) => {
-                const product = getProductBySlug(offer.productSlug || offer.linkedProductSlug);
-                return (
-                  <Reveal key={offer.id} treatment="B" staggerIndex={idx}>
-                    <Card className="flex h-full flex-col p-5 shadow-xs transition-all duration-180 hover:-translate-y-0.5 hover:shadow-card">
-                      <div className="reveal-icon-tile flex items-center justify-between gap-2">
-                        <span className="rounded-full bg-gold-400/15 px-2.5 py-0.5 text-xs font-semibold text-gold-700">
-                          Active Promotion
-                        </span>
-                        <div className="flex items-center gap-1 text-xs text-ink-500">
-                          <Calendar className="h-3.5 w-3.5" />
-                          <span>Till {formatDate(offer.validTill)}</span>
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs sm:text-sm font-semibold text-gray-700">Interest Rate (% p.a.)</label>
+                        <div className="border border-gray-300 rounded-lg px-3 py-1 text-sm font-bold text-gray-900 bg-gray-50">
+                          {emiRate.toFixed(2)} %
                         </div>
                       </div>
-
-                      <h3 className="mt-3 text-sm font-semibold leading-snug text-midnight-950">{offer.title}</h3>
-                      <p className="mt-1.5 flex-1 text-[13px] leading-relaxed text-ink-600">{offer.summary}</p>
-
-                      <div className="mt-3 rounded-lg bg-porcelain-50 px-3 py-2 border border-ink-100">
-                        <p className="text-xs font-medium text-ink-500 uppercase tracking-wide">Privilege</p>
-                        <p className="text-xs font-semibold text-midnight-900">{offer.highlight}</p>
+                      <input
+                        type="range"
+                        min="6.5"
+                        max="15.0"
+                        step="0.05"
+                        value={emiRate}
+                        onChange={(e) => setEmiRate(Number(e.target.value))}
+                        className="idfc-slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-400 mt-1.5 font-medium">
+                        <span>6.50%</span>
+                        <span>15.00%</span>
                       </div>
+                    </div>
 
-                      {product && (
-                        <Link
-                          to={productPath(product)}
-                          className="mt-4 inline-flex items-center gap-1.5 text-xs font-semibold text-midnight-800 underline decoration-midnight-300 hover:text-midnight-600 transition-colors"
-                        >
-                          View {shortProductName(product.name)} <ArrowRight className="h-3.5 w-3.5" aria-hidden />
-                        </Link>
-                      )}
-                    </Card>
-                  </Reveal>
-                );
-              })}
-            </div>
-
-            {/* Fix 1: View all offers expander */}
-            <div className="mt-8 text-center">
-              <button
-                type="button"
-                onClick={() => setExpandedOffers((v) => !v)}
-                className="inline-flex items-center gap-1.5 text-xs font-semibold text-midnight-800 hover:text-midnight-600 transition-colors py-1.5 px-4 rounded-md border border-ink-200 hover:bg-porcelain-100"
-              >
-                {expandedOffers ? (
-                  <>
-                    <span>Show fewer offers</span>
-                    <ChevronUp className="h-4 w-4" />
-                  </>
-                ) : (
-                  <>
-                    <span>View all offers ({sortedOffers.length})</span>
-                    <ChevronDown className="h-4 w-4" />
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-        </section>
-      )}
-
-      {/* ====================================================================== */}
-      {/* (e) WHY FINEDGE (Porcelain background - Fix 4) */}
-      {/* ====================================================================== */}
-      <section className="bg-porcelain-50 py-20 sm:py-24 border-b border-ink-100" aria-label="Why FinEdge">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            {/* Header — Treatment A */}
-            <Reveal treatment="A">
-              <div className="mb-10">
-                <p className="reveal-eyebrow-line text-xs font-semibold uppercase tracking-[0.14em] text-gold-600">Why FinEdge</p>
-                <h2 className="reveal-title mt-1 font-display text-2xl sm:text-3xl font-semibold text-midnight-950">Banking built on clear terms and upfront truth</h2>
-                <p className="reveal-description mt-1.5 text-sm text-ink-600 max-w-2xl">No hidden schedules, no fine-print traps — just transparent banking where every fee and rate is verified before you sign.</p>
-              </div>
-            </Reveal>
-
-            {/* Two-part layout (Module 33 Placement A): Visual Half (PhotoSlider) + Trust Points Half */}
-            <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-start">
-              {/* Visual Half (PhotoSlider) — Stacks above trust points on mobile, left column on desktop */}
-              <div className="lg:col-span-7">
-                <Reveal treatment="D">
-                  <PhotoSlider />
-                </Reveal>
-              </div>
-
-              {/* Trust Points Half — Preserves all 3 customer-facing cards and facts verbatim */}
-              <div className="lg:col-span-5 flex flex-col gap-4">
-                {whyPointsList.map((point, idx) => {
-                  const Icon = point.icon || ShieldCheck;
-                  return (
-                    <Reveal key={point.title} treatment="B" staggerIndex={idx}>
-                      <Card className="flex flex-col p-5 sm:p-6 shadow-xs border-ink-200 bg-white transition-all duration-180 hover:-translate-y-0.5 hover:shadow-card">
-                        <div className="flex items-center gap-3.5">
-                          <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-midnight-900 text-porcelain-50 shadow-xs">
-                            <Icon className="h-5 w-5 text-gold-300" aria-hidden />
-                          </div>
-                          <h3 className="text-base font-semibold text-midnight-950">{point.title}</h3>
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs sm:text-sm font-semibold text-gray-700">Tenure (Years)</label>
+                        <div className="border border-gray-300 rounded-lg px-3 py-1 text-sm font-bold text-gray-900 bg-gray-50">
+                          {emiTenureYears} Years
                         </div>
-                        <p className="mt-2.5 text-[13px] leading-relaxed text-ink-600">{point.body}</p>
-
-                        <div className="mt-4 pt-3 border-t border-ink-100 flex items-center gap-3 text-xs font-semibold">
-                          <Link
-                            to={point.linkTo}
-                            className="inline-flex items-center gap-1 text-midnight-800 underline decoration-midnight-300 hover:text-midnight-600"
-                          >
-                            {point.linkText} <ArrowRight className="h-3 w-3" />
-                          </Link>
-                          {point.extraHref && (
-                            <a
-                              href={point.extraHref}
-                              className="text-midnight-800 underline decoration-midnight-300 hover:text-midnight-600"
-                            >
-                              {point.extraLinkText}
-                            </a>
-                          )}
-                        </div>
-                      </Card>
-                    </Reveal>
-                  );
-                })}
-              </div>
-            </div>
-          </div>
-        </section>
-
-      {/* ====================================================================== */}
-      {/* (f) FREQUENTLY ASKED QUESTIONS (White background - Fix 1 & Fix 5) */}
-      {/* ====================================================================== */}
-      {homepageFaqs.length > 0 && (
-      <section id="faq" className="bg-white py-20 sm:py-24 border-b border-ink-100" aria-label="Frequently asked questions">
-          <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
-            {/* Header — Treatment A */}
-            <Reveal treatment="A">
-              <div className="mb-10">
-                <p className="reveal-eyebrow-line text-xs font-semibold uppercase tracking-[0.14em] text-gold-600">Help &amp; Answers</p>
-                <h2 className="reveal-title mt-1 font-display text-2xl sm:text-3xl font-semibold text-midnight-950">Frequently asked questions</h2>
-                <p className="reveal-description mt-1.5 text-sm text-ink-600 max-w-2xl">The essential questions every new customer asks. Product-specific terms are detailed on each dedicated product page.</p>
-              </div>
-            </Reveal>
-            {/* Fix 1: 5 Questions, Fix 5: One open at a time */}
-            {/* FAQ rows — Treatment C divider cascade */}
-            <Reveal treatment="C" as="div" className="overflow-hidden rounded-xl border border-ink-100 bg-white shadow-xs divide-y divide-ink-100">
-              {homepageFaqs.map((faq, i) => {
-                const open = openFaq === i;
-                const panelId = `home-faq-panel-${i}`;
-                const buttonId = `home-faq-button-${i}`;
-                return (
-                  <div key={faq.q} className="reveal-row" style={{'--stagger-index': i}}>
-                    <h3>
-                      <button
-                        id={buttonId}
-                        type="button"
-                        aria-expanded={open}
-                        aria-controls={panelId}
-                        onClick={() => setOpenFaq(open ? -1 : i)}
-                        className="flex w-full items-center justify-between gap-4 px-6 py-4 text-left text-sm font-semibold text-midnight-950 transition-colors hover:bg-porcelain-100/70"
-                      >
-                        <span>{faq.q}</span>
-                        <ChevronDown
-                          className={`h-4 w-4 shrink-0 text-midnight-700 transition-transform duration-200 ${
-                            open ? 'rotate-180' : ''
-                          }`}
-                          aria-hidden
-                        />
-                      </button>
-                    </h3>
-                    <div
-                      id={panelId}
-                      role="region"
-                      aria-labelledby={buttonId}
-                      className="accordion-grid-wrapper"
-                      data-open={open}
-                    >
-                      <div className="accordion-grid-inner">
-                        <div className="px-6 pb-5 pt-1">
-                          <p className="text-sm leading-relaxed text-ink-600">{faq.a}</p>
-                        </div>
+                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="30"
+                        step="1"
+                        value={emiTenureYears}
+                        onChange={(e) => setEmiTenureYears(Number(e.target.value))}
+                        className="idfc-slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-400 mt-1.5 font-medium">
+                        <span>1 Year</span>
+                        <span>30 Years</span>
                       </div>
                     </div>
                   </div>
-                );
-              })}
-            </Reveal>
+                )}
 
-            <p className="mt-6 text-[13px] text-ink-500">
-              Still have questions? Visit the{' '}
-              <Link to="/portal/login" className="font-semibold text-midnight-800 underline decoration-midnight-300 hover:text-midnight-600">
-                Customer Portal
-              </Link>{' '}
-              or review our{' '}
-              <Link to="/grievance-redressal" className="font-semibold text-midnight-800 underline decoration-midnight-300 hover:text-midnight-600">
-                Grievance Redressal
-              </Link>{' '}
-              procedure.
-            </p>
-          </div>
-        </section>
-      )}
+                {/* 2. FD Controls */}
+                {calcTab === 'fd' && (
+                  <div className="space-y-6">
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs sm:text-sm font-semibold text-gray-700">Deposit Amount</label>
+                        <div className="border border-gray-300 rounded-lg px-3 py-1 text-sm font-bold text-gray-900 bg-gray-50">
+                          ₹ {formatINRWhole(fdAmount)}
+                        </div>
+                      </div>
+                      <input
+                        type="range"
+                        min="10000"
+                        max="2000000"
+                        step="10000"
+                        value={fdAmount}
+                        onChange={(e) => setFdAmount(Number(e.target.value))}
+                        className="idfc-slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-400 mt-1.5 font-medium">
+                        <span>₹10,000</span>
+                        <span>₹20 Lakhs</span>
+                      </div>
+                    </div>
 
-      {/* ====================================================================== */}
-      {/* (g) CALL TO ACTION STRIP & RELOCATED DEMO DISCLOSURE (Midnight - Fix 0 & Fix 4) */}
-      {/* ====================================================================== */}
-      <Reveal treatment="B" as="div">
-        <section className="bg-midnight-950 py-16 relative overflow-hidden" aria-label="Open an account">
-          {/* Fix 4: Band top gold hairline border draws across full width 900ms */}
-          <div className="reveal-cta-line absolute top-0 inset-x-0" aria-hidden="true" />
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs sm:text-sm font-semibold text-gray-700">Tenure (Months)</label>
+                        <div className="border border-gray-300 rounded-lg px-3 py-1 text-sm font-bold text-gray-900 bg-gray-50">
+                          {fdTenureMonths} Months
+                        </div>
+                      </div>
+                      <input
+                        type="range"
+                        min="3"
+                        max="120"
+                        step="1"
+                        value={fdTenureMonths}
+                        onChange={(e) => setFdTenureMonths(Number(e.target.value))}
+                        className="idfc-slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-400 mt-1.5 font-medium">
+                        <span>3 Months</span>
+                        <span>120 Months (10 Yrs)</span>
+                      </div>
+                    </div>
 
-          <div className="mx-auto flex max-w-7xl flex-wrap items-center justify-between gap-6 px-4 sm:px-6 lg:px-8 relative z-10">
-            <div className="max-w-xl reveal-cta-heading">
-              <h2 className="font-display text-2xl font-semibold text-porcelain-50 sm:text-3xl">Start banking with FinEdge today</h2>
-              <p className="mt-2 text-sm leading-relaxed text-porcelain-200/85">
-                Create your account, complete simulated KYC, and track every application from one unified dashboard.
-              </p>
+                    <label className="flex items-center gap-2 cursor-pointer text-xs sm:text-sm text-gray-700 font-medium">
+                      <input
+                        type="checkbox"
+                        checked={isSenior}
+                        onChange={(e) => setIsSenior(e.target.checked)}
+                        className="rounded accent-[#981a1d] w-4 h-4"
+                      />
+                      <span>Senior Citizen (+0.50% p.a. benefit)</span>
+                    </label>
+                  </div>
+                )}
+
+                {/* 3. RD Controls */}
+                {calcTab === 'rd' && (
+                  <div className="space-y-6">
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs sm:text-sm font-semibold text-gray-700">Monthly Installment</label>
+                        <div className="border border-gray-300 rounded-lg px-3 py-1 text-sm font-bold text-gray-900 bg-gray-50">
+                          ₹ {formatINRWhole(rdMonthly)}
+                        </div>
+                      </div>
+                      <input
+                        type="range"
+                        min="500"
+                        max="50000"
+                        step="500"
+                        value={rdMonthly}
+                        onChange={(e) => setRdMonthly(Number(e.target.value))}
+                        className="idfc-slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-400 mt-1.5 font-medium">
+                        <span>₹500 / month</span>
+                        <span>₹50,000 / month</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs sm:text-sm font-semibold text-gray-700">Tenure (Months)</label>
+                        <div className="border border-gray-300 rounded-lg px-3 py-1 text-sm font-bold text-gray-900 bg-gray-50">
+                          {rdTenureMonths} Months
+                        </div>
+                      </div>
+                      <input
+                        type="range"
+                        min="6"
+                        max="120"
+                        step="6"
+                        value={rdTenureMonths}
+                        onChange={(e) => setRdTenureMonths(Number(e.target.value))}
+                        className="idfc-slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-400 mt-1.5 font-medium">
+                        <span>6 Months</span>
+                        <span>120 Months</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+
+                {/* 4. Savings Compounding Controls */}
+                {calcTab === 'savings' && (
+                  <div className="space-y-6">
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs sm:text-sm font-semibold text-gray-700">Average Savings Balance</label>
+                        <div className="border border-gray-300 rounded-lg px-3 py-1 text-sm font-bold text-gray-900 bg-gray-50">
+                          ₹ {formatINRWhole(savingsBal)}
+                        </div>
+                      </div>
+                      <input
+                        type="range"
+                        min="10000"
+                        max="1000000"
+                        step="10000"
+                        value={savingsBal}
+                        onChange={(e) => setSavingsBal(Number(e.target.value))}
+                        className="idfc-slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-400 mt-1.5 font-medium">
+                        <span>₹10,000</span>
+                        <span>₹10 Lakhs</span>
+                      </div>
+                    </div>
+                    <p className="text-xs text-gray-500">
+                      Calculated at peak 7.00% p.a. interest rate credited monthly on daily end-of-day balances.
+                    </p>
+                  </div>
+                )}
+
+                {/* 5. SIP Controls */}
+                {calcTab === 'sip' && (
+                  <div className="space-y-6">
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs sm:text-sm font-semibold text-gray-700">Monthly SIP Amount</label>
+                        <div className="border border-gray-300 rounded-lg px-3 py-1 text-sm font-bold text-gray-900 bg-gray-50">
+                          ₹ {formatINRWhole(sipMonthly)}
+                        </div>
+                      </div>
+                      <input
+                        type="range"
+                        min="500"
+                        max="50000"
+                        step="500"
+                        value={sipMonthly}
+                        onChange={(e) => setSipMonthly(Number(e.target.value))}
+                        className="idfc-slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-400 mt-1.5 font-medium">
+                        <span>₹500 / month</span>
+                        <span>₹50,000 / month</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs sm:text-sm font-semibold text-gray-700">Expected Annual Return</label>
+                        <div className="border border-gray-300 rounded-lg px-3 py-1 text-sm font-bold text-gray-900 bg-gray-50">
+                          {sipRate.toFixed(1)} %
+                        </div>
+                      </div>
+                      <input
+                        type="range"
+                        min="5"
+                        max="20"
+                        step="0.5"
+                        value={sipRate}
+                        onChange={(e) => setSipRate(Number(e.target.value))}
+                        className="idfc-slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-400 mt-1.5 font-medium">
+                        <span>5.0%</span>
+                        <span>20.0%</span>
+                      </div>
+                    </div>
+
+                    <div>
+                      <div className="flex justify-between items-center mb-2">
+                        <label className="text-xs sm:text-sm font-semibold text-gray-700">Investment Horizon</label>
+                        <div className="border border-gray-300 rounded-lg px-3 py-1 text-sm font-bold text-gray-900 bg-gray-50">
+                          {sipYears} Years
+                        </div>
+                      </div>
+                      <input
+                        type="range"
+                        min="1"
+                        max="30"
+                        step="1"
+                        value={sipYears}
+                        onChange={(e) => setSipYears(Number(e.target.value))}
+                        className="idfc-slider"
+                      />
+                      <div className="flex justify-between text-xs text-gray-400 mt-1.5 font-medium">
+                        <span>1 Year</span>
+                        <span>30 Years</span>
+                      </div>
+                    </div>
+                  </div>
+                )}
+              </div>
+
+              {/* Right Column: Result Panel with LARGE BOLD RED headline */}
+              <div className="lg:col-span-5 bg-[#fbfcfd] border border-gray-200/80 rounded-2xl p-6 sm:p-8 flex flex-col justify-between shadow-xs space-y-6">
+                <div>
+                  {/* Supporting comparison lines in grey */}
+                  {calcTab === 'emi' && (
+                    <>
+                      <div className="flex justify-between text-xs text-gray-500 pb-2 border-b border-gray-100">
+                        <span>Principal Borrowed:</span>
+                        <strong className="text-gray-900 font-mono">₹ {formatINRWhole(emiAmount)}</strong>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500 py-2 border-b border-gray-100">
+                        <span>Total Interest Payable:</span>
+                        <strong className="text-gray-900 font-mono">₹ {formatINRWhole(emiOutput.totalInterest)}</strong>
+                      </div>
+                      <div className="mt-4">
+                        <span className="text-xs uppercase font-bold text-gray-500 tracking-wider">Estimated Monthly EMI</span>
+                        <div className="text-3xl sm:text-4xl font-black text-[#981a1d] tracking-tight mt-1 font-mono">
+                          ₹ {formatINRWhole(emiOutput.emi)}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {calcTab === 'fd' && (
+                    <>
+                      <div className="flex justify-between text-xs text-gray-500 pb-2 border-b border-gray-100">
+                        <span>Principal Deposited:</span>
+                        <strong className="text-gray-900 font-mono">₹ {formatINRWhole(fdAmount)}</strong>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500 py-2 border-b border-gray-100">
+                        <span>Total Interest Accrued:</span>
+                        <strong className="text-gray-900 font-mono">₹ {formatINRWhole(fdOutput.interest)}</strong>
+                      </div>
+                      <div className="mt-4">
+                        <span className="text-xs uppercase font-bold text-gray-500 tracking-wider">Maturity Corpus</span>
+                        <div className="text-3xl sm:text-4xl font-black text-[#981a1d] tracking-tight mt-1 font-mono">
+                          ₹ {formatINRWhole(fdOutput.maturity)}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {calcTab === 'rd' && (
+                    <>
+                      <div className="flex justify-between text-xs text-gray-500 pb-2 border-b border-gray-100">
+                        <span>Total Deposited:</span>
+                        <strong className="text-gray-900 font-mono">₹ {formatINRWhole(rdOutput.totalDeposited)}</strong>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500 py-2 border-b border-gray-100">
+                        <span>Total Interest:</span>
+                        <strong className="text-gray-900 font-mono">₹ {formatINRWhole(rdOutput.interest)}</strong>
+                      </div>
+                      <div className="mt-4">
+                        <span className="text-xs uppercase font-bold text-gray-500 tracking-wider">Maturity Amount</span>
+                        <div className="text-3xl sm:text-4xl font-black text-[#981a1d] tracking-tight mt-1 font-mono">
+                          ₹ {formatINRWhole(rdOutput.maturity)}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {calcTab === 'savings' && (
+                    <>
+                      <div className="flex justify-between text-xs text-gray-500 pb-2 border-b border-gray-100">
+                        <span>Daily Average Balance:</span>
+                        <strong className="text-gray-900 font-mono">₹ {formatINRWhole(savingsBal)}</strong>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500 py-2 border-b border-gray-100">
+                        <span>Estimated Annual Interest:</span>
+                        <strong className="text-gray-900 font-mono">₹ {formatINRWhole(savingsOutput.annualCompound)}</strong>
+                      </div>
+                      <div className="mt-4">
+                        <span className="text-xs uppercase font-bold text-gray-500 tracking-wider">Monthly Credit to Account</span>
+                        <div className="text-3xl sm:text-4xl font-black text-[#981a1d] tracking-tight mt-1 font-mono">
+                          ₹ {formatINRWhole(savingsOutput.monthlyCredit)}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {calcTab === 'sip' && (
+                    <>
+                      <div className="flex justify-between text-xs text-gray-500 pb-2 border-b border-gray-100">
+                        <span>Invested Capital:</span>
+                        <strong className="text-gray-900 font-mono">₹ {formatINRWhole(sipOutput.invested)}</strong>
+                      </div>
+                      <div className="flex justify-between text-xs text-gray-500 py-2 border-b border-gray-100">
+                        <span>Estimated Capital Gain:</span>
+                        <strong className="text-gray-900 font-mono">₹ {formatINRWhole(sipOutput.gain)}</strong>
+                      </div>
+                      <div className="mt-4">
+                        <span className="text-xs uppercase font-bold text-gray-500 tracking-wider">Expected Future Corpus</span>
+                        <div className="text-3xl sm:text-4xl font-black text-[#981a1d] tracking-tight mt-1 font-mono">
+                          ₹ {formatINRWhole(sipOutput.maturity)}
+                        </div>
+                      </div>
+                    </>
+                  )}
+
+                  {/* Mini red bar-chart graphic */}
+                  <div className="mt-6 pt-4 border-t border-gray-100">
+                    <div className="h-3.5 w-full bg-slate-200 rounded-full overflow-hidden flex shadow-inner">
+                      <div className="bg-[#981a1d] h-full" style={{ width: '65%' }} />
+                      <div className="bg-slate-400 h-full" style={{ width: '35%' }} />
+                    </div>
+                    <div className="flex justify-between text-[11px] text-gray-500 mt-2 font-medium">
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-[#981a1d]" /> Principal / Base
+                      </span>
+                      <span className="flex items-center gap-1.5">
+                        <span className="w-2.5 h-2.5 rounded-full bg-slate-400" /> Interest / Gain
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                {/* Section CTA Pill + Disclaimer Link */}
+                <div className="pt-2 flex flex-col gap-3">
+                  <Button
+                    as={Link}
+                    to="/calculators"
+                    variant="primary"
+                    size="md"
+                    className="w-full text-center shadow-sm"
+                  >
+                    Open Full Financial Calculators Suite
+                  </Button>
+                  <p className="text-[11px] text-gray-400 text-center leading-normal">
+                    Mathematical model estimation. Final rates subject to credit assessment and terms.
+                  </p>
+                </div>
+              </div>
             </div>
-            {/* Fix 0: Porcelain button on midnight background (NO gold button fill; Fix 4: fades in last) */}
-            <div className="reveal-cta-btn">
-              <Link
-                to="/portal/login?mode=register"
-                state={{ mode: 'register' }}
-                className="inline-flex items-center justify-center gap-2 rounded-lg bg-porcelain-50 px-6 py-3 text-sm font-semibold text-midnight-950 transition-colors hover:bg-porcelain-200 shadow-sm"
-              >
-                Create your account <ArrowRight className="h-4 w-4 text-midnight-900" aria-hidden />
-              </Link>
-            </div>
           </div>
-        </section>
-
-        {/* Fix 4: Relocated slim demonstration disclosure line under closing CTA (fades in with band) */}
-        <div className="bg-midnight-950 border-t border-porcelain-50/10 py-3.5 px-4 text-center reveal-cta-smallprint">
-          <p className="text-xs leading-relaxed text-porcelain-300/80">
-            FinEdge Bank is a demonstration platform — balances and journeys are simulated and labelled as such.
-          </p>
         </div>
-      </Reveal>
+      </section>
 
       {/* ====================================================================== */}
-      {/* TRUTHFUL DETAIL MODAL FOR ACCOUNTS (Fix 2) */}
+      {/* PART F: DIGITAL BANKING / APP BAND (Pale Blush #fdecec Background) */}
       {/* ====================================================================== */}
-      {detailModalAccount && (
-        <Modal
-          open={Boolean(detailModalAccount)}
-          onClose={() => setDetailModalAccount(null)}
-          title={shortProductName(detailModalAccount.name)}
-          wide
-          footer={
-            <div className="flex w-full items-center justify-between gap-3">
-              <Button variant="secondary" onClick={() => setDetailModalAccount(null)}>
-                Close
-              </Button>
-              <Button
-                variant="primary"
-                onClick={() => {
-                  const target = detailModalAccount;
-                  setDetailModalAccount(null);
-                  setApplyModalProduct(target);
-                }}
-              >
-                Apply for this account <ArrowRight className="h-4 w-4 ml-1 inline" />
-              </Button>
-            </div>
-          }
-        >
-          <div className="space-y-6">
-            <div>
-              <p className="text-sm font-semibold text-gold-600">{detailModalAccount.tagline}</p>
-              <p className="mt-1 text-sm text-ink-700 leading-relaxed">{detailModalAccount.overview}</p>
+      <section className="bg-[#fdecec] py-20 sm:py-24 border-t border-red-100/60" aria-label="Digital Banking">
+        <div className="idfc-container">
+          <div className="grid grid-cols-1 lg:grid-cols-12 gap-12 items-center">
+            {/* Left Copy: H2 + subline + red text link */}
+            <div className="lg:col-span-6 space-y-4 text-left">
+              <span className="inline-block px-3 py-1 rounded-full text-[11px] font-bold tracking-widest uppercase bg-[#981a1d]/10 text-[#981a1d]">
+                INSTANT ONLINE BANKING
+              </span>
+              <h2 className="text-3xl sm:text-[36px] font-bold text-gray-950 leading-snug">
+                Digital banking made effortless &amp; secure
+              </h2>
+              <p className="text-gray-700 text-sm sm:text-base leading-relaxed">
+                Manage your accounts, transfer funds with instant IMPS/NEFT, create fixed deposits in seconds, and track all service requests from our unified NetBanking platform.
+              </p>
+              <div className="pt-2">
+                <Link
+                  to="/portal/login"
+                  className="text-[#981a1d] font-bold text-sm sm:text-base hover:underline inline-flex items-center gap-1.5 transition-colors"
+                >
+                  <span>Log in to NetBanking Portal</span>
+                  <ArrowRight className="w-4 h-4" />
+                </Link>
+              </div>
             </div>
 
-            {/* Interest slabs */}
-            {Array.isArray(detailModalAccount.rateSlabs) && detailModalAccount.rateSlabs.length > 0 && (
-              <div>
-                <h4 className="font-semibold text-midnight-950 mb-2 text-[13px]">Interest Rate Slabs</h4>
-                <div className="rounded-xl border border-ink-100 overflow-x-auto">
-                  <table className="w-full text-left text-xs sm:text-sm">
-                    <thead className="bg-porcelain-100 border-b border-ink-100 font-semibold text-ink-700">
-                      <tr>
-                        <th className="p-3">Daily Balance Slab</th>
-                        <th className="p-3 text-right">Interest Rate (% p.a.)</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-ink-100">
-                      {detailModalAccount.rateSlabs.map((s, idx) => (
-                        <tr key={idx} className="hover:bg-porcelain-50">
-                          <td className="p-3 text-ink-800">{s.label}</td>
-                          <td className="p-3 text-right font-semibold text-midnight-950 font-mono">{s.rate.toFixed(2)}%</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
+            {/* Right: Phone mockup built in CSS showing stylized FinEdge dashboard */}
+            <div className="lg:col-span-6 flex justify-center">
+              <div className="w-68 sm:w-76 rounded-[40px] bg-slate-950 p-3 shadow-2xl border-4 border-slate-800 relative select-none">
+                {/* Phone Speaker/Camera Notch */}
+                <div className="w-28 h-4 bg-slate-900 rounded-full mx-auto mb-3 flex items-center justify-center">
+                  <div className="w-2.5 h-2.5 rounded-full bg-slate-800 mr-2" />
+                  <div className="w-2 h-2 rounded-full bg-slate-800" />
+                </div>
+
+                {/* Stylized Screen Contents */}
+                <div className="bg-white rounded-[32px] p-4 text-gray-900 space-y-3.5 shadow-inner">
+                  {/* Header inside phone */}
+                  <div className="flex justify-between items-center pb-2 border-b border-gray-100">
+                    <div className="flex items-center gap-1.5">
+                      <span className="w-6 h-6 rounded-md bg-[#981a1d] text-white font-black text-xs flex items-center justify-center">
+                        FE
+                      </span>
+                      <span className="font-extrabold text-xs tracking-tight">FinEdge NetBanking</span>
+                    </div>
+                    <Lock className="w-3.5 h-3.5 text-emerald-600" />
+                  </div>
+
+                  {/* Balance Widget inside phone */}
+                  <div className="bg-[#981a1d] text-white rounded-2xl p-4 shadow-sm space-y-1">
+                    <span className="text-[10px] uppercase font-bold text-white/70">Total Net Balance</span>
+                    <div className="text-2xl font-black font-mono">₹ 15,79,500.00</div>
+                    <span className="text-[10px] text-white/80 block">Everyday Savings •••• 1234</span>
+                  </div>
+
+                  {/* Quick Action Tiles */}
+                  <div className="grid grid-cols-3 gap-2 text-center text-[10px] font-bold text-gray-700">
+                    <div className="bg-gray-50 border border-gray-100 p-2 rounded-xl">
+                      <ArrowRight className="w-4 h-4 mx-auto text-[#981a1d] mb-1" />
+                      Send
+                    </div>
+                    <div className="bg-gray-50 border border-gray-100 p-2 rounded-xl">
+                      <TrendingUp className="w-4 h-4 mx-auto text-[#981a1d] mb-1" />
+                      Invest
+                    </div>
+                    <div className="bg-gray-50 border border-gray-100 p-2 rounded-xl">
+                      <FileText className="w-4 h-4 mx-auto text-[#981a1d] mb-1" />
+                      History
+                    </div>
+                  </div>
+
+                  {/* Recent Activity Line */}
+                  <div className="bg-gray-50 rounded-xl p-2.5 border border-gray-100 text-[11px] space-y-1">
+                    <div className="flex justify-between font-bold text-gray-900">
+                      <span>Monthly Interest Credit</span>
+                      <span className="text-emerald-600">+₹755.42</span>
+                    </div>
+                    <div className="text-[10px] text-gray-400">Compounded 7.00% p.a.</div>
+                  </div>
                 </div>
               </div>
-            )}
-
-            {/* Eligibility */}
-            {Array.isArray(detailModalAccount.eligibility) && detailModalAccount.eligibility.length > 0 && (
-              <div>
-                <h4 className="font-semibold text-midnight-950 mb-2 text-[13px]">Eligibility Criteria</h4>
-                <ul className="space-y-2">
-                  {detailModalAccount.eligibility.map((item, idx) => (
-                    <li key={idx} className="flex items-start gap-2 text-xs sm:text-sm text-ink-700">
-                      <CheckCircle2 className="h-4 w-4 text-emerald-600 shrink-0 mt-0.5" />
-                      <span>{item}</span>
-                    </li>
-                  ))}
-                </ul>
-              </div>
-            )}
-
-            {/* Charges */}
-            {Array.isArray(detailModalAccount.charges) && detailModalAccount.charges.length > 0 && (
-              <div>
-                <h4 className="font-semibold text-midnight-950 mb-2 text-[13px]">Schedule of Charges</h4>
-                <div className="rounded-xl border border-ink-100 overflow-x-auto">
-                  <table className="w-full text-left text-xs sm:text-sm">
-                    <thead className="bg-porcelain-100 border-b border-ink-100 font-semibold text-ink-700">
-                      <tr>
-                        <th className="p-3">Service</th>
-                        <th className="p-3 text-right">Charge</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-ink-100">
-                      {detailModalAccount.charges.map((c, idx) => (
-                        <tr key={idx} className="hover:bg-porcelain-50">
-                          <td className="p-3 text-ink-800">{c.service}</td>
-                          <td className="p-3 text-right font-semibold text-midnight-950">{c.fee}</td>
-                        </tr>
-                      ))}
-                    </tbody>
-                  </table>
-                </div>
-              </div>
-            )}
+            </div>
           </div>
-        </Modal>
-      )}
+
+          {/* Row of 3 Access Tiles Below */}
+          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-14 pt-12 border-t border-red-200/50">
+            <div className="bg-white/80 backdrop-blur-xs rounded-2xl p-6 border border-red-100 space-y-2 shadow-xs">
+              <div className="w-10 h-10 rounded-xl bg-[#981a1d]/10 text-[#981a1d] flex items-center justify-center font-bold">
+                <Lock className="w-5 h-5" />
+              </div>
+              <h3 className="text-base font-bold text-gray-900">Customer NetBanking</h3>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                24/7 web portal access for fund transfers, term deposits, and statement downloads.
+              </p>
+              <div className="pt-2">
+                <Link to="/portal/login" className="text-xs font-bold text-[#981a1d] hover:underline inline-flex items-center gap-1">
+                  Log In →
+                </Link>
+              </div>
+            </div>
+
+            <div className="bg-white/80 backdrop-blur-xs rounded-2xl p-6 border border-red-100 space-y-2 shadow-xs">
+              <div className="w-10 h-10 rounded-xl bg-[#981a1d]/10 text-[#981a1d] flex items-center justify-center font-bold">
+                <Sparkles className="w-5 h-5" />
+              </div>
+              <h3 className="text-base font-bold text-gray-900">One-Click Demo Access</h3>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                Experience simulated customer workflows and bank manager operations immediately.
+              </p>
+              <div className="pt-2">
+                <Link to="/portal/login" className="text-xs font-bold text-[#981a1d] hover:underline inline-flex items-center gap-1">
+                  Demo Login →
+                </Link>
+              </div>
+            </div>
+
+            <div className="bg-white/80 backdrop-blur-xs rounded-2xl p-6 border border-red-100 space-y-2 shadow-xs">
+              <div className="w-10 h-10 rounded-xl bg-[#981a1d]/10 text-[#981a1d] flex items-center justify-center font-bold">
+                <PhoneCall className="w-5 h-5" />
+              </div>
+              <h3 className="text-base font-bold text-gray-900">Direct Support Helpline</h3>
+              <p className="text-xs text-gray-600 leading-relaxed">
+                Toll-free customer care at 1800 267 4100 with transparent Grievance Redressal.
+              </p>
+              <div className="pt-2">
+                <Link to="/grievance-redressal" className="text-xs font-bold text-[#981a1d] hover:underline inline-flex items-center gap-1">
+                  Get Help →
+                </Link>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
 
       {/* Apply Modal */}
       {applyModalProduct && (
@@ -1062,4 +1443,4 @@ export default function HomePage() {
   );
 }
 
-export { HomePage };
+export default HomePage;

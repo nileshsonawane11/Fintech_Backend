@@ -348,7 +348,7 @@ export default function ManagerKycPage() {
           <aside className="absolute right-0 top-0 flex h-[100dvh] max-h-[100dvh] w-full max-w-[540px] flex-col bg-white shadow-modal overflow-hidden">
             <div className="sticky top-0 z-10 shrink-0 flex items-start justify-between gap-3 border-b border-ink-100 bg-white px-5 py-4">
               <div>
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-700">KYC case</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-bank-primary">KYC case</p>
                 <h2 className="mt-0.5 flex flex-wrap items-center gap-2 text-lg font-semibold text-midnight-950">
                   {drawerCase.id}
                   <StatusChip status={drawerCase.status} />
@@ -429,7 +429,7 @@ export default function ManagerKycPage() {
                   <ol className="space-y-0 border-l-2 border-ink-100 pl-4">
                     {drawerCase.history.map((entry, i) => (
                       <li key={i} className="relative pb-4 last:pb-0">
-                        <span className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-gold-500" aria-hidden />
+                        <span className="absolute -left-[21px] top-1.5 h-2 w-2 rounded-full bg-bank-primary" aria-hidden />
                         <p className="text-sm font-semibold text-ink-900">
                           {statusLabel(entry.action)} <span className="font-normal text-ink-500">· {entry.actor || '—'}</span>
                         </p>

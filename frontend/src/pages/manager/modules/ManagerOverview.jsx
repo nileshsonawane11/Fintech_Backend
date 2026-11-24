@@ -218,7 +218,7 @@ export const ManagerOverview = ({
                   </span>
                   <button
                     onClick={() => onNavigateTab('accounts')}
-                    className="px-2.5 py-1 bg-midnight-900 text-white hover:bg-midnight-800 rounded text-xs font-semibold"
+                    className="px-2.5 py-1 bg-bank-primary text-white hover:bg-bank-primary-hover rounded text-xs font-semibold"
                   >
                     Review
                   </button>

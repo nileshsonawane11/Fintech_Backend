@@ -387,7 +387,7 @@ export default function ManagerUserManagementSection() {
           <p className="font-semibold text-ink-900 flex items-center gap-1.5">
             {u.name || '—'}
             {isSelf && u.id === selectedUser?.id && (
-              <span className="text-xs text-gold-600 font-medium">(you)</span>
+              <span className="text-xs text-bank-primary font-medium">(you)</span>
             )}
           </p>
           <p className="font-mono text-xs text-ink-500">{u.id}</p>
@@ -557,7 +557,7 @@ export default function ManagerUserManagementSection() {
             <div className="shrink-0 flex items-center justify-between border-b border-ink-100 bg-porcelain-50 px-6 py-4">
               <div>
                 <div className="flex items-center gap-2">
-                  <h2 className="font-display text-lg font-semibold text-midnight-950">
+                  <h2 className="font-sans text-lg font-semibold text-midnight-950">
                     {selectedUser.name}
                   </h2>
                   <span
@@ -590,7 +590,7 @@ export default function ManagerUserManagementSection() {
                 onClick={() => setDrawerTab('profile')}
                 className={`pb-2.5 text-xs font-semibold transition-colors border-b-2 ${
                   drawerTab === 'profile'
-                    ? 'border-gold-500 text-midnight-950'
+                    ? 'border-bank-primary-border text-midnight-950'
                     : 'border-transparent text-ink-500 hover:text-ink-800'
                 }`}
               >
@@ -602,7 +602,7 @@ export default function ManagerUserManagementSection() {
                   onClick={() => setDrawerTab('overrides')}
                   className={`pb-2.5 text-xs font-semibold transition-colors border-b-2 ${
                     drawerTab === 'overrides'
-                      ? 'border-gold-500 text-midnight-950'
+                      ? 'border-bank-primary-border text-midnight-950'
                       : 'border-transparent text-ink-500 hover:text-ink-800'
                   }`}
                 >
@@ -614,7 +614,7 @@ export default function ManagerUserManagementSection() {
                 onClick={() => setDrawerTab('audit')}
                 className={`pb-2.5 text-xs font-semibold transition-colors border-b-2 ${
                   drawerTab === 'audit'
-                    ? 'border-gold-500 text-midnight-950'
+                    ? 'border-bank-primary-border text-midnight-950'
                     : 'border-transparent text-ink-500 hover:text-ink-800'
                 }`}
               >
@@ -664,7 +664,7 @@ export default function ManagerUserManagementSection() {
                                     setRoleChangeError('');
                                     setRoleModalOpen(true);
                                   }}
-                                  className="text-xs font-semibold text-gold-700 hover:text-gold-900 hover:underline"
+                                  className="text-xs font-semibold text-bank-primary hover:text-bank-primary hover:underline"
                                 >
                                   Change Role
                                 </button>
@@ -783,7 +783,7 @@ export default function ManagerUserManagementSection() {
                       <div className="rounded-xl border border-midnight-100 bg-midnight-950/5 p-4">
                         <div className="flex items-center justify-between mb-2">
                           <h3 className="text-xs font-semibold uppercase tracking-wider text-midnight-900 flex items-center gap-1.5">
-                            <Sliders className="h-4 w-4 text-gold-600" />
+                            <Sliders className="h-4 w-4 text-bank-primary" />
                             Live Effective Authorisation Set (Spec §8)
                           </h3>
                           <span className="text-xs font-bold text-midnight-950">
