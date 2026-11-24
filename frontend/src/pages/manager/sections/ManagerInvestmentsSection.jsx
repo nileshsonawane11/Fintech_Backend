@@ -255,7 +255,7 @@ export default function ManagerInvestmentsSection() {
 
             {/* Investment Details Specific to Kind */}
             <div className="rounded-xl border border-ink-100 bg-porcelain-50/70 p-4">
-              <h4 className="font-display text-sm font-semibold text-midnight-950 mb-3">
+              <h4 className="font-sans text-sm font-semibold text-midnight-950 mb-3">
                 {detail.kind} Investment Terms
               </h4>
               <dl className="divide-y divide-ink-100/50">
@@ -311,7 +311,7 @@ export default function ManagerInvestmentsSection() {
 
             {/* Applicant Identity */}
             <div className="rounded-xl border border-ink-100 bg-porcelain-50/70 p-4">
-              <h4 className="font-display text-sm font-semibold text-midnight-950 mb-3">Applicant & Funding</h4>
+              <h4 className="font-sans text-sm font-semibold text-midnight-950 mb-3">Applicant & Funding</h4>
               <dl className="divide-y divide-ink-100/50">
                 <DetailRow label="Full Name">{detail.applicant?.fullName || detail.fullName}</DetailRow>
                 <DetailRow label="Mobile Number">{detail.applicant?.mobile || detail.mobile}</DetailRow>
@@ -329,7 +329,7 @@ export default function ManagerInvestmentsSection() {
             {/* Nominee Block if present */}
             {detail.nominee && detail.nominee.fullName && (
               <div className="rounded-xl border border-ink-100 bg-porcelain-50/70 p-4">
-                <h4 className="font-display text-sm font-semibold text-midnight-950 mb-3">Nominee Details</h4>
+                <h4 className="font-sans text-sm font-semibold text-midnight-950 mb-3">Nominee Details</h4>
                 <dl className="divide-y divide-ink-100/50">
                   <DetailRow label="Nominee Name">{detail.nominee.fullName}</DetailRow>
                   <DetailRow label="Relationship">{detail.nominee.relationship}</DetailRow>

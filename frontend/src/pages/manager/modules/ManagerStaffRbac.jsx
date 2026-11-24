@@ -56,7 +56,7 @@ export const ManagerStaffRbac = ({
 
         <button
           onClick={() => setShowAddStaffModal(true)}
-          className="px-3.5 py-1.5 bg-midnight-900 hover:bg-midnight-800 text-white rounded-lg text-xs font-semibold shadow-sm transition-colors flex items-center gap-1.5 self-start md:self-auto"
+          className="px-3.5 py-1.5 bg-bank-primary hover:bg-bank-primary-hover text-white rounded-lg text-xs font-semibold shadow-sm transition-colors flex items-center gap-1.5 self-start md:self-auto"
         >
           <UserPlus className="w-3.5 h-3.5" /> Provision Staff User
         </button>
@@ -291,7 +291,7 @@ export const ManagerStaffRbac = ({
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="flex-1 py-2 bg-midnight-900 hover:bg-midnight-800 text-white font-semibold rounded-lg shadow-sm disabled:opacity-50"
+                  className="flex-1 py-2 bg-bank-primary hover:bg-bank-primary-hover text-white font-semibold rounded-lg shadow-sm disabled:opacity-50"
                 >
                   {submitting ? 'Provisioning...' : 'Provision Staff'}
                 </button>

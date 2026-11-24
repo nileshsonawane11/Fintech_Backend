@@ -10,20 +10,22 @@ import { statusLabel } from '../lib/format.js';
 /* ---------------- Button ---------------- */
 
 const BTN_VARIANTS = {
-  primary: 'bg-midnight-900 text-porcelain-50 shadow-sm hover:bg-midnight-800 focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-offset-2',
-  porcelain: 'bg-porcelain-50 text-midnight-950 border border-transparent shadow-sm hover:bg-porcelain-200 focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-offset-2',
-  brass: 'bg-porcelain-50 text-midnight-950 border border-transparent shadow-sm hover:bg-porcelain-200 focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-offset-2',
-  secondary: 'bg-white text-midnight-900 border border-line hover:border-midnight-400 hover:text-midnight-900 focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-offset-2',
-  outline: 'bg-white text-midnight-900 border border-line hover:border-midnight-400 hover:text-midnight-900 focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-offset-2',
+  primary: 'bg-bank-primary text-white shadow-xs hover:bg-bank-primary-hover active:bg-bank-primary-hover focus-visible:ring-2 focus-visible:ring-bank-primary focus-visible:ring-offset-2',
+  porcelain: 'bg-porcelain-50 text-ink-900 border border-ink-200 shadow-xs hover:bg-porcelain-200 focus-visible:ring-2 focus-visible:ring-bank-primary focus-visible:ring-offset-2',
+  brass: 'bg-porcelain-50 text-ink-900 border border-ink-200 shadow-xs hover:bg-porcelain-200 focus-visible:ring-2 focus-visible:ring-bank-primary focus-visible:ring-offset-2',
+  secondary: 'bg-white text-bank-primary border border-bank-primary hover:bg-bank-primary-light active:bg-bank-primary-muted focus-visible:ring-2 focus-visible:ring-bank-primary focus-visible:ring-offset-2',
+  outline: 'bg-transparent text-bank-primary border border-bank-primary hover:bg-bank-primary-light/60 active:bg-bank-primary-muted focus-visible:ring-2 focus-visible:ring-bank-primary focus-visible:ring-offset-2',
+  outlineWhite: 'bg-transparent text-white border border-white hover:bg-white/10 active:bg-white/20 focus-visible:ring-2 focus-visible:ring-white focus-visible:ring-offset-2',
+  white: 'bg-white text-ink-950 shadow-xs hover:bg-porcelain-100 active:bg-porcelain-200 focus-visible:ring-2 focus-visible:ring-bank-primary focus-visible:ring-offset-2',
   danger: 'bg-white text-danger-600 border border-danger-600/40 hover:bg-danger-50 focus-visible:ring-2 focus-visible:ring-danger-600 focus-visible:ring-offset-2',
-  ghost: 'text-midnight-800 hover:bg-midnight-50 focus-visible:ring-2 focus-visible:ring-gold-500 focus-visible:ring-offset-2',
+  ghost: 'text-bank-primary hover:bg-bank-primary-light focus-visible:ring-2 focus-visible:ring-bank-primary focus-visible:ring-offset-2',
 };
 
 export function Button({ as: Component = 'button', variant = 'primary', size = 'md', loading = false, disabled, className = '', children, ...props }) {
-  const sizes = { sm: 'min-h-[44px] px-4 text-xs', md: 'min-h-[44px] px-5 text-sm', lg: 'min-h-12 px-6 text-sm' };
+  const sizes = { sm: 'min-h-[40px] px-5 text-xs', md: 'min-h-[44px] px-6 text-sm', lg: 'min-h-12 px-8 text-sm' };
   return (
     <Component
-      className={`btn-press inline-flex select-none items-center justify-center gap-2 rounded-lg font-semibold transition-[color,background-color,border-color,transform] duration-150 ease-out active:translate-y-px disabled:pointer-events-none disabled:opacity-50 ${sizes[size]} ${BTN_VARIANTS[variant] || BTN_VARIANTS.primary} ${className}`}
+      className={`btn-press inline-flex select-none items-center justify-center gap-2 rounded-full font-semibold transition-[color,background-color,border-color,transform] duration-150 ease-out active:translate-y-px disabled:pointer-events-none disabled:opacity-50 ${sizes[size]} ${BTN_VARIANTS[variant] || BTN_VARIANTS.primary} ${className}`}
       disabled={Component === 'button' ? (disabled || loading) : undefined}
       aria-busy={loading || undefined}
       {...props}
@@ -34,7 +36,7 @@ export function Button({ as: Component = 'button', variant = 'primary', size = '
   );
 }
 
-export function Spinner({ className = 'h-5 w-5 text-midnight-700' }) {
+export function Spinner({ className = 'h-5 w-5 text-bank-primary' }) {
   return <Loader2 className={`animate-spin ${className}`} aria-label="Loading" />;
 }
 
@@ -49,7 +51,7 @@ export function Skeleton({ className = '' }) {
 export function PageLoading() {
   return (
     <div className="flex items-center justify-center py-24" role="status">
-      <Spinner className="h-8 w-8 text-midnight-700" />
+      <Spinner className="h-8 w-8 text-bank-primary" />
     </div>
   );
 }
@@ -75,8 +77,8 @@ export function Field({ label, error, hint, children, required }) {
 }
 
 const inputCls = (error) =>
-  `w-full h-[42px] rounded-lg border bg-white px-3 py-2 text-base sm:text-sm text-ink-900 placeholder:text-ink-400 transition-colors ${
-    error ? 'border-danger-600 focus:border-danger-600 focus:ring-1 focus:ring-danger-600' : 'border-line hover:border-ink-300 focus:border-midnight-600 focus:ring-1 focus:ring-midnight-600'
+  `w-full h-11 rounded-lg border bg-white px-3.5 py-2 text-base sm:text-sm text-ink-900 placeholder:text-ink-400 transition-colors ${
+    error ? 'border-danger-600 focus:border-danger-600 focus:ring-1 focus:ring-danger-600' : 'border-ink-200 hover:border-ink-300 focus:border-bank-primary focus:ring-1 focus:ring-bank-primary'
   } outline-none`;
 
 export function Input({ error, className = '', ...props }) {
@@ -98,7 +100,7 @@ export function Select({ error, className = '', children, ...props }) {
 export function Checkbox({ label, error, ...props }) {
   return (
     <label className="flex cursor-pointer items-center min-h-[44px] gap-2.5 text-sm text-ink-700 py-1">
-      <input type="checkbox" className="h-5 w-5 shrink-0 accent-midnight-800" {...props} />
+      <input type="checkbox" className="h-5 w-5 shrink-0 accent-bank-primary" {...props} />
       <span className="min-w-0 flex-1">
         {label}
         {error && <span className="mt-0.5 block text-xs font-medium text-danger-600" role="alert">{error}</span>}
@@ -122,7 +124,7 @@ export function FormError({ message }) {
 
 export function Card({ className = '', children, ...props }) {
   return (
-    <div className={`rounded-xl border border-line bg-white shadow-card ${className}`} {...props}>
+    <div className={`rounded-2xl border border-ink-200/80 bg-white shadow-xs hover:shadow-card transition-shadow ${className}`} {...props}>
       {children}
     </div>
   );
@@ -133,11 +135,11 @@ export function SectionHeader({ eyebrow, title, description, action, titleAs: Ti
     <div className="mb-6 flex flex-wrap items-end justify-between gap-4">
       <div>
         {eyebrow && (
-          <p className={`${reveal ? 'reveal-eyebrow-line ' : ''}mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-gold-700`}>
+          <p className={`${reveal ? 'reveal-eyebrow-line ' : ''}mb-1 text-xs font-semibold uppercase tracking-[0.14em] text-bank-primary`}>
             {eyebrow}
           </p>
         )}
-        <TitleTag className={`${reveal ? 'reveal-title ' : ''}font-display text-2xl font-semibold text-midnight-950 sm:text-3xl`}>
+        <TitleTag className={`${reveal ? 'reveal-title ' : ''}font-sans text-2xl font-semibold text-ink-900 sm:text-3xl`}>
           {title}
         </TitleTag>
         {description && (
@@ -175,7 +177,7 @@ const TONE_CLS = {
   success: 'bg-success-50 text-success-600 border-success-600/25',
   warning: 'bg-warning-50 text-warning-600 border-warning-600/25',
   danger: 'bg-danger-50 text-danger-600 border-danger-600/25',
-  info: 'bg-midnight-50 text-midnight-700 border-midnight-200',
+  info: 'bg-bank-primary-light text-bank-primary border-bank-primary-border',
   neutral: 'bg-ink-50 text-ink-600 border-ink-200',
 };
 
@@ -203,7 +205,7 @@ export function EmptyState({ icon: Icon, title, body, action, variant = 'empty' 
   return (
     <div className={`rounded-xl border border-dashed px-6 py-10 text-center ${variant === 'error' ? 'border-danger-600/40 bg-danger-50/50' : 'border-ink-200 bg-porcelain-50'}`}>
       {Icon && (
-        <div className={`mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full ${variant === 'error' ? 'bg-danger-50 text-danger-600' : 'bg-midnight-50 text-midnight-700'}`}>
+        <div className={`mx-auto mb-3 flex h-11 w-11 items-center justify-center rounded-full ${variant === 'error' ? 'bg-danger-50 text-danger-600' : 'bg-bank-primary-light text-bank-primary'}`}>
           <Icon className="h-5 w-5" aria-hidden />
         </div>
       )}
@@ -221,12 +223,12 @@ export function Table({ columns, rows, rowKey, onRowClick, empty, minWidthClass 
   return (
     <>
       {/* Desktop / Tablet Contained Table */}
-      <div className="hidden sm:block overflow-x-auto rounded-xl border border-line bg-white shadow-card">
+      <div className="hidden sm:block overflow-x-auto rounded-xl border border-ink-200/80 bg-white shadow-xs">
         <table className={`w-full ${minWidthClass} border-collapse text-left text-sm`}>
           <thead>
-            <tr className="border-b border-line bg-porcelain-100/70">
+            <tr className="border-b border-ink-200 bg-porcelain-100">
               {columns.map((c) => (
-                <th key={c.key} className={`px-4 py-3 text-xs font-semibold uppercase tracking-wide text-ink-500 ${c.align === 'right' ? 'text-right' : ''} ${c.className || ''}`}>
+                <th key={c.key} className={`px-4 py-3 text-xs font-semibold uppercase tracking-wider text-ink-600 ${c.align === 'right' ? 'text-right' : ''} ${c.className || ''}`}>
                   {c.label}
                 </th>
               ))}
@@ -237,10 +239,10 @@ export function Table({ columns, rows, rowKey, onRowClick, empty, minWidthClass 
               <tr
                 key={rowKey(row)}
                 onClick={onRowClick ? () => onRowClick(row) : undefined}
-                className={`border-b border-line last:border-0 ${onRowClick ? 'cursor-pointer hover:bg-midnight-50/60' : ''}`}
+                className={`border-b border-ink-100 last:border-0 ${onRowClick ? 'cursor-pointer hover:bg-porcelain-50/80 transition-colors' : 'hover:bg-porcelain-50/50 transition-colors'}`}
               >
                 {columns.map((c) => (
-                  <td key={c.key} className={`px-4 py-3 align-top text-ink-800 ${c.align === 'right' ? 'text-right tnum' : ''} ${c.className || ''}`}>
+                  <td key={c.key} className={`px-4 py-3.5 align-top text-ink-800 ${c.align === 'right' ? 'text-right tnum' : ''} ${c.className || ''}`}>
                     {c.render ? c.render(row) : row[c.key]}
                   </td>
                 ))}
@@ -256,8 +258,8 @@ export function Table({ columns, rows, rowKey, onRowClick, empty, minWidthClass 
           <div
             key={rowKey(row)}
             onClick={onRowClick ? () => onRowClick(row) : undefined}
-            className={`rounded-xl border border-line bg-white p-4 shadow-card ${
-              onRowClick ? 'cursor-pointer active:bg-midnight-50/70 hover:border-midnight-300 transition-colors' : ''
+            className={`rounded-xl border border-ink-200/80 bg-white p-4 shadow-xs ${
+              onRowClick ? 'cursor-pointer active:bg-porcelain-100 hover:border-bank-primary transition-colors' : ''
             }`}
             role={onRowClick ? 'button' : 'listitem'}
             tabIndex={onRowClick ? 0 : undefined}
@@ -280,7 +282,7 @@ export function Table({ columns, rows, rowKey, onRowClick, empty, minWidthClass 
               })}
             </div>
             {onRowClick && (
-              <div className="mt-3 pt-2.5 border-t border-ink-100 flex items-center justify-end text-xs font-semibold text-midnight-800">
+              <div className="mt-3 pt-2.5 border-t border-ink-100 flex items-center justify-end text-xs font-semibold text-bank-primary">
                 <span>Review details →</span>
               </div>
             )}
@@ -303,12 +305,12 @@ export function Tabs({ tabs, active, onChange }) {
           aria-selected={active === t.id}
           onClick={() => onChange(t.id)}
           className={`-mb-px min-h-[44px] inline-flex items-center border-b-2 px-3.5 py-2 text-sm font-medium transition-colors ${
-            active === t.id ? 'border-gold-500 text-midnight-900 font-semibold' : 'border-transparent text-ink-500 hover:text-midnight-800'
+            active === t.id ? 'border-bank-primary text-bank-primary font-semibold' : 'border-transparent text-ink-500 hover:text-bank-primary'
           }`}
         >
           {t.label}
           {typeof t.count === 'number' && (
-            <span className={`ml-2 rounded-full px-1.5 py-0.5 text-xs font-semibold ${active === t.id ? 'bg-gold-100 text-gold-700' : 'bg-ink-100 text-ink-600'}`}>
+            <span className={`ml-2 rounded-full px-1.5 py-0.5 text-xs font-semibold ${active === t.id ? 'bg-bank-primary-light text-bank-primary' : 'bg-ink-100 text-ink-600'}`}>
               {t.count}
             </span>
           )}
@@ -329,9 +331,9 @@ export function Stepper({ steps, horizontalOnMobile = false }) {
             <span
               className={`relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold ${
                 step.state === 'done'
-                  ? 'border-midnight-700 bg-midnight-700 text-white'
+                  ? 'border-bank-primary bg-bank-primary text-white'
                   : step.state === 'current'
-                    ? 'border-gold-500 bg-gold-50 text-gold-700 ring-2 ring-gold-200'
+                    ? 'border-bank-primary bg-bank-primary-light text-bank-primary ring-2 ring-bank-primary-border'
                     : 'border-line bg-white text-ink-400'
               }`}
               aria-current={step.state === 'current' ? 'step' : undefined}
@@ -339,12 +341,12 @@ export function Stepper({ steps, horizontalOnMobile = false }) {
               {step.state === 'done' ? <CheckCircle2 className="h-4 w-4" aria-hidden /> : i + 1}
             </span>
             <span className="min-w-0 flex-1">
-              <span className={`block text-xs font-semibold truncate ${step.state === 'current' ? 'text-midnight-950 font-bold' : 'text-ink-600 max-[420px]:hidden'}`}>
+              <span className={`block text-xs font-semibold truncate ${step.state === 'current' ? 'text-ink-950 font-bold' : 'text-ink-600 max-[420px]:hidden'}`}>
                 {step.label}
               </span>
             </span>
             {i < steps.length - 1 && (
-              <span className={`h-0.5 w-4 sm:w-8 shrink-0 ${step.state === 'done' ? 'bg-midnight-600' : 'bg-line'}`} aria-hidden />
+              <span className={`h-0.5 w-4 sm:w-8 shrink-0 ${step.state === 'done' ? 'bg-bank-primary' : 'bg-line'}`} aria-hidden />
             )}
           </li>
         ))}
@@ -357,16 +359,16 @@ export function Stepper({ steps, horizontalOnMobile = false }) {
         <li key={step.id || step.label || i} className="relative flex flex-1 gap-3 pb-5 last:pb-0 sm:flex-col sm:gap-0 sm:pb-0">
           {i < steps.length - 1 && (
             <>
-              <span className={`absolute left-3.5 top-7 h-[calc(100%-24px)] w-0.5 sm:hidden ${step.state === 'done' ? 'bg-midnight-600' : 'bg-line'}`} aria-hidden />
-              <span className={`absolute left-7 top-3.5 hidden h-0.5 w-[calc(100%-28px)] sm:block ${step.state === 'done' ? 'bg-midnight-600' : 'bg-line'}`} aria-hidden />
+              <span className={`absolute left-3.5 top-7 h-[calc(100%-24px)] w-0.5 sm:hidden ${step.state === 'done' ? 'bg-bank-primary' : 'bg-line'}`} aria-hidden />
+              <span className={`absolute left-7 top-3.5 hidden h-0.5 w-[calc(100%-28px)] sm:block ${step.state === 'done' ? 'bg-bank-primary' : 'bg-line'}`} aria-hidden />
             </>
           )}
           <span
             className={`relative z-10 flex h-7 w-7 shrink-0 items-center justify-center rounded-full border-2 text-xs font-bold ${
               step.state === 'done'
-                ? 'border-midnight-700 bg-midnight-700 text-white'
+                ? 'border-bank-primary bg-bank-primary text-white'
                 : step.state === 'current'
-                  ? 'border-gold-500 bg-gold-50 text-gold-700'
+                  ? 'border-bank-primary bg-bank-primary-light text-bank-primary ring-2 ring-bank-primary-border'
                   : 'border-line bg-white text-ink-400'
             }`}
             aria-current={step.state === 'current' ? 'step' : undefined}
@@ -576,7 +578,7 @@ export function ResendOtp({ onResend, seconds = 30 }) {
       ) : (
         <button
           type="button"
-          className="font-semibold text-midnight-800 underline decoration-gold-400 decoration-2 underline-offset-2 hover:text-midnight-600"
+          className="font-semibold text-bank-primary underline decoration-bank-primary/40 decoration-2 underline-offset-2 hover:text-bank-primary-hover"
           onClick={() => { setCount((c) => c + 1); setLeft(seconds); onResend?.(); }}
         >
           Resend code

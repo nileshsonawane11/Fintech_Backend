@@ -37,7 +37,7 @@ export class RouteErrorBoundary extends Component {
           <div className="rounded-full bg-danger-50 p-4 border border-danger-200 mb-5">
             <AlertTriangle className="h-8 w-8 text-danger-600" aria-hidden="true" />
           </div>
-          <h1 className="font-display text-2xl font-semibold text-midnight-950 sm:text-3xl">
+          <h1 className="font-sans text-2xl font-semibold text-midnight-950 sm:text-3xl">
             Unable to load page
           </h1>
           <p className="mt-2.5 max-w-md text-sm text-ink-600 leading-relaxed">
