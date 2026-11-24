@@ -1,13 +1,21 @@
 package com.fintech.ledger.service;
 
+import com.fintech.ledger.client.AccountDetailsDto;
+import com.fintech.ledger.client.AccountServiceClient;
 import com.fintech.ledger.dto.request.PostingEntryItem;
 import com.fintech.ledger.dto.response.LedgerPostingResponse;
-import com.fintech.ledger.entity.*;
-import com.fintech.ledger.enums.*;
+import com.fintech.ledger.entity.LedgerBalanceSnapshot;
+import com.fintech.ledger.entity.LedgerEntry;
+import com.fintech.ledger.entity.LedgerTransaction;
+import com.fintech.ledger.enums.EntryType;
+import com.fintech.ledger.enums.TransactionStatus;
+import com.fintech.ledger.enums.TransactionType;
 import com.fintech.ledger.event.LedgerEventProducer;
 import com.fintech.ledger.event.LedgerEvents;
 import com.fintech.ledger.exception.LedgerException;
-import com.fintech.ledger.repository.*;
+import com.fintech.ledger.repository.LedgerBalanceSnapshotRepository;
+import com.fintech.ledger.repository.LedgerEntryRepository;
+import com.fintech.ledger.repository.LedgerTransactionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
@@ -25,29 +33,26 @@ public class LedgerPostingEngine {
 
     private static final Logger log = LoggerFactory.getLogger(LedgerPostingEngine.class);
 
-    private final LedgerAccountRepository accountRepository;
     private final LedgerTransactionRepository transactionRepository;
     private final LedgerEntryRepository entryRepository;
     private final LedgerBalanceSnapshotRepository snapshotRepository;
-    private final AccountHoldRepository holdRepository;
+    private final AccountServiceClient accountServiceClient;
     private final LedgerEventProducer eventProducer;
 
-    public LedgerPostingEngine(LedgerAccountRepository accountRepository,
-                               LedgerTransactionRepository transactionRepository,
+    public LedgerPostingEngine(LedgerTransactionRepository transactionRepository,
                                LedgerEntryRepository entryRepository,
                                LedgerBalanceSnapshotRepository snapshotRepository,
-                               AccountHoldRepository holdRepository,
+                               AccountServiceClient accountServiceClient,
                                LedgerEventProducer eventProducer) {
-        this.accountRepository = accountRepository;
         this.transactionRepository = transactionRepository;
         this.entryRepository = entryRepository;
         this.snapshotRepository = snapshotRepository;
-        this.holdRepository = holdRepository;
+        this.accountServiceClient = accountServiceClient;
         this.eventProducer = eventProducer;
     }
 
     /**
-     * Executes an atomic, balanced, double-entry financial posting between two or more ledger accounts.
+     * Executes an atomic, balanced, double-entry financial posting referencing Account Service account IDs.
      */
     @Transactional(isolation = Isolation.READ_COMMITTED)
     public LedgerPostingResponse post(TransactionType transactionType,
@@ -91,65 +96,44 @@ public class LedgerPostingEngine {
                     String.format("Unbalanced ledger posting: Total Debit (%s) does not match Total Credit (%s)", totalDebit, totalCredit));
         }
 
-        // 4. Resolve all unique ledger accounts and sort lexicographically to prevent deadlocks
-        Map<String, LedgerAccount> accountMap = new HashMap<>();
+        // 4. Resolve and validate all unique account IDs and sort lexicographically to prevent deadlocks
         List<String> sortedAccountIds = entries.stream()
-                .map(PostingEntryItem::ledgerAccountId)
+                .map(PostingEntryItem::accountId)
                 .distinct()
                 .sorted()
                 .toList();
 
         for (String accId : sortedAccountIds) {
-            LedgerAccount account = accountRepository.findByLedgerAccountId(accId)
-                    .or(() -> accountRepository.findByAccountReference(accId))
-                    .orElseThrow(() -> LedgerException.ledgerAccountNotFound("Ledger account not found for reference: " + accId));
-
-            if (account.getStatus() != AccountStatus.ACTIVE) {
-                throw LedgerException.inactiveAccount(
-                        String.format("Ledger account %s is not ACTIVE (current status: %s)", account.getLedgerAccountId(), account.getStatus()));
-            }
-
-            if (!account.getCurrency().equalsIgnoreCase(currency)) {
-                throw LedgerException.currencyMismatch(
-                        String.format("Account %s currency (%s) does not match posting currency (%s)",
-                                account.getLedgerAccountId(), account.getCurrency(), currency));
-            }
-
-            accountMap.put(accId, account);
-            accountMap.put(account.getLedgerAccountId(), account);
-            if (account.getAccountReference() != null) {
-                accountMap.put(account.getAccountReference(), account);
+            if (!isSystemAccount(accId)) {
+                // Validate account with Account Service
+                accountServiceClient.validateAccountEligible(accId, currency);
             }
         }
 
         // 5. Pessimistic lock snapshots in deterministic sorted order
-        Map<UUID, LedgerBalanceSnapshot> snapshotMap = new HashMap<>();
+        Map<String, LedgerBalanceSnapshot> snapshotMap = new HashMap<>();
         for (String accId : sortedAccountIds) {
-            LedgerAccount account = accountMap.get(accId);
-            LedgerBalanceSnapshot snapshot = snapshotRepository.findWithLockByLedgerAccountId(account.getId())
+            LedgerBalanceSnapshot snapshot = snapshotRepository.findWithLockByAccountId(accId)
                     .orElseGet(() -> {
                         LedgerBalanceSnapshot newSnap = new LedgerBalanceSnapshot(
-                                UUID.randomUUID(), account, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, account.getCurrency());
+                                UUID.randomUUID(), accId, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, currency);
                         return snapshotRepository.save(newSnap);
                     });
-            snapshotMap.put(account.getId(), snapshot);
+            snapshotMap.put(accId, snapshot);
         }
 
-        // 6. Validate available balances on debit operations from liability (customer deposit) accounts
+        // 6. Validate available balances on debit operations from customer accounts
         for (PostingEntryItem item : entries) {
-            LedgerAccount account = accountMap.get(item.ledgerAccountId());
-            if (account.getAccountType() == AccountType.LIABILITY && item.entryType() == EntryType.DEBIT) {
-                LedgerBalanceSnapshot snapshot = snapshotMap.get(account.getId());
-                BigDecimal activeHolds = holdRepository.sumActiveHoldsByLedgerAccountId(account.getId());
-                BigDecimal availableBalance = snapshot.getLedgerBalance().subtract(activeHolds);
+            if (!isSystemAssetAccount(item.accountId()) && item.entryType() == EntryType.DEBIT) {
+                LedgerBalanceSnapshot snapshot = snapshotMap.get(item.accountId());
+                BigDecimal currentBalance = snapshot.getLedgerBalance();
 
-                if (availableBalance.compareTo(item.amount()) < 0) {
-                    log.warn("Insufficient available balance for account {}: requested={}, available={}, ledgerBalance={}, activeHolds={}",
-                            account.getLedgerAccountId(), item.amount(), availableBalance, snapshot.getLedgerBalance(), activeHolds);
+                if (currentBalance.compareTo(item.amount()) < 0) {
+                    log.warn("Insufficient available balance for account {}: requested={}, ledgerBalance={}",
+                            item.accountId(), item.amount(), currentBalance);
                     throw LedgerException.insufficientBalance(
-                            String.format("Insufficient available balance on account %s. Requested: %s, Available: %s (Holds: %s)",
-                                    account.getAccountReference() != null ? account.getAccountReference() : account.getLedgerAccountId(),
-                                    item.amount(), availableBalance, activeHolds));
+                            String.format("Insufficient available balance on account %s. Requested: %s, Available: %s",
+                                    item.accountId(), item.amount(), currentBalance));
                 }
             }
         }
@@ -180,8 +164,7 @@ public class LedgerPostingEngine {
         Instant now = Instant.now();
 
         for (PostingEntryItem item : entries) {
-            LedgerAccount account = accountMap.get(item.ledgerAccountId());
-            LedgerBalanceSnapshot snapshot = snapshotMap.get(account.getId());
+            LedgerBalanceSnapshot snapshot = snapshotMap.get(item.accountId());
             BigDecimal amount = item.amount().setScale(4, RoundingMode.HALF_UP);
 
             String publicEntryId = "LE-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase();
@@ -189,7 +172,7 @@ public class LedgerPostingEngine {
                     UUID.randomUUID(),
                     publicEntryId,
                     transaction,
-                    account,
+                    item.accountId(),
                     item.entryType(),
                     amount,
                     currency,
@@ -208,11 +191,11 @@ public class LedgerPostingEngine {
                 snapshot.setCreditTotal(snapshot.getCreditTotal().add(amount));
             }
 
-            // Recalculate balance for this account based on normal balance rules:
+            // Normal balance calculation:
             // Asset & Expense: Debit - Credit
-            // Liability, Equity & Revenue: Credit - Debit
+            // Liability (Customer Deposits), Equity & Revenue: Credit - Debit
             BigDecimal newBalance;
-            if (account.getAccountType() == AccountType.ASSET || account.getAccountType() == AccountType.EXPENSE) {
+            if (isSystemAssetAccount(item.accountId())) {
                 newBalance = snapshot.getDebitTotal().subtract(snapshot.getCreditTotal());
             } else {
                 newBalance = snapshot.getCreditTotal().subtract(snapshot.getDebitTotal());
@@ -224,22 +207,16 @@ public class LedgerPostingEngine {
             snapshotRepository.save(snapshot);
 
             // Outbox event for balance updated
-            BigDecimal activeHolds = holdRepository.sumActiveHoldsByLedgerAccountId(account.getId());
-            BigDecimal available = (account.getAccountType() == AccountType.LIABILITY)
-                    ? newBalance.subtract(activeHolds)
-                    : newBalance;
-
             eventProducer.enqueueEvent(
-                    account.getLedgerAccountId(),
-                    "LedgerAccount",
+                    item.accountId(),
+                    "AccountBalance",
                     "BALANCE_UPDATED",
                     correlationId,
                     new LedgerEvents.BalanceUpdatedPayload(
-                            account.getAccountReference() != null ? account.getAccountReference() : account.getLedgerAccountId(),
-                            account.getLedgerAccountId(),
+                            item.accountId(),
                             newBalance,
-                            available,
-                            activeHolds,
+                            newBalance,
+                            BigDecimal.ZERO,
                             currency,
                             now
                     )
@@ -280,6 +257,29 @@ public class LedgerPostingEngine {
                 creditEntryId,
                 entryIds,
                 now
+        );
+    }
+
+    private boolean isSystemAccount(String accountId) {
+        return accountId != null && (
+                accountId.startsWith("LA-BANK-") ||
+                accountId.startsWith("LA-INTEREST-") ||
+                accountId.startsWith("LA-FEE-") ||
+                accountId.startsWith("LA-SUSPENSE-") ||
+                accountId.startsWith("SYSTEM-")
+        );
+    }
+
+    private boolean isSystemAssetAccount(String accountId) {
+        return accountId != null && (
+                accountId.startsWith("LA-BANK-CASH") ||
+                accountId.startsWith("LA-BANK-SETTLEMENT") ||
+                accountId.startsWith("LA-BANK-CLEARING") ||
+                accountId.startsWith("LA-INTEREST-EXPENSE") ||
+                accountId.startsWith("SYSTEM-CASH") ||
+                accountId.startsWith("SYSTEM-SETTLEMENT") ||
+                accountId.startsWith("SYSTEM-CLEARING") ||
+                accountId.startsWith("SYSTEM-INTEREST")
         );
     }
 }

@@ -1,16 +1,15 @@
 package com.fintech.ledger.service;
 
+import com.fintech.ledger.client.AccountDetailsDto;
 import com.fintech.ledger.client.AccountServiceClient;
 import com.fintech.ledger.dto.request.TransferRequest;
 import com.fintech.ledger.dto.response.LedgerPostingResponse;
 import com.fintech.ledger.dto.response.TransferResponse;
-import com.fintech.ledger.entity.LedgerAccount;
-import com.fintech.ledger.enums.*;
+import com.fintech.ledger.enums.TransactionStatus;
+import com.fintech.ledger.enums.TransactionType;
 import com.fintech.ledger.exception.LedgerException;
-import com.fintech.ledger.repository.LedgerAccountRepository;
 import com.fintech.ledger.repository.LedgerEntryRepository;
 import com.fintech.ledger.repository.LedgerTransactionRepository;
-import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -20,8 +19,8 @@ import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.List;
 import java.util.Optional;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -37,9 +36,6 @@ class TransferServiceTest {
     private IdempotencyService idempotencyService;
 
     @Mock
-    private LedgerAccountRepository accountRepository;
-
-    @Mock
     private LedgerTransactionRepository transactionRepository;
 
     @Mock
@@ -51,22 +47,7 @@ class TransferServiceTest {
     @InjectMocks
     private TransferService transferService;
 
-    private LedgerAccount sourceAccount;
-    private LedgerAccount destAccount;
-    private final UUID customerId = UUID.randomUUID();
-
-    @BeforeEach
-    void setUp() {
-        sourceAccount = new LedgerAccount(
-                UUID.randomUUID(), "LA-ACC-1001", UUID.randomUUID(), "ACC-1001",
-                customerId, "Source Account", AccountType.LIABILITY,
-                AccountSubtype.CUSTOMER_DEPOSIT, NormalBalance.CREDIT, "INR", AccountStatus.ACTIVE);
-
-        destAccount = new LedgerAccount(
-                UUID.randomUUID(), "LA-ACC-2002", UUID.randomUUID(), "ACC-2002",
-                UUID.randomUUID(), "Destination Account", AccountType.LIABILITY,
-                AccountSubtype.CUSTOMER_DEPOSIT, NormalBalance.CREDIT, "INR", AccountStatus.ACTIVE);
-    }
+    private final String customerSubject = "user-auth-subject-123";
 
     @Test
     @DisplayName("Valid Transfer: Debits source and credits destination, commits balanced posting")
@@ -77,18 +58,23 @@ class TransferServiceTest {
         when(idempotencyService.checkIdempotency(eq("key-1"), eq("TRANSFER"), eq(request), eq(TransferResponse.class)))
                 .thenReturn(Optional.empty());
 
-        when(accountRepository.findByAccountReference("ACC-1001")).thenReturn(Optional.of(sourceAccount));
-        when(accountRepository.findByAccountReference("ACC-2002")).thenReturn(Optional.of(destAccount));
+        AccountDetailsDto sourceAccount = new AccountDetailsDto(
+                "ACC-1001", "XXXX1001", "CUST-1", customerSubject, "SAVINGS", "SAVINGS", "INR", "ACTIVE", Instant.now());
+        AccountDetailsDto destAccount = new AccountDetailsDto(
+                "ACC-2002", "XXXX2002", "CUST-2", "other-sub", "SAVINGS", "SAVINGS", "INR", "ACTIVE", Instant.now());
+
+        when(accountServiceClient.validateAccountEligible("ACC-1001", "INR")).thenReturn(sourceAccount);
+        when(accountServiceClient.validateAccountEligible("ACC-2002", "INR")).thenReturn(destAccount);
 
         LedgerPostingResponse postingResponse = new LedgerPostingResponse(
                 "TXN-554433", TransactionStatus.SUCCESS, new BigDecimal("15000.00"), "INR",
-                "LE-001", "LE-002", Instant.now());
+                "LE-001", "LE-002", List.of("LE-001", "LE-002"), Instant.now());
 
         when(postingEngine.post(eq(TransactionType.TRANSFER), eq("INR"), any(), any(), eq("RENT-OCT-2026"),
-                eq("key-1"), eq(customerId.toString()), any(), anyList())).thenReturn(postingResponse);
+                eq("key-1"), eq(customerSubject), any(), anyList())).thenReturn(postingResponse);
 
         TransferResponse response = transferService.initiateTransfer(
-                request, customerId.toString(), "key-1", "corr-1");
+                request, customerSubject, "key-1", "corr-1");
 
         assertNotNull(response);
         assertEquals("TXN-554433", response.transactionId());
@@ -114,7 +100,7 @@ class TransferServiceTest {
                 .thenReturn(Optional.of(cached));
 
         TransferResponse response = transferService.initiateTransfer(
-                request, customerId.toString(), "key-1", "corr-1");
+                request, customerSubject, "key-1", "corr-1");
 
         assertEquals("TXN-554433", response.transactionId());
         verify(postingEngine, never()).post(any(), any(), any(), any(), any(), any(), any(), any(), any());
@@ -127,8 +113,27 @@ class TransferServiceTest {
                 "ACC-1001", "ACC-1001", new BigDecimal("500.00"), "INR", "Self", "REF");
 
         LedgerException ex = assertThrows(LedgerException.class, () ->
-                transferService.initiateTransfer(request, customerId.toString(), "key-2", "corr-2"));
+                transferService.initiateTransfer(request, customerSubject, "key-2", "corr-2"));
 
         assertEquals("INVALID_DESTINATION_ACCOUNT", ex.getErrorCode());
+    }
+
+    @Test
+    @DisplayName("Transfer Test: Rejection when customer ownership mismatch")
+    void initiateTransfer_whenOwnershipMismatch_shouldThrowForbidden() {
+        TransferRequest request = new TransferRequest(
+                "ACC-1001", "ACC-2002", new BigDecimal("1000.00"), "INR", "Transfer", "REF-001");
+
+        AccountDetailsDto sourceAccount = new AccountDetailsDto(
+                "ACC-1001", "XXXX1001", "CUST-1", "different-subject", "SAVINGS", "SAVINGS", "INR", "ACTIVE", Instant.now());
+        when(accountServiceClient.validateAccountEligible("ACC-1001", "INR")).thenReturn(sourceAccount);
+        doThrow(LedgerException.accountOwnershipMismatch("ACC-1001"))
+                .when(accountServiceClient).validateCustomerOwnership("ACC-1001", customerSubject);
+
+        LedgerException ex = assertThrows(LedgerException.class, () ->
+                transferService.initiateTransfer(request, customerSubject, "key-3", "corr-3"));
+
+        assertEquals("ACCOUNT_OWNERSHIP_MISMATCH", ex.getErrorCode());
+        verify(postingEngine, never()).post(any(), any(), any(), any(), any(), any(), any(), any(), any());
     }
 }

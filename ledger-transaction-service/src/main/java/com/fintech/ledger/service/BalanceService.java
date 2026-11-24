@@ -1,17 +1,14 @@
 package com.fintech.ledger.service;
 
+import com.fintech.ledger.client.AccountDetailsDto;
 import com.fintech.ledger.client.AccountServiceClient;
 import com.fintech.ledger.dto.response.BalanceHistoryItem;
 import com.fintech.ledger.dto.response.BalanceResponse;
 import com.fintech.ledger.dto.response.CursorPagedResponse;
-import com.fintech.ledger.entity.LedgerAccount;
 import com.fintech.ledger.entity.LedgerBalanceSnapshot;
 import com.fintech.ledger.entity.LedgerEntry;
-import com.fintech.ledger.enums.AccountType;
 import com.fintech.ledger.enums.EntryType;
 import com.fintech.ledger.exception.LedgerException;
-import com.fintech.ledger.repository.AccountHoldRepository;
-import com.fintech.ledger.repository.LedgerAccountRepository;
 import com.fintech.ledger.repository.LedgerBalanceSnapshotRepository;
 import com.fintech.ledger.repository.LedgerEntryRepository;
 import org.slf4j.Logger;
@@ -24,54 +21,63 @@ import org.springframework.transaction.annotation.Transactional;
 import java.math.BigDecimal;
 import java.time.Instant;
 import java.time.LocalDate;
-import java.util.*;
+import java.util.ArrayList;
+import java.util.List;
+import java.util.UUID;
 
 @Service
 public class BalanceService {
 
     private static final Logger log = LoggerFactory.getLogger(BalanceService.class);
 
-    private final LedgerAccountRepository accountRepository;
     private final LedgerBalanceSnapshotRepository snapshotRepository;
-    private final AccountHoldRepository holdRepository;
     private final LedgerEntryRepository entryRepository;
     private final AccountServiceClient accountServiceClient;
 
-    public BalanceService(LedgerAccountRepository accountRepository,
-                          LedgerBalanceSnapshotRepository snapshotRepository,
-                          AccountHoldRepository holdRepository,
+    public BalanceService(LedgerBalanceSnapshotRepository snapshotRepository,
                           LedgerEntryRepository entryRepository,
                           AccountServiceClient accountServiceClient) {
-        this.accountRepository = accountRepository;
         this.snapshotRepository = snapshotRepository;
-        this.holdRepository = holdRepository;
         this.entryRepository = entryRepository;
         this.accountServiceClient = accountServiceClient;
     }
 
     @Transactional(readOnly = true)
     public BalanceResponse getAccountBalance(String accountId, String customerSubject, boolean isOps) {
-        LedgerAccount account = findAccountOrThrow(accountId);
+        if (accountId == null || accountId.isBlank()) {
+            throw LedgerException.badRequest("INVALID_ACCOUNT_ID", "Account ID must not be blank");
+        }
+        final String finalAccountId = accountId.trim();
 
-        if (!isOps) {
-            verifyOwnership(account, accountId, customerSubject);
+        String currency = "INR";
+        BigDecimal activeHolds = BigDecimal.ZERO;
+        if (!isSystemAccount(finalAccountId)) {
+            if (!isOps) {
+                accountServiceClient.validateCustomerOwnership(finalAccountId, customerSubject);
+            }
+            AccountDetailsDto accountDetails = accountServiceClient.getAccount(finalAccountId);
+            if (accountDetails != null && accountDetails.currency() != null) {
+                currency = accountDetails.currency();
+            }
+            BigDecimal holdAmount = accountServiceClient.getActiveHoldAmount(finalAccountId);
+            if (holdAmount != null) {
+                activeHolds = holdAmount;
+            }
         }
 
-        LedgerBalanceSnapshot snapshot = snapshotRepository.findByLedgerAccount(account)
-                .orElseGet(() -> computeAndSaveSnapshot(account));
+        final String finalCurrency = currency;
+        LedgerBalanceSnapshot snapshot = snapshotRepository.findByAccountId(finalAccountId)
+                .orElseGet(() -> computeTransientSnapshot(finalAccountId, finalCurrency));
 
-        BigDecimal activeHolds = holdRepository.sumActiveHoldsByLedgerAccountId(account.getId());
-        BigDecimal ledgerBalance = snapshot.getLedgerBalance();
-        BigDecimal availableBalance = (account.getAccountType() == AccountType.LIABILITY)
-                ? ledgerBalance.subtract(activeHolds)
-                : ledgerBalance;
+        BigDecimal ledgerBalance = snapshot.getLedgerBalance() != null ? snapshot.getLedgerBalance() : BigDecimal.ZERO;
+        BigDecimal availableBalance = ledgerBalance.subtract(activeHolds);
 
         return new BalanceResponse(
-                account.getAccountReference() != null ? account.getAccountReference() : account.getLedgerAccountId(),
+                finalAccountId,
                 ledgerBalance,
                 availableBalance,
                 activeHolds,
-                account.getCurrency(),
+                snapshot.getCurrency() != null ? snapshot.getCurrency() : finalCurrency,
                 snapshot.getUpdatedAt() != null ? snapshot.getUpdatedAt() : Instant.now()
         );
     }
@@ -80,174 +86,235 @@ public class BalanceService {
     public CursorPagedResponse<BalanceHistoryItem> getBalanceHistory(String accountId, String customerSubject,
                                                                     boolean isOps, LocalDate fromDate, LocalDate toDate,
                                                                     int limit, String cursor) {
-        LedgerAccount account = findAccountOrThrow(accountId);
+        if (accountId == null || accountId.isBlank()) {
+            throw LedgerException.badRequest("INVALID_ACCOUNT_ID", "Account ID must not be blank");
+        }
+        final String finalAccountId = accountId.trim();
 
-        if (!isOps) {
-            verifyOwnership(account, accountId, customerSubject);
+        if (fromDate != null && toDate != null && fromDate.isAfter(toDate)) {
+            throw LedgerException.badRequest("INVALID_DATE_RANGE", "fromDate cannot be after toDate");
+        }
+
+        if (limit <= 0) {
+            limit = 20;
+        } else if (limit > 100) {
+            limit = 100;
+        }
+
+        String currency = "INR";
+        BigDecimal activeHolds = BigDecimal.ZERO;
+        if (!isSystemAccount(finalAccountId)) {
+            if (!isOps) {
+                accountServiceClient.validateCustomerOwnership(finalAccountId, customerSubject);
+            }
+            AccountDetailsDto accountDetails = accountServiceClient.getAccount(finalAccountId);
+            if (accountDetails != null && accountDetails.currency() != null) {
+                currency = accountDetails.currency();
+            }
+            BigDecimal holdAmount = accountServiceClient.getActiveHoldAmount(finalAccountId);
+            if (holdAmount != null) {
+                activeHolds = holdAmount;
+            }
         }
 
         int page = 0;
         if (cursor != null && !cursor.isBlank()) {
             try {
                 page = Integer.parseInt(cursor);
+                if (page < 0) page = 0;
             } catch (NumberFormatException ignored) {}
         }
 
-        Page<LedgerEntry> entriesPage = entryRepository.findByLedgerAccountIdAndDates(
-                account.getLedgerAccountId(), fromDate, toDate, PageRequest.of(page, limit));
+        Page<LedgerEntry> entriesPage = entryRepository.findByAccountIdAndDates(
+                finalAccountId, fromDate, toDate, PageRequest.of(page, limit));
 
+        List<LedgerEntry> entries = entriesPage.getContent();
         List<BalanceHistoryItem> items = new ArrayList<>();
-        BigDecimal runningDebit = BigDecimal.ZERO;
-        BigDecimal runningCredit = BigDecimal.ZERO;
 
-        for (LedgerEntry entry : entriesPage.getContent()) {
-            if (entry.getEntryType() == EntryType.DEBIT) {
-                runningDebit = runningDebit.add(entry.getAmount());
-            } else {
-                runningCredit = runningCredit.add(entry.getAmount());
+        if (!entries.isEmpty()) {
+            boolean isAsset = isSystemAssetAccount(finalAccountId);
+            LedgerEntry newestEntry = entries.get(0);
+
+            BigDecimal debitsUpTo = entryRepository.sumDebitsUpTo(finalAccountId, newestEntry.getCreatedAt());
+            BigDecimal creditsUpTo = entryRepository.sumCreditsUpTo(finalAccountId, newestEntry.getCreatedAt());
+            if (debitsUpTo == null) debitsUpTo = BigDecimal.ZERO;
+            if (creditsUpTo == null) creditsUpTo = BigDecimal.ZERO;
+
+            BigDecimal currentBal = isAsset
+                    ? debitsUpTo.subtract(creditsUpTo)
+                    : creditsUpTo.subtract(debitsUpTo);
+
+            for (LedgerEntry entry : entries) {
+                BigDecimal availableBalance = currentBal.subtract(activeHolds);
+
+                items.add(new BalanceHistoryItem(
+                        finalAccountId,
+                        entry.getValueDate(),
+                        currentBal,
+                        availableBalance,
+                        activeHolds,
+                        entry.getCurrency() != null ? entry.getCurrency() : currency,
+                        entry.getReferenceNumber(),
+                        entry.getCreatedAt()
+                ));
+
+                BigDecimal entryAmount = entry.getAmount() != null ? entry.getAmount().abs() : BigDecimal.ZERO;
+
+                if (isAsset) {
+                    if (entry.getEntryType() == EntryType.DEBIT) {
+                        currentBal = currentBal.subtract(entryAmount);
+                    } else {
+                        currentBal = currentBal.add(entryAmount);
+                    }
+                } else {
+                    if (entry.getEntryType() == EntryType.CREDIT) {
+                        currentBal = currentBal.subtract(entryAmount);
+                    } else {
+                        currentBal = currentBal.add(entryAmount);
+                    }
+                }
             }
-            BigDecimal currentLedgerBal = (account.getAccountType() == AccountType.ASSET || account.getAccountType() == AccountType.EXPENSE)
-                    ? runningDebit.subtract(runningCredit)
-                    : runningCredit.subtract(runningDebit);
-
-            BigDecimal activeHolds = holdRepository.sumActiveHoldsByLedgerAccountId(account.getId());
-            BigDecimal currentAvailable = currentLedgerBal.subtract(activeHolds);
-
-            items.add(new BalanceHistoryItem(
-                    account.getAccountReference() != null ? account.getAccountReference() : account.getLedgerAccountId(),
-                    entry.getValueDate(),
-                    currentLedgerBal,
-                    currentAvailable,
-                    activeHolds,
-                    entry.getCurrency(),
-                    entry.getReferenceNumber(),
-                    entry.getCreatedAt()
-            ));
         }
 
         String nextCursor = entriesPage.hasNext() ? String.valueOf(page + 1) : null;
         return CursorPagedResponse.of(items, nextCursor, entriesPage.hasNext(), limit);
     }
 
-    @Transactional(readOnly = true)
-    public List<BalanceResponse> getMyAccountBalances(String customerSubject) {
-        if (customerSubject == null || customerSubject.isBlank()) {
-            throw LedgerException.unauthorized("Authentication subject required");
-        }
-
-        UUID customerId = null;
-        try {
-            customerId = UUID.fromString(customerSubject);
-        } catch (IllegalArgumentException ignored) {}
-
-        List<LedgerAccount> accounts;
-        if (customerId != null) {
-            accounts = accountRepository.findByCustomerId(customerId);
-        } else {
-            accounts = Collections.emptyList();
-        }
-
-        List<BalanceResponse> responses = new ArrayList<>();
-        for (LedgerAccount account : accounts) {
-            LedgerBalanceSnapshot snapshot = snapshotRepository.findByLedgerAccount(account)
-                    .orElseGet(() -> computeAndSaveSnapshot(account));
-            BigDecimal activeHolds = holdRepository.sumActiveHoldsByLedgerAccountId(account.getId());
-            BigDecimal ledgerBalance = snapshot.getLedgerBalance();
-            BigDecimal available = ledgerBalance.subtract(activeHolds);
-
-            responses.add(new BalanceResponse(
-                    account.getAccountReference() != null ? account.getAccountReference() : account.getLedgerAccountId(),
-                    ledgerBalance,
-                    available,
-                    activeHolds,
-                    account.getCurrency(),
-                    snapshot.getUpdatedAt() != null ? snapshot.getUpdatedAt() : Instant.now()
-            ));
-        }
-        return responses;
-    }
-
     @Transactional
-    public BalanceResponse rebuildAccountBalanceProjection(String ledgerAccountId, String initiatedBy) {
-        LedgerAccount account = findAccountOrThrow(ledgerAccountId);
-
-        log.info("Initiating authoritative balance projection rebuild for account {} by {}", account.getLedgerAccountId(), initiatedBy);
-
-        // Lock snapshot
-        LedgerBalanceSnapshot snapshot = snapshotRepository.findWithLockByLedgerAccountId(account.getId())
-                .orElseGet(() -> new LedgerBalanceSnapshot(
-                        UUID.randomUUID(), account, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, account.getCurrency()));
-
-        // Authoritative recalculation from immutable entries
-        BigDecimal totalDebits = entryRepository.sumDebitsByAccountId(account.getId());
-        BigDecimal totalCredits = entryRepository.sumCreditsByAccountId(account.getId());
-
-        BigDecimal calculatedBalance;
-        if (account.getAccountType() == AccountType.ASSET || account.getAccountType() == AccountType.EXPENSE) {
-            calculatedBalance = totalDebits.subtract(totalCredits);
-        } else {
-            calculatedBalance = totalCredits.subtract(totalDebits);
+    public BalanceResponse rebuildAccountBalanceProjection(String accountId, String initiatedBy) {
+        if (accountId == null || accountId.isBlank()) {
+            throw LedgerException.badRequest("INVALID_ACCOUNT_ID", "Account ID must not be blank");
         }
+        final String finalAccountId = accountId.trim();
+
+        log.info("Initiating authoritative balance projection rebuild for account {} by {}", finalAccountId, initiatedBy);
+
+        String currency = "INR";
+        BigDecimal activeHolds = BigDecimal.ZERO;
+        if (!isSystemAccount(finalAccountId)) {
+            AccountDetailsDto account = accountServiceClient.getAccount(finalAccountId);
+            if (account != null && account.currency() != null) {
+                currency = account.currency();
+            }
+            BigDecimal holdAmount = accountServiceClient.getActiveHoldAmount(finalAccountId);
+            if (holdAmount != null) {
+                activeHolds = holdAmount;
+            }
+        }
+
+        final String finalCurrency = currency;
+        LedgerBalanceSnapshot snapshot = snapshotRepository.findWithLockByAccountId(finalAccountId)
+                .orElseGet(() -> new LedgerBalanceSnapshot(
+                        UUID.randomUUID(), finalAccountId, BigDecimal.ZERO, BigDecimal.ZERO, BigDecimal.ZERO, finalCurrency));
+
+        BigDecimal totalDebits = entryRepository.sumDebitsByAccountId(finalAccountId);
+        BigDecimal totalCredits = entryRepository.sumCreditsByAccountId(finalAccountId);
+        if (totalDebits == null) totalDebits = BigDecimal.ZERO;
+        if (totalCredits == null) totalCredits = BigDecimal.ZERO;
+
+        BigDecimal calculatedBalance = isSystemAssetAccount(finalAccountId)
+                ? totalDebits.subtract(totalCredits)
+                : totalCredits.subtract(totalDebits);
 
         snapshot.setDebitTotal(totalDebits);
         snapshot.setCreditTotal(totalCredits);
         snapshot.setLedgerBalance(calculatedBalance);
+        if (snapshot.getCurrency() == null) {
+            snapshot.setCurrency(finalCurrency);
+        }
+
+        List<LedgerEntry> latestEntries = entryRepository.findLatestByAccountId(finalAccountId, PageRequest.of(0, 1));
+        if (!latestEntries.isEmpty()) {
+            LedgerEntry latest = latestEntries.get(0);
+            snapshot.setLastEntryId(latest.getId());
+            snapshot.setLastPostedAt(latest.getCreatedAt());
+        } else {
+            snapshot.setLastEntryId(null);
+            snapshot.setLastPostedAt(null);
+        }
+
         snapshot.setUpdatedAt(Instant.now());
-        snapshotRepository.save(snapshot);
+        snapshot = snapshotRepository.save(snapshot);
 
-        BigDecimal activeHolds = holdRepository.sumActiveHoldsByLedgerAccountId(account.getId());
-        BigDecimal available = (account.getAccountType() == AccountType.LIABILITY)
-                ? calculatedBalance.subtract(activeHolds)
-                : calculatedBalance;
+        BigDecimal availableBalance = calculatedBalance.subtract(activeHolds);
 
-        log.info("Balance projection rebuilt successfully for {}: ledgerBalance={}, debits={}, credits={}",
-                account.getLedgerAccountId(), calculatedBalance, totalDebits, totalCredits);
+        log.info("Balance projection rebuilt successfully for {}: ledgerBalance={}, availableBalance={}, activeHolds={}, debits={}, credits={}",
+                finalAccountId, calculatedBalance, availableBalance, activeHolds, totalDebits, totalCredits);
 
         return new BalanceResponse(
-                account.getAccountReference() != null ? account.getAccountReference() : account.getLedgerAccountId(),
+                finalAccountId,
                 calculatedBalance,
-                available,
+                availableBalance,
                 activeHolds,
-                account.getCurrency(),
+                snapshot.getCurrency() != null ? snapshot.getCurrency() : finalCurrency,
                 snapshot.getUpdatedAt()
         );
     }
 
-    private LedgerAccount findAccountOrThrow(String identifier) {
-        return accountRepository.findByAccountReference(identifier)
-                .or(() -> accountRepository.findByLedgerAccountId(identifier))
-                .orElseThrow(() -> LedgerException.ledgerAccountNotFound("No ledger account found for: " + identifier));
-    }
-
-    private void verifyOwnership(LedgerAccount account, String accountId, String customerSubject) {
-        if (account.getCustomerId() != null && customerSubject != null) {
-            if (!customerSubject.equalsIgnoreCase(account.getCustomerId().toString())) {
-                log.warn("Ownership mismatch: account customerId={}, authSubject={}", account.getCustomerId(), customerSubject);
-                throw LedgerException.forbidden("Access denied: You do not own account " + accountId);
-            }
-        } else {
-            boolean isOwner = accountServiceClient.verifyAccountOwnership(accountId, customerSubject);
-            if (!isOwner) {
-                log.warn("AccountServiceClient reported ownership mismatch for account {} and subject {}", accountId, customerSubject);
-                throw LedgerException.forbidden("Access denied: You do not own account " + accountId);
-            }
+    public LedgerBalanceSnapshot computeTransientSnapshot(String accountId, String currency) {
+        if (accountId == null || accountId.isBlank()) {
+            throw LedgerException.badRequest("INVALID_ACCOUNT_ID", "Account ID must not be blank");
         }
+        final String finalAccountId = accountId.trim();
+
+        BigDecimal totalDebits = entryRepository.sumDebitsByAccountId(finalAccountId);
+        BigDecimal totalCredits = entryRepository.sumCreditsByAccountId(finalAccountId);
+        if (totalDebits == null) totalDebits = BigDecimal.ZERO;
+        if (totalCredits == null) totalCredits = BigDecimal.ZERO;
+
+        BigDecimal balance = isSystemAssetAccount(finalAccountId)
+                ? totalDebits.subtract(totalCredits)
+                : totalCredits.subtract(totalDebits);
+
+        LedgerBalanceSnapshot snapshot = new LedgerBalanceSnapshot(
+                UUID.randomUUID(),
+                finalAccountId,
+                totalDebits,
+                totalCredits,
+                balance,
+                currency != null ? currency : "INR"
+        );
+
+        List<LedgerEntry> latestEntries = entryRepository.findLatestByAccountId(finalAccountId, PageRequest.of(0, 1));
+        if (!latestEntries.isEmpty()) {
+            LedgerEntry latest = latestEntries.get(0);
+            snapshot.setLastEntryId(latest.getId());
+            snapshot.setLastPostedAt(latest.getCreatedAt());
+        }
+
+        return snapshot;
     }
 
     @Transactional
-    public LedgerBalanceSnapshot computeAndSaveSnapshot(LedgerAccount account) {
-        BigDecimal totalDebits = entryRepository.sumDebitsByAccountId(account.getId());
-        BigDecimal totalCredits = entryRepository.sumCreditsByAccountId(account.getId());
-
-        BigDecimal balance;
-        if (account.getAccountType() == AccountType.ASSET || account.getAccountType() == AccountType.EXPENSE) {
-            balance = totalDebits.subtract(totalCredits);
-        } else {
-            balance = totalCredits.subtract(totalDebits);
-        }
-
-        LedgerBalanceSnapshot snapshot = new LedgerBalanceSnapshot(
-                UUID.randomUUID(), account, totalDebits, totalCredits, balance, account.getCurrency());
+    public LedgerBalanceSnapshot computeAndSaveSnapshot(String accountId, String currency) {
+        LedgerBalanceSnapshot snapshot = computeTransientSnapshot(accountId, currency);
         return snapshotRepository.save(snapshot);
+    }
+
+    public boolean isSystemAccount(String accountId) {
+        if (accountId == null || accountId.isBlank()) {
+            return false;
+        }
+        String normalized = accountId.trim().toUpperCase();
+        return normalized.startsWith("LA-BANK-") ||
+                normalized.startsWith("LA-INTEREST-") ||
+                normalized.startsWith("LA-FEE-") ||
+                normalized.startsWith("LA-SUSPENSE-") ||
+                normalized.startsWith("SYSTEM-");
+    }
+
+    public boolean isSystemAssetAccount(String accountId) {
+        if (accountId == null || accountId.isBlank()) {
+            return false;
+        }
+        String normalized = accountId.trim().toUpperCase();
+        return normalized.startsWith("LA-BANK-CASH") ||
+                normalized.startsWith("LA-BANK-SETTLEMENT") ||
+                normalized.startsWith("LA-BANK-CLEARING") ||
+                normalized.startsWith("LA-INTEREST-EXPENSE") ||
+                normalized.startsWith("SYSTEM-CASH") ||
+                normalized.startsWith("SYSTEM-SETTLEMENT") ||
+                normalized.startsWith("SYSTEM-CLEARING") ||
+                normalized.startsWith("SYSTEM-INTEREST");
     }
 }

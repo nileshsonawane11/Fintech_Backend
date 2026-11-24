@@ -1,14 +1,19 @@
 package com.fintech.ledger.service;
 
+import com.fintech.ledger.client.AccountDetailsDto;
+import com.fintech.ledger.client.AccountServiceClient;
 import com.fintech.ledger.dto.request.PostingEntryItem;
 import com.fintech.ledger.dto.response.LedgerPostingResponse;
-import com.fintech.ledger.entity.LedgerAccount;
 import com.fintech.ledger.entity.LedgerBalanceSnapshot;
 import com.fintech.ledger.entity.LedgerTransaction;
-import com.fintech.ledger.enums.*;
+import com.fintech.ledger.enums.EntryType;
+import com.fintech.ledger.enums.TransactionStatus;
+import com.fintech.ledger.enums.TransactionType;
 import com.fintech.ledger.event.LedgerEventProducer;
 import com.fintech.ledger.exception.LedgerException;
-import com.fintech.ledger.repository.*;
+import com.fintech.ledger.repository.LedgerBalanceSnapshotRepository;
+import com.fintech.ledger.repository.LedgerEntryRepository;
+import com.fintech.ledger.repository.LedgerTransactionRepository;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
 import org.junit.jupiter.api.Test;
@@ -18,6 +23,7 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -30,9 +36,6 @@ import static org.mockito.Mockito.*;
 class LedgerPostingEngineTest {
 
     @Mock
-    private LedgerAccountRepository accountRepository;
-
-    @Mock
     private LedgerTransactionRepository transactionRepository;
 
     @Mock
@@ -42,7 +45,7 @@ class LedgerPostingEngineTest {
     private LedgerBalanceSnapshotRepository snapshotRepository;
 
     @Mock
-    private AccountHoldRepository holdRepository;
+    private AccountServiceClient accountServiceClient;
 
     @Mock
     private LedgerEventProducer eventProducer;
@@ -50,47 +53,37 @@ class LedgerPostingEngineTest {
     @InjectMocks
     private LedgerPostingEngine postingEngine;
 
-    private LedgerAccount customerAccountA;
-    private LedgerAccount customerAccountB;
     private LedgerBalanceSnapshot snapshotA;
     private LedgerBalanceSnapshot snapshotB;
 
     @BeforeEach
     void setUp() {
-        customerAccountA = new LedgerAccount(
-                UUID.randomUUID(), "LA-ACC-1001", UUID.randomUUID(), "ACC-1001",
-                UUID.randomUUID(), "Customer A", AccountType.LIABILITY,
-                AccountSubtype.CUSTOMER_DEPOSIT, NormalBalance.CREDIT, "INR", AccountStatus.ACTIVE);
-
-        customerAccountB = new LedgerAccount(
-                UUID.randomUUID(), "LA-ACC-2002", UUID.randomUUID(), "ACC-2002",
-                UUID.randomUUID(), "Customer B", AccountType.LIABILITY,
-                AccountSubtype.CUSTOMER_DEPOSIT, NormalBalance.CREDIT, "INR", AccountStatus.ACTIVE);
-
         snapshotA = new LedgerBalanceSnapshot(
-                UUID.randomUUID(), customerAccountA, BigDecimal.ZERO, new BigDecimal("25000.00"), new BigDecimal("25000.00"), "INR");
+                UUID.randomUUID(), "ACC-1001", BigDecimal.ZERO, new BigDecimal("25000.00"), new BigDecimal("25000.00"), "INR");
 
         snapshotB = new LedgerBalanceSnapshot(
-                UUID.randomUUID(), customerAccountB, BigDecimal.ZERO, new BigDecimal("10000.00"), new BigDecimal("10000.00"), "INR");
+                UUID.randomUUID(), "ACC-2002", BigDecimal.ZERO, new BigDecimal("10000.00"), new BigDecimal("10000.00"), "INR");
     }
 
     @Test
     @DisplayName("Scenario 1: Debit ₹15,000 and credit ₹15,000 - Successful posting")
     void post_whenBalanced_shouldSucceed() {
-        when(accountRepository.findByLedgerAccountId("LA-ACC-1001")).thenReturn(Optional.of(customerAccountA));
-        when(accountRepository.findByLedgerAccountId("LA-ACC-2002")).thenReturn(Optional.of(customerAccountB));
+        AccountDetailsDto accA = new AccountDetailsDto(
+                "ACC-1001", "XXXX1001", "CUST-1", "user-sub-1", "SAVINGS", "SAVINGS", "INR", "ACTIVE", Instant.now());
+        AccountDetailsDto accB = new AccountDetailsDto(
+                "ACC-2002", "XXXX2002", "CUST-2", "user-sub-2", "SAVINGS", "SAVINGS", "INR", "ACTIVE", Instant.now());
 
-        when(snapshotRepository.findWithLockByLedgerAccountId(customerAccountA.getId())).thenReturn(Optional.of(snapshotA));
-        when(snapshotRepository.findWithLockByLedgerAccountId(customerAccountB.getId())).thenReturn(Optional.of(snapshotB));
+        when(accountServiceClient.validateAccountEligible("ACC-1001", "INR")).thenReturn(accA);
+        when(accountServiceClient.validateAccountEligible("ACC-2002", "INR")).thenReturn(accB);
 
-        when(holdRepository.sumActiveHoldsByLedgerAccountId(customerAccountA.getId())).thenReturn(BigDecimal.ZERO);
-        when(holdRepository.sumActiveHoldsByLedgerAccountId(customerAccountB.getId())).thenReturn(BigDecimal.ZERO);
+        when(snapshotRepository.findWithLockByAccountId("ACC-1001")).thenReturn(Optional.of(snapshotA));
+        when(snapshotRepository.findWithLockByAccountId("ACC-2002")).thenReturn(Optional.of(snapshotB));
 
         when(transactionRepository.save(any(LedgerTransaction.class))).thenAnswer(invocation -> invocation.getArgument(0));
 
         List<PostingEntryItem> entries = List.of(
-                new PostingEntryItem("LA-ACC-1001", EntryType.DEBIT, new BigDecimal("15000.00"), "Transfer", "REF-001"),
-                new PostingEntryItem("LA-ACC-2002", EntryType.CREDIT, new BigDecimal("15000.00"), "Transfer", "REF-001")
+                new PostingEntryItem("ACC-1001", EntryType.DEBIT, new BigDecimal("15000.00"), "Transfer", "REF-001"),
+                new PostingEntryItem("ACC-2002", EntryType.CREDIT, new BigDecimal("15000.00"), "Transfer", "REF-001")
         );
 
         LedgerPostingResponse response = postingEngine.post(
@@ -114,8 +107,8 @@ class LedgerPostingEngineTest {
     @DisplayName("Scenario 2: Debit ₹15,000 and credit ₹14,000 - UNBALANCED_POSTING exception")
     void post_whenUnbalanced_shouldThrowUnbalancedPosting() {
         List<PostingEntryItem> entries = List.of(
-                new PostingEntryItem("LA-ACC-1001", EntryType.DEBIT, new BigDecimal("15000.00"), "Transfer", "REF-001"),
-                new PostingEntryItem("LA-ACC-2002", EntryType.CREDIT, new BigDecimal("14000.00"), "Transfer", "REF-001")
+                new PostingEntryItem("ACC-1001", EntryType.DEBIT, new BigDecimal("15000.00"), "Transfer", "REF-001"),
+                new PostingEntryItem("ACC-2002", EntryType.CREDIT, new BigDecimal("14000.00"), "Transfer", "REF-001")
         );
 
         LedgerException ex = assertThrows(LedgerException.class, () ->
@@ -128,38 +121,45 @@ class LedgerPostingEngineTest {
     }
 
     @Test
-    @DisplayName("Scenario 3: Destination account does not exist - Complete rollback")
+    @DisplayName("Scenario 3: Destination account does not exist or is ineligible - Complete rollback")
     void post_whenDestinationAccountNotFound_shouldThrowNotFound() {
-        when(accountRepository.findByLedgerAccountId("LA-ACC-1001")).thenReturn(Optional.of(customerAccountA));
-        when(accountRepository.findByLedgerAccountId("LA-ACC-9999")).thenReturn(Optional.empty());
+        AccountDetailsDto accA = new AccountDetailsDto(
+                "ACC-1001", "XXXX1001", "CUST-1", "user-sub-1", "SAVINGS", "SAVINGS", "INR", "ACTIVE", Instant.now());
+        when(accountServiceClient.validateAccountEligible("ACC-1001", "INR")).thenReturn(accA);
+        when(accountServiceClient.validateAccountEligible("ACC-9999", "INR"))
+                .thenThrow(LedgerException.accountNotFound("ACC-9999"));
 
         List<PostingEntryItem> entries = List.of(
-                new PostingEntryItem("LA-ACC-1001", EntryType.DEBIT, new BigDecimal("15000.00"), "Transfer", "REF-001"),
-                new PostingEntryItem("LA-ACC-9999", EntryType.CREDIT, new BigDecimal("15000.00"), "Transfer", "REF-001")
+                new PostingEntryItem("ACC-1001", EntryType.DEBIT, new BigDecimal("15000.00"), "Transfer", "REF-001"),
+                new PostingEntryItem("ACC-9999", EntryType.CREDIT, new BigDecimal("15000.00"), "Transfer", "REF-001")
         );
 
         LedgerException ex = assertThrows(LedgerException.class, () ->
                 postingEngine.post(TransactionType.TRANSFER, "INR", "corr-1", "Transfer",
                         "REF-001", "idemp-3", "cust-1", "LEDGER-SERVICE", entries));
 
-        assertEquals("LEDGER_ACCOUNT_NOT_FOUND", ex.getErrorCode());
+        assertEquals("ACCOUNT_NOT_FOUND", ex.getErrorCode());
         verify(entryRepository, never()).save(any());
     }
 
     @Test
-    @DisplayName("Scenario 4: Insufficient available balance due to active holds")
+    @DisplayName("Scenario 4: Insufficient available balance for debit")
     void post_whenInsufficientAvailableBalance_shouldThrowInsufficientBalance() {
-        when(accountRepository.findByLedgerAccountId("LA-ACC-1001")).thenReturn(Optional.of(customerAccountA));
-        when(accountRepository.findByLedgerAccountId("LA-ACC-2002")).thenReturn(Optional.of(customerAccountB));
+        AccountDetailsDto accA = new AccountDetailsDto(
+                "ACC-1001", "XXXX1001", "CUST-1", "user-sub-1", "SAVINGS", "SAVINGS", "INR", "ACTIVE", Instant.now());
+        AccountDetailsDto accB = new AccountDetailsDto(
+                "ACC-2002", "XXXX2002", "CUST-2", "user-sub-2", "SAVINGS", "SAVINGS", "INR", "ACTIVE", Instant.now());
 
-        // Ledger balance 25,000, active holds 15,000 -> Available: 10,000
-        when(snapshotRepository.findWithLockByLedgerAccountId(customerAccountA.getId())).thenReturn(Optional.of(snapshotA));
-        when(snapshotRepository.findWithLockByLedgerAccountId(customerAccountB.getId())).thenReturn(Optional.of(snapshotB));
-        when(holdRepository.sumActiveHoldsByLedgerAccountId(customerAccountA.getId())).thenReturn(new BigDecimal("15000.00"));
+        when(accountServiceClient.validateAccountEligible("ACC-1001", "INR")).thenReturn(accA);
+        when(accountServiceClient.validateAccountEligible("ACC-2002", "INR")).thenReturn(accB);
+
+        // Ledger balance 25,000 -> Requested debit is 30,000 -> Insufficient
+        when(snapshotRepository.findWithLockByAccountId("ACC-1001")).thenReturn(Optional.of(snapshotA));
+        when(snapshotRepository.findWithLockByAccountId("ACC-2002")).thenReturn(Optional.of(snapshotB));
 
         List<PostingEntryItem> entries = List.of(
-                new PostingEntryItem("LA-ACC-1001", EntryType.DEBIT, new BigDecimal("12000.00"), "Transfer", "REF-001"),
-                new PostingEntryItem("LA-ACC-2002", EntryType.CREDIT, new BigDecimal("12000.00"), "Transfer", "REF-001")
+                new PostingEntryItem("ACC-1001", EntryType.DEBIT, new BigDecimal("30000.00"), "Transfer", "REF-001"),
+                new PostingEntryItem("ACC-2002", EntryType.CREDIT, new BigDecimal("30000.00"), "Transfer", "REF-001")
         );
 
         LedgerException ex = assertThrows(LedgerException.class, () ->

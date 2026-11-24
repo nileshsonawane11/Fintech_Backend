@@ -1,6 +1,7 @@
 package com.fintech.ledger.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
+import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
 import com.fintech.ledger.dto.response.TransferResponse;
 import com.fintech.ledger.entity.IdempotencyRecord;
 import com.fintech.ledger.enums.ProcessingStatus;
@@ -34,7 +35,7 @@ class IdempotencyServiceTest {
     private IdempotencyRecordRepository idempotencyRepository;
 
     @Spy
-    private ObjectMapper objectMapper = new ObjectMapper();
+    private ObjectMapper objectMapper = new ObjectMapper().registerModule(new JavaTimeModule());
 
     @InjectMocks
     private IdempotencyService idempotencyService;

@@ -19,7 +19,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/transfers")
-@Tag(name = "Transfers", description = "Customer fund transfers between bank accounts with double-entry ledger execution")
+@Tag(name = "Transfers", description = "Customer account-to-account funds transfers and settlement")
 @SecurityRequirement(name = "BearerAuth")
 public class TransferController {
 
@@ -30,7 +30,7 @@ public class TransferController {
     }
 
     @PostMapping
-    @Operation(summary = "Initiate Fund Transfer", description = "Initiate an atomic fund transfer between two bank accounts with idempotency and balance validation")
+    @Operation(summary = "Initiate Transfer", description = "Initiate fund transfer between accounts with atomic double-entry ledger posting")
     @PreAuthorize("hasAuthority('ACCOUNT_TRANSFER_CREATE_OWN') or hasRole('CUSTOMER') or hasRole('OPERATIONS') or hasRole('ADMIN')")
     public ResponseEntity<TransferResponse> initiateTransfer(
             @Parameter(description = "Idempotency Key UUID", required = false)
@@ -40,47 +40,47 @@ public class TransferController {
             @Valid @RequestBody TransferRequest request,
             @AuthenticationPrincipal Jwt jwt) {
 
-        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedSubject();
+        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedIdentitySubject();
         TransferResponse response = transferService.initiateTransfer(request, customerSubject, idempotencyKey, correlationId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/{transactionId}")
-    @Operation(summary = "Get Transfer Details", description = "Retrieve transfer information and source/destination account references")
+    @Operation(summary = "Get Transfer Details", description = "Retrieve transfer execution and posting details")
     @PreAuthorize("hasAuthority('ACCOUNT_TRANSACTION_READ_OWN') or hasRole('CUSTOMER') or hasRole('OPERATIONS') or hasRole('ADMIN')")
     public ResponseEntity<TransferResponse> getTransferDetails(
             @Parameter(description = "Transaction ID") @PathVariable String transactionId,
             @AuthenticationPrincipal Jwt jwt) {
 
-        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedSubject();
+        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedIdentitySubject();
         boolean isOps = SecurityUtils.isOperationsOrAdmin();
         TransferResponse response = transferService.getTransferDetails(transactionId, customerSubject, isOps);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping
-    @Operation(summary = "List Transfers", description = "List fund transfers initiated by or involving the customer")
+    @Operation(summary = "List Transfers", description = "List customer transfer history")
     @PreAuthorize("hasAuthority('ACCOUNT_TRANSACTION_READ_OWN') or hasRole('CUSTOMER') or hasRole('OPERATIONS') or hasRole('ADMIN')")
     public ResponseEntity<CursorPagedResponse<TransferResponse>> listTransfers(
             @Parameter(description = "Pagination limit") @RequestParam(defaultValue = "20") int limit,
             @Parameter(description = "Cursor for pagination") @RequestParam(required = false) String cursor,
             @AuthenticationPrincipal Jwt jwt) {
 
-        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedSubject();
+        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedIdentitySubject();
         boolean isOps = SecurityUtils.isOperationsOrAdmin();
         CursorPagedResponse<TransferResponse> response = transferService.listTransfers(customerSubject, isOps, limit, cursor);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/{transactionId}/cancel")
-    @Operation(summary = "Cancel Pending Transfer", description = "Cancel a transfer that has not yet been financially posted to the ledger")
+    @Operation(summary = "Cancel Pending Transfer", description = "Cancel an initiated or pending transfer before commitment")
     @PreAuthorize("hasAuthority('ACCOUNT_TRANSFER_CREATE_OWN') or hasRole('CUSTOMER') or hasRole('OPERATIONS') or hasRole('ADMIN')")
-    public ResponseEntity<Void> cancelPendingTransfer(
+    public ResponseEntity<Void> cancelTransfer(
             @Parameter(description = "Transaction ID") @PathVariable String transactionId,
             @AuthenticationPrincipal Jwt jwt) {
 
-        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedSubject();
+        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedIdentitySubject();
         transferService.cancelPendingTransfer(transactionId, customerSubject);
-        return ResponseEntity.ok().build();
+        return ResponseEntity.noContent().build();
     }
 }

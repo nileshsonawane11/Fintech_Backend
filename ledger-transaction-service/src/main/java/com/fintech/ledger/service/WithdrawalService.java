@@ -1,5 +1,6 @@
 package com.fintech.ledger.service;
 
+import com.fintech.ledger.client.AccountDetailsDto;
 import com.fintech.ledger.client.AccountServiceClient;
 import com.fintech.ledger.dto.request.ApproveWithdrawalRequest;
 import com.fintech.ledger.dto.request.PostingEntryItem;
@@ -7,15 +8,12 @@ import com.fintech.ledger.dto.request.RejectActionRequest;
 import com.fintech.ledger.dto.request.WithdrawalRequest;
 import com.fintech.ledger.dto.response.LedgerPostingResponse;
 import com.fintech.ledger.dto.response.WithdrawalResponse;
-import com.fintech.ledger.entity.LedgerAccount;
 import com.fintech.ledger.entity.LedgerTransaction;
-import com.fintech.ledger.enums.AccountStatus;
 import com.fintech.ledger.enums.EntryType;
 import com.fintech.ledger.enums.TransactionStatus;
 import com.fintech.ledger.enums.TransactionType;
 import com.fintech.ledger.enums.WithdrawalMethod;
 import com.fintech.ledger.exception.LedgerException;
-import com.fintech.ledger.repository.LedgerAccountRepository;
 import com.fintech.ledger.repository.LedgerTransactionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -23,6 +21,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.time.Instant;
 import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
@@ -34,26 +33,23 @@ public class WithdrawalService {
 
     private final LedgerPostingEngine postingEngine;
     private final IdempotencyService idempotencyService;
-    private final LedgerAccountRepository accountRepository;
     private final LedgerTransactionRepository transactionRepository;
     private final AccountServiceClient accountServiceClient;
 
     public WithdrawalService(LedgerPostingEngine postingEngine,
                              IdempotencyService idempotencyService,
-                             LedgerAccountRepository accountRepository,
                              LedgerTransactionRepository transactionRepository,
                              AccountServiceClient accountServiceClient) {
         this.postingEngine = postingEngine;
         this.idempotencyService = idempotencyService;
-        this.accountRepository = accountRepository;
         this.transactionRepository = transactionRepository;
         this.accountServiceClient = accountServiceClient;
     }
 
     @Transactional
     public WithdrawalResponse initiateWithdrawal(WithdrawalRequest request, String customerSubject, String idempotencyKey, String correlationId) {
-        log.info("Initiating withdrawal: account={}, amount={} {}, method={}",
-                request.accountId(), request.amount(), request.currency(), request.withdrawalMethod());
+        log.info("Initiating withdrawal: account={}, amount={} {}, method={}, customerSubject={}",
+                request.accountId(), request.amount(), request.currency(), request.withdrawalMethod(), customerSubject);
 
         // 1. Idempotency check
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
@@ -69,26 +65,15 @@ public class WithdrawalService {
             throw LedgerException.badRequest("INVALID_TRANSACTION_AMOUNT", "Withdrawal amount must be strictly positive");
         }
 
-        // 3. Resolve customer account & verify ownership
-        LedgerAccount customerAccount = accountRepository.findByAccountReference(request.accountId())
-                .or(() -> accountRepository.findByLedgerAccountId(request.accountId()))
-                .orElseThrow(() -> LedgerException.accountNotFound("Customer ledger account not found: " + request.accountId()));
+        // 3. Resolve customer account & verify ownership through Account Service
+        AccountDetailsDto account = accountServiceClient.validateAccountEligible(request.accountId(), request.currency());
 
-        if (customerAccount.getStatus() != AccountStatus.ACTIVE) {
-            throw LedgerException.inactiveAccount("Customer ledger account is not active");
-        }
-
-        if (customerSubject != null) {
-            boolean owns = customerAccount.getCustomerId() != null
-                    ? customerSubject.equalsIgnoreCase(customerAccount.getCustomerId().toString())
-                    : accountServiceClient.verifyAccountOwnership(customerAccount.getAccountReference(), customerSubject);
-            if (!owns) {
-                throw LedgerException.forbidden("Access denied: You do not own account " + request.accountId());
-            }
+        if (customerSubject != null && !customerSubject.isBlank()) {
+            accountServiceClient.validateCustomerOwnership(request.accountId(), customerSubject);
         }
 
         // 4. Double-entry posting:
-        // Debit: Customer Account (reduces liability)
+        // Debit: Customer Account (reduces Customer liability)
         // Credit: Bank Cash / Settlement
         String targetBankAccountId = (request.withdrawalMethod() == WithdrawalMethod.ATM || request.withdrawalMethod() == WithdrawalMethod.CASH)
                 ? "LA-BANK-CASH-" + request.currency()
@@ -101,7 +86,7 @@ public class WithdrawalService {
         String referenceNumber = "WDL-" + System.currentTimeMillis();
 
         List<PostingEntryItem> entries = List.of(
-                new PostingEntryItem(customerAccount.getLedgerAccountId(), EntryType.DEBIT, request.amount(), narrative, referenceNumber),
+                new PostingEntryItem(request.accountId(), EntryType.DEBIT, request.amount(), narrative, referenceNumber),
                 new PostingEntryItem(targetBankAccountId, EntryType.CREDIT, request.amount(), narrative, referenceNumber)
         );
 
@@ -144,6 +129,10 @@ public class WithdrawalService {
         LedgerTransaction tx = transactionRepository.findByTransactionId(transactionId)
                 .orElseThrow(() -> LedgerException.transactionNotFound("Withdrawal transaction not found: " + transactionId));
 
+        if(!tx.getTransactionType().equals(TransactionType.WITHDRAWAL)){
+            throw LedgerException.transactionNotFound("Withdrawal transaction not found: " + transactionId);
+        }
+
         return new WithdrawalResponse(
                 tx.getTransactionId(),
                 tx.getNarrative(),
@@ -164,7 +153,7 @@ public class WithdrawalService {
 
         log.info("Operations user {} approved withdrawal {}", opsUser, transactionId);
         tx.setTransactionStatus(TransactionStatus.SUCCESS);
-        tx.setPostedAt(java.time.Instant.now());
+        tx.setPostedAt(Instant.now());
         transactionRepository.save(tx);
 
         return new WithdrawalResponse(

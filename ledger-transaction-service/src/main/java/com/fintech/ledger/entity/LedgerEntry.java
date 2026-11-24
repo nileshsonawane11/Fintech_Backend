@@ -23,9 +23,8 @@ public class LedgerEntry {
     @JoinColumn(name = "transaction_id", nullable = false, updatable = false)
     private LedgerTransaction transaction;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "ledger_account_id", nullable = false, updatable = false)
-    private LedgerAccount ledgerAccount;
+    @Column(name = "account_id", nullable = false, length = 100, updatable = false)
+    private String accountId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "entry_type", nullable = false, length = 10, updatable = false)
@@ -53,12 +52,12 @@ public class LedgerEntry {
     }
 
     public LedgerEntry(UUID id, String entryId, LedgerTransaction transaction,
-                       LedgerAccount ledgerAccount, EntryType entryType, BigDecimal amount,
+                       String accountId, EntryType entryType, BigDecimal amount,
                        String currency, LocalDate valueDate, String narrative, String referenceNumber) {
         this.id = id != null ? id : UUID.randomUUID();
         this.entryId = entryId;
         this.transaction = transaction;
-        this.ledgerAccount = ledgerAccount;
+        this.accountId = accountId;
         this.entryType = entryType;
         this.amount = amount;
         this.currency = currency;
@@ -105,12 +104,12 @@ public class LedgerEntry {
         this.transaction = transaction;
     }
 
-    public LedgerAccount getLedgerAccount() {
-        return ledgerAccount;
+    public String getAccountId() {
+        return accountId;
     }
 
-    public void setLedgerAccount(LedgerAccount ledgerAccount) {
-        this.ledgerAccount = ledgerAccount;
+    public void setAccountId(String accountId) {
+        this.accountId = accountId;
     }
 
     public EntryType getEntryType() {

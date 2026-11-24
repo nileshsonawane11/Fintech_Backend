@@ -1,21 +1,18 @@
 package com.fintech.ledger.service;
 
+import com.fintech.ledger.client.AccountDetailsDto;
 import com.fintech.ledger.client.AccountServiceClient;
 import com.fintech.ledger.dto.request.PostingEntryItem;
 import com.fintech.ledger.dto.request.TransferRequest;
 import com.fintech.ledger.dto.response.CursorPagedResponse;
 import com.fintech.ledger.dto.response.LedgerPostingResponse;
 import com.fintech.ledger.dto.response.TransferResponse;
-import com.fintech.ledger.entity.LedgerAccount;
 import com.fintech.ledger.entity.LedgerEntry;
 import com.fintech.ledger.entity.LedgerTransaction;
-import com.fintech.ledger.enums.AccountStatus;
 import com.fintech.ledger.enums.EntryType;
-import com.fintech.ledger.enums.TransactionDirection;
 import com.fintech.ledger.enums.TransactionStatus;
 import com.fintech.ledger.enums.TransactionType;
 import com.fintech.ledger.exception.LedgerException;
-import com.fintech.ledger.repository.LedgerAccountRepository;
 import com.fintech.ledger.repository.LedgerEntryRepository;
 import com.fintech.ledger.repository.LedgerTransactionRepository;
 import org.slf4j.Logger;
@@ -26,7 +23,6 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.time.LocalDate;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Optional;
@@ -39,20 +35,17 @@ public class TransferService {
 
     private final LedgerPostingEngine postingEngine;
     private final IdempotencyService idempotencyService;
-    private final LedgerAccountRepository accountRepository;
     private final LedgerTransactionRepository transactionRepository;
     private final LedgerEntryRepository entryRepository;
     private final AccountServiceClient accountServiceClient;
 
     public TransferService(LedgerPostingEngine postingEngine,
                            IdempotencyService idempotencyService,
-                           LedgerAccountRepository accountRepository,
                            LedgerTransactionRepository transactionRepository,
                            LedgerEntryRepository entryRepository,
                            AccountServiceClient accountServiceClient) {
         this.postingEngine = postingEngine;
         this.idempotencyService = idempotencyService;
-        this.accountRepository = accountRepository;
         this.transactionRepository = transactionRepository;
         this.entryRepository = entryRepository;
         this.accountServiceClient = accountServiceClient;
@@ -81,49 +74,26 @@ public class TransferService {
             throw LedgerException.badRequest("INVALID_DESTINATION_ACCOUNT", "Source and destination accounts must be distinct");
         }
 
-        // 3. Resolve source account & verify ownership
-        LedgerAccount sourceAccount = accountRepository.findByAccountReference(request.sourceAccountId())
-                .or(() -> accountRepository.findByLedgerAccountId(request.sourceAccountId()))
-                .orElseThrow(() -> LedgerException.accountNotFound("Source account not found: " + request.sourceAccountId()));
+        // 3. Resolve source account & verify ownership via Account Service
+        AccountDetailsDto sourceAccount = accountServiceClient.validateAccountEligible(request.sourceAccountId(), request.currency());
 
-        if (sourceAccount.getStatus() != AccountStatus.ACTIVE) {
-            throw LedgerException.inactiveAccount("Source account is not active");
+        if (customerSubject != null && !customerSubject.isBlank()) {
+            accountServiceClient.validateCustomerOwnership(request.sourceAccountId(), customerSubject);
         }
 
-        if (customerSubject != null) {
-            boolean owns = sourceAccount.getCustomerId() != null
-                    ? customerSubject.equalsIgnoreCase(sourceAccount.getCustomerId().toString())
-                    : accountServiceClient.verifyAccountOwnership(sourceAccount.getAccountReference(), customerSubject);
-            if (!owns) {
-                throw LedgerException.forbidden("Access denied: You do not own source account " + request.sourceAccountId());
-            }
-        }
+        // 4. Resolve destination account & verify eligibility via Account Service
+        AccountDetailsDto destAccount = accountServiceClient.validateAccountEligible(request.destinationAccountId(), request.currency());
 
-        // 4. Resolve destination account
-        LedgerAccount destAccount = accountRepository.findByAccountReference(request.destinationAccountId())
-                .or(() -> accountRepository.findByLedgerAccountId(request.destinationAccountId()))
-                .orElseThrow(() -> LedgerException.accountNotFound("Destination account not found: " + request.destinationAccountId()));
-
-        if (destAccount.getStatus() != AccountStatus.ACTIVE) {
-            throw LedgerException.inactiveAccount("Destination account is not active");
-        }
-
-        // 5. Currency check
-        if (!sourceAccount.getCurrency().equalsIgnoreCase(request.currency()) ||
-            !destAccount.getCurrency().equalsIgnoreCase(request.currency())) {
-            throw LedgerException.currencyMismatch("Currency mismatch between source, destination and transfer currency");
-        }
-
-        // 6. Build double-entry posting:
+        // 5. Build double-entry posting:
         // Debit: Source Account (reduces Customer liability)
         // Credit: Destination Account (increases Customer liability)
         String narrative = request.remarks() != null && !request.remarks().isBlank()
                 ? request.remarks()
-                : "Transfer to " + (destAccount.getAccountReference() != null ? destAccount.getAccountReference() : destAccount.getLedgerAccountId());
+                : "Transfer to " + request.destinationAccountId();
 
         List<PostingEntryItem> entries = List.of(
-                new PostingEntryItem(sourceAccount.getLedgerAccountId(), EntryType.DEBIT, request.amount(), narrative, request.reference()),
-                new PostingEntryItem(destAccount.getLedgerAccountId(), EntryType.CREDIT, request.amount(), narrative, request.reference())
+                new PostingEntryItem(request.sourceAccountId(), EntryType.DEBIT, request.amount(), narrative, request.reference()),
+                new PostingEntryItem(request.destinationAccountId(), EntryType.CREDIT, request.amount(), narrative, request.reference())
         );
 
         LedgerPostingResponse postingResponse = postingEngine.post(
@@ -167,8 +137,8 @@ public class TransferService {
         LedgerEntry source = entries.stream().filter(e -> e.getEntryType() == EntryType.DEBIT).findFirst().orElse(null);
         LedgerEntry dest = entries.stream().filter(e -> e.getEntryType() == EntryType.CREDIT).findFirst().orElse(null);
 
-        String srcRef = source != null ? getRef(source.getLedgerAccount()) : "UNKNOWN";
-        String dstRef = dest != null ? getRef(dest.getLedgerAccount()) : "UNKNOWN";
+        String srcRef = source != null ? source.getAccountId() : "UNKNOWN";
+        String dstRef = dest != null ? dest.getAccountId() : "UNKNOWN";
 
         return new TransferResponse(
                 tx.getTransactionId(),
@@ -205,8 +175,8 @@ public class TransferService {
                     tx.getTransactionType(),
                     tx.getTotalDebit(),
                     tx.getCurrency(),
-                    src != null ? getRef(src.getLedgerAccount()) : "UNKNOWN",
-                    dst != null ? getRef(dst.getLedgerAccount()) : "UNKNOWN",
+                    src != null ? src.getAccountId() : "UNKNOWN",
+                    dst != null ? dst.getAccountId() : "UNKNOWN",
                     tx.getReferenceNumber(),
                     tx.getCreatedAt()
             ));
@@ -234,9 +204,5 @@ public class TransferService {
         tx.setTransactionStatus(TransactionStatus.CANCELLED);
         transactionRepository.save(tx);
         log.info("Pending transfer {} cancelled", transactionId);
-    }
-
-    private String getRef(LedgerAccount acc) {
-        return acc.getAccountReference() != null ? acc.getAccountReference() : acc.getLedgerAccountId();
     }
 }

@@ -1,12 +1,24 @@
 package com.fintech.ledger.client;
 
+import java.math.BigDecimal;
+import java.util.List;
 import java.util.Optional;
 
 public interface AccountServiceClient {
 
-    Optional<AccountDetailsDto> getAccountDetails(String accountId);
+    AccountDetailsDto getAccount(String accountId);
 
-    boolean verifyAccountOwnership(String accountId, String customerSubject);
+    Optional<AccountDetailsDto> findAccount(String accountId);
+
+    AccountDetailsDto validateAccountEligible(String accountId, String expectedCurrency);
+
+    void validateCustomerOwnership(String accountId, String identitySubject);
+
+    boolean verifyAccountOwnership(String accountId, String identitySubject);
 
     boolean isAccountEligibleForTransfers(String accountId);
+
+    List<AccountHoldDto> getAccountHolds(String accountId, String status);
+
+    BigDecimal getActiveHoldAmount(String accountId);
 }

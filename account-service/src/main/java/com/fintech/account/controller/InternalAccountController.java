@@ -1,11 +1,16 @@
 package com.fintech.account.controller;
 
+import com.fintech.account.dto.response.AccountHoldResponse;
+import com.fintech.account.dto.response.CursorPagedResponse;
 import com.fintech.account.dto.response.InternalAccountResponse;
 import com.fintech.account.entity.Account;
+import com.fintech.account.enums.HoldStatus;
 import com.fintech.account.exception.AccountException;
 import com.fintech.account.repository.AccountRepository;
 import com.fintech.account.security.SecurityUtils;
+import com.fintech.account.service.AccountHoldService;
 import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
@@ -17,9 +22,11 @@ import org.springframework.web.bind.annotation.*;
 public class InternalAccountController {
 
     private final AccountRepository accountRepository;
+    private final AccountHoldService holdService;
 
-    public InternalAccountController(AccountRepository accountRepository) {
+    public InternalAccountController(AccountRepository accountRepository, AccountHoldService holdService) {
         this.accountRepository = accountRepository;
+        this.holdService = holdService;
     }
 
     @GetMapping("/{accountId}")
@@ -42,6 +49,20 @@ public class InternalAccountController {
                 account.getOpenedAt()
         );
 
+        return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/{accountId}/holds")
+    @Transactional(readOnly = true)
+    @Operation(summary = "Get Account Holds (Internal)",
+            description = "Retrieves active or all holds placed on a specific account for internal service processing")
+    public ResponseEntity<CursorPagedResponse<AccountHoldResponse>> getAccountHolds(
+            @Parameter(description = "Public Account ID") @PathVariable String accountId,
+            @Parameter(description = "Filter by hold status") @RequestParam(required = false) HoldStatus status,
+            @Parameter(description = "Pagination limit") @RequestParam(defaultValue = "100") int limit,
+            @Parameter(description = "Cursor for pagination") @RequestParam(required = false) String cursor) {
+
+        CursorPagedResponse<AccountHoldResponse> response = holdService.listAccountHolds(accountId, status, cursor, limit);
         return ResponseEntity.ok(response);
     }
 }

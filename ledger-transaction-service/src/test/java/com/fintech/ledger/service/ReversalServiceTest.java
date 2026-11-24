@@ -3,10 +3,11 @@ package com.fintech.ledger.service;
 import com.fintech.ledger.dto.request.ReverseTransactionRequest;
 import com.fintech.ledger.dto.response.LedgerPostingResponse;
 import com.fintech.ledger.dto.response.ReversalResponse;
-import com.fintech.ledger.entity.LedgerAccount;
 import com.fintech.ledger.entity.LedgerEntry;
 import com.fintech.ledger.entity.LedgerTransaction;
-import com.fintech.ledger.enums.*;
+import com.fintech.ledger.enums.EntryType;
+import com.fintech.ledger.enums.TransactionStatus;
+import com.fintech.ledger.enums.TransactionType;
 import com.fintech.ledger.event.LedgerEventProducer;
 import com.fintech.ledger.exception.LedgerException;
 import com.fintech.ledger.repository.LedgerEntryRepository;
@@ -54,8 +55,6 @@ class ReversalServiceTest {
 
     private LedgerTransaction originalTx;
     private LedgerTransaction reversalTx;
-    private LedgerAccount accountA;
-    private LedgerAccount accountB;
     private LedgerEntry debitEntry;
     private LedgerEntry creditEntry;
 
@@ -78,11 +77,8 @@ class ReversalServiceTest {
         reversalTx.setTransactionStatus(TransactionStatus.SUCCESS);
         reversalTx.setCurrency("INR");
 
-        accountA = new LedgerAccount(UUID.randomUUID(), "LA-ACC-1", null, "ACC-1", null, "A", AccountType.LIABILITY, AccountSubtype.CUSTOMER_DEPOSIT, NormalBalance.CREDIT, "INR", AccountStatus.ACTIVE);
-        accountB = new LedgerAccount(UUID.randomUUID(), "LA-ACC-2", null, "ACC-2", null, "B", AccountType.LIABILITY, AccountSubtype.CUSTOMER_DEPOSIT, NormalBalance.CREDIT, "INR", AccountStatus.ACTIVE);
-
-        debitEntry = new LedgerEntry(UUID.randomUUID(), "LE-1", originalTx, accountA, EntryType.DEBIT, new BigDecimal("15000.00"), "INR", LocalDate.now(), "Original", "REF-1");
-        creditEntry = new LedgerEntry(UUID.randomUUID(), "LE-2", originalTx, accountB, EntryType.CREDIT, new BigDecimal("15000.00"), "INR", LocalDate.now(), "Original", "REF-1");
+        debitEntry = new LedgerEntry(UUID.randomUUID(), "LE-1", originalTx, "ACC-1", EntryType.DEBIT, new BigDecimal("15000.00"), "INR", LocalDate.now(), "Original", "REF-1");
+        creditEntry = new LedgerEntry(UUID.randomUUID(), "LE-2", originalTx, "ACC-2", EntryType.CREDIT, new BigDecimal("15000.00"), "INR", LocalDate.now(), "Original", "REF-1");
     }
 
     @Test
@@ -93,7 +89,7 @@ class ReversalServiceTest {
         when(entryRepository.findByTransaction_Id(originalTx.getId())).thenReturn(List.of(debitEntry, creditEntry));
 
         LedgerPostingResponse postingResponse = new LedgerPostingResponse(
-                "TXN-112234", TransactionStatus.SUCCESS, new BigDecimal("15000.00"), "INR", "LE-REV-1", "LE-REV-2", Instant.now());
+                "TXN-112234", TransactionStatus.SUCCESS, new BigDecimal("15000.00"), "INR", "LE-REV-1", "LE-REV-2", List.of("LE-REV-1", "LE-REV-2"), Instant.now());
 
         when(postingEngine.post(eq(TransactionType.REVERSAL), eq("INR"), any(), any(), any(), any(), eq("ops-user"), any(), anyList()))
                 .thenReturn(postingResponse);

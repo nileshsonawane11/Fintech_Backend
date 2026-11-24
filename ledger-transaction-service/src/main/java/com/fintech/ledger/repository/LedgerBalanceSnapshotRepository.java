@@ -1,6 +1,5 @@
 package com.fintech.ledger.repository;
 
-import com.fintech.ledger.entity.LedgerAccount;
 import com.fintech.ledger.entity.LedgerBalanceSnapshot;
 import jakarta.persistence.LockModeType;
 import org.springframework.data.jpa.repository.JpaRepository;
@@ -15,17 +14,11 @@ import java.util.UUID;
 @Repository
 public interface LedgerBalanceSnapshotRepository extends JpaRepository<LedgerBalanceSnapshot, UUID> {
 
-    Optional<LedgerBalanceSnapshot> findByLedgerAccount(LedgerAccount ledgerAccount);
-
-    Optional<LedgerBalanceSnapshot> findByLedgerAccount_Id(UUID ledgerAccountId);
-
-    Optional<LedgerBalanceSnapshot> findByLedgerAccount_LedgerAccountId(String ledgerAccountId);
+    Optional<LedgerBalanceSnapshot> findByAccountId(String accountId);
 
     @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT s FROM LedgerBalanceSnapshot s WHERE s.ledgerAccount.id = :ledgerAccountId")
-    Optional<LedgerBalanceSnapshot> findWithLockByLedgerAccountId(@Param("ledgerAccountId") UUID ledgerAccountId);
+    @Query("SELECT s FROM LedgerBalanceSnapshot s WHERE s.accountId = :accountId")
+    Optional<LedgerBalanceSnapshot> findWithLockByAccountId(@Param("accountId") String accountId);
 
-    @Lock(LockModeType.PESSIMISTIC_WRITE)
-    @Query("SELECT s FROM LedgerBalanceSnapshot s WHERE s.ledgerAccount.ledgerAccountId = :publicLedgerAccountId")
-    Optional<LedgerBalanceSnapshot> findWithLockByPublicLedgerAccountId(@Param("publicLedgerAccountId") String publicLedgerAccountId);
+    void deleteByAccountId(String accountId);
 }

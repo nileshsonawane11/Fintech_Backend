@@ -50,7 +50,7 @@ public class TransactionController {
             @Parameter(description = "Cursor for pagination") @RequestParam(required = false) String cursor,
             @AuthenticationPrincipal Jwt jwt) {
 
-        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedSubject();
+        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedIdentitySubject();
         boolean isOps = SecurityUtils.isOperationsOrAdmin();
         CursorPagedResponse<TransactionResponse> response = transactionService.getAccountTransactions(
                 accountId, customerSubject, isOps, fromDate, toDate, transactionType, status, direction, minAmount, maxAmount, limit, cursor);
@@ -64,7 +64,7 @@ public class TransactionController {
             @Parameter(description = "Transaction ID (e.g. TXN-554433)") @PathVariable String transactionId,
             @AuthenticationPrincipal Jwt jwt) {
 
-        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedSubject();
+        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedIdentitySubject();
         boolean isOps = SecurityUtils.isOperationsOrAdmin();
         TransactionResponse response = transactionService.getTransactionDetails(transactionId, customerSubject, isOps);
         return ResponseEntity.ok(response);
@@ -77,14 +77,14 @@ public class TransactionController {
             @Parameter(description = "Transaction ID") @PathVariable String transactionId,
             @AuthenticationPrincipal Jwt jwt) {
 
-        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedSubject();
+        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedIdentitySubject();
         boolean isOps = SecurityUtils.isOperationsOrAdmin();
         TransactionReceiptResponse response = transactionService.getTransactionReceipt(transactionId, customerSubject, isOps);
         return ResponseEntity.ok(response);
     }
 
     @GetMapping("/api/v1/transactions")
-    @Operation(summary = "List Customer Transactions", description = "Query all transactions belonging to the authenticated customer across all accounts")
+    @Operation(summary = "List Customer Transactions", description = "Query all transactions belonging to the authenticated customer across an account")
     @PreAuthorize("hasAuthority('ACCOUNT_TRANSACTION_READ_OWN') or hasRole('CUSTOMER')")
     public ResponseEntity<CursorPagedResponse<TransactionResponse>> listCustomerTransactions(
             @Parameter(description = "Filter by specific account ID") @RequestParam(required = false) String accountId,
@@ -96,7 +96,7 @@ public class TransactionController {
             @Parameter(description = "Cursor for pagination") @RequestParam(required = false) String cursor,
             @AuthenticationPrincipal Jwt jwt) {
 
-        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedSubject();
+        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedIdentitySubject();
         CursorPagedResponse<TransactionResponse> response = transactionService.getCustomerTransactions(
                 customerSubject, accountId, fromDate, toDate, transactionType, status, limit, cursor);
         return ResponseEntity.ok(response);
