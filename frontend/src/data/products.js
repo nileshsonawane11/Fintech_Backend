@@ -1,4 +1,7 @@
 import { FACTORY_SITE_CONTENT } from './factoryContent.js';
+import { FINEDGE_RATES_CONFIG } from './ratesConfig.js';
+
+export { FINEDGE_RATES_CONFIG };
 
 export const getBrandSupport = () => {
   try {
@@ -69,19 +72,34 @@ export const RATE_DISCLAIMER =
   'Rates shown are illustrative figures for this demonstration platform and are not an offer of any real financial product.';
 
 // ---------------------------------------------------------------------------
-// Shared deposit slabs — referenced (not copied) by every deposit-style
-// account, so the savings rate exists in exactly one place.
+// Shared deposit slabs — derived directly from FINEDGE_RATES_CONFIG (Single
+// Source of Truth), so the savings rate exists in exactly one place.
 // ---------------------------------------------------------------------------
 
-/** Interest slabs for savings-style balances, % p.a., on daily balances. */
-export const SAVINGS_SLABS = [
-  { min: 0, max: 100000, rate: 3.25, label: 'Up to ₹1 lakh' },
-  { min: 100000, max: 1000000, rate: 5.5, label: '₹1 lakh to ₹10 lakh' },
-  { min: 1000000, max: null, rate: 6.75, label: 'Above ₹10 lakh' },
+const CANONICAL_SAVINGS_SLAB_BOUNDS = [
+  { min: 0, max: 100000 },
+  { min: 100000, max: 500000 },
+  { min: 500000, max: 1000000 },
+  { min: 1000000, max: 50000000 },
+  { min: 50000000, max: null },
 ];
 
+/** Interest slabs for savings-style balances, % p.a., derived from FINEDGE_RATES_CONFIG. */
+export const SAVINGS_SLABS = (FINEDGE_RATES_CONFIG?.savings?.slabs || []).map((s, idx) => {
+  const bounds = CANONICAL_SAVINGS_SLAB_BOUNDS[idx] || { min: 0, max: null };
+  const numRate = typeof s.value === 'number' ? s.value : parseFloat(s.rate);
+  return {
+    min: bounds.min,
+    max: bounds.max,
+    rate: numRate,
+    label: s.slab,
+    displayRate: s.rate,
+  };
+});
+
 /** Highest savings slab rate, derived — never re-type this number. */
-export const SAVINGS_TOP_RATE = Math.max(...SAVINGS_SLABS.map((s) => s.rate));
+export const SAVINGS_TOP_RATE =
+  FINEDGE_RATES_CONFIG?.savings?.peakRateValue ?? Math.max(...SAVINGS_SLABS.map((s) => s.rate));
 
 /** Derived account rate fact — single source of truth for rate copy across all surfaces. */
 export function accountRateFact(account) {
@@ -98,20 +116,39 @@ export function accountRateFact(account) {
 
 /** Derived account AMB display. */
 export function accountAmbFact(account) {
-  if (!account || !account.amb) return '—';
-  return account.amb.amount === 0 ? 'Zero balance' : `₹${account.amb.amount.toLocaleString('en-IN')}`;
+  if (!account || account.amb == null) return '—';
+  if (typeof account.amb === 'number') {
+    return account.amb === 0 ? 'Zero balance' : `₹${account.amb.toLocaleString('en-IN')}`;
+  }
+  if (typeof account.amb === 'object') {
+    if (account.amb.amount === 0) return 'Zero balance';
+    if (typeof account.amb.amount === 'number') return `₹${account.amb.amount.toLocaleString('en-IN')}`;
+    if (account.amb.label) return account.amb.label;
+  }
+  return '—';
 }
 
 /** Derived account non-maintenance penalty display. */
 export function accountPenaltyFact(account) {
-  if (!account || !account.amb) return '—';
-  return account.amb.penaltyPerMonth ? `₹${account.amb.penaltyPerMonth.toLocaleString('en-IN')}/month` : 'Nil';
+  if (!account) return '—';
+  if (typeof account.penalty === 'string') return account.penalty;
+  if (!account.amb) return 'Nil';
+  if (typeof account.amb === 'object' && typeof account.amb.penaltyPerMonth === 'number') {
+    return `₹${account.amb.penaltyPerMonth.toLocaleString('en-IN')}/month`;
+  }
+  return 'Nil';
 }
 
 /** Derived debit card annual fee display. */
 export function accountCardFeeFact(account) {
-  if (!account || !account.fees || account.fees.debitCardAnnual === undefined) return '—';
-  return account.fees.debitCardAnnual === 0 ? 'Nil' : `₹${account.fees.debitCardAnnual.toLocaleString('en-IN')}/yr`;
+  if (!account) return '—';
+  if (typeof account.debitCardAnnualFee === 'number') {
+    return account.debitCardAnnualFee === 0 ? 'Nil' : `₹${account.debitCardAnnualFee.toLocaleString('en-IN')}/yr`;
+  }
+  if (account.fees && typeof account.fees.debitCardAnnual === 'number') {
+    return account.fees.debitCardAnnual === 0 ? 'Nil' : `₹${account.fees.debitCardAnnual.toLocaleString('en-IN')}/yr`;
+  }
+  return '—';
 }
 
 const STANDARD_KYC_DOCS = [
@@ -155,7 +192,7 @@ export const FACTORY_ACCOUNTS = [
     ],
     documents: [...STANDARD_KYC_DOCS, 'Signature specimen (captured digitally during onboarding)'],
     features: [
-      'Slab-wise interest up to 6.75% p.a. on daily balances',
+      'Slab-wise interest up to 7.00% p.a. on daily balances',
       'Free virtual debit card; physical card on request',
       'Free NEFT/IMPS transfers within FinEdge net-banking (simulated rails in this demo)',
       'Quarterly interest credit and free e-statements',
@@ -179,7 +216,7 @@ export const FACTORY_ACCOUNTS = [
     faqs: [
       {
         q: 'How is savings interest calculated?',
-        a: 'Interest is calculated on the balance you hold each day. Each slab of the balance earns its own rate — for example, the first ₹1 lakh earns 3.25% p.a. and only the portion above ₹10 lakh earns 6.75% p.a. Interest is credited quarterly.',
+        a: 'Interest is calculated on the balance you hold each day. Each slab of the balance earns its own rate — for example, the first ₹1 lakh earns 3.50% p.a. and the portion from ₹10 lakh to ₹5 crore earns 7.00% p.a. Interest is calculated daily on end-of-day balances.',
       },
       {
         q: 'What happens if I miss the average balance for one month?',
@@ -299,7 +336,7 @@ export const FACTORY_ACCOUNTS = [
     documents: [...STANDARD_KYC_DOCS, 'Latest salary slip or employer-issued ID card'],
     features: [
       'Zero-balance account — no AMB charges while employed',
-      'Slab-wise interest up to 6.75% p.a.',
+      'Slab-wise interest up to 7.00% p.a.',
       'Free physical debit card with no annual fee for payroll customers',
       'Preferential processing-fee pricing on FinEdge personal-category loans (see Offers)',
       'Family (add-on) savings accounts at zero balance for spouse/parents',
@@ -364,7 +401,7 @@ export const FACTORY_ACCOUNTS = [
       'Guardian KYC documents (for applicants below 18)',
     ],
     features: [
-      'Zero-balance account with slab-wise interest up to 6.75% p.a.',
+      'Zero-balance account with slab-wise interest up to 7.00% p.a.',
       'Free debit card with a default daily spend limit of ₹25,000 (adjustable by the account holder/guardian)',
       'Free UPI and internal transfers (simulated in this demo)',
       'Goal-based savings pockets inside net-banking (illustrative feature)',
@@ -425,7 +462,7 @@ export const FACTORY_ACCOUNTS = [
     ],
     features: [
       'Low ₹1,000 average balance with NO penalty for non-maintenance',
-      'Slab-wise interest up to 6.75% p.a.',
+      'Slab-wise interest up to 7.00% p.a.',
       'Optional debit card for children above 10, with guardian-set limits (default ₹5,000 per month)',
       'Standing-instruction gifting from the guardian’s FinEdge account',
       'Automatic conversion to a savings account at 18, after fresh KYC',
@@ -1261,6 +1298,23 @@ function getLiveProducts(category, options = {}) {
   if (!items) {
     items = [...FACTORY_ACCOUNTS, ...FACTORY_LOANS, ...FACTORY_CARDS, ...FACTORY_INVESTMENTS];
   }
+  items = items.map((p) => {
+    if (p && p.category === 'account') {
+      const isStandardSavings =
+        p.slug === 'everyday-savings' ||
+        p.slug === 'payroll-salary' ||
+        p.slug === 'campus-student' ||
+        p.slug === 'sprout-minor';
+      const hasOldSlabs = Array.isArray(p.rateSlabs) && p.rateSlabs.length === 3 && p.rateSlabs[0]?.rate === 3.25;
+      if (isStandardSavings || hasOldSlabs) {
+        return {
+          ...p,
+          rateSlabs: SAVINGS_SLABS,
+        };
+      }
+    }
+    return p;
+  });
   let factory = [...items];
   if (category) factory = factory.filter((p) => p.category === category);
   if (!options.includeInactive) {
