@@ -10,6 +10,7 @@ import org.springframework.context.annotation.Configuration;
 import org.springframework.core.io.Resource;
 import org.springframework.security.authentication.AbstractAuthenticationToken;
 import org.springframework.security.config.Customizer;
+import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.oauth2.core.*;
 import org.springframework.security.oauth2.jwt.*;
@@ -19,6 +20,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import java.security.interfaces.RSAPublicKey;
 import org.springframework.security.converter.RsaKeyConverters;
 
+@EnableMethodSecurity
 @Configuration
 public class SecurityConfig {
 
@@ -32,12 +34,15 @@ public class SecurityConfig {
                         .requestMatchers(
                                 "/actuator/health",
                                 "/actuator/health/**",
-                                "/actuator/info"
+                                "/actuator/info",
+                                "/v3/api-docs",
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/api/v1/customers/applicant",
+                                "/api/v1/customers/by-identity/**",
+                                "/internal/api/v1/**"
                         ).permitAll()
-                        .requestMatchers("/ops/**")
-                        .hasAuthority("ROLE_KYC_OPS")
-                        .requestMatchers("/internal/**")
-                        .hasAuthority("ROLE_INTERNAL_SERVICE")
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2

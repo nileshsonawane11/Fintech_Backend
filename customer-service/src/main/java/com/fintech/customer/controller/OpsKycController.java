@@ -1,6 +1,7 @@
 package com.fintech.customer.controller;
 
 import com.fintech.customer.dto.request.ApproveKycRequest;
+import com.fintech.customer.dto.response.KycApplicationDetailsResponse;
 import com.fintech.customer.dto.response.KycApprovalResponse;
 import com.fintech.customer.dto.response.OpsKycApplicationResponse;
 import com.fintech.customer.exception.ApiException;
@@ -10,10 +11,17 @@ import com.fintech.customer.model.kyc.state.KycStatus;
 import com.fintech.customer.model.kyc.state.RiskCategory;
 import com.fintech.customer.repository.CustomerProfileRepository;
 import com.fintech.customer.repository.KycCaseRepository;
+import com.fintech.customer.service.KycOperationsService;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.Parameter;
+import io.swagger.v3.oas.annotations.responses.ApiResponse;
+import io.swagger.v3.oas.annotations.responses.ApiResponses;
+import io.swagger.v3.oas.annotations.security.SecurityRequirement;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
-import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
 
@@ -24,14 +32,26 @@ import java.util.stream.Collectors;
 
 @RestController
 @RequestMapping("/ops/api/v1/kyc")
-@RequiredArgsConstructor
+@Tag(name = "Operations - KYC", description = "Operations staff endpoints for KYC case review, approval, and rejection")
+@SecurityRequirement(name = "BearerAuth")
+@PreAuthorize("hasAnyRole('ADMIN', 'MANAGER', 'OPERATIONS')")
 public class OpsKycController {
 
     private final KycCaseRepository kycCaseRepository;
     private final CustomerProfileRepository customerProfileRepository;
+    private final KycOperationsService kycOperationsService;
+
+    public OpsKycController(KycCaseRepository kycCaseRepository,
+                            CustomerProfileRepository customerProfileRepository,
+                            KycOperationsService kycOperationsService) {
+        this.kycCaseRepository = kycCaseRepository;
+        this.customerProfileRepository = customerProfileRepository;
+        this.kycOperationsService = kycOperationsService;
+    }
 
     @GetMapping("/applications")
     @Transactional(readOnly = true)
+    @Operation(summary = "List KYC Cases", description = "List all customer KYC verification cases ordered by creation date")
     public ResponseEntity<List<OpsKycApplicationResponse>> listApplications() {
         List<KycCase> cases = kycCaseRepository.findAllByOrderByCreatedAtDesc();
 
@@ -53,9 +73,28 @@ public class OpsKycController {
         return ResponseEntity.ok(list);
     }
 
+    @GetMapping("/applications/details")
+    @Operation(summary = "Get KYC Application Details (Filterable)", description = "Filter KYC cases by status and search query for operations workflow")
+    public ResponseEntity<List<KycApplicationDetailsResponse>> getKycApplicationDetails(
+            @Parameter(description = "Filter by KYC Status (e.g. SUBMITTED, APPROVED, REJECTED, ALL)") @RequestParam(required = false, defaultValue = "ALL") String status,
+            @Parameter(description = "Search query matching customer name, email, or case ID") @RequestParam(required = false, defaultValue = "") String query
+    ) {
+
+        List<KycApplicationDetailsResponse> applications =
+                kycOperationsService.getKycApplicationDetails(status, query);
+
+        return ResponseEntity.ok(applications);
+    }
+
     @GetMapping("/applications/{kycCaseId}")
     @Transactional(readOnly = true)
-    public ResponseEntity<OpsKycApplicationResponse> getApplication(@PathVariable String kycCaseId) {
+    @Operation(summary = "Get KYC Case Details", description = "Retrieve complete details for a single KYC verification case")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "KYC case retrieved"),
+            @ApiResponse(responseCode = "404", description = "KYC case not found")
+    })
+    public ResponseEntity<OpsKycApplicationResponse> getApplication(
+            @Parameter(description = "KYC Case ID") @PathVariable String kycCaseId) {
         KycCase c = kycCaseRepository.findByKycCaseId(kycCaseId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "KYC_NOT_FOUND", "KYC Case not found"));
 
@@ -77,10 +116,15 @@ public class OpsKycController {
 
     @PostMapping("/{kycCaseId}/approve")
     @Transactional
+    @Operation(summary = "Approve KYC Case", description = "Approve customer KYC case and assign verified risk rating")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "KYC case approved"),
+            @ApiResponse(responseCode = "404", description = "KYC case not found")
+    })
     public ResponseEntity<KycApprovalResponse> approveKyc(
-            @PathVariable String kycCaseId,
+            @Parameter(description = "KYC Case ID") @PathVariable String kycCaseId,
             @Valid @RequestBody ApproveKycRequest request,
-            Principal principal) {
+            @Parameter(hidden = true) Principal principal) {
 
         KycCase kycCase = kycCaseRepository.findByKycCaseId(kycCaseId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "KYC_NOT_FOUND", "KYC Case not found"));
@@ -119,10 +163,15 @@ public class OpsKycController {
 
     @PostMapping("/{kycCaseId}/reject")
     @Transactional
+    @Operation(summary = "Reject KYC Case", description = "Reject customer KYC case with compliance justification")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "KYC case rejected"),
+            @ApiResponse(responseCode = "404", description = "KYC case not found")
+    })
     public ResponseEntity<KycApprovalResponse> rejectKyc(
-            @PathVariable String kycCaseId,
+            @Parameter(description = "KYC Case ID") @PathVariable String kycCaseId,
             @Valid @RequestBody ApproveKycRequest request,
-            Principal principal) {
+            @Parameter(hidden = true) Principal principal) {
 
         KycCase kycCase = kycCaseRepository.findByKycCaseId(kycCaseId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "KYC_NOT_FOUND", "KYC Case not found"));

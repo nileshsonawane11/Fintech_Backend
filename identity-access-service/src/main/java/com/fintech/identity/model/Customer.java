@@ -99,6 +99,27 @@ public class Customer {
         this.role = role != null ? role : Role.CUSTOMER;
     }
 
+    public Customer(
+            String mobileNumber,
+            String email,
+            String passwordHash,
+            String acceptedTermsVersion,
+            boolean marketingConsent
+    ) {
+        this("Test User", mobileNumber, email, passwordHash, acceptedTermsVersion, marketingConsent);
+    }
+
+    public Customer(
+            String mobileNumber,
+            String email,
+            String passwordHash,
+            String acceptedTermsVersion,
+            boolean marketingConsent,
+            Role role
+    ) {
+        this("Test User", mobileNumber, email, passwordHash, acceptedTermsVersion, marketingConsent, role);
+    }
+
     public void setRole(Role role) {
         this.role = role;
     }

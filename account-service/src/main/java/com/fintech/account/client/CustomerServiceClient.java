@@ -3,7 +3,9 @@ package com.fintech.account.client;
 import com.fintech.account.exception.AccountException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Value;
+import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.http.HttpStatusCode;
 import org.springframework.security.core.Authentication;
 import org.springframework.security.core.context.SecurityContextHolder;
@@ -18,9 +20,13 @@ public class CustomerServiceClient {
 
     private final RestClient restClient;
 
-    public CustomerServiceClient(@Value("${app.services.customer-service.url:http://localhost:8084}") String customerServiceUrl) {
-        this.restClient = RestClient.builder()
-                .baseUrl(customerServiceUrl)
+    public CustomerServiceClient(
+            @LoadBalanced RestClient.Builder restClientBuilder,
+            @Value("${app.services.customer-service.service-id:CUSTOMER-SERVICE}")
+            String customerServiceId) {
+
+        this.restClient = restClientBuilder
+                .baseUrl("http://" + customerServiceId)
                 .build();
     }
 
@@ -80,6 +86,27 @@ public class CustomerServiceClient {
         }
 
         return profile;
+    }
+
+    public CustomerProfileDto provisionApplicantProfile(ApplicantProfileRequest request) {
+        log.info("Provisioning applicant profile in Customer Service for identity: {}", request.identitySubject());
+
+        try {
+            return restClient.post()
+                    .uri("/api/v1/customers/applicant")
+                    .body(request)
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
+                        log.warn("Customer Service returned client error during profile provisioning: status={}", res.getStatusCode());
+                        throw AccountException.unprocessable("CUSTOMER_PROVISIONING_FAILED", "Failed to provision customer profile in Customer Service.");
+                    })
+                    .body(CustomerProfileDto.class);
+        } catch (AccountException ae) {
+            throw ae;
+        } catch (Exception ex) {
+            log.error("Failed to connect to Customer Service during provisioning: {}", ex.getMessage());
+            throw AccountException.serviceUnavailable("Customer Service is currently unavailable for profile provisioning.");
+        }
     }
 
     private String extractBearerToken() {

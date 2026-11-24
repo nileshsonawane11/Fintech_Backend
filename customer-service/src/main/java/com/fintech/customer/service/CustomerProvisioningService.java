@@ -5,6 +5,7 @@ import com.fintech.customer.repository.CustomerProfileRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.util.Map;
 import java.util.UUID;
 
 @Service
@@ -18,20 +19,20 @@ public class CustomerProvisioningService {
     }
 
     @Transactional
-    public void createProfileIfAbsent(String identitySubject) {
+    public void createProfileIfAbsent(Map<String, Object> payload) {
 
-        if (repository.existsByIdentitySubject(identitySubject)) {
+        if (repository.existsByIdentitySubject(payload.get("identityId").toString())) {
             return;
         }
 
         CustomerProfile profile = new CustomerProfile();
 
         profile.setId(UUID.randomUUID());
-        profile.setCustomerId(
-                UUID.randomUUID().toString().replace("-", "")
-        );
-        profile.setFullName("");
-        profile.setIdentitySubject(identitySubject);
+        profile.setCustomerId("CUS-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase());
+        profile.setFullName(payload.get("fullname").toString());
+        profile.setEmailMasked(payload.get("email").toString());
+        profile.setMobileMasked(payload.get("mobile").toString());
+        profile.setIdentitySubject(payload.get("identityId").toString());
         profile.setKycStatus("NOT_STARTED");
         profile.setRiskCategory("UNASSESSED");
 

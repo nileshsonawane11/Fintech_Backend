@@ -9,7 +9,6 @@ import com.fintech.customer.model.kyc.state.KycStatus;
 import com.fintech.customer.repository.CustomerProfileRepository;
 import com.fintech.customer.repository.KycCaseRepository;
 import com.fintech.customer.security.FieldEncryptionService;
-import lombok.RequiredArgsConstructor;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
@@ -22,12 +21,19 @@ import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
-@RequiredArgsConstructor
 public class KycApplicationService {
 
     private final CustomerProfileRepository customerProfileRepository;
     private final KycCaseRepository kycCaseRepository;
     private final FieldEncryptionService encryptionService;
+
+    public KycApplicationService(CustomerProfileRepository customerProfileRepository,
+                                 KycCaseRepository kycCaseRepository,
+                                 FieldEncryptionService encryptionService) {
+        this.customerProfileRepository = customerProfileRepository;
+        this.kycCaseRepository = kycCaseRepository;
+        this.encryptionService = encryptionService;
+    }
 
     @Transactional
     public KycApplicationResponse submitApplication(String identitySubject, KycApplicationRequest request) {
@@ -101,13 +107,13 @@ public class KycApplicationService {
     }
 
     @Transactional(readOnly = true)
-    public KycApplicationResponse getApplicationById(String identitySubject, UUID kycCaseId) {
+    public KycApplicationResponse getApplicationById(String identitySubject, String kycCaseId) {
         KycCase kycCase = getKycCaseAndVerifyOwnership(identitySubject, kycCaseId);
         return toResponse(kycCase);
     }
 
     @Transactional
-    public void cancelApplication(String identitySubject, UUID kycCaseId) {
+    public void cancelApplication(String identitySubject, String kycCaseId) {
         KycCase kycCase = getKycCaseAndVerifyOwnership(identitySubject, kycCaseId);
 
         if (kycCase.getStatus() != KycStatus.UNDER_REVIEW && kycCase.getStatus() != KycStatus.SUBMITTED) {
@@ -134,9 +140,9 @@ public class KycApplicationService {
                 ));
     }
 
-    private KycCase getKycCaseAndVerifyOwnership(String identitySubject, UUID kycCaseId) {
+    private KycCase getKycCaseAndVerifyOwnership(String identitySubject, String kycCaseId) {
         // Since KycCase now has a String 'kycCaseId' column, you can look it up directly as a String
-        return kycCaseRepository.findByIdAndCustomerProfile_IdentitySubject(kycCaseId, identitySubject)
+        return kycCaseRepository.findByKycCaseIdAndCustomerProfile_IdentitySubject(kycCaseId, identitySubject)
                 .orElseThrow(() -> new ApiException(
                         HttpStatus.NOT_FOUND,
                         "KYC_NOT_FOUND",

@@ -25,11 +25,11 @@ public class CardTokenService {
     }
 
     @Transactional
-    public CardTokenResponse createToken(String customerId, String cardId,
+    public CardTokenResponse createToken(String identitySubject, String cardId,
                                          String idempotencyKey, CreateCardTokenRequest request) {
         CardToken existing = cardTokenRepository.findByIdempotencyKey(idempotencyKey).orElse(null);
         if (existing != null) {
-            cardService.verifyCardOwnership(customerId, existing.getCardId());
+            cardService.verifyCardOwnership(identitySubject, existing.getCardId());
             if (!existing.getCardId().equals(cardId)) {
                 throw new ApiException("IDEMPOTENCY_KEY_REUSED",
                         "Idempotency-Key was already used for a different request", HttpStatus.CONFLICT);
@@ -43,7 +43,7 @@ public class CardTokenService {
                     "A valid consentId is required for card tokenization", HttpStatus.UNPROCESSABLE_ENTITY);
         }
         // Card eligibility check (must be ACTIVE)
-        Card card = cardService.findActiveCard(customerId, cardId);
+        Card card = cardService.findActiveCard(identitySubject, cardId);
 
         String tokenId = "TOKEN-" + UUID.randomUUID().toString().replace("-", "").toUpperCase();
         String tokenReference = "tok_" + UUID.randomUUID().toString().replace("-", "");

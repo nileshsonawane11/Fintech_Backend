@@ -13,16 +13,18 @@ spring:
     driver-class-name: org.postgresql.Driver
 
   jpa:
-    open-in-view: false
     hibernate:
       ddl-auto: validate
     properties:
       hibernate:
-        format_sql: true
+        format_sql: false
+        highlight_sql: false
 
   flyway:
     enabled: true
     locations: classpath:db/migration
+    baseline-on-migrate: true
+    create-schemas: true
 
 payment:
   jwt:
@@ -51,3 +53,8 @@ management:
     health:
       probes:
         enabled: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true

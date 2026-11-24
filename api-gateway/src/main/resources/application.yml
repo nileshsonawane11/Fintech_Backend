@@ -15,6 +15,63 @@ spring:
 
           routes:
 
+            # OpenAPI Documentation Routes
+            - id: identity-service-docs
+              uri: lb://IDENTITY-SERVICE
+              predicates:
+                - Path=/identity/v3/api-docs, /identity/v3/api-docs/**
+              filters:
+                - RewritePath=/identity/(?<segment>.*), /$\{segment}
+
+            - id: customer-service-docs
+              uri: lb://CUSTOMER-SERVICE
+              predicates:
+                - Path=/customer/v3/api-docs, /customer/v3/api-docs/**
+              filters:
+                - RewritePath=/customer/(?<segment>.*), /$\{segment}
+
+            - id: ledger-service-docs
+              uri: lb://LEDGER-TRANSACTION-SERVICE
+              predicates:
+                - Path=/ledger/v3/api-docs, /ledger/v3/api-docs/**
+              filters:
+                - RewritePath=/ledger/(?<segment>.*), /$\{segment}
+
+            - id: account-service-docs
+              uri: lb://ACCOUNT-SERVICE
+              predicates:
+                - Path=/account/v3/api-docs, /account/v3/api-docs/**
+              filters:
+                - RewritePath=/account/(?<segment>.*), /$\{segment}
+
+            - id: payment-service-docs
+              uri: lb://PAYMENT-SERVICE
+              predicates:
+                - Path=/payment/v3/api-docs, /payment/v3/api-docs/**
+              filters:
+                - RewritePath=/payment/(?<segment>.*), /$\{segment}
+
+            - id: card-service-docs
+              uri: lb://CARD-SERVICE
+              predicates:
+                - Path=/card/v3/api-docs, /card/v3/api-docs/**
+              filters:
+                - RewritePath=/card/(?<segment>.*), /$\{segment}
+
+            - id: loan-service-docs
+              uri: lb://LOAN-SERVICE
+              predicates:
+                - Path=/loan/v3/api-docs, /loan/v3/api-docs/**
+              filters:
+                - RewritePath=/loan/(?<segment>.*), /$\{segment}
+
+            - id: notification-service-docs
+              uri: lb://NOTIFICATION-SERVICE
+              predicates:
+                - Path=/notification/v3/api-docs, /notification/v3/api-docs/**
+              filters:
+                - RewritePath=/notification/(?<segment>.*), /$\{segment}
+
             # Identity and Access Service
             - id: identity-access-service
               uri: lb://IDENTITY-SERVICE
@@ -39,7 +96,7 @@ spring:
             - id: account-service
               uri: lb://ACCOUNT-SERVICE
               predicates:
-                - Path=/api/v1/accounts/**,/ops/api/v1/accounts/**,/api/v1/account-products/**,/ops/api/v1/account-products/**,/ops/api/v1/account-applications/**,/ops/api/v1/holds/**
+                - Path=/api/v1/accounts/**,/ops/api/v1/accounts/**,/api/v1/account-products/**,/ops/api/v1/account-products/**,/ops/api/v1/account-applications/**
 
             # Payment Service
             - id: payment-service
@@ -51,7 +108,7 @@ spring:
             - id: card-service
               uri: lb://CARD-SERVICE
               predicates:
-                - Path=/api/v1/cards/**
+                - Path=/api/v1/cards/**,/ops/api/v1/cards/**,/api/v1/card-products/**,/api/v1/public/card-products/**,/public/api/v1/card-products/**,/ops/api/v1/card-products/**
 
             # Loan Service
             - id: loan-service
@@ -74,6 +131,35 @@ eureka:
 
   instance:
     prefer-ip-address: true
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+    operations-sorter: method
+    tags-sorter: alpha
+    display-request-duration: true
+    urls-primary-name: Identity Service
+    urls:
+      - name: Identity Service
+        url: /identity/v3/api-docs
+      - name: Customer Service
+        url: /customer/v3/api-docs
+      - name: Ledger and Transaction Service
+        url: /ledger/v3/api-docs
+      - name: Account Service
+        url: /account/v3/api-docs
+      - name: Payment Service
+        url: /payment/v3/api-docs
+      - name: Card Service
+        url: /card/v3/api-docs
+      - name: Loan Service
+        url: /loan/v3/api-docs
+      - name: Notification and Support Service
+        url: /notification/v3/api-docs
 
 management:
   endpoints:

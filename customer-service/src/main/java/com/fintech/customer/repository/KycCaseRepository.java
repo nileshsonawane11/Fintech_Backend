@@ -20,6 +20,11 @@ public interface KycCaseRepository extends JpaRepository<KycCase, UUID> {
             String identitySubject
     );
 
+    Optional<KycCase> findByKycCaseIdAndCustomerProfile_IdentitySubject(
+            String id,
+            String identitySubject
+    );
+
     // 2. Traverses KycCase -> CustomerProfile -> identitySubject
     List<KycCase> findAllByCustomerProfile_IdentitySubjectOrderByCreatedAtDesc(
             String identitySubject

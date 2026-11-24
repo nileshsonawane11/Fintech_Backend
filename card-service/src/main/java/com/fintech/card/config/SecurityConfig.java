@@ -1,4 +1,3 @@
-
 package com.fintech.card.config;
 
 import org.springframework.beans.factory.annotation.Value;
@@ -45,7 +44,19 @@ public class SecurityConfig {
                 .sessionManagement(session ->
                         session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
                 .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/actuator/health", "/actuator/info").permitAll()
+                        .requestMatchers(
+                                "/actuator/health",
+                                "/actuator/health/**",
+                                "/actuator/info",
+                                "/v3/api-docs/**",
+                                "/swagger-ui/**",
+                                "/swagger-ui.html",
+                                "/swagger-ui/index.html",
+                                "/public/api/v1/card-products",
+                                "/public/api/v1/card-products/**"
+                        ).permitAll()
+                        .requestMatchers("/ops/**").hasAnyRole("OPERATIONS", "ADMIN", "MANAGER", "BANK_MANAGER", "ACCOUNT_OPS")
+                        .requestMatchers("/api/v1/card-products/**").hasAnyRole("ADMIN", "OPERATIONS", "MANAGER", "BANK_MANAGER", "ACCOUNT_OPS")
                         .anyRequest().authenticated()
                 )
                 .oauth2ResourceServer(oauth2 -> oauth2

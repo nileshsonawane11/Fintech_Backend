@@ -24,6 +24,9 @@ public class CustomerProfile {
     @Column(name = "date_of_birth")
     private LocalDate dateOfBirth;
 
+    @Column(name = "gender", length = 20)
+    private String gender;
+
     @Column(name = "mobile_masked")
     private String mobileMasked;
 
@@ -92,11 +95,16 @@ public class CustomerProfile {
     public String getPanMasked() { return panMasked; }
     public String getKycStatus() { return kycStatus; }
     public String getRiskCategory() { return riskCategory; }
+    public String getGender() { return gender; }
     public Instant getCreatedAt() { return createdAt; }
     public String getPanEncrypted() { return panEncrypted; }
 
     public void setId(UUID id) {
         this.id = id;
+    }
+
+    public void setGender(String gender) {
+        this.gender = gender;
     }
 
     public void setPanEncrypted(String panEncrypted) { this.panEncrypted = panEncrypted;}

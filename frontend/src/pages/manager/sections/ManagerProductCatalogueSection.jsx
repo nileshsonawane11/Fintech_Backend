@@ -103,6 +103,7 @@ export default function ManagerProductCatalogueSection() {
       const list = await adminListProducts();
       setProducts(list);
     } catch (e) {
+      console.log(e)
       setError(e.detail || e.message || 'Could not load products catalogue.');
     } finally {
       setLoading(false);

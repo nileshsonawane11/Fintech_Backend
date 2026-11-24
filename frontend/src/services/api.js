@@ -178,6 +178,8 @@ export const SEED_CUSTOMER_ALIASES = {
   ]
 };
 
+console.log(ALL_PRODUCTS)
+
 // ============================================================================
 // INITIAL PERSISTENT STORE (Mirrors FinBank API Data Model)
 // ============================================================================
@@ -1124,7 +1126,8 @@ export const getDefaultDb = () => {
         createdAt: offsetIso(5),
         updatedAt: offsetIso(5)
       }
-    ],
+    ]
+,
     loans: [],
     loanApplications: [
       {
@@ -1829,7 +1832,7 @@ export const apiRequest = async (endpoint, options = {}) => {
   traceRequest(method, endpoint, bodyParsed);
 
   const url = `${BASE_URL}${endpoint}`;
-  const token = options.isManager ? getManagerToken() : getAccessToken();
+  const token = options.isManager ? getManagerToken() : getAccessToken()
 
   const headers = {
     'Content-Type': 'application/json',
@@ -1838,6 +1841,7 @@ export const apiRequest = async (endpoint, options = {}) => {
     'X-Device-Id': 'finedge-web-client-v2',
     ...options.headers
   };
+
 
   if (token) {
     headers['Authorization'] = `Bearer ${token}`;
@@ -1874,6 +1878,8 @@ export const apiRequest = async (endpoint, options = {}) => {
     } else {
       data = await response.text();
     }
+
+    console.log(response)
 
     if (!response.ok) {
       const errCode = data?.error?.code || data?.code || 'API_ERROR';

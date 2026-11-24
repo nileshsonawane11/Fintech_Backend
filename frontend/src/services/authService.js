@@ -68,6 +68,10 @@ export const authService = {
       };
     }
 
+    if (res.accessToken) {
+      setTokens(res.accessToken, res.refreshToken);
+    }
+
     return res;
   },
 
@@ -106,14 +110,14 @@ export const authService = {
     }
   },
 
-  // Bank Manager / Staff Login (Module 54 Part B)
-  // Request body includes exact selected role.
-  // Login succeeds only when matched staff record's stored role equals selected role.
+  // Bank Manager / Staff Login
+  // A2 & A3: The staff login authenticates staff records only.
+  // Refuses customer records with generic invalid credentials error.
   async managerLogin({ identifier, password, role }) {
-    traceRequest('POST', '/admin/api/v1/auth/login', { identifier, password, role });
+    traceRequest('POST', '/api/v1/auth/login', { identifier, password, role });
     let res;
     try {
-      res = await apiRequest('/admin/api/v1/auth/login', {
+      res = await apiRequest('/api/v1/auth/login', {
         method: 'POST',
         isManager: true,
         body: JSON.stringify({ identifier, password, role })
@@ -132,6 +136,8 @@ export const authService = {
       }
     }
 
+    console.log(res);
+
     // Inspect matched record's intrinsic role from server response / store
     const recordRole = res?.role || res?.customer?.role || res?.user?.role || res?.staff?.role;
     const recordType = res?.type || res?.customer?.type || res?.staff?.type;
@@ -141,7 +147,7 @@ export const authService = {
     // B.5 Response-side check tightened:
     // The returned record's role must equal the selected role - not merely be a staff role!
     // Keep staff-role guard as well; keep !res.staffId refusal from Module 51.
-    if (!isStaff || recordRole === 'CUSTOMER' || recordType === 'CUSTOMER' || !res?.staffId || (role && recordRole !== role)) {
+    if (!isStaff || recordRole === 'CUSTOMER' || recordType === 'CUSTOMER' || !res?.customer?.id || (role && recordRole !== role)) {
       clearManagerToken();
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem('finedge_manager_user');
@@ -157,6 +163,7 @@ export const authService = {
     if (res.accessToken) {
       setManagerToken(res.accessToken);
     }
+
     return res;
   },
 

@@ -151,6 +151,35 @@ class AccountControllersTest {
     }
 
     @Test
+    void testOpsApplicationController_listApplications() {
+        AccountApplicationResponse appResp = AccountApplicationResponse.ofSummary(
+                "ACC-APP-900123", "CUS-100234", "SAVINGS_REGULAR", ApplicationStatus.PENDING_APPROVAL, Instant.now());
+        CursorPagedResponse<AccountApplicationResponse> pagedResponse =
+                CursorPagedResponse.of(List.of(appResp), null, false, 20);
+
+        when(applicationService.listOpsApplications(
+                eq(ApplicationStatus.PENDING_APPROVAL), eq("CUS-100234"), eq("SAVINGS_REGULAR"),
+                any(), any(), eq("cursor-1"), eq(20)
+        )).thenReturn(pagedResponse);
+
+        Instant fromDate = Instant.now().minusSeconds(3600);
+        Instant toDate = Instant.now();
+
+        ResponseEntity<CursorPagedResponse<AccountApplicationResponse>> res =
+                opsApplicationController.listApplications(
+                        ApplicationStatus.PENDING_APPROVAL, "CUS-100234", "SAVINGS_REGULAR",
+                        fromDate, toDate, 20, "cursor-1");
+
+        assertEquals(HttpStatus.OK, res.getStatusCode());
+        assertNotNull(res.getBody());
+        assertEquals(1, res.getBody().data().size());
+        assertEquals("ACC-APP-900123", res.getBody().data().get(0).accountApplicationId());
+        verify(applicationService).listOpsApplications(
+                ApplicationStatus.PENDING_APPROVAL, "CUS-100234", "SAVINGS_REGULAR",
+                fromDate, toDate, "cursor-1", 20);
+    }
+
+    @Test
     void testAccountController_detailsAndStatus() {
         AccountDetailResponse detailResp = new AccountDetailResponse(
                 "ACC-1001", "************1234", AccountType.SAVINGS, "SAVINGS_REGULAR",
@@ -215,6 +244,37 @@ class AccountControllersTest {
         ResponseEntity<AccountHoldResponse> released = opsHoldController.releaseHold("HOLD-551122", relReq, mockJwt);
         assertEquals(HttpStatus.OK, released.getStatusCode());
         assertEquals(HoldStatus.RELEASED, released.getBody().status());
+    }
+
+    @Test
+    void testOpsHoldController_listOpsHolds() {
+        AccountHoldResponse holdResp = new AccountHoldResponse(
+                "HOLD-551122", "ACC-1001", new BigDecimal("1500.00"), "INR", "DISPUTE",
+                HoldStatus.ACTIVE, "Remarks", "OPS", null, Instant.now(), null, null
+        );
+        CursorPagedResponse<AccountHoldResponse> pagedResponse =
+                CursorPagedResponse.of(List.of(holdResp), null, false, 20);
+
+        when(holdService.listOpsHolds(
+                eq("ACC-1001"), eq("CUS-100"), eq(HoldStatus.ACTIVE), eq("DISPUTE"),
+                any(), any(), eq("cursor-1"), eq(20)
+        )).thenReturn(pagedResponse);
+
+        Instant fromDate = Instant.now().minusSeconds(3600);
+        Instant toDate = Instant.now();
+
+        ResponseEntity<CursorPagedResponse<AccountHoldResponse>> res =
+                opsHoldController.listOpsHolds(
+                        "ACC-1001", "CUS-100", HoldStatus.ACTIVE, "DISPUTE",
+                        fromDate, toDate, 20, "cursor-1");
+
+        assertEquals(HttpStatus.OK, res.getStatusCode());
+        assertNotNull(res.getBody());
+        assertEquals(1, res.getBody().data().size());
+        assertEquals("HOLD-551122", res.getBody().data().get(0).holdId());
+        verify(holdService).listOpsHolds(
+                "ACC-1001", "CUS-100", HoldStatus.ACTIVE, "DISPUTE",
+                fromDate, toDate, "cursor-1", 20);
     }
 
     @Test

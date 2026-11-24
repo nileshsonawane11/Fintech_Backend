@@ -1,6 +1,7 @@
 package com.fintech.identity.repository;
 
 import com.fintech.identity.model.Customer;
+import com.fintech.identity.model.enums.Role;
 import org.springframework.data.jpa.repository.JpaRepository;
 
 import java.util.Optional;
@@ -21,4 +22,8 @@ public interface CustomerRepository
             String mobileNumber,
             String email
     );
+
+    Optional<Customer> findByEmailAndRole(String email, Role role);
+
+    Optional<Customer> findByMobileNumberAndRole(String mobileNumber, Role role);
 }

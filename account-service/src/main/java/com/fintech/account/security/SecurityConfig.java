@@ -42,8 +42,11 @@ public class SecurityConfig {
                                 "/actuator/info",
                                 "/v3/api-docs/**",
                                 "/api/v1/account-products",
+                                "/api/v1/accounts/unregistered",
+                                "/api/v1/accounts/apply-unregistered",
                                 "/swagger-ui/**",
-                                "/swagger-ui.html"
+                                "/swagger-ui.html",
+                                "/internal/api/v1/**"
                         ).permitAll()
                         .requestMatchers("/ops/**").hasAnyRole("OPERATIONS", "ADMIN", "MANAGER")
                         .anyRequest().authenticated()
