@@ -1,11 +1,11 @@
 import { traceData } from '../../../lib/trace.js';
 import Reveal from '../../../components/Reveal.jsx';
-import React, { useCallback, useEffect, useState } from 'react';
-import { Link } from 'react-router-dom';
+import React, { useCallback, useEffect, useMemo, useRef, useState } from 'react';
+import { Link, useNavigate } from 'react-router-dom';
 import {
   ArrowDownLeft, ArrowLeftRight, ArrowRight, ArrowUpRight, Bell, CalendarClock, ChevronRight,
   CreditCard, Eye, EyeOff, FileCheck2, PiggyBank, Receipt, Search,
-  TrendingDown, TrendingUp, Download, Sparkles, Wallet
+  TrendingDown, TrendingUp, Download, Sparkles, Wallet, X
 } from 'lucide-react';
 import {
   Button, Card, EmptyState, PageLoading, StatusChip, Stepper,
@@ -38,7 +38,7 @@ function greeting() {
   return 'Good evening';
 }
 
-const maxFdRate = Math.max(...(FD.rateGrid || []).map(g => g.general || 0));
+const maxFdRate = Math.max(...(FD.rateGrid || []).map(g => g.senior || 0));
 const maxFdRateSub = `FD up to ${maxFdRate.toFixed(2)}% p.a.`;
 
 const TOP_FREQUENT_ACTIONS = [
@@ -50,6 +50,142 @@ const TOP_FREQUENT_ACTIONS = [
 ];
 
 const ACTIVE_APP_STATUSES = ['SUBMITTED', 'DOCUMENT_VERIFICATION', 'UNDER_REVIEW', 'INFO_REQUIRED', 'APPROVED', 'PENDING', 'BOOKED'];
+
+const PORTAL_SERVICES = [
+  {
+    title: 'Accounts & Statements',
+    section: 'Accounts',
+    to: '/portal/accounts',
+    description: 'View accounts, balances, passbook and download statement',
+    keywords: ['account', 'accounts', 'savings', 'current', 'salary', 'balance', 'passbook', 'statement', 'download statement', 'all accounts']
+  },
+  {
+    title: 'Apply for an Account',
+    section: 'Accounts',
+    to: '/portal/accounts?action=apply',
+    description: 'Open a new savings, current, salary, student or minor account',
+    keywords: ['open account', 'apply account', 'new account', 'apply for an account', 'savings account', 'current account']
+  },
+  {
+    title: 'Funds Transfer (NEFT, RTGS, IMPS)',
+    section: 'Transfers',
+    to: '/portal/transfers',
+    description: 'Transfer money between accounts or to external payees',
+    keywords: ['transfer', 'funds transfer', 'neft', 'rtgs', 'imps', 'send money', 'quick pay', 'payment']
+  },
+  {
+    title: 'UPI & Bill Payments',
+    section: 'Transfers',
+    to: '/portal/transfers?mode=upi',
+    description: 'Pay utility bills, merchants and send UPI payments',
+    keywords: ['upi', 'bill', 'bill payment', 'pay bills', 'utilities', 'electricity', 'recharge']
+  },
+  {
+    title: 'Manage Beneficiaries',
+    section: 'Beneficiaries',
+    to: '/portal/beneficiaries',
+    description: 'Add, view, and manage saved payees and beneficiaries',
+    keywords: ['beneficiary', 'beneficiaries', 'payee', 'add beneficiary', 'manage beneficiaries', 'saved account']
+  },
+  {
+    title: 'Cards Management',
+    section: 'Cards',
+    to: '/portal/cards',
+    description: 'Manage debit and credit cards, view PIN & card details',
+    keywords: ['cards', 'credit card', 'debit card', 'card management', 'card']
+  },
+  {
+    title: 'Block Card (Temporary / Permanent)',
+    section: 'Cards',
+    to: '/portal/cards',
+    description: 'Temporarily freeze or permanently block your card for security',
+    keywords: ['block card', 'block', 'freeze card', 'temporary block', 'permanent block', 'unblock card', 'lock card', 'lost card']
+  },
+  {
+    title: 'Card Transaction Limits',
+    section: 'Cards',
+    to: '/portal/cards',
+    description: 'Set per-channel daily limits for ATM, POS, E-commerce and Contactless',
+    keywords: ['card limits', 'limits', 'atm limit', 'pos limit', 'ecommerce limit', 'contactless limit', 'channel limits', 'daily limit']
+  },
+  {
+    title: 'Apply for a Card',
+    section: 'Cards',
+    to: '/portal/cards',
+    description: 'Apply for FinEdge credit or debit cards against your account',
+    keywords: ['apply card', 'apply for card', 'new card', 'credit card application', 'debit card application']
+  },
+  {
+    title: 'Fixed Deposit (FD)',
+    section: 'Investments',
+    to: '/portal/investments',
+    description: 'Book a high-yield term Fixed Deposit with flexible tenures',
+    keywords: ['fd', 'fixed deposit', 'book fd', 'term deposit', 'investments', 'deposits', 'rates']
+  },
+  {
+    title: 'Recurring Deposit (RD)',
+    section: 'Investments',
+    to: '/portal/investments',
+    description: 'Start a monthly Recurring Deposit savings plan',
+    keywords: ['rd', 'recurring deposit', 'book rd', 'monthly deposit', 'investments']
+  },
+  {
+    title: 'Systematic Investment Plan (SIP)',
+    section: 'Investments',
+    to: '/portal/investments',
+    description: 'Automate mutual fund and wealth creation with monthly SIP',
+    keywords: ['sip', 'systematic investment plan', 'mutual funds', 'start sip', 'investments']
+  },
+  {
+    title: 'Sukanya Samriddhi Yojana (SSY)',
+    section: 'Investments',
+    to: '/portal/investments',
+    description: 'Government-backed high-yield savings for the girl child',
+    keywords: ['ssy', 'sukanya samriddhi', 'girl child scheme', 'open ssy', 'investments']
+  },
+  {
+    title: 'Loans & Credit Facility',
+    section: 'Loans',
+    to: '/portal/loans',
+    description: 'View active loans, outstanding principal, EMI schedule and repayment',
+    keywords: ['loans', 'loan', 'borrow', 'credit', 'emi', 'repayment', 'outstanding']
+  },
+  {
+    title: 'Apply for a Loan',
+    section: 'Loans',
+    to: '/portal/loans',
+    description: 'Apply for personal loan, home loan, car loan or education loan',
+    keywords: ['apply loan', 'apply for loan', 'personal loan', 'home loan', 'car loan', 'auto loan', 'new loan']
+  },
+  {
+    title: 'KYC Document Verification',
+    section: 'KYC',
+    to: '/portal/kyc',
+    description: 'Upload and verify PAN, Aadhaar, address proof and photo',
+    keywords: ['kyc', 'know your customer', 'pan', 'aadhaar', 'documents', 'upload kyc', 'identity verification', 'address proof']
+  },
+  {
+    title: 'Profile & Personal Details',
+    section: 'Profile',
+    to: '/portal/profile',
+    description: 'Manage personal details, registered address, phone and email',
+    keywords: ['profile', 'personal details', 'address', 'email', 'mobile', 'settings', 'account details']
+  },
+  {
+    title: 'Customer Support & Helpdesk',
+    section: 'Support',
+    to: '/portal/support',
+    description: 'Raise a support ticket, track inquiries or contact assistance',
+    keywords: ['support', 'help', 'helpdesk', 'ticket', 'raise ticket', 'complaint', 'dispute', 'customer care']
+  },
+  {
+    title: 'Notifications & Alerts',
+    section: 'Notifications',
+    to: '/portal/notifications',
+    description: 'View system notices, transaction alerts and account communications',
+    keywords: ['notifications', 'alerts', 'messages', 'inbox', 'updates']
+  }
+];
 
 function SubHead({ title, action }) {
   return (
@@ -108,6 +244,63 @@ export default function DashboardPage() {
   // Search and filter on transactions
   const [txnSearch, setTxnSearch] = useState('');
   const [txnFilter, setTxnFilter] = useState('ALL'); // 'ALL' | 'CREDIT' | 'DEBIT'
+
+  // Part 10: Customer dashboard service search facility
+  const [serviceSearch, setServiceSearch] = useState('');
+  const [searchFocused, setSearchFocused] = useState(false);
+  const [selectedSearchIdx, setSelectedSearchIdx] = useState(0);
+  const searchContainerRef = useRef(null);
+  const navigate = useNavigate();
+
+  useEffect(() => {
+    function handleClickOutside(e) {
+      if (searchContainerRef.current && !searchContainerRef.current.contains(e.target)) {
+        setSearchFocused(false);
+      }
+    }
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const searchResults = useMemo(() => {
+    const q = serviceSearch.trim().toLowerCase();
+    if (!q) return [];
+    return PORTAL_SERVICES.filter((svc) => {
+      const matchTitle = svc.title.toLowerCase().includes(q);
+      const matchSec = svc.section.toLowerCase().includes(q);
+      const matchDesc = svc.description.toLowerCase().includes(q);
+      const matchKeywords = (svc.keywords || []).some((k) => k.toLowerCase().includes(q));
+      return matchTitle || matchSec || matchDesc || matchKeywords;
+    });
+  }, [serviceSearch]);
+
+  const handleSearchKeyDown = (e) => {
+    if (!searchFocused && serviceSearch) setSearchFocused(true);
+    if (searchResults.length === 0) return;
+    if (e.key === 'ArrowDown') {
+      e.preventDefault();
+      setSelectedSearchIdx((prev) => (prev + 1) % searchResults.length);
+    } else if (e.key === 'ArrowUp') {
+      e.preventDefault();
+      setSelectedSearchIdx((prev) => (prev - 1 + searchResults.length) % searchResults.length);
+    } else if (e.key === 'Enter') {
+      e.preventDefault();
+      const chosen = searchResults[selectedSearchIdx] || searchResults[0];
+      if (chosen) {
+        navigate(chosen.to);
+        setServiceSearch('');
+        setSearchFocused(false);
+      }
+    } else if (e.key === 'Escape') {
+      setSearchFocused(false);
+    }
+  };
+
+  const handleSelectService = (svc) => {
+    navigate(svc.to);
+    setServiceSearch('');
+    setSearchFocused(false);
+  };
 
   const load = useCallback(async () => {
     traceData('PortalDashboard');
@@ -231,19 +424,19 @@ export default function DashboardPage() {
   return (
     <div className="space-y-8">
       {/* Simulation Banner Notice */}
-      <div className="flex items-center justify-between rounded-lg border border-gold-400/30 bg-gold-400/10 px-4 py-2 text-xs text-midnight-950">
+      <div className="flex items-center justify-between rounded-lg border border-bank-primary-border bg-bank-primary/10 px-4 py-2 text-xs text-midnight-950">
         <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-gold-600" />
+          <Sparkles className="h-4 w-4 text-bank-primary" />
           <span className="font-semibold">Demonstration Environment</span>
           <span className="hidden sm:inline text-ink-600">— Simulated payment rails &amp; balances. No real money is moved.</span>
         </div>
-        <span className="font-mono text-xs font-bold text-gold-700">ACTIVE SESSION</span>
+        <span className="font-mono text-xs font-bold text-bank-primary">ACTIVE SESSION</span>
       </div>
 
       {/* Greeting row */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>
-          <h1 className="font-display text-2xl font-semibold text-midnight-950 sm:text-3xl">
+          <h1 className="font-sans text-2xl font-semibold text-midnight-950 sm:text-3xl">
             {greeting()}, {firstName}
           </h1>
           <p className="mt-1 text-[13px] text-ink-500">
@@ -261,6 +454,85 @@ export default function DashboardPage() {
             <span className="rounded-full bg-danger-600 px-1.5 py-0.5 text-xs font-bold text-white">{unread}</span>
           )}
         </Link>
+      </div>
+
+      {/* Part 10: Service Search Facility */}
+      <div ref={searchContainerRef} className="relative z-20">
+        <div className="relative">
+          <div className="pointer-events-none absolute inset-y-0 left-0 flex items-center pl-3.5">
+            <Search className="h-4 w-4 text-ink-400" aria-hidden />
+          </div>
+          <input
+            type="text"
+            role="combobox"
+            aria-expanded={searchFocused && Boolean(serviceSearch.trim())}
+            aria-controls="dashboard-service-results"
+            aria-autocomplete="list"
+            className="w-full rounded-xl border border-ink-200 bg-white py-3 pl-10 pr-10 text-sm font-medium text-ink-900 placeholder:text-ink-400 focus:border-bank-primary focus:outline-none focus:ring-2 focus:ring-bank-primary/20 shadow-xs transition"
+            placeholder="Search banking services (e.g., 'block card', 'FD', 'statement', 'KYC', 'beneficiary')..."
+            value={serviceSearch}
+            onChange={(e) => {
+              setServiceSearch(e.target.value);
+              setSelectedSearchIdx(0);
+              setSearchFocused(true);
+            }}
+            onFocus={() => setSearchFocused(true)}
+            onKeyDown={handleSearchKeyDown}
+          />
+          {serviceSearch && (
+            <button
+              type="button"
+              onClick={() => { setServiceSearch(''); setSearchFocused(false); }}
+              className="absolute inset-y-0 right-0 flex items-center pr-3 text-ink-400 hover:text-ink-600"
+              aria-label="Clear search"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          )}
+        </div>
+
+        {/* Dropdown Results */}
+        {searchFocused && serviceSearch.trim() && (
+          <div
+            id="dashboard-service-results"
+            role="listbox"
+            className="absolute left-0 right-0 top-full mt-2 max-h-80 overflow-y-auto rounded-xl border border-ink-200 bg-white shadow-xl py-2 z-30"
+          >
+            {searchResults.length > 0 ? (
+              searchResults.map((svc, idx) => {
+                const isSelected = idx === selectedSearchIdx;
+                return (
+                  <button
+                    key={`${svc.title}-${idx}`}
+                    type="button"
+                    role="option"
+                    aria-selected={isSelected}
+                    onClick={() => handleSelectService(svc)}
+                    onMouseEnter={() => setSelectedSearchIdx(idx)}
+                    className={`flex w-full items-start justify-between gap-3 px-4 py-2.5 text-left transition ${
+                      isSelected ? 'bg-porcelain-100' : 'hover:bg-porcelain-50'
+                    }`}
+                  >
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-center gap-2">
+                        <span className="text-sm font-semibold text-ink-900">{svc.title}</span>
+                        <span className="rounded bg-bank-primary/10 px-1.5 py-0.5 text-[10px] font-bold uppercase tracking-wider text-bank-primary">
+                          {svc.section}
+                        </span>
+                      </div>
+                      <p className="mt-0.5 text-xs text-ink-500 truncate">{svc.description}</p>
+                    </div>
+                    <ArrowRight className="h-4 w-4 text-ink-400 shrink-0 mt-1" />
+                  </button>
+                );
+              })
+            ) : (
+              <div className="p-4 text-center text-sm text-ink-500">
+                No matching banking services found for "<span className="font-semibold text-ink-800">{serviceSearch}</span>".
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* KYC Alert if not verified */}
@@ -282,15 +554,15 @@ export default function DashboardPage() {
 
       {/* Lead Summary: Privacy-conscious Account Balance */}
       <Reveal treatment="B" staggerIndex={0}>
-        <div className="rounded-xl bg-midnight-900 px-5 py-6 text-porcelain-50 shadow-card sm:px-6">
+        <div className="rounded-xl bg-white border border-ink-200/80 px-5 py-6 text-ink-900 shadow-card sm:px-6">
           <div className="flex items-start justify-between gap-3">
             <div>
               <div className="flex items-center gap-2">
-                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-300">Total balance</p>
+                <p className="text-xs font-semibold uppercase tracking-[0.14em] text-bank-primary">Total balance</p>
                 <button
                   type="button"
                   onClick={toggleShowBalance}
-                  className="inline-flex items-center gap-1 rounded bg-midnight-800/80 px-2 py-0.5 text-xs font-medium text-midnight-200 hover:text-white"
+                  className="inline-flex items-center gap-1 rounded bg-porcelain-100 border border-ink-200 px-2 py-0.5 text-xs font-medium text-ink-600 hover:text-ink-900"
                   title={showBalance ? 'Click to hide balance' : 'Click to reveal balance'}
                 >
                   {showBalance ? (
@@ -306,8 +578,8 @@ export default function DashboardPage() {
                   )}
                 </button>
               </div>
-              <p className="tnum mt-2 font-display text-3xl font-semibold sm:text-4xl text-porcelain-50">{money(totalBalance)}</p>
-              <p className="mt-1 text-[13px] text-midnight-200">
+              <p className="tnum mt-2 font-sans text-3xl font-bold sm:text-4xl text-ink-900">{money(totalBalance)}</p>
+              <p className="mt-1 text-[13px] text-ink-500">
                 Across {accounts.length} active {accounts.length === 1 ? 'account' : 'accounts'}
               </p>
             </div>
@@ -316,14 +588,14 @@ export default function DashboardPage() {
           {primaryAccount && (
             <Link
               to={`/portal/accounts/${primaryAccount.id}`}
-              className="mt-6 flex items-center gap-3 border-t border-porcelain-50/15 pt-4 transition-colors hover:text-white"
+              className="mt-6 flex items-center gap-3 border-t border-ink-100 pt-4 text-ink-800 transition-colors hover:text-bank-primary"
             >
               <span className="min-w-0 flex-1">
-                <span className="block truncate text-sm font-semibold">{typeLabel(primaryAccount.type)}</span>
-                <span className="tnum block text-[13px] text-midnight-200">{maskAccount(primaryAccount.accountNumber)}</span>
+                <span className="block truncate text-sm font-semibold text-ink-900">{typeLabel(primaryAccount.type)}</span>
+                <span className="tnum block text-[13px] text-ink-500">{maskAccount(primaryAccount.accountNumber)}</span>
               </span>
-              <span className="tnum text-sm font-semibold">{money(primaryAccount.balance)}</span>
-              <ChevronRight className="h-4.5 w-4.5 shrink-0 text-midnight-300" aria-hidden />
+              <span className="tnum text-sm font-bold text-bank-primary">{money(primaryAccount.balance)}</span>
+              <ChevronRight className="h-4.5 w-4.5 shrink-0 text-ink-400" aria-hidden />
             </Link>
           )}
         </div>
@@ -342,7 +614,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-ink-500">Next Loan EMI</p>
-                    <p className="tnum font-display text-base font-semibold text-midnight-950">
+                    <p className="tnum font-sans text-base font-semibold text-midnight-950">
                       {formatINR(upcomingLoan.emi || upcomingLoan.monthlyEmi)}
                     </p>
                     <p className="mt-0.5 text-[13px] text-ink-600">
@@ -359,12 +631,12 @@ export default function DashboardPage() {
             {maturingDeposits.length > 0 && (
               <Card className="p-4 shadow-sm border border-ink-100">
                 <div className="flex items-start gap-3">
-                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-gold-400/20 text-gold-700">
+                  <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-lg bg-bank-primary/20 text-bank-primary">
                     <PiggyBank className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-ink-500">Deposit Maturing Soon</p>
-                    <p className="tnum font-display text-base font-semibold text-midnight-950">
+                    <p className="tnum font-sans text-base font-semibold text-midnight-950">
                       {formatINR(maturingDeposits[0].maturityAmount || maturingDeposits[0].depositAmount)}
                     </p>
                     <p className="mt-0.5 text-[13px] text-ink-600">
@@ -386,7 +658,7 @@ export default function DashboardPage() {
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="text-xs text-ink-500">Upcoming SIP Instalment</p>
-                    <p className="tnum font-display text-base font-semibold text-midnight-950">
+                    <p className="tnum font-sans text-base font-semibold text-midnight-950">
                       {formatINR(activeSips[0].monthlyAmount)}
                     </p>
                     <p className="mt-0.5 text-[13px] text-ink-600">
@@ -415,7 +687,7 @@ export default function DashboardPage() {
                   to={q.to}
                   className="bg-white p-4 transition-all hover:bg-midnight-50/60 group"
                 >
-                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-midnight-50 text-midnight-800 group-hover:bg-midnight-900 group-hover:text-gold-300 transition-colors">
+                  <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-bank-primary-light text-bank-primary group-hover:bg-bank-primary group-hover:text-white transition-colors">
                     <q.icon className="h-5 w-5" aria-hidden />
                   </div>
                   <span className="mt-3 block text-sm font-semibold text-ink-900">{q.label}</span>
@@ -498,7 +770,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <p className="text-xs text-ink-500">Total Credits</p>
-                <p className="tnum font-display text-base font-semibold text-success-700">
+                <p className="tnum font-sans text-base font-semibold text-success-700">
                   {showBalance ? formatINR(monthCredits) : '••••••'}
                 </p>
               </div>
@@ -511,7 +783,7 @@ export default function DashboardPage() {
               </div>
               <div>
                 <p className="text-xs text-ink-500">Total Debits</p>
-                <p className="tnum font-display text-base font-semibold text-ink-900">
+                <p className="tnum font-sans text-base font-semibold text-ink-900">
                   {showBalance ? formatINR(monthDebits) : '••••••'}
                 </p>
               </div>
@@ -525,11 +797,11 @@ export default function DashboardPage() {
               <div>
                 <p className="text-xs text-ink-500">Cards</p>
                 {creditCards.length > 0 ? (
-                  <p className="tnum font-display text-base font-semibold text-ink-900">
+                  <p className="tnum font-sans text-base font-semibold text-ink-900">
                     {showBalance ? formatINR(totalCreditOutstanding) : '••••••'}
                   </p>
                 ) : (
-                  <p className="font-display text-base font-semibold text-ink-900">
+                  <p className="font-sans text-base font-semibold text-ink-900">
                     <Link to="/portal/cards" className="text-xs text-midnight-700 underline hover:text-midnight-900">
                       {cards.length} active debit {cards.length === 1 ? 'card' : 'cards'} →
                     </Link>
@@ -540,17 +812,17 @@ export default function DashboardPage() {
           </Card>
           <Card className="p-4 shadow-sm">
             <div className="flex items-center gap-3">
-              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-gold-400/20 text-gold-700">
+              <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-bank-primary/20 text-bank-primary">
                 <PiggyBank className="h-5 w-5" />
               </div>
               <div>
                 <p className="text-xs text-ink-500">Deposits</p>
                 {totalHoldingsPrincipal > 0 ? (
-                  <p className="tnum font-display text-base font-semibold text-ink-900">
+                  <p className="tnum font-sans text-base font-semibold text-ink-900">
                     {showBalance ? formatINR(totalHoldingsPrincipal) : '••••••'}
                   </p>
                 ) : (
-                  <p className="font-display text-base font-semibold text-ink-900">
+                  <p className="font-sans text-base font-semibold text-ink-900">
                     <Link to="/portal/investments" className="text-xs text-midnight-700 underline hover:text-midnight-900">
                       No deposits yet →
                     </Link>
@@ -590,8 +862,8 @@ export default function DashboardPage() {
                     onClick={() => setTxnFilter(f)}
                     className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center rounded-lg px-3 py-2 text-xs font-semibold transition-colors ${
                       txnFilter === f
-                        ? 'bg-midnight-900 text-porcelain-50'
-                        : 'bg-white text-ink-600 border border-ink-200 hover:bg-ink-100'
+                        ? 'bg-bank-primary text-white shadow-xs'
+                        : 'bg-white text-ink-600 border border-ink-200 hover:bg-porcelain-100'
                     }`}
                   >
                     {f}

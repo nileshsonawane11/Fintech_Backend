@@ -1,6 +1,8 @@
 import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
+  AlertTriangle,
   Ban,
   Banknote,
   CheckCircle2,
@@ -8,9 +10,11 @@ import {
   FileText,
   Globe,
   KeyRound,
+  Landmark,
   Nfc,
   PackageCheck,
   Plane,
+  Plus,
   RefreshCw,
   ShieldCheck,
 } from 'lucide-react';
@@ -36,6 +40,7 @@ import { CARDS, getCardBySlug } from '../../../data/products.js';
 import {
   applyCard,
   blockCard,
+  unblockCard,
   listMyCardApplications,
   listMyCards,
   payCard,
@@ -43,6 +48,7 @@ import {
 } from '../../../services/portalBridge.js';
 import { listAccounts } from '../../../services/portalBridge.js';
 import { useAuth, useDbTick } from '../../../context/AuthContext.jsx';
+import { InPortalAccountApplyModal } from '../../../components/common/InPortalAccountApplyModal.jsx';
 
 const CHANNELS = [
   { key: 'online', label: 'Online payments', hint: 'E-commerce and in-app purchases', icon: Globe },
@@ -70,7 +76,7 @@ function Toggle({ checked, onChange, disabled, label }) {
       aria-label={label}
       disabled={disabled}
       onClick={() => onChange(!checked)}
-      className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-2 rounded-full focus-visible:outline-2 focus-visible:outline-gold-500 ${
+      className={`min-h-[44px] min-w-[44px] inline-flex items-center justify-center p-2 rounded-full focus-visible:outline-2 focus-visible:outline-bank-primary ${
         disabled ? 'cursor-not-allowed opacity-50' : 'cursor-pointer'
       }`}
     >
@@ -91,7 +97,7 @@ function Toggle({ checked, onChange, disabled, label }) {
 }
 
 /* One issued card: visual, billing band (credit), controls, limits, services. */
-function CardPanel({ card, accounts, holderName, actorName, onBlockRequest, onRefresh }) {
+function CardPanel({ card, accounts, holderName, actorName, onBlockRequest, onUnblockRequest, onRefresh }) {
   const { toast } = useToast();
   const blocked = card.status === 'BLOCKED';
   const disabled = blocked || card.status !== 'ACTIVE';
@@ -124,6 +130,76 @@ function CardPanel({ card, accounts, holderName, actorName, onBlockRequest, onRe
   }));
   const [savedLimits, setSavedLimits] = useState(() => ({ ...draftLimits }));
   const draggingRef = useRef(false);
+
+  // Part 8(b): Per-channel transaction limits (ATM, POS, E-commerce, Contactless)
+  const [channelLimits, setChannelLimits] = useState(() => ({
+    atm: card.limits?.atm ?? card.limits?.atmDaily ?? card.limits?.atmWithdrawal ?? (isCredit ? 25000 : 40000),
+    pos: card.limits?.pos ?? card.limits?.spendDaily ?? card.limits?.dailySpend ?? (isCredit ? 150000 : 100000),
+    ecommerce: card.limits?.ecommerce ?? (isCredit ? 150000 : 100000),
+    contactless: card.limits?.contactless ?? 5000,
+  }));
+  const [channelLimitsError, setChannelLimitsError] = useState('');
+  const [savingChannelLimits, setSavingChannelLimits] = useState(false);
+
+  useEffect(() => {
+    setChannelLimits({
+      atm: card.limits?.atm ?? card.limits?.atmDaily ?? card.limits?.atmWithdrawal ?? (isCredit ? 25000 : 40000),
+      pos: card.limits?.pos ?? card.limits?.spendDaily ?? card.limits?.dailySpend ?? (isCredit ? 150000 : 100000),
+      ecommerce: card.limits?.ecommerce ?? (isCredit ? 150000 : 100000),
+      contactless: card.limits?.contactless ?? 5000,
+    });
+  }, [card.limits, isCredit]);
+
+  async function handleSaveChannelLimits(e) {
+    if (e?.preventDefault) e.preventDefault();
+    setChannelLimitsError('');
+    const channels = [
+      { key: 'atm', label: 'ATM' },
+      { key: 'pos', label: 'POS' },
+      { key: 'ecommerce', label: 'E-commerce' },
+      { key: 'contactless', label: 'Contactless' }
+    ];
+    for (const ch of channels) {
+      const raw = channelLimits[ch.key];
+      if (raw === '' || raw === null || raw === undefined) {
+        setChannelLimitsError(`Please enter a valid numeric limit in ₹ for ${ch.label}.`);
+        return;
+      }
+      const num = Number(raw);
+      if (isNaN(num)) {
+        setChannelLimitsError(`Please enter a valid numeric limit in ₹ for ${ch.label}.`);
+        return;
+      }
+      if (num < 0) {
+        setChannelLimitsError(`Limit for ${ch.label} cannot be negative.`);
+        return;
+      }
+    }
+
+    setSavingChannelLimits(true);
+    try {
+      await updateCardControls(card.id, {
+        limits: {
+          atm: Number(channelLimits.atm),
+          pos: Number(channelLimits.pos),
+          ecommerce: Number(channelLimits.ecommerce),
+          contactless: Number(channelLimits.contactless),
+          dailySpend: Number(channelLimits.pos),
+          atmWithdrawal: Number(channelLimits.atm)
+        }
+      }, actorName);
+      toast({
+        tone: 'success',
+        title: 'Transaction limits updated',
+        body: 'Per-channel limits for ATM, POS, E-commerce and Contactless saved successfully.'
+      });
+      onRefresh();
+    } catch (err) {
+      setChannelLimitsError(err?.detail || err?.message || 'Failed to update transaction limits.');
+    } finally {
+      setSavingChannelLimits(false);
+    }
+  }
 
   // Bill payment state
   const [payModalOpen, setPayModalOpen] = useState(false);
@@ -322,7 +398,13 @@ function CardPanel({ card, accounts, holderName, actorName, onBlockRequest, onRe
             {card.kind} · {card.network}
           </span>
         </div>
-        <StatusChip status={card.status} />
+        {blocked ? (
+          <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-xs font-bold ${card.blockType === 'TEMPORARY' ? 'bg-amber-100 text-amber-800' : 'bg-danger-100 text-danger-800'}`}>
+            {card.blockType === 'TEMPORARY' ? 'TEMPORARILY BLOCKED' : 'PERMANENTLY BLOCKED'}
+          </span>
+        ) : (
+          <StatusChip status={card.status} />
+        )}
       </div>
 
       {/* Card visual — true card aspect ratio */}
@@ -482,6 +564,101 @@ function CardPanel({ card, accounts, holderName, actorName, onBlockRequest, onRe
         <p className="text-[13px] text-ink-500">Limits save when you release the slider.</p>
       </div>
 
+      {/* Part 8(b): Per-Channel Transaction Limits */}
+      <div className="mt-6 rounded-lg border border-ink-200 bg-porcelain-50/80 p-4">
+        <div className="mb-3">
+          <p className="text-sm font-semibold text-ink-900">Per-Channel Transaction Limits (₹)</p>
+          <p className="text-xs text-ink-500">View and set independent daily limits in ₹ for each payment channel.</p>
+        </div>
+        {channelLimitsError && (
+          <div className="mb-3">
+            <FormError message={channelLimitsError} />
+          </div>
+        )}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <div>
+            <label htmlFor={`${card.id}-channel-atm`} className="block text-xs font-semibold text-ink-700 mb-1">
+              ATM Withdrawal Limit (₹)
+            </label>
+            <Input
+              id={`${card.id}-channel-atm`}
+              name="atm"
+              aria-label="ATM transaction limit"
+              type="number"
+              min="0"
+              value={channelLimits.atm}
+              disabled={disabled}
+              onChange={(e) => setChannelLimits(prev => ({ ...prev, atm: e.target.value }))}
+              placeholder="25000"
+            />
+            <p className="mt-1 text-[11px] text-ink-500">Effective: {formatINR(Number(card.limits?.atm ?? channelLimits.atm))}</p>
+          </div>
+          <div>
+            <label htmlFor={`${card.id}-channel-pos`} className="block text-xs font-semibold text-ink-700 mb-1">
+              POS In-Store Limit (₹)
+            </label>
+            <Input
+              id={`${card.id}-channel-pos`}
+              name="pos"
+              aria-label="POS transaction limit"
+              type="number"
+              min="0"
+              value={channelLimits.pos}
+              disabled={disabled}
+              onChange={(e) => setChannelLimits(prev => ({ ...prev, pos: e.target.value }))}
+              placeholder="100000"
+            />
+            <p className="mt-1 text-[11px] text-ink-500">Effective: {formatINR(Number(card.limits?.pos ?? channelLimits.pos))}</p>
+          </div>
+          <div>
+            <label htmlFor={`${card.id}-channel-ecommerce`} className="block text-xs font-semibold text-ink-700 mb-1">
+              E-commerce Online Limit (₹)
+            </label>
+            <Input
+              id={`${card.id}-channel-ecommerce`}
+              name="ecommerce"
+              aria-label="E-commerce transaction limit"
+              type="number"
+              min="0"
+              value={channelLimits.ecommerce}
+              disabled={disabled}
+              onChange={(e) => setChannelLimits(prev => ({ ...prev, ecommerce: e.target.value }))}
+              placeholder="100000"
+            />
+            <p className="mt-1 text-[11px] text-ink-500">Effective: {formatINR(Number(card.limits?.ecommerce ?? channelLimits.ecommerce))}</p>
+          </div>
+          <div>
+            <label htmlFor={`${card.id}-channel-contactless`} className="block text-xs font-semibold text-ink-700 mb-1">
+              Contactless Tap & Pay Limit (₹)
+            </label>
+            <Input
+              id={`${card.id}-channel-contactless`}
+              name="contactless"
+              aria-label="Contactless transaction limit"
+              type="number"
+              min="0"
+              value={channelLimits.contactless}
+              disabled={disabled}
+              onChange={(e) => setChannelLimits(prev => ({ ...prev, contactless: e.target.value }))}
+              placeholder="5000"
+            />
+            <p className="mt-1 text-[11px] text-ink-500">Effective: {formatINR(Number(card.limits?.contactless ?? channelLimits.contactless))}</p>
+          </div>
+        </div>
+        <div className="mt-3 flex justify-end">
+          <Button
+            type="button"
+            size="sm"
+            variant="secondary"
+            onClick={handleSaveChannelLimits}
+            loading={savingChannelLimits}
+            disabled={disabled}
+          >
+            Save channel limits
+          </Button>
+        </div>
+      </div>
+
       {/* Services footer */}
       <div className="mt-6 flex flex-wrap items-center justify-between gap-3 border-t border-ink-100 pt-4">
         <div className="flex flex-wrap items-center gap-2">
@@ -494,6 +671,17 @@ function CardPanel({ card, accounts, holderName, actorName, onBlockRequest, onRe
                 <RefreshCw className="h-4 w-4" aria-hidden /> Request replacement
               </Button>
             </>
+          )}
+          {blocked && card.blockType === 'TEMPORARY' && (
+            <Button
+              type="button"
+              variant="primary"
+              size="sm"
+              onClick={() => onUnblockRequest(card)}
+              className="bg-emerald-700 hover:bg-emerald-800 text-white"
+            >
+              <ShieldCheck className="h-4 w-4" aria-hidden /> Unblock card
+            </Button>
           )}
         </div>
         {!blocked && (
@@ -676,11 +864,25 @@ export default function CardsPage() {
 
   // ---- block flow ----
   const [blockTarget, setBlockTarget] = useState(null);
+  const [blockMode, setBlockMode] = useState('TEMPORARY'); // 'TEMPORARY' or 'PERMANENT'
+  const [permConfirmed, setPermConfirmed] = useState(false);
   const [blocking, setBlocking] = useState(false);
+  const [applyAccountOpen, setApplyAccountOpen] = useState(false);
 
   // ---- apply form state ----
-  const [selectedSlug, setSelectedSlug] = useState(CARDS[0]?.slug || '');
+  const [searchParams] = useSearchParams();
+  const applyParam = searchParams.get('apply') || searchParams.get('product');
+  const [selectedSlug, setSelectedSlug] = useState(() => applyParam || CARDS[0]?.slug || '');
+
+  useEffect(() => {
+    if (applyParam) {
+      setSelectedSlug(applyParam);
+      const el = document.getElementById('card-apply-heading');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [applyParam]);
   const [accountId, setAccountId] = useState('');
+  const [requestedLimit, setRequestedLimit] = useState('');
   const [consent, setConsent] = useState(false);
   const [fieldErrors, setFieldErrors] = useState({});
   const [formError, setFormError] = useState('');
@@ -724,30 +926,51 @@ export default function CardsPage() {
 
   async function confirmBlock() {
     if (!blockTarget) return;
-    traceForm('CardBlock', { cardId: blockTarget.id });
+    traceForm('CardBlock', { cardId: blockTarget.id, blockMode });
     setBlocking(true);
     try {
-      await blockCard(blockTarget.id, actorName);
+      await blockCard(blockTarget.id, { blockType: blockMode, reason: 'CUSTOMER_REQUEST' }, actorName);
       toast({
         tone: 'success',
         title: 'Card blocked',
-        body: `${blockTarget.productName || 'Your card'} ending ${String(blockTarget.number || '').slice(-4)} is now blocked and cannot be used.`,
+        body: `${blockTarget.productName || 'Your card'} ending ${String(blockTarget.number || '').slice(-4)} is now ${blockMode === 'PERMANENT' ? 'permanently' : 'temporarily'} blocked.`,
       });
       setBlockTarget(null);
+      setBlockMode('TEMPORARY');
+      setPermConfirmed(false);
       setRefreshCount((c) => c + 1);
     } catch (err) {
       toast({
         tone: 'error',
         title: 'Could not block this card',
-        body: err?.message || 'Please try again or contact support.',
+        body: err?.detail || err?.message || 'Please try again or contact support.',
       });
     } finally {
       setBlocking(false);
     }
   }
 
+  async function confirmUnblock(targetCard) {
+    if (!targetCard) return;
+    try {
+      await unblockCard(targetCard.id, actorName);
+      toast({
+        tone: 'success',
+        title: 'Card unblocked',
+        body: `${targetCard.productName || 'Your card'} is now active and ready for use.`
+      });
+      setRefreshCount((c) => c + 1);
+    } catch (err) {
+      toast({
+        tone: 'error',
+        title: 'Could not unblock card',
+        body: err?.detail || err?.message || 'Please try again.'
+      });
+    }
+  }
+
   async function handleApply(e) {
-    e.preventDefault();
+    if (e && e.preventDefault) e.preventDefault();
     setFormError('');
     const product = CARDS.find((c) => c.slug === selectedSlug);
     const errors = {};
@@ -826,6 +1049,7 @@ export default function CardsPage() {
                 holderName={user?.name}
                 actorName={actorName}
                 onBlockRequest={setBlockTarget}
+                onUnblockRequest={confirmUnblock}
                 onRefresh={() => setRefreshCount((c) => c + 1)}
               />
             ))}
@@ -835,11 +1059,27 @@ export default function CardsPage() {
 
       {/* ---------------- (b) Apply for a card ---------------- */}
       <section aria-labelledby="card-apply-heading">
-        <h3 id="card-apply-heading" className="mb-4 font-display text-xl font-semibold text-midnight-950">
+        <h3 id="card-apply-heading" className="mb-4 font-sans text-xl font-semibold text-midnight-950">
           Apply for a card
         </h3>
-        <Card className="p-5 sm:p-6">
-          <form onSubmit={handleApply} noValidate className="space-y-5">
+        {accounts.length === 0 ? (
+          <Card className="p-8 text-center border border-dashed border-ink-300 bg-porcelain-50">
+            <div className="mx-auto flex h-12 w-12 items-center justify-center rounded-full bg-bank-primary-light text-bank-primary mb-3">
+              <Landmark className="h-6 w-6" />
+            </div>
+            <h4 className="font-sans text-base font-bold text-ink-900">An active account is required first</h4>
+            <p className="mt-1 text-sm text-ink-600 max-w-md mx-auto">
+              You need an active FinEdge bank account before you can apply for a debit or credit card. Please open an account first.
+            </p>
+            <div className="mt-4">
+              <Button type="button" onClick={() => setApplyAccountOpen(true)}>
+                <Plus className="h-4 w-4 mr-1.5" /> Open an Account
+              </Button>
+            </div>
+          </Card>
+        ) : (
+          <Card className="p-5 sm:p-6">
+            <form onSubmit={handleApply} noValidate className="space-y-5">
             <div>
               <p className="mb-2 text-[13px] font-medium text-ink-700">
                 Choose a card <span className="text-danger-600">*</span>
@@ -918,7 +1158,7 @@ export default function CardsPage() {
             <FormError message={formError} />
 
             <div className="flex flex-wrap items-center gap-3">
-              <Button type="submit" variant="primary" loading={submitting} disabled={!consent || accounts.length === 0}>
+              <Button type="submit" variant="primary" onClick={handleApply} loading={submitting} disabled={!consent || accounts.length === 0}>
                 Submit application
               </Button>
               {accounts.length === 0 && (
@@ -943,11 +1183,12 @@ export default function CardsPage() {
             </div>
           )}
         </Card>
+        )}
       </section>
 
       {/* ---------------- (c) My card applications ---------------- */}
       <section aria-labelledby="card-apps-heading">
-        <h3 id="card-apps-heading" className="mb-4 font-display text-xl font-semibold text-midnight-950">
+        <h3 id="card-apps-heading" className="mb-4 font-sans text-xl font-semibold text-midnight-950">
           My card applications
         </h3>
         {cardApplications.length === 0 ? (
@@ -988,11 +1229,15 @@ export default function CardsPage() {
         )}
       </section>
 
-      {/* ---------------- Block confirmation ---------------- */}
+      {/* ---------------- Block confirmation (Part 8a) ---------------- */}
       <Modal
         open={!!blockTarget}
         onClose={() => {
-          if (!blocking) setBlockTarget(null);
+          if (!blocking) {
+            setBlockTarget(null);
+            setBlockMode('TEMPORARY');
+            setPermConfirmed(false);
+          }
         }}
         title="Block this card?"
         footer={
@@ -1000,24 +1245,103 @@ export default function CardsPage() {
             <Button
               type="button"
               variant="secondary"
-              onClick={() => setBlockTarget(null)}
+              onClick={() => {
+                setBlockTarget(null);
+                setBlockMode('TEMPORARY');
+                setPermConfirmed(false);
+              }}
               disabled={blocking}
             >
               Keep card active
             </Button>
-            <Button type="button" variant="danger" onClick={confirmBlock} loading={blocking}>
-              <Ban className="h-4 w-4" aria-hidden /> Block card
+            <Button
+              type="button"
+              variant="danger"
+              onClick={confirmBlock}
+              loading={blocking}
+              disabled={blockMode === 'PERMANENT' && !permConfirmed}
+            >
+              <Ban className="h-4 w-4" aria-hidden /> {blockMode === 'PERMANENT' ? 'Permanently block card' : 'Temporarily block card'}
             </Button>
           </>
         }
       >
-        <p className="text-sm leading-relaxed text-ink-600">
-          {blockTarget?.productName || 'This card'}
-          {blockTarget?.number ? <> ending {String(blockTarget.number).slice(-4)}</> : null} will be
-          blocked immediately. It will no longer work for payments, ATM withdrawals or online purchases,
-          and its controls will be disabled. If you did not request this, please contact support instead.
-        </p>
+        <div className="space-y-4">
+          <p className="text-sm leading-relaxed text-ink-600">
+            {blockTarget?.productName || 'This card'}
+            {blockTarget?.number ? <> ending {String(blockTarget.number).slice(-4)}</> : null} will be
+            blocked immediately. Select how you would like to block this card:
+          </p>
+
+          <div className="space-y-3">
+            <label className={`block cursor-pointer rounded-lg border p-3.5 transition-colors ${blockMode === 'TEMPORARY' ? 'border-bank-primary bg-bank-primary-light/20 ring-1 ring-bank-primary' : 'border-ink-200 bg-white hover:border-ink-300'}`}>
+              <div className="flex items-start gap-3">
+                <input
+                  type="radio"
+                  name="blockMode"
+                  value="TEMPORARY"
+                  checked={blockMode === 'TEMPORARY'}
+                  onChange={() => setBlockMode('TEMPORARY')}
+                  className="mt-0.5 text-bank-primary focus:ring-bank-primary"
+                />
+                <div>
+                  <p className="text-sm font-semibold text-ink-900">Temporary block</p>
+                  <p className="text-xs text-ink-500 mt-0.5 leading-relaxed">
+                    Freeze card temporarily. You can unblock this card anytime from this portal when you are ready to resume use.
+                  </p>
+                </div>
+              </div>
+            </label>
+
+            <label className={`block cursor-pointer rounded-lg border p-3.5 transition-colors ${blockMode === 'PERMANENT' ? 'border-danger-600 bg-danger-50/40 ring-1 ring-danger-600' : 'border-ink-200 bg-white hover:border-ink-300'}`}>
+              <div className="flex items-start gap-3">
+                <input
+                  type="radio"
+                  name="blockMode"
+                  value="PERMANENT"
+                  checked={blockMode === 'PERMANENT'}
+                  onChange={() => setBlockMode('PERMANENT')}
+                  className="mt-0.5 text-danger-600 focus:ring-danger-600"
+                />
+                <div>
+                  <p className="text-sm font-semibold text-danger-900">Permanent block</p>
+                  <p className="text-xs text-ink-500 mt-0.5 leading-relaxed">
+                    Permanently deactivate this card. This action is irreversible — the card cannot be unblocked, and a new replacement card must be requested.
+                  </p>
+                </div>
+              </div>
+            </label>
+          </div>
+
+          {blockMode === 'PERMANENT' && (
+            <div className="rounded-lg border border-danger-200 bg-danger-50 p-3 space-y-2">
+              <p className="text-xs font-semibold text-danger-900 flex items-center gap-1.5">
+                <AlertTriangle className="h-4 w-4 text-danger-600" />
+                Warning: Permanent action cannot be undone
+              </p>
+              <p className="text-xs text-danger-700 leading-relaxed">
+                By permanently blocking this card, all automated standing instructions, recurring payments, and active authorizations will be stopped. The card cannot be restored.
+              </p>
+              <label className="flex items-center gap-2 pt-1 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={permConfirmed}
+                  onChange={(e) => setPermConfirmed(e.target.checked)}
+                  className="rounded text-danger-600 focus:ring-danger-600"
+                />
+                <span className="text-xs font-medium text-danger-900">I confirm that I want to permanently block this card</span>
+              </label>
+            </div>
+          )}
+        </div>
       </Modal>
+
+      {/* Part 3 & 4: In-Portal Account Opening Modal */}
+      <InPortalAccountApplyModal
+        open={applyAccountOpen}
+        onClose={() => setApplyAccountOpen(false)}
+        onApplied={() => setRefreshCount((c) => c + 1)}
+      />
     </div>
   );
 }

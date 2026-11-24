@@ -1,5 +1,6 @@
 import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useEffect, useMemo, useRef, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import {
   BadgeCheck,
   Briefcase,
@@ -71,7 +72,17 @@ export default function LoansPage() {
   const dataKeyRef = useRef('');
 
   // Form default product is Home Loan (catalogue lead)
-  const [productSlug, setProductSlug] = useState('home-loan');
+  const [searchParams] = useSearchParams();
+  const applyParam = searchParams.get('apply') || searchParams.get('product');
+  const [productSlug, setProductSlug] = useState(() => applyParam || 'home-loan');
+
+  useEffect(() => {
+    if (applyParam) {
+      setProductSlug(applyParam);
+      const el = document.getElementById('loan-apply-heading');
+      if (el) el.scrollIntoView({ behavior: 'smooth' });
+    }
+  }, [applyParam]);
   const [amount, setAmount] = useState('2500000');
   const [tenure, setTenure] = useState('120');
   const [purpose, setPurpose] = useState('Residential apartment purchase');
@@ -277,7 +288,7 @@ export default function LoansPage() {
 
       {/* ---------------- (a) Apply ---------------- */}
       <section aria-labelledby="loan-apply-heading">
-        <h3 id="loan-apply-heading" className="mb-4 font-display text-xl font-semibold text-midnight-950">
+        <h3 id="loan-apply-heading" className="mb-4 font-sans text-xl font-semibold text-midnight-950">
           Apply for a loan
         </h3>
         <Card className="p-5 sm:p-6">
@@ -422,14 +433,14 @@ export default function LoansPage() {
 
             {/* Live EMI preview */}
             <div className="rounded-lg border border-midnight-100 bg-midnight-50 px-4 py-4" aria-live="polite">
-              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-700">
+              <p className="text-xs font-semibold uppercase tracking-[0.14em] text-bank-primary">
                 Indicative EMI preview
               </p>
               {emiPreview && product ? (
                 <div className="mt-3 grid gap-4 sm:grid-cols-3">
                   <div>
                     <p className="text-xs text-ink-500">Monthly EMI at {product.rateMin.toFixed(2)}% p.a.</p>
-                    <p className="tnum mt-0.5 font-display text-2xl font-semibold text-midnight-950">
+                    <p className="tnum mt-0.5 font-sans text-2xl font-semibold text-midnight-950">
                       {formatINR(emiPreview.emi)}
                     </p>
                   </div>
@@ -461,7 +472,7 @@ export default function LoansPage() {
                     type="checkbox"
                     checked={cicConsent}
                     onChange={(e) => setCicConsent(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                    className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
                   />
                   <span className="text-xs leading-relaxed text-ink-700">
                     I authorize FinEdge Bank to pull and assess my credit information report from CIBIL, Experian, Equifax, or CRIF High Mark for credit underwriting.<span className="text-danger-600"> *</span>
@@ -476,7 +487,7 @@ export default function LoansPage() {
                     type="checkbox"
                     checked={mitcConsent}
                     onChange={(e) => setMitcConsent(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                    className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
                   />
                   <span className="text-xs leading-relaxed text-ink-700">
                     I have read and agree to the Most Important Terms &amp; Conditions (MITC) for the <strong className="text-midnight-950">{product?.name}</strong>: interest rates {product?.rateMin?.toFixed(2)}% – {product?.rateMax?.toFixed(2)}% p.a., processing fee {product?.processingFee?.pct}% (min {product?.processingFee?.min === 0 ? 'Nil' : formatINRWhole(product?.processingFee?.min || 0)}). Floating-rate loans carry zero prepayment penalty.<span className="text-danger-600"> *</span>
@@ -491,7 +502,7 @@ export default function LoansPage() {
                     type="checkbox"
                     checked={taxResidentIndia}
                     onChange={(e) => setTaxResidentIndia(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                    className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
                   />
                   <span className="text-xs leading-relaxed text-ink-700">
                     I confirm that I am a tax resident of India and not a tax resident of any other country.<span className="text-danger-600"> *</span>
@@ -506,7 +517,7 @@ export default function LoansPage() {
                     type="checkbox"
                     checked={notPep}
                     onChange={(e) => setNotPep(e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                    className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
                   />
                   <span className="text-xs leading-relaxed text-ink-700">
                     I confirm that I am not a Politically Exposed Person (PEP) or related to one.<span className="text-danger-600"> *</span>
@@ -555,7 +566,7 @@ export default function LoansPage() {
 
       {/* ---------------- (b) My Applications tracker ---------------- */}
       <section id="loan-applications" aria-labelledby="loan-apps-heading" className="scroll-mt-24">
-        <h3 id="loan-apps-heading" className="mb-4 font-display text-xl font-semibold text-midnight-950">
+        <h3 id="loan-apps-heading" className="mb-4 font-sans text-xl font-semibold text-midnight-950">
           My applications
         </h3>
         {applications.length === 0 ? (
@@ -633,7 +644,7 @@ export default function LoansPage() {
 
       {/* ---------------- (c) My Loans ---------------- */}
       <section aria-labelledby="my-loans-heading">
-        <h3 id="my-loans-heading" className="mb-4 font-display text-xl font-semibold text-midnight-950">
+        <h3 id="my-loans-heading" className="mb-4 font-sans text-xl font-semibold text-midnight-950">
           My loans
         </h3>
         {loans.length === 0 ? (

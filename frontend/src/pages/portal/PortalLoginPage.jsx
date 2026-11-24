@@ -1,5 +1,5 @@
 import { useServerMode } from '../../lib/serverMode.js';
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
 import { getDemoAccounts, resetDemoDb } from '../../services/api.js';
@@ -31,26 +31,46 @@ import { traceForm } from '../../lib/trace.js';
 function BrandMark() {
   return (
     <div className="flex flex-col items-center text-center">
-      <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-midnight-900 text-gold-300 shadow-sm">
+      <span className="flex h-12 w-12 items-center justify-center rounded-xl bg-bank-primary text-white shadow-sm">
         <Landmark className="h-6 w-6" aria-hidden />
       </span>
-      <h1 className="mt-3 font-display text-2xl font-semibold text-midnight-950">FinEdge Bank</h1>
-      <p className="mt-0.5 text-xs font-semibold uppercase tracking-[0.16em] text-gold-700">Customer NetBanking Portal</p>
+      <h1 className="mt-3 font-sans text-2xl font-bold text-ink-900">FinEdge Bank</h1>
+      <p className="mt-0.5 text-xs font-semibold uppercase tracking-[0.16em] text-bank-primary">Customer NetBanking Portal</p>
     </div>
   );
 }
 
 export const PortalLoginPage = () => {
-  const { login, verifyMfa, register, verifyOtp } = useAuth();
+  const { user, login, verifyMfa, register, verifyOtp, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const [searchParams] = useSearchParams();
+
+  // Status & Feedback - Part 1(d) Session expiry notice
+  const isSessionExpired = Boolean(
+    location.state?.sessionExpired || 
+    location.state?.reason === 'session_expired' || 
+    searchParams.get('reason') === 'session_expired' ||
+    searchParams.get('expired') === 'true'
+  );
+
+  // Part 1(a): A logged-in user visiting /portal/login is redirected to their portal dashboard
+  useEffect(() => {
+    if (isSessionExpired) {
+      if (logout) logout();
+      return;
+    }
+    if (user && user.customerId) {
+      const dest = searchParams.get('redirect') || location.state?.from?.pathname || location.state?.from || '/portal';
+      navigate(dest, { replace: true });
+    }
+  }, [user, navigate, searchParams, location, isSessionExpired, logout]);
 
   // Mode: 'login' | 'mfa' | 'register' | 'register_otp'
   const initialMode = location.state?.mode === 'register' || searchParams.get('mode') === 'register' ? 'register' : 'login';
   const [mode, setMode] = useState(initialMode);
   const { isDemo } = useServerMode();
-  const [demoOpen, setDemoOpen] = useState(false);
+  const [demoOpen, setDemoOpen] = useState(true);
   const [resetOpen, setResetOpen] = useState(false);
 
   const handleResetConfirm = () => {
@@ -78,8 +98,10 @@ export const PortalLoginPage = () => {
   const [regOtp, setRegOtp] = useState('');
   const [otpReferenceId, setOtpReferenceId] = useState('');
 
-  // Status & Feedback
-  const [error, setError] = useState('');
+  // Status & Feedback - Part 1(d) Session expiry notice
+  const [error, setError] = useState(
+    isSessionExpired ? 'Your session has expired due to inactivity. Please sign in again.' : ''
+  );
   const [fieldErrors, setFieldErrors] = useState({});
   const [successMsg, setSuccessMsg] = useState('');
   const [loading, setLoading] = useState(false);
@@ -94,6 +116,16 @@ export const PortalLoginPage = () => {
       return `${maskedName}@${parts[1]}`;
     }
     return val.length >= 4 ? `••••••${val.slice(-4)}` : '••••••';
+  };
+
+    const getDestination = () => {
+    const redirectParam = searchParams.get('redirect') || location.state?.from?.pathname || location.state?.from || '/portal';
+    const productParam = searchParams.get('product');
+    if (!productParam) return redirectParam;
+    if (redirectParam.includes('?')) {
+      return redirectParam.includes('apply=') ? redirectParam : `${redirectParam}&apply=${productParam}`;
+    }
+    return `${redirectParam}?apply=${productParam}`;
   };
 
   const handleLoginSubmit = async (e, overrideId, overridePwd, isAutoDemo = false) => {
@@ -123,11 +155,11 @@ export const PortalLoginPage = () => {
     try {
       const result = await login(trimmedId, targetPwd);
       if (result?.mfaRequired) {
-        if (isAutoDemo && isDemo) {
+        if (isAutoDemo) {
           try {
             traceForm('CustomerMfaVerify', { mfaReferenceId: result.mfaReferenceId, otp: '849201' });
             await verifyMfa(result.mfaReferenceId, '849201');
-            navigate(location.state?.from?.pathname || location.state?.from || '/portal');
+            navigate(getDestination());
             return;
           } catch (mfaErr) {
             setMfaReferenceId(result.mfaReferenceId);
@@ -142,7 +174,7 @@ export const PortalLoginPage = () => {
         setMode('mfa');
         setSuccessMsg('Two-Factor Authentication required. Security code dispatched.');
       } else {
-        navigate(location.state?.from?.pathname || location.state?.from || '/portal');
+        navigate(getDestination());
       }
     } catch (err) {
       const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || err?.message || err?.title || 'No account found for these credentials on this sign-in. Check the details, or use the other sign-in if you have the other account type.';
@@ -158,9 +190,7 @@ export const PortalLoginPage = () => {
     setIdentifier(id);
     setPassword(pwd);
     setError('');
-    if (isDemo) {
-      handleLoginSubmit(null, id, pwd, true);
-    }
+    handleLoginSubmit(null, id, pwd, true);
   };
 
   const handleMfaSubmit = async (codeToSubmit) => {
@@ -177,7 +207,7 @@ export const PortalLoginPage = () => {
     setLoading(true);
     try {
       await verifyMfa(mfaReferenceId, code);
-      navigate(location.state?.from?.pathname || location.state?.from || '/portal');
+      navigate(getDestination());
     } catch (err) {
       const msg = err?.detail || err?.error?.message || err?.message || 'Invalid or expired OTP code.';
       setError(msg);
@@ -251,7 +281,7 @@ const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || e
     setLoading(true);
     try {
       await verifyOtp(verifyPayload);
-      navigate(location.state?.from?.pathname || location.state?.from || '/portal');
+      navigate(getDestination());
     } catch (err) {
       const msg = err?.detail || err?.error?.message || err?.message || 'Invalid or expired OTP code.';
       setError(msg);
@@ -543,10 +573,10 @@ const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || e
             <button
               type="button"
               onClick={() => setDemoOpen(!demoOpen)}
-              className="flex w-full items-center justify-between text-left text-xs font-semibold text-midnight-900"
+              className="flex w-full items-center justify-between text-left text-xs font-semibold text-ink-900"
             >
               <span className="flex items-center gap-1.5">
-                <KeyRound className="h-4 w-4 text-gold-600" />
+                <KeyRound className="h-4 w-4 text-bank-primary" />
                 <span>Demo access</span>
               </span>
               <ChevronDown className={`h-4 w-4 transition-transform ${demoOpen ? 'rotate-180' : ''}`} />
@@ -556,7 +586,7 @@ const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || e
             {demoOpen && (
               <div className="mt-3 space-y-2 border-t border-ink-100 pt-3 text-xs text-ink-700">
                 <p className="text-xs text-ink-500 leading-relaxed">
-                  Click any profile below to populate standard credentials. Simulated OTP code is <span className="font-mono font-bold text-midnight-950">849201</span>.
+                  Click any profile below to populate standard credentials. Simulated OTP code is <span className="font-mono font-bold text-ink-900">849201</span>.
                 </p>
                 <div className="space-y-1.5">
                   {getDemoAccounts().map((acc) => (
@@ -567,13 +597,13 @@ const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || e
                         populateDemo(acc);
                         setMode('login');
                       }}
-                      className="flex w-full items-center justify-between rounded-lg border border-ink-100 bg-porcelain-50 p-2.5 text-left hover:border-midnight-300 hover:bg-midnight-50/50 transition-colors"
+                      className="flex w-full items-center justify-between rounded-lg border border-ink-100 bg-porcelain-50 p-2.5 text-left hover:border-bank-primary hover:bg-bank-primary-light/40 transition-colors"
                     >
                       <div>
-                        <p className="font-semibold text-midnight-950">{acc.fullName || acc.name}</p>
+                        <p className="font-semibold text-ink-900">{acc.fullName || acc.name}</p>
                         <p className="text-xs font-mono text-ink-500">{acc.email}</p>
                       </div>
-                      <span className="text-xs font-medium text-midnight-700 underline">
+                      <span className="text-xs font-medium text-bank-primary underline">
                         Use account →
                       </span>
                     </button>
@@ -614,7 +644,7 @@ const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || e
 
         <p className="mt-6 text-center text-xs text-ink-500">
           Bank staff member?{' '}
-          <Link to="/manager/login" className="font-medium text-midnight-800 underline hover:text-midnight-950">
+          <Link to="/manager/login" className="font-medium text-bank-primary underline hover:text-bank-primary-hover">
             Staff Operations Terminal →
           </Link>
         </p>

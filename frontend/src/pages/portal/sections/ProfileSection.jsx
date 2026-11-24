@@ -131,7 +131,7 @@ export default function ProfilePage() {
     setLoggingOut(true);
     try {
       await logout();
-      navigate('/');
+      navigate('/portal/login');
     } finally {
       setLoggingOut(false);
     }
@@ -152,11 +152,11 @@ export default function ProfilePage() {
       <Card className="p-5">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div className="flex items-center gap-4">
-            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-midnight-900 font-display text-xl font-bold text-porcelain-100 ring-4 ring-midnight-100">
+            <div className="flex h-14 w-14 items-center justify-center rounded-full bg-bank-primary font-sans text-xl font-bold text-white ring-4 ring-bank-primary-light">
               {initials}
             </div>
             <div>
-              <h2 className="font-display text-xl font-semibold text-midnight-950">{displayName}</h2>
+              <h2 className="font-sans text-xl font-semibold text-midnight-950">{displayName}</h2>
               <p className="font-mono text-xs text-ink-500">Customer ID: {customerId || '—'}</p>
             </div>
           </div>
@@ -168,7 +168,7 @@ export default function ProfilePage() {
 
       {/* KYC & Personal Details */}
       <Card className="p-5">
-        <h3 className="mb-3 flex items-center gap-2 font-display text-lg font-semibold text-midnight-950">
+        <h3 className="mb-3 flex items-center gap-2 font-sans text-lg font-semibold text-midnight-950">
           <User className="h-5 w-5 text-midnight-700" aria-hidden /> Registered Details
         </h3>
         <dl className="divide-y divide-ink-100">
@@ -185,7 +185,7 @@ export default function ProfilePage() {
 
       {/* Security Credentials */}
       <Card className="p-5">
-        <h3 className="mb-1 flex items-center gap-2 font-display text-lg font-semibold text-midnight-950">
+        <h3 className="mb-1 flex items-center gap-2 font-sans text-lg font-semibold text-midnight-950">
           <ShieldCheck className="h-5 w-5 text-midnight-700" aria-hidden /> Change NetBanking Password
         </h3>
         <p className="mb-4 text-xs text-ink-500">
@@ -225,7 +225,7 @@ export default function ProfilePage() {
 
       {/* Device & Notification Preferences */}
       <Card className="p-5">
-        <h3 className="mb-1 flex items-center gap-2 font-display text-lg font-semibold text-midnight-950">
+        <h3 className="mb-1 flex items-center gap-2 font-sans text-lg font-semibold text-midnight-950">
           <Settings2 className="h-5 w-5 text-midnight-700" aria-hidden /> Statement &amp; Alerts Preferences
         </h3>
         <p className="mb-4 text-xs text-ink-500">

@@ -194,7 +194,7 @@ export default function TransfersPage() {
           <div className="flex items-start gap-3">
             <ConfirmationCheckmark size={44} className="shrink-0" />
             <div>
-              <h2 className="font-display text-xl font-semibold text-midnight-950">Transfer completed</h2>
+              <h2 className="font-sans text-xl font-semibold text-midnight-950">Transfer completed</h2>
               <p className="mt-1 text-sm text-ink-600">
                 {formatINR(receipt.amount)} has been sent to {(receipt.toName || '').replace('FinEdge Enterprise Current Account', 'Trade Current') || '—'}.
               </p>
@@ -252,7 +252,7 @@ export default function TransfersPage() {
         </Card>
       ) : step === 'review' ? (
         <Card className="px-5 py-5">
-          <h2 className="font-display text-xl font-semibold text-midnight-950">Review your transfer</h2>
+          <h2 className="font-sans text-xl font-semibold text-midnight-950">Review your transfer</h2>
           <p className="mt-1 text-sm text-ink-600">Check every detail before you confirm. The money moves as soon as you confirm.</p>
 
           <dl className="mt-5 divide-y divide-ink-100 border-y border-ink-100 text-sm">
@@ -294,7 +294,7 @@ export default function TransfersPage() {
             </div>
             <div className="flex items-center justify-between gap-4 py-3">
               <dt className="font-semibold text-ink-800">Total debit</dt>
-              <dd className="tnum font-display text-lg font-semibold text-midnight-950">{formatINR(totalDebit)}</dd>
+              <dd className="tnum font-sans text-lg font-semibold text-midnight-950">{formatINR(totalDebit)}</dd>
             </div>
             {note.trim() && (
               <div className="flex items-center justify-between gap-4 py-3">
@@ -351,7 +351,7 @@ export default function TransfersPage() {
                     <div className="rounded-lg border border-dashed border-ink-200 bg-porcelain-50 px-4 py-4 text-sm text-ink-600">
                       <p className="flex items-center gap-2 font-medium text-ink-800"><Users className="h-4 w-4 text-midnight-700" aria-hidden /> No beneficiaries yet</p>
                       <p className="mt-1 text-[13px]">Add the person or business you want to pay first, then come back here to send money.</p>
-                      <Link to="/portal/beneficiaries" className="mt-2 inline-block font-semibold text-midnight-800 underline decoration-gold-400 decoration-2 underline-offset-2 hover:text-midnight-600">
+                      <Link to="/portal/beneficiaries" className="mt-2 inline-block font-semibold text-midnight-800 underline decoration-bank-primary/40 decoration-2 underline-offset-2 hover:text-midnight-600">
                         Add a beneficiary
                       </Link>
                     </div>

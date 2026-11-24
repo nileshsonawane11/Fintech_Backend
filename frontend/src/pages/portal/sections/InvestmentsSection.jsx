@@ -1,5 +1,6 @@
 import { traceForm, traceData } from '../../../lib/trace.js';
 import React, { useEffect, useMemo, useState } from 'react';
+import { useSearchParams } from 'react-router-dom';
 import { CalendarClock, Info, Landmark, PiggyBank, ShieldCheck, TrendingUp } from 'lucide-react';
 import {
   Button, Card, EmptyState, Field, FormError, Input, PageLoading,
@@ -22,7 +23,7 @@ const KIND_ORDER = ['FD', 'RD', 'SIP', 'SSY'];
 
 // Representative tenure (months) for each FD rate-grid slab / RD band, used
 // for the maturity projection and the booking call.
-const FD_TENURE_MONTHS = [1, 3, 9, 18, 30, 48, 84];
+const FD_TENURE_MONTHS = [1, 3, 9, 12, 36, 48, 84];
 const RD_TENURE_MONTHS = [12, 18, 36, 60];
 
 function kindOf(h) {
@@ -68,7 +69,7 @@ function FdForm({ customerId, accounts, profile, onBooked }) {
   const { toast } = useToast();
   const [accountId, setAccountId] = useState('');
   const [amount, setAmount] = useState('100000');
-  const [gridIdx, setGridIdx] = useState(3);
+  const [gridIdx, setGridIdx] = useState(4);
   const [errors, setErrors] = useState({});
   const [formError, setFormError] = useState('');
   const [submitting, setSubmitting] = useState(false);
@@ -116,7 +117,7 @@ function FdForm({ customerId, accounts, profile, onBooked }) {
         seniorCitizen: isSenior,
         productName: FD.name,
         maturityAmount: preview?.maturityValue,
-        maturityDate: new Date(Date.now() + tenureMonths * 30 * 24 * 3600 * 1000).toISOString()
+        maturityDate: (() => { const d = new Date(); d.setMonth(d.getMonth() + tenureMonths); return d.toISOString(); })()
       });
       toast({ title: 'Fixed deposit booked', body: `${formatINR(amt)} for ${tenureMonths} months at ${rate.toFixed(2)}% p.a. · Ref ${inv.id}` });
       onBooked();
@@ -182,7 +183,7 @@ function FdForm({ customerId, accounts, profile, onBooked }) {
           note={FD.disclosure}
         />
       )}
-      <Button type="submit" loading={submitting} disabled={accounts.length === 0}>Book fixed deposit</Button>
+      <Button type="submit" onClick={handleSubmit} loading={submitting} disabled={accounts.length === 0}>Book fixed deposit</Button>
     </form>
   );
 }
@@ -231,7 +232,7 @@ function RdForm({ customerId, accounts, onBooked }) {
         rate,
         productName: RD.name,
         maturityAmount: preview?.maturityValue,
-        maturityDate: new Date(Date.now() + tenureMonths * 30 * 24 * 3600 * 1000).toISOString()
+        maturityDate: (() => { const d = new Date(); d.setMonth(d.getMonth() + tenureMonths); return d.toISOString(); })()
       });
       toast({ title: 'Recurring deposit started', body: `${formatINR(m)} per month for ${tenureMonths} months at ${rate.toFixed(2)}% p.a. · Ref ${inv.id}` });
       onBooked();
@@ -473,7 +474,8 @@ function SsyForm({ customerId, accounts, profile, onBooked }) {
         guardianRelationship,
         productName: SSY.name,
         rate,
-        maturityAmount: preview?.maturityValue
+        maturityAmount: preview?.maturityValue,
+        maturityDate: (() => { const d = new Date(); d.setFullYear(d.getFullYear() + (SSY.tenureYears || 21)); return d.toISOString(); })()
       });
       toast({ title: 'SSY account opened', body: `${formatINR(amt)} deposited for ${childName.trim()} at ${rate.toFixed(2)}% p.a. · Ref ${inv.id}` });
       onBooked();
@@ -546,7 +548,22 @@ export default function InvestmentsPage() {
   const [profile, setProfile] = useState(null);
   const [loading, setLoading] = useState(true);
   const [error, setError] = useState('');
-  const [tab, setTab] = useState('FD');
+  const [searchParams] = useSearchParams();
+  const applyParam = searchParams.get('apply') || searchParams.get('product');
+  const getInitialTab = () => {
+    if (!applyParam) return 'FD';
+    if (applyParam.includes('rd') || applyParam.includes('recurring')) return 'RD';
+    if (applyParam.includes('sip') || applyParam.includes('systematic')) return 'SIP';
+    if (applyParam.includes('ssy') || applyParam.includes('sukanya')) return 'SSY';
+    return 'FD';
+  };
+  const [tab, setTab] = useState(getInitialTab);
+
+  useEffect(() => {
+    if (applyParam) {
+      setTab(getInitialTab());
+    }
+  }, [applyParam]);
   const [refresh, setRefresh] = useState(0);
 
   useEffect(() => {
@@ -667,7 +684,7 @@ export default function InvestmentsPage() {
       )}
 
       <section className="space-y-4">
-        <h3 className="font-display text-xl font-semibold text-midnight-950">Book or start a new investment</h3>
+        <h3 className="font-sans text-xl font-semibold text-midnight-950">Book or start a new investment</h3>
         <Card className="p-5">
           <Tabs
             tabs={[
