@@ -14,9 +14,8 @@ public class LedgerBalanceSnapshot {
     @Column(name = "id", nullable = false, updatable = false)
     private UUID id;
 
-    @OneToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "ledger_account_id", nullable = false, unique = true)
-    private LedgerAccount ledgerAccount;
+    @Column(name = "account_id", nullable = false, unique = true, length = 100)
+    private String accountId;
 
     @Column(name = "debit_total", nullable = false, precision = 19, scale = 4)
     private BigDecimal debitTotal = BigDecimal.ZERO;
@@ -46,10 +45,10 @@ public class LedgerBalanceSnapshot {
     public LedgerBalanceSnapshot() {
     }
 
-    public LedgerBalanceSnapshot(UUID id, LedgerAccount ledgerAccount, BigDecimal debitTotal,
+    public LedgerBalanceSnapshot(UUID id, String accountId, BigDecimal debitTotal,
                                  BigDecimal creditTotal, BigDecimal ledgerBalance, String currency) {
         this.id = id != null ? id : UUID.randomUUID();
-        this.ledgerAccount = ledgerAccount;
+        this.accountId = accountId;
         this.debitTotal = debitTotal != null ? debitTotal : BigDecimal.ZERO;
         this.creditTotal = creditTotal != null ? creditTotal : BigDecimal.ZERO;
         this.ledgerBalance = ledgerBalance != null ? ledgerBalance : BigDecimal.ZERO;
@@ -93,12 +92,12 @@ public class LedgerBalanceSnapshot {
         this.id = id;
     }
 
-    public LedgerAccount getLedgerAccount() {
-        return ledgerAccount;
+    public String getAccountId() {
+        return accountId;
     }
 
-    public void setLedgerAccount(LedgerAccount ledgerAccount) {
-        this.ledgerAccount = ledgerAccount;
+    public void setAccountId(String accountId) {
+        this.accountId = accountId;
     }
 
     public BigDecimal getDebitTotal() {

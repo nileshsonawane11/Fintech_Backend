@@ -6,19 +6,21 @@ import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.oauth2.jwt.Jwt;
 
-import java.util.UUID;
-
 public final class SecurityUtils {
 
     private SecurityUtils() {}
 
-    public static String getAuthenticatedSubject() {
+    public static String getAuthenticatedIdentitySubject() {
         Authentication auth = SecurityContextHolder.getContext().getAuthentication();
         if (auth == null || !auth.isAuthenticated()) {
             throw LedgerException.unauthorized("Authentication required");
         }
 
         if (auth.getPrincipal() instanceof Jwt jwt) {
+            String identitySubject = jwt.getClaimAsString("identity_subject");
+            if (identitySubject != null && !identitySubject.isBlank()) {
+                return identitySubject;
+            }
             String sub = jwt.getSubject();
             if (sub != null && !sub.isBlank()) {
                 return sub;
@@ -33,13 +35,8 @@ public final class SecurityUtils {
         throw LedgerException.unauthorized("Invalid authenticated identity subject");
     }
 
-    public static UUID getAuthenticatedCustomerId() {
-        String sub = getAuthenticatedSubject();
-        try {
-            return UUID.fromString(sub);
-        } catch (IllegalArgumentException ex) {
-            return null;
-        }
+    public static String getAuthenticatedSubject() {
+        return getAuthenticatedIdentitySubject();
     }
 
     public static boolean hasAuthority(String authority) {
@@ -57,7 +54,7 @@ public final class SecurityUtils {
 
     public static boolean isOperationsOrAdmin() {
         return hasAuthority("ROLE_OPERATIONS") || hasAuthority("ROLE_ADMIN") || hasAuthority("ROLE_MANAGER") ||
-               hasAuthority("TRANSACTION_READ_ALL");
+               hasAuthority("TRANSACTION_READ_ALL") || hasAuthority("LEDGER_ACCOUNT_READ");
     }
 
     public static boolean isInternalService() {

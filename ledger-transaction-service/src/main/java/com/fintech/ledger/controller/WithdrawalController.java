@@ -19,7 +19,7 @@ import org.springframework.security.oauth2.jwt.Jwt;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@Tag(name = "Withdrawals", description = "Customer withdrawal processing, ATM cash settlements, and operations approvals")
+@Tag(name = "Withdrawals", description = "Withdrawal initiation, payout processing, and operational approval workflows")
 @SecurityRequirement(name = "BearerAuth")
 public class WithdrawalController {
 
@@ -30,7 +30,7 @@ public class WithdrawalController {
     }
 
     @PostMapping("/api/v1/withdrawals")
-    @Operation(summary = "Initiate Withdrawal", description = "Initiate fund withdrawal from a customer account with available balance verification and double-entry debiting")
+    @Operation(summary = "Initiate Withdrawal", description = "Initiate fund withdrawal from customer account via ATM, CASH, BANK_TRANSFER, or CHEQUE")
     @PreAuthorize("hasAuthority('ACCOUNT_WITHDRAWAL_CREATE_OWN') or hasRole('CUSTOMER') or hasRole('OPERATIONS') or hasRole('ADMIN')")
     public ResponseEntity<WithdrawalResponse> initiateWithdrawal(
             @Parameter(description = "Idempotency Key UUID", required = false)
@@ -40,46 +40,46 @@ public class WithdrawalController {
             @Valid @RequestBody WithdrawalRequest request,
             @AuthenticationPrincipal Jwt jwt) {
 
-        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedSubject();
+        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedIdentitySubject();
         WithdrawalResponse response = withdrawalService.initiateWithdrawal(request, customerSubject, idempotencyKey, correlationId);
         return ResponseEntity.status(HttpStatus.CREATED).body(response);
     }
 
     @GetMapping("/api/v1/withdrawals/{transactionId}")
-    @Operation(summary = "Get Withdrawal Details", description = "Check status and settlement of a customer withdrawal")
+    @Operation(summary = "Get Withdrawal Details", description = "Check payout execution and settlement status")
     @PreAuthorize("hasAuthority('ACCOUNT_TRANSACTION_READ_OWN') or hasRole('CUSTOMER') or hasRole('OPERATIONS') or hasRole('ADMIN')")
     public ResponseEntity<WithdrawalResponse> getWithdrawalDetails(
             @Parameter(description = "Transaction ID") @PathVariable String transactionId,
             @AuthenticationPrincipal Jwt jwt) {
 
-        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedSubject();
+        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedIdentitySubject();
         boolean isOps = SecurityUtils.isOperationsOrAdmin();
         WithdrawalResponse response = withdrawalService.getWithdrawalDetails(transactionId, customerSubject, isOps);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/ops/api/v1/withdrawals/{transactionId}/approve")
-    @Operation(summary = "Approve Withdrawal (Operations)", description = "Operations approval for high-value or manual settlement withdrawals")
+    @Operation(summary = "Approve Withdrawal (Operations)", description = "Operations approval of high-value or manual payout withdrawals")
     @PreAuthorize("hasAuthority('WITHDRAWAL_APPROVE') or hasRole('OPERATIONS') or hasRole('ADMIN')")
     public ResponseEntity<WithdrawalResponse> approveWithdrawal(
             @Parameter(description = "Transaction ID") @PathVariable String transactionId,
             @RequestBody(required = false) ApproveWithdrawalRequest request,
             @AuthenticationPrincipal Jwt jwt) {
 
-        String opsUser = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedSubject();
+        String opsUser = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedIdentitySubject();
         WithdrawalResponse response = withdrawalService.approveWithdrawal(transactionId, request, opsUser);
         return ResponseEntity.ok(response);
     }
 
     @PostMapping("/ops/api/v1/withdrawals/{transactionId}/reject")
-    @Operation(summary = "Reject Withdrawal (Operations)", description = "Operations rejection of pending withdrawal")
+    @Operation(summary = "Reject Withdrawal (Operations)", description = "Operations rejection of pending withdrawals")
     @PreAuthorize("hasAuthority('WITHDRAWAL_REJECT') or hasRole('OPERATIONS') or hasRole('ADMIN')")
     public ResponseEntity<WithdrawalResponse> rejectWithdrawal(
             @Parameter(description = "Transaction ID") @PathVariable String transactionId,
             @Valid @RequestBody RejectActionRequest request,
             @AuthenticationPrincipal Jwt jwt) {
 
-        String opsUser = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedSubject();
+        String opsUser = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedIdentitySubject();
         WithdrawalResponse response = withdrawalService.rejectWithdrawal(transactionId, request, opsUser);
         return ResponseEntity.ok(response);
     }

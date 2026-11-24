@@ -1,5 +1,6 @@
 package com.fintech.ledger.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fintech.ledger.enums.TransactionType;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -22,13 +23,23 @@ public record LedgerPostingRequest(
 
         String correlationId,
 
-        @NotBlank(message = "Debit ledger account ID is required")
-        String debitLedgerAccountId,
+        @NotBlank(message = "Debit account ID is required")
+        @JsonAlias({"debitAccountId", "debitLedgerAccountId"})
+        String debitAccountId,
 
-        @NotBlank(message = "Credit ledger account ID is required")
-        String creditLedgerAccountId,
+        @NotBlank(message = "Credit account ID is required")
+        @JsonAlias({"creditAccountId", "creditLedgerAccountId"})
+        String creditAccountId,
 
         String narrative,
 
         String referenceNumber
-) {}
+) {
+    public String debitLedgerAccountId() {
+        return debitAccountId;
+    }
+
+    public String creditLedgerAccountId() {
+        return creditAccountId;
+    }
+}

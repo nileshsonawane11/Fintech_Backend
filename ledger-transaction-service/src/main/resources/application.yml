@@ -69,10 +69,10 @@ app:
       account-holds: ${ACCOUNT_TOPIC_HOLD:account.hold-events.v1}
   services:
     account-service:
-      url: ${ACCOUNT_SERVICE_URL:http://localhost:8082}
-      mock-enabled: ${ACCOUNT_SERVICE_MOCK_ENABLED:true}
+      service-id: ACCOUNT-SERVICE
+      mock-enabled: false
     customer-service:
-      url: ${CUSTOMER_SERVICE_URL:http://localhost:8084}
+      service-id: CUSTOMER-SERVICE
 
 management:
   endpoints:
@@ -93,3 +93,4 @@ logging:
     com.fintech.ledger: DEBUG
     org.springframework.security: INFO
     org.hibernate.SQL: INFO
+    org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping: TRACE

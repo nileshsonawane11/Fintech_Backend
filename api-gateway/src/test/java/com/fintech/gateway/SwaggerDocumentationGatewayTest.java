@@ -82,4 +82,15 @@ class SwaggerDocumentationGatewayTest {
                 "notification-service-docs"
         );
     }
+
+    @Test
+    @DisplayName("Verify ledger-service route is registered and routes rebuild-balance")
+    void testLedgerServiceRoutesRebuildBalance() {
+        org.springframework.cloud.gateway.route.Route ledgerRoute = routeLocator.getRoutes()
+                .filter(route -> "ledger-service".equals(route.getId()))
+                .blockFirst();
+
+        assertThat(ledgerRoute).isNotNull();
+        assertThat(ledgerRoute.getPredicate().toString()).contains("/ops/api/v1/accounts/*/rebuild-balance");
+    }
 }

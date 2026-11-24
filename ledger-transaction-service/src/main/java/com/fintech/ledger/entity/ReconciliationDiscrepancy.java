@@ -20,9 +20,8 @@ public class ReconciliationDiscrepancy {
     @JoinColumn(name = "reconciliation_run_id", nullable = false)
     private ReconciliationRun reconciliationRun;
 
-    @ManyToOne(fetch = FetchType.LAZY, optional = false)
-    @JoinColumn(name = "ledger_account_id", nullable = false)
-    private LedgerAccount ledgerAccount;
+    @Column(name = "account_id", nullable = false, length = 100)
+    private String accountId;
 
     @Enumerated(EnumType.STRING)
     @Column(name = "discrepancy_type", nullable = false, length = 50)
@@ -56,12 +55,12 @@ public class ReconciliationDiscrepancy {
     public ReconciliationDiscrepancy() {
     }
 
-    public ReconciliationDiscrepancy(UUID id, ReconciliationRun reconciliationRun, LedgerAccount ledgerAccount,
+    public ReconciliationDiscrepancy(UUID id, ReconciliationRun reconciliationRun, String accountId,
                                      DiscrepancyType discrepancyType, BigDecimal expectedAmount,
                                      BigDecimal actualAmount, BigDecimal differenceAmount, String description) {
         this.id = id != null ? id : UUID.randomUUID();
         this.reconciliationRun = reconciliationRun;
-        this.ledgerAccount = ledgerAccount;
+        this.accountId = accountId;
         this.discrepancyType = discrepancyType;
         this.expectedAmount = expectedAmount;
         this.actualAmount = actualAmount;
@@ -100,12 +99,12 @@ public class ReconciliationDiscrepancy {
         this.reconciliationRun = reconciliationRun;
     }
 
-    public LedgerAccount getLedgerAccount() {
-        return ledgerAccount;
+    public String getAccountId() {
+        return accountId;
     }
 
-    public void setLedgerAccount(LedgerAccount ledgerAccount) {
-        this.ledgerAccount = ledgerAccount;
+    public void setAccountId(String accountId) {
+        this.accountId = accountId;
     }
 
     public DiscrepancyType getDiscrepancyType() {

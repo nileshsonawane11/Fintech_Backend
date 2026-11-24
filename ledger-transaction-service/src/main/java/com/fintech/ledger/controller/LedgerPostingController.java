@@ -5,6 +5,7 @@ import com.fintech.ledger.dto.request.MultiLinePostingRequest;
 import com.fintech.ledger.dto.request.PostingEntryItem;
 import com.fintech.ledger.dto.response.BalanceResponse;
 import com.fintech.ledger.dto.response.CursorPagedResponse;
+import com.fintech.ledger.dto.response.LedgerEntryResponse;
 import com.fintech.ledger.dto.response.LedgerPostingResponse;
 import com.fintech.ledger.dto.response.TransactionResponse;
 import com.fintech.ledger.entity.LedgerEntry;
@@ -30,7 +31,7 @@ import java.time.LocalDate;
 import java.util.List;
 
 @RestController
-@RequestMapping("/internal/api/v1/ledger")
+@RequestMapping({"/ops/api/v1/ledger", "/internal/api/v1/ledger"})
 @Tag(name = "Internal Ledger Postings", description = "Trusted inter-service double-entry accounting posting engine")
 @SecurityRequirement(name = "BearerAuth")
 public class LedgerPostingController {
@@ -61,8 +62,8 @@ public class LedgerPostingController {
             @Valid @RequestBody LedgerPostingRequest request) {
 
         List<PostingEntryItem> entries = List.of(
-                new PostingEntryItem(request.debitLedgerAccountId(), EntryType.DEBIT, request.amount(), request.narrative(), request.referenceNumber()),
-                new PostingEntryItem(request.creditLedgerAccountId(), EntryType.CREDIT, request.amount(), request.narrative(), request.referenceNumber())
+                new PostingEntryItem(request.debitAccountId(), EntryType.DEBIT, request.amount(), request.narrative(), request.referenceNumber()),
+                new PostingEntryItem(request.creditAccountId(), EntryType.CREDIT, request.amount(), request.narrative(), request.referenceNumber())
         );
 
         LedgerPostingResponse response = postingEngine.post(
@@ -115,37 +116,28 @@ public class LedgerPostingController {
         return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/accounts/{ledgerAccountId}/entries")
-    @Operation(summary = "Get Ledger Account Entries", description = "Internal service API to retrieve immutable debits and credits posted to a ledger account")
-    @PreAuthorize("hasAuthority('LEDGER_ACCOUNT_READ_INTERNAL') or hasRole('SYSTEM') or hasRole('INTERNAL') or hasRole('ADMIN')")
-    public ResponseEntity<CursorPagedResponse<LedgerEntry>> getLedgerAccountEntries(
-            @Parameter(description = "Ledger Account ID (e.g. LA-ACC-1001)") @PathVariable String ledgerAccountId,
+    @GetMapping("/accounts/{accountId}/entries")
+    @Operation(summary = "Get Account Entries", description = "Operations and internal service API to retrieve immutable debits and credits posted to an account")
+    @PreAuthorize("hasAuthority('LEDGER_ACCOUNT_READ_INTERNAL') or hasAuthority('LEDGER_ACCOUNT_READ') or hasRole('SYSTEM') or hasRole('INTERNAL') or hasRole('ADMIN') or hasRole('OPERATIONS') or hasRole('MANAGER')")
+    public ResponseEntity<CursorPagedResponse<LedgerEntryResponse>> getLedgerAccountEntries(
+            @Parameter(description = "Account ID (e.g. ACC-1001)") @PathVariable String accountId,
             @Parameter(description = "Filter from date") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate fromDate,
             @Parameter(description = "Filter to date") @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE) LocalDate toDate,
             @Parameter(description = "Pagination limit") @RequestParam(defaultValue = "50") int limit,
             @Parameter(description = "Cursor for pagination") @RequestParam(required = false) String cursor) {
 
-        int page = 0;
-        if (cursor != null && !cursor.isBlank()) {
-            try {
-                page = Integer.parseInt(cursor);
-            } catch (NumberFormatException ignored) {}
-        }
-
-        Page<LedgerEntry> entriesPage = entryRepository.findByLedgerAccountIdAndDates(
-                ledgerAccountId, fromDate, toDate, PageRequest.of(page, limit));
-
-        String nextCursor = entriesPage.hasNext() ? String.valueOf(page + 1) : null;
-        return ResponseEntity.ok(CursorPagedResponse.of(entriesPage.getContent(), nextCursor, entriesPage.hasNext(), limit));
+        CursorPagedResponse<LedgerEntryResponse> response = transactionService.getAccountEntries(
+                accountId, fromDate, toDate, limit, cursor);
+        return ResponseEntity.ok(response);
     }
 
-    @GetMapping("/accounts/{ledgerAccountId}/balance")
-    @Operation(summary = "Get Ledger Account Balance", description = "Internal service API to inspect accounting balance and snapshot metadata")
+    @GetMapping("/accounts/{accountId}/balance")
+    @Operation(summary = "Get Account Balance (Internal)", description = "Internal service API to inspect accounting balance and snapshot metadata")
     @PreAuthorize("hasAuthority('LEDGER_BALANCE_READ_INTERNAL') or hasRole('SYSTEM') or hasRole('INTERNAL') or hasRole('ADMIN')")
     public ResponseEntity<BalanceResponse> getLedgerAccountBalance(
-            @Parameter(description = "Ledger Account ID") @PathVariable String ledgerAccountId) {
+            @Parameter(description = "Account ID") @PathVariable String accountId) {
 
-        BalanceResponse response = balanceService.getAccountBalance(ledgerAccountId, null, true);
+        BalanceResponse response = balanceService.getAccountBalance(accountId, null, true);
         return ResponseEntity.ok(response);
     }
 }

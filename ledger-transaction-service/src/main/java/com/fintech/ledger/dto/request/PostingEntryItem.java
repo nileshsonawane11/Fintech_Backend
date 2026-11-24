@@ -1,5 +1,6 @@
 package com.fintech.ledger.dto.request;
 
+import com.fasterxml.jackson.annotation.JsonAlias;
 import com.fintech.ledger.enums.EntryType;
 import jakarta.validation.constraints.DecimalMin;
 import jakarta.validation.constraints.NotBlank;
@@ -8,8 +9,9 @@ import jakarta.validation.constraints.NotNull;
 import java.math.BigDecimal;
 
 public record PostingEntryItem(
-        @NotBlank(message = "Ledger account ID is required")
-        String ledgerAccountId,
+        @NotBlank(message = "Account ID is required")
+        @JsonAlias({"accountId", "ledgerAccountId"})
+        String accountId,
 
         @NotNull(message = "Entry type is required")
         EntryType entryType,
@@ -21,4 +23,8 @@ public record PostingEntryItem(
         String narrative,
 
         String referenceNumber
-) {}
+) {
+    public String ledgerAccountId() {
+        return accountId;
+    }
+}
