@@ -24,11 +24,18 @@ export const cardService = {
     });
   },
 
-  // Permanently Block Card (Section 7.3)
-  async blockCard(cardId, { reason, remarks }) {
+  // Block Card (Temporary or Permanent)
+  async blockCard(cardId, { blockType = 'TEMPORARY', reason, remarks } = {}) {
     return apiRequest(`/api/v1/cards/${cardId}/block`, {
       method: 'POST',
-      body: JSON.stringify({ reason, remarks })
+      body: JSON.stringify({ blockType, reason, remarks })
+    });
+  },
+
+  // Unblock Card (Temporary block unfreeze)
+  async unblockCard(cardId) {
+    return apiRequest(`/api/v1/cards/${cardId}/unblock`, {
+      method: 'POST'
     });
   },
 
