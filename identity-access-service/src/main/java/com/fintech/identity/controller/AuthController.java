@@ -1,11 +1,7 @@
 package com.fintech.identity.controller;
 
 import com.fintech.identity.dto.request.*;
-import com.fintech.identity.dto.response.IdentityMatchResponse;
-import com.fintech.identity.dto.response.LoginResponse;
-import com.fintech.identity.dto.response.OtpVerificationResponse;
-import com.fintech.identity.dto.response.RegisterResponse;
-import com.fintech.identity.dto.response.TokenResponse;
+import com.fintech.identity.dto.response.*;
 import com.fintech.identity.service.AuthService;
 import com.fintech.identity.service.RefreshTokenService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -98,6 +94,22 @@ public class AuthController {
     ) {
         return ResponseEntity.ok(
                 refreshTokenService.rotate(request.refreshToken())
+        );
+    }
+
+    @PostMapping("/change-password")
+    @Operation(summary = "Change Password", description = "Set new password using old password")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Password Changed successfully"),
+            @ApiResponse(responseCode = "401", description = "Invalid credentials")
+    })
+    public ResponseEntity<PasswordChangedResponse> changePassword(
+            @Valid @RequestBody PasswordChangedRequest passwordChangedRequest,
+            @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt
+    ){
+        String IdentitySubject = jwt.getSubject();
+        return ResponseEntity.ok(
+                authService.changePassword(passwordChangedRequest, IdentitySubject)
         );
     }
 

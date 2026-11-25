@@ -3,6 +3,7 @@ package com.fintech.identity.model;
 import com.fintech.identity.model.enums.CustomerStatus;
 import com.fintech.identity.model.enums.Role;
 import jakarta.persistence.*;
+import org.jspecify.annotations.Nullable;
 
 import java.time.Instant;
 import java.util.UUID;
@@ -145,6 +146,10 @@ public class Customer {
         if (this.failedLoginAttempts >= 5) {
             this.lockedUntil = Instant.now().plusSeconds(900);
         }
+    }
+
+    public void setPasswordHash(String passwordHash) {
+        this.passwordHash = passwordHash;
     }
 
     public void resetFailedLogins() {

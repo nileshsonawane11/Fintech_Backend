@@ -509,4 +509,89 @@ public class AuthService {
 
         return local.substring(0, 1) + "***@" + domain;
     }
+
+    @Transactional
+    public PasswordChangedResponse changePassword(
+            PasswordChangedRequest request,
+            String identitySubject
+    ) {
+        // 1. Validate authenticated identity
+        UUID customerId;
+
+        try {
+            customerId = UUID.fromString(identitySubject);
+        } catch (Exception ex) {
+            throw new ApiException(
+                    HttpStatus.UNAUTHORIZED,
+                    "INVALID_AUTHENTICATION",
+                    "Invalid customer identity."
+            );
+        }
+
+        // 2. Fetch customer
+        Customer customer = customerRepository.findById(customerId)
+                .orElseThrow(() -> new ApiException(
+                        HttpStatus.NOT_FOUND,
+                        "CUSTOMER_NOT_FOUND",
+                        "Customer account not found."
+                ));
+
+        // 3. Verify account status
+        if (customer.getStatus() != CustomerStatus.ACTIVE) {
+            throw new ApiException(
+                    HttpStatus.FORBIDDEN,
+                    "ACCOUNT_NOT_ACTIVE",
+                    "Password cannot be changed for an inactive account."
+            );
+        }
+
+        // 4. Verify current password
+        if (!passwordEncoder.matches(
+                request.currentPassword(),
+                customer.getPasswordHash()
+        )) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "INVALID_CURRENT_PASSWORD",
+                    "Current password is incorrect."
+            );
+        }
+
+        // 5. Validate new password
+        if (passwordEncoder.matches(
+                request.newPassword(),
+                customer.getPasswordHash()
+        )) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "SAME_PASSWORD",
+                    "New password must be different from the current password."
+            );
+        }
+
+        // 6. Validate password confirmation
+        if (!request.newPassword().equals(request.confirmPassword())) {
+            throw new ApiException(
+                    HttpStatus.BAD_REQUEST,
+                    "PASSWORD_MISMATCH",
+                    "New password and confirm password do not match."
+            );
+        }
+
+        // 7. Update password
+        customer.setPasswordHash(
+                passwordEncoder.encode(request.newPassword())
+        );
+
+        customerRepository.save(customer);
+
+        // 8. Revoke all existing refresh tokens
+        refreshTokenRepository.findAllByCustomer_Id(customerId)
+                .forEach(RefreshToken::revoke);
+
+        return new PasswordChangedResponse(
+                "Password changed successfully.",
+                Instant.now()
+        );
+    }
 }
