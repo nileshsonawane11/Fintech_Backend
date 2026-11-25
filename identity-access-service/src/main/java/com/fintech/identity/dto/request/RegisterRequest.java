@@ -24,7 +24,7 @@ public record RegisterRequest(
 
         @NotBlank(message = "Password is required")
         @Size(min = 8, max = 25,
-                message = "Password must contain between 12 and 72 characters")
+                message = "Password must contain between 8 and 25 characters")
         @Pattern(
                 regexp = "^(?=.*[a-z])(?=.*[A-Z])(?=.*\\d)(?=.*[^A-Za-z\\d]).+$",
                 message = "Password must contain uppercase, lowercase, digit and special character"
