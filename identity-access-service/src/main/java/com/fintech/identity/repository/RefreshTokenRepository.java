@@ -21,5 +21,9 @@ public interface RefreshTokenRepository
             @Param("hash") String hash
     );
 
+
+
     List<RefreshToken> findAllByFamilyId(UUID familyId);
+
+    Iterable<RefreshToken> findAllByCustomer_Id(UUID customerId);
 }
