@@ -11,5 +11,7 @@ public interface WebhookEventRepository extends JpaRepository<WebhookEvent, Stri
 
     boolean existsByRailReference(String railReference);
 
-    Optional<WebhookEvent> findByRailReference(String railReference);
+    boolean existsByEventId(String eventId);
+
+    Optional<WebhookEvent> findByEventId(String eventId);
 }
