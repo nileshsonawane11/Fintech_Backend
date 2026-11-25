@@ -2,6 +2,11 @@
 import { apiRequest } from './api.js';
 
 export const cardService = {
+  // Get Public Card Catalog
+  async getPublicCardProducts() {
+    return apiRequest('/public/api/v1/card-products');
+  },
+
   // Get Customer Cards (Section 7.2)
   async getCards() {
     return apiRequest('/api/v1/cards', {
@@ -9,8 +14,15 @@ export const cardService = {
     });
   },
 
+  // Get Customer Card Applications
+  async getCardApplications() {
+    return apiRequest('/api/v1/cards/applications', {
+      method: 'GET'
+    });
+  },
+
   // Apply for Card (Section 7.1)
-  async applyForCard({ cardType, cardName, productSlug, linkedAccountId, requestedLimit, deliveryAddressId = 'ADDR-1001' }) {
+  async applyForCard({ cardType, cardName, productSlug, linkedAccountId, requestedLimit, deliveryAddressId = 'ADDR-1001', ...rest }) {
     return apiRequest('/api/v1/cards/applications', {
       method: 'POST',
       body: JSON.stringify({
@@ -19,7 +31,8 @@ export const cardService = {
         productSlug,
         linkedAccountId,
         requestedLimit,
-        deliveryAddressId
+        deliveryAddressId,
+        ...rest
       })
     });
   },

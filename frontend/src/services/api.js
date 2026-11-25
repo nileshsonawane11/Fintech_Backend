@@ -1871,20 +1871,31 @@ export const apiRequest = async (endpoint, options = {}) => {
       }
     }
 
-    const contentType = response.headers.get('content-type');
+    const contentType = response.headers.get('content-type') || '';
     let data = null;
-    if (contentType && contentType.includes('application/json')) {
-      data = await response.json();
+    if (contentType.includes('application/json') || contentType.includes('+json')) {
+      try {
+        data = await response.json();
+      } catch {
+        data = null;
+      }
     } else {
-      data = await response.text();
+      const txt = await response.text();
+      try {
+        data = txt && (txt.trim().startsWith('{') || txt.trim().startsWith('[')) ? JSON.parse(txt) : txt;
+      } catch {
+        data = txt;
+      }
     }
-
-    console.log(response)
 
     if (!response.ok) {
       const errCode = data?.error?.code || data?.code || 'API_ERROR';
-      const errDetail = data?.error?.message || data?.detail || data?.title || response.statusText;
       const errDetails = data?.error?.details || data?.details || data?.errors || [];
+      const firstFieldMsg = Array.isArray(errDetails) && errDetails.length > 0
+        ? (errDetails[0]?.message || errDetails[0]?.detail)
+        : null;
+      const rawMsg = data?.error?.message || data?.message || (data?.detail && data.detail !== 'The request could not be completed.' ? data.detail : null);
+      const errDetail = firstFieldMsg || rawMsg || data?.detail || data?.title || response.statusText || `HTTP ${response.status}`;
       const reqId = data?.error?.requestId || headers['X-Correlation-Id'];
       const errObj = {
         status: response.status,

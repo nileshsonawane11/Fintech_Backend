@@ -255,9 +255,9 @@ export const AuthProvider = ({ children }) => {
       }
 
       const mgr = {
-        staffId: res.id,
-        name: res.fullName || res.name || 'Staff Member',
-        email: res.email || identifier,
+        staffId: res.id || res.customer?.id || res.customerId,
+        name: res.fullName || res.name || res.customer?.fullName || 'Staff Member',
+        email: res.email || res.customer?.email || identifier,
         role: recordRole,
         roleTitle: res.roleTitle || 'Operations Specialist',
         department: res.department || 'Operations',
@@ -304,19 +304,22 @@ export const AuthProvider = ({ children }) => {
       refreshCustomerData();
       return res;
     } else if (category === 'account' || category === 'accounts' || applicationData.productType?.toLowerCase().includes('account')) {
-      const res = await accountService.applyForAccount({
-        productCode: applicationData.productCode || (applicationData.title?.includes('Current') || applicationData.productName?.includes('Current') ? 'CURRENT_BUSINESS' : 'SAVINGS_REGULAR'),
+      const accountPayload = {
+        productCode: applicationData.productCode || (applicationData.title?.includes('Current') || applicationData.productName?.includes('Current') ? 'CURRENT_STANDARD' : 'SAVINGS_REGULAR'),
         productName: applicationData.productName || applicationData.title,
         applicantName: applicationData.applicantName || applicationData.fullName,
-        initialFundingAmount: Number(applicationData.initialFundingAmount || 0),
+        initialFundingAmount: Number(applicationData.initialFundingAmount || applicationData.initialDeposit || 0),
         nominee: applicationData.nominee || {
           fullName: 'Nominee Name',
           relationship: 'SPOUSE',
           dateOfBirth: '1998-01-01',
-          mobileNumber: user?.mobileNumber || user?.phone || '9876543210'
+          mobileNumber: user?.mobileNumber || user?.phone || applicationData.mobileNumber || '9876543210'
         },
         ...applicationData
-      });
+      };
+      const res = user
+        ? await accountService.applyForAccount(accountPayload)
+        : await accountService.applyUnregistered(accountPayload);
       refreshCustomerData();
       return res;
     } else {

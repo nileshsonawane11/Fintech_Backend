@@ -40,7 +40,7 @@ export function InPortalAccountApplyModal({ open, onClose, onApplied }) {
         productName: selectedProduct.name,
         initialFunding: depositNum,
         branch,
-        nominee: { fullName: nomineeName || 'Nominee on file', relationship: 'Family' }
+        nominee: { fullName: nomineeName || 'Nominee on file', relationship: 'OTHER', dateOfBirth: '1998-01-01', mobileNumber: user?.mobile || user?.mobileNumber || '9876543210' }
       });
       setSuccess(app);
       toast({

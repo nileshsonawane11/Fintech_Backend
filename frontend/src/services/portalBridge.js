@@ -1,24 +1,4 @@
 
-export function getEffectiveCustomerId(customerId) {
-  const db = getDb();
-  if (typeof localStorage !== 'undefined') {
-    const token = localStorage.getItem('finedge_access_token');
-    if (token) {
-      const clean = token.startsWith('Bearer ') ? token.slice(7) : token;
-      const sess = (db.sessions || []).find(s => s.sessionId === clean && s.type === 'CUSTOMER');
-      if (sess && new Date(sess.expiresAt).getTime() > Date.now()) {
-        return sess.customerId;
-      }
-    }
-    return null;
-  }
-  if (customerId) {
-    const cust = (db.customers || []).find(c => c.customerId === customerId);
-    if (cust) return customerId;
-  }
-  return null;
-}
-
 // Portal Bridge Service
 // Connects reference portal UI components to FinEdge production service layer & DB engine
 import {
@@ -34,6 +14,65 @@ import {
 import { accountService } from './accountService.js';
 import { customerService } from './customerService.js';
 import { cardService } from './cardService.js';
+import { loanService } from './loanService.js';
+import { notificationService } from './notificationService.js';
+import { getMode } from '../lib/serverMode.js';
+
+function decodeJwtSubject(token) {
+  try {
+    if (!token || typeof token !== 'string') return null;
+    const clean = token.startsWith('Bearer ') ? token.slice(7) : token;
+    const parts = clean.split('.');
+    if (parts.length !== 3) return null;
+    const b64 = parts[1].replace(/-/g, '+').replace(/_/g, '/');
+    const json = typeof atob === 'function'
+      ? atob(b64)
+      : Buffer.from(b64, 'base64').toString('utf8');
+    const payload = JSON.parse(json);
+    return payload?.sub || payload?.customerId || null;
+  } catch {
+    return null;
+  }
+}
+
+function isJwtToken(token) {
+  if (!token || typeof token !== 'string') return false;
+  const clean = token.startsWith('Bearer ') ? token.slice(7) : token;
+  return clean.split('.').length === 3 && !clean.startsWith('demo_');
+}
+
+function isLiveBackendActive() {
+  if (getMode() === 'demo') return false;
+  if (getMode() === 'server') return true;
+  if (typeof localStorage !== 'undefined') {
+    return isJwtToken(localStorage.getItem('finedge_access_token'));
+  }
+  return false;
+}
+
+export function getEffectiveCustomerId(customerId) {
+  const db = getDb();
+  if (typeof localStorage !== 'undefined') {
+    const token = localStorage.getItem('finedge_access_token');
+    if (token) {
+      const clean = token.startsWith('Bearer ') ? token.slice(7) : token;
+      const sess = (db.sessions || []).find(s => s.sessionId === clean && s.type === 'CUSTOMER');
+      if (sess && new Date(sess.expiresAt).getTime() > Date.now()) {
+        return sess.customerId;
+      }
+      if (isJwtToken(clean) || getMode() === 'server') {
+        const storedId = localStorage.getItem('finedge_session_customer_id');
+        return customerId || storedId || decodeJwtSubject(clean);
+      }
+    }
+    return null;
+  }
+  if (customerId) {
+    const cust = (db.customers || []).find(c => c.customerId === customerId);
+    if (cust) return customerId;
+  }
+  return null;
+}
 import { maskAccount } from '../lib/format.js';
 import { calculateEMI, calculateFD, calculateRD, calculateSSY, calculateSIP } from '../lib/finance.js';
 import { CARDS, getCardBySlug, SSY, RD, FD, SIP } from '../data/products.js';
@@ -251,8 +290,11 @@ export function canonicalCard(c) {
 export async function listAccounts(customerId) {
   try {
     const res = await accountService.getAccounts();
-    const accounts = Array.isArray(res) ? res : res?.data || [];
-    const filtered = accounts.filter(a => !customerId || a.customerId === customerId);
+    const accounts = Array.isArray(res) ? res : res?.data || res?.content || [];
+    if (isLiveBackendActive()) {
+      return accounts.map(canonicalAccount);
+    }
+    const filtered = accounts.filter(a => !customerId || !a.customerId || a.customerId === customerId);
     return filtered.map(canonicalAccount);
   } catch {
     const db = getDb();
@@ -336,8 +378,11 @@ export function statementCsv(account, transactions) {
 export async function listBeneficiaries(customerId) {
   try {
     const res = await apiRequest('/api/v1/beneficiaries');
-    const list = Array.isArray(res) ? res : res?.data || [];
-    const filtered = list.filter(b => !customerId || b.customerId === customerId);
+    const list = Array.isArray(res) ? res : res?.data || res?.content || [];
+    if (isLiveBackendActive()) {
+      return list.map(canonicalBeneficiary);
+    }
+    const filtered = list.filter(b => !customerId || !b.customerId || b.customerId === customerId);
     return filtered.map(canonicalBeneficiary);
   } catch {
     const db = getDb();
@@ -346,16 +391,18 @@ export async function listBeneficiaries(customerId) {
   }
 }
 
-export async function addBeneficiary(customerId, { name, accountNumber, ifsc, bankName }) {
+export async function addBeneficiary(customerId, { name, accountNumber, ifsc, bankName, nickname }) {
   try {
+    const cleanAcct = String(accountNumber || '').replace(/\s/g, '');
     const res = await apiRequest('/api/v1/beneficiaries', {
       method: 'POST',
       body: JSON.stringify({
         beneficiaryName: name,
-        accountNumber: String(accountNumber).replace(/\s/g, ''),
-        ifscCode: ifsc,
-        bankName: bankName || 'FinEdge Bank',
-        nickname: name.split(' ')[0]
+        accountNumber: cleanAcct,
+        confirmAccountNumber: cleanAcct,
+        ifscCode: String(ifsc || '').trim().toUpperCase(),
+        bankName: bankName || 'FinBank',
+        nickname: (nickname || name || 'Payee').trim().slice(0, 50)
       })
     });
     return canonicalBeneficiary(res);
@@ -372,6 +419,9 @@ export async function deleteBeneficiary(customerId, beneficiaryId) {
     saveDb(db);
     return { success: true };
   } catch (err) {
+    if (isLiveBackendActive()) {
+      throw normaliseError(err);
+    }
     const db = getDb();
     db.beneficiaries = (db.beneficiaries || []).filter(b => b.beneficiaryId !== beneficiaryId && b.id !== beneficiaryId);
     saveDb(db);
@@ -381,6 +431,7 @@ export async function deleteBeneficiary(customerId, beneficiaryId) {
 
 export async function transfer({ customerId, fromAccountId, destinationType, destinationId, amount, railId = 'IMPS', note = '', toName }) {
   try {
+    const mode = String(railId || 'IMPS').toUpperCase();
     // Stale destination pre-check if destination is beneficiary
     if (destinationType === 'BENEFICIARY') {
       const bens = await listBeneficiaries(customerId);
@@ -390,16 +441,33 @@ export async function transfer({ customerId, fromAccountId, destinationType, des
       }
     }
 
-    const res = await accountService.initiateTransfer({
-      debitAccountId: fromAccountId,
-      beneficiaryId: destinationId,
-      destinationId,
-      destinationType,
-      amount: Number(amount),
-      transferMode: railId.toUpperCase(),
-      remarks: note || 'Funds Transfer',
-      toName
-    });
+    let res;
+    if (isLiveBackendActive() && (mode === 'INTERNAL' || destinationType === 'OWN_ACCOUNT')) {
+      res = await accountService.initiateInternalTransfer({
+        sourceAccountId: fromAccountId,
+        destinationAccountId: destinationId,
+        amount: Number(amount),
+        remarks: note || 'Internal Funds Transfer'
+      });
+    } else if (isLiveBackendActive() && mode === 'UPI') {
+      res = await accountService.initiateUpiTransfer({
+        debitAccountId: fromAccountId,
+        beneficiaryId: destinationId,
+        amount: Number(amount),
+        remarks: note || 'UPI Transfer'
+      });
+    } else {
+      res = await accountService.initiateTransfer({
+        debitAccountId: fromAccountId,
+        beneficiaryId: destinationId,
+        destinationId,
+        destinationType,
+        amount: Number(amount),
+        transferMode: mode,
+        remarks: note || 'Funds Transfer',
+        toName
+      });
+    }
 
     const rail = railId.toUpperCase();
     const liveRails = getLiveRails();
@@ -426,7 +494,108 @@ export async function transfer({ customerId, fromAccountId, destinationType, des
   }
 }
 
+function mapIncomeRangeEnum(val) {
+  if (!val) return '500000_1000000';
+  const s = String(val).toUpperCase();
+  if (['BELOW_500000', '500000_1000000', '1000000_2500000', 'ABOVE_2500000'].includes(s)) return s;
+  const num = Number(val);
+  if (!isNaN(num)) {
+    if (num < 500000) return 'BELOW_500000';
+    if (num <= 1000000) return '500000_1000000';
+    if (num <= 2500000) return '1000000_2500000';
+    return 'ABOVE_2500000';
+  }
+  return '500000_1000000';
+}
+
 export async function getMyProfile(customerId) {
+  if (isLiveBackendActive()) {
+    try {
+      const [prof, kyc, docsRes] = await Promise.all([
+        customerService.getProfile().catch((e) => (e?.status === 404 ? null : Promise.reject(e))),
+        customerService.getKycStatus().catch(() => null),
+        customerService.getKycDocuments().catch(() => [])
+      ]);
+
+      let fallbackUser = null;
+      if (typeof localStorage !== 'undefined') {
+        try { fallbackUser = JSON.parse(localStorage.getItem('finedge_demo_user') || 'null'); } catch {}
+      }
+
+      if (prof) {
+        const primaryAddr = Array.isArray(prof.customerAddress) && prof.customerAddress.length > 0
+          ? prof.customerAddress[0]
+          : null;
+        const rawDocs = Array.isArray(docsRes) ? docsRes : docsRes?.data || [];
+        const customer = {
+          customerId: prof.customerId || customerId || fallbackUser?.customerId,
+          fullName: prof.fullName || fallbackUser?.name || 'FinBank Customer',
+          email: prof.email || fallbackUser?.email || '',
+          mobile: prof.mobileNumber || fallbackUser?.mobile || '',
+          dob: prof.dateOfBirth || '',
+          gender: prof.gender || 'MALE',
+          pan: prof.pan || '',
+          aadhar: prof.aadhar || '',
+          occupation: kyc?.occupation || 'SALARIED',
+          annualIncome: kyc?.annualIncomeRange || '',
+          address: primaryAddr ? {
+            line1: primaryAddr.addressLine1 || '',
+            line2: primaryAddr.addressLine2 || '',
+            city: primaryAddr.city || '',
+            state: primaryAddr.state || '',
+            pin: primaryAddr.postalCode || ''
+          } : { line1: '', city: '', state: '', pin: '' },
+          kycStatus: prof.kycStatus || kyc?.status || 'NOT_STARTED'
+        };
+        const kycCase = {
+          id: kyc?.kycCaseId || kyc?.id || null,
+          kycCaseId: kyc?.kycCaseId || kyc?.id || null,
+          status: kyc?.status || prof.kycStatus || 'NOT_STARTED',
+          submittedAt: kyc?.submittedAt || kyc?.createdAt || prof.createdAt || null,
+          rejectionReason: kyc?.rejectionReason || kyc?.decisionReason || null,
+          documents: rawDocs.map(d => ({
+            documentReferenceId: d.documentReferenceId,
+            type: d.documentType || d.type,
+            name: d.fileName || d.name || 'document.pdf',
+            state: d.status || d.state || 'UPLOADED',
+            dataUrl: d.dataUrl || null,
+            size: d.contentSizeBytes || d.size || null
+          }))
+        };
+        return { customer, kycCase };
+      }
+
+      if (fallbackUser) {
+        const rawDocs = Array.isArray(docsRes) ? docsRes : docsRes?.data || [];
+        return {
+          customer: {
+            customerId: fallbackUser.customerId || customerId,
+            fullName: fallbackUser.name || 'FinBank Customer',
+            email: fallbackUser.email || '',
+            mobile: fallbackUser.mobile || '',
+            kycStatus: kyc?.status || 'NOT_STARTED',
+            address: { line1: '', city: '', state: '', pin: '' }
+          },
+          kycCase: {
+            id: kyc?.kycCaseId || null,
+            kycCaseId: kyc?.kycCaseId || null,
+            status: kyc?.status || 'NOT_STARTED',
+            documents: rawDocs.map(d => ({
+              documentReferenceId: d.documentReferenceId,
+              type: d.documentType,
+              name: d.fileName,
+              state: d.status || 'UPLOADED'
+            }))
+          }
+        };
+      }
+    } catch (err) {
+      if (getMode() === 'server') {
+        throw normaliseError(err);
+      }
+    }
+  }
+
   const effCustId = getEffectiveCustomerId(customerId) || customerId;
   if (!effCustId) {
     return { customer: null, kyc: null, kycCase: null };
@@ -495,6 +664,54 @@ export async function getMyKyc(customerId) {
 }
 
 export async function submitKyc(customerId, payload, documents = []) {
+  if (isLiveBackendActive()) {
+    try {
+      const existingDocs = await customerService.getKycDocuments().catch(() => []);
+      const docList = Array.isArray(existingDocs) ? existingDocs : existingDocs?.data || [];
+      const docReferences = [];
+
+      for (const d of (documents || [])) {
+        if (d.documentReferenceId) {
+          docReferences.push({ documentType: d.type, documentReferenceId: d.documentReferenceId });
+        } else {
+          const matched = docList.find(ed => (ed.documentType || ed.type) === d.type);
+          if (matched?.documentReferenceId) {
+            docReferences.push({ documentType: d.type, documentReferenceId: matched.documentReferenceId });
+          }
+        }
+      }
+      if (docReferences.length === 0 && docList.length > 0) {
+        docList.forEach(ed => {
+          docReferences.push({ documentType: ed.documentType, documentReferenceId: ed.documentReferenceId });
+        });
+      }
+
+      const addr = payload.address || {};
+      const kycBody = {
+        fullName: (payload.fullName || '').trim(),
+        dateOfBirth: payload.dob || payload.dateOfBirth,
+        gender: String(payload.gender || 'MALE').toUpperCase(),
+        pan: String(payload.pan || '').trim().toUpperCase(),
+        aadhaarConsent: Boolean(payload.aadhaarConsent ?? true),
+        occupation: String(payload.occupation || 'SALARIED').toUpperCase().replace(/[s-]+/g, '_'),
+        annualIncomeRange: mapIncomeRangeEnum(payload.annualIncomeRange || payload.annualIncome),
+        address: {
+          addressLine1: (addr.line1 || addr.addressLine1 || '').trim(),
+          addressLine2: (addr.line2 || addr.addressLine2 || '').trim() || undefined,
+          city: (addr.city || '').trim(),
+          state: (addr.state || '').trim(),
+          postalCode: String(addr.pin || addr.postalCode || '').trim(),
+          country: 'INDIA',
+          addressType: String(addr.addressType || 'CURRENT').toUpperCase() === 'PERMANENT' ? 'PERMANENT' : 'CURRENT'
+        },
+        documentReferences: docReferences
+      };
+      return await customerService.submitKyc(kycBody);
+    } catch (err) {
+      throw normaliseError(err);
+    }
+  }
+
   const db = getDb();
   if (!db.kycApplications) db.kycApplications = [];
   const effCustId = getEffectiveCustomerId(customerId) || customerId;
@@ -561,8 +778,11 @@ export async function submitKyc(customerId, payload, documents = []) {
 export async function listMyCards(customerId) {
   try {
     const res = await cardService.getCards();
-    const list = Array.isArray(res) ? res : res?.data || [];
-    const filtered = list.filter(c => !customerId || c.customerId === customerId);
+    const list = Array.isArray(res) ? res : res?.data || res?.cards || [];
+    if (isLiveBackendActive()) {
+      return list.map(canonicalCard);
+    }
+    const filtered = list.filter(c => !customerId || !c.customerId || c.customerId === customerId);
     return filtered.map(canonicalCard);
   } catch {
     const db = getDb();
@@ -572,6 +792,34 @@ export async function listMyCards(customerId) {
 }
 
 export async function listMyCardApplications(customerId) {
+  if (isLiveBackendActive()) {
+    try {
+      const res = await cardService.getCardApplications();
+      const list = Array.isArray(res) ? res : res?.data || [];
+      return list.map(c => {
+        const rawKind = (c.cardType || 'CREDIT').toUpperCase();
+        const kind = rawKind === 'REPLACEMENT' ? 'Replacement' : rawKind.includes('DEBIT') ? 'Debit' : 'Credit';
+        const id = c.cardApplicationId || c.applicationId || c.id;
+        return {
+          id,
+          cardApplicationId: id,
+          productName: c.cardName || c.productName || 'FinBank Card',
+          cardName: c.cardName || c.productName || 'FinBank Card',
+          productSlug: c.productSlug,
+          kind,
+          cardType: kind,
+          status: c.status || 'UNDER_REVIEW',
+          submittedAt: c.submittedAt || c.appliedAt || c.createdAt || new Date().toISOString(),
+          linkedAccountId: c.linkedAccountId
+        };
+      });
+    } catch (err) {
+      if (getMode() === 'server') {
+        return [];
+      }
+    }
+  }
+
   const db = getDb();
   const list = (db.cardApplications || []).filter(c => !customerId || c.customerId === customerId);
   return list.map(c => {
@@ -654,9 +902,14 @@ export async function applyCard(customerId, { productSlug, productName, kind, ac
       detail: 'Active customer session required to apply for a card.'
     };
   }
-  const db = getDb();
-  const customerAccounts = (db.accounts || []).filter(a => a.customerId === effCustId);
-  if (customerAccounts.length === 0) {
+  let customerAccounts = [];
+  if (isLiveBackendActive()) {
+    customerAccounts = await listAccounts(effCustId);
+  } else {
+    const db = getDb();
+    customerAccounts = (db.accounts || []).filter(a => a.customerId === effCustId);
+  }
+  if (customerAccounts.length === 0 && !accountId) {
     throw {
       status: 400,
       code: 'ACCOUNT_REQUIRED',
@@ -717,6 +970,36 @@ export async function applyLoan(customerId, payload = {}) {
     const err = new Error('Authentication required: a valid customer session is required to apply for a loan.');
     err.status = 401;
     throw err;
+  }
+  if (isLiveBackendActive()) {
+    try {
+      const principal = Number(effPayload.amount != null ? effPayload.amount : effPayload.loanAmount != null ? effPayload.loanAmount : effPayload.principal);
+      const isHome = String(effPayload.productSlug || effPayload.productName || '').toLowerCase().includes('home');
+      const res = await loanService.applyForLoan({
+        productCode: effPayload.productCode || (isHome ? 'HL_001' : 'PL_SALARIED_001'),
+        requestedAmount: principal,
+        tenureMonths: Number(effPayload.tenureMonths) || (isHome ? 120 : 36),
+        purpose: effPayload.purpose || 'Personal requirement',
+        employmentType: effPayload.employmentType || 'SALARIED',
+        monthlyIncome: effPayload.monthlyIncome || 75000,
+        employerName: effPayload.employerName || 'Enterprise',
+        creditBureauConsent: Boolean(effPayload.cicConsent ?? effPayload.creditBureauConsent ?? true)
+      });
+      const appId = res.loanApplicationId || res.applicationId || res.id;
+      return {
+        ...res,
+        id: appId,
+        applicationId: appId,
+        loanApplicationId: appId,
+        productName: effPayload.productName || 'FinBank Loan',
+        amount: principal,
+        requestedAmount: principal,
+        tenureMonths: Number(effPayload.tenureMonths) || 36,
+        submittedAt: new Date().toISOString()
+      };
+    } catch (err) {
+      throw normaliseError(err);
+    }
   }
   const db = getDb();
   if (!db.loanApplications) db.loanApplications = [];
@@ -1161,6 +1444,21 @@ export async function openSsy(customerId, payload = {}) {
 }
 
 export async function listAccountApplications({ status } = {}) {
+  if (isLiveBackendActive()) {
+    try {
+      const params = status && status !== 'ALL' ? { status } : {};
+      const res = await accountService.getApplications(params);
+      const list = Array.isArray(res) ? res : res?.items || res?.data || res?.content || [];
+      return list.map(a => ({
+        ...a,
+        id: a.applicationNumber || a.accountApplicationId || a.applicationId || a.id,
+        productName: a.productName || a.productCode || 'FinBank Account',
+        submittedAt: a.createdAt || a.submittedAt || new Date().toISOString()
+      }));
+    } catch {
+      if (getMode() === 'server') return [];
+    }
+  }
   const db = getDb();
   let list = db.accountApplications || [];
   if (status && status !== 'ALL') {
@@ -1178,6 +1476,28 @@ export async function listMyInvestmentApplications(customerId) {
 }
 
 export async function listMyApplications(customerId) {
+  if (isLiveBackendActive()) {
+    const [accAppsRaw, cardAppsRaw] = await Promise.all([
+      listAccountApplications().catch(() => []),
+      listMyCardApplications(customerId).catch(() => [])
+    ]);
+    const accApps = (accAppsRaw || []).map(a => ({
+      ...a,
+      id: a.applicationNumber || a.accountApplicationId || a.applicationId || a.id,
+      kind: 'Account',
+      amount: a.initialFundingAmount || a.initialFunding || 0,
+      submittedAt: a.createdAt || a.submittedAt || new Date().toISOString()
+    }));
+    const cardApps = (cardAppsRaw || []).map(c => ({
+      ...c,
+      id: c.cardApplicationId || c.id,
+      kind: `${c.kind || 'Credit'} Card`,
+      productName: c.cardName || c.productName || 'FinBank Card',
+      amount: c.requestedLimit || 0,
+      submittedAt: c.submittedAt || c.createdAt || new Date().toISOString()
+    }));
+    return [...accApps, ...cardApps].sort((a, b) => new Date(b.submittedAt || 0) - new Date(a.submittedAt || 0));
+  }
   const db = getDb();
   const accApps = (db.accountApplications || []).filter(a => !customerId || a.customerId === customerId).map(a => ({
     ...a,
@@ -1220,6 +1540,21 @@ export async function listMyApplications(customerId) {
 }
 
 export async function listNotifications(customerId) {
+  if (isLiveBackendActive()) {
+    try {
+      const res = await notificationService.getNotifications({ limit: 50 });
+      const list = Array.isArray(res) ? res : res?.data || [];
+      return list.map(n => ({
+        ...n,
+        id: n.notificationId || n.id,
+        notificationId: n.notificationId || n.id,
+        type: n.templateCode || n.type || 'GENERAL',
+        createdAt: n.createdAt || new Date().toISOString()
+      }));
+    } catch {
+      if (getMode() === 'server') return [];
+    }
+  }
   const db = getDb();
   const notifs = (db.notifications || []).filter(n => !customerId || n.customerId === customerId || n.targetRole === 'ALL');
   return notifs.map(n => ({
@@ -1254,6 +1589,15 @@ export async function markAllNotificationsRead(customerId) {
 }
 
 export async function unreadCount(customerId) {
+  if (isLiveBackendActive()) {
+    try {
+      const res = await notificationService.getNotifications({ unreadOnly: true, limit: 50 });
+      const list = Array.isArray(res) ? res : res?.data || [];
+      return list.filter(n => !n.read).length;
+    } catch {
+      if (getMode() === 'server') return 0;
+    }
+  }
   const db = getDb();
   return (db.notifications || []).filter(n => (!customerId || n.customerId === customerId || n.targetRole === 'ALL') && !n.read).length;
 }
@@ -1319,16 +1663,20 @@ export async function replyTicket(ticketId, payload = {}) {
 
 export async function changePassword(customerId, oldPassword, newPassword) {
   try {
-    return await apiRequest('/api/v1/customers/password', {
-      method: 'PUT',
-      body: JSON.stringify({ currentPassword: oldPassword, newPassword })
+    return await apiRequest('/api/v1/auth/change-password', {
+      method: 'POST',
+      body: JSON.stringify({
+        currentPassword: oldPassword,
+        newPassword,
+        confirmPassword: newPassword
+      })
     });
   } catch (err) {
     throw normaliseError(err);
   }
 }
 
-export async function applyAccount(customerId, { accountType, productCode, productName, initialFunding, branch, nominee } = {}) {
+export async function applyAccount(customerId, { accountType, productCode, productName, initialFunding, initialFundingAmount, branch, nominee } = {}) {
   const effCustId = getEffectiveCustomerId(customerId);
   if (!effCustId) {
     throw {
@@ -1337,6 +1685,27 @@ export async function applyAccount(customerId, { accountType, productCode, produ
       title: 'Authentication Required',
       detail: 'Active customer session required to apply for an account.'
     };
+  }
+  if (isLiveBackendActive()) {
+    try {
+      const res = await accountService.applyForAccount({
+        productCode,
+        productName: productName || accountType,
+        initialFundingAmount: initialFundingAmount ?? initialFunding ?? 5000,
+        nominee
+      });
+      const appId = res.applicationNumber || res.applicationId || res.accountApplicationId || res.id;
+      return {
+        ...res,
+        id: appId,
+        applicationId: appId,
+        accountApplicationId: appId,
+        productName: productName || res.productName || accountType || 'FinBank Account',
+        status: res.status || 'SUBMITTED'
+      };
+    } catch (err) {
+      throw normaliseError(err);
+    }
   }
   const db = getDb();
   const newAppId = 'ACC-APP-' + Math.floor(900000 + Math.random() * 100000);
@@ -1367,7 +1736,35 @@ export async function applyAccount(customerId, { accountType, productCode, produ
   return newApp;
 }
 
-export async function uploadKycDocument(customerId, { type, name, dataUrl, size } = {}) {
+export async function uploadKycDocument(customerId, { type, name, file, dataUrl, size } = {}) {
+  if (isLiveBackendActive() && (file || dataUrl)) {
+    try {
+      let uploadFile = file;
+      if (!uploadFile && dataUrl) {
+        const res = await fetch(dataUrl);
+        const blob = await res.blob();
+        uploadFile = new File([blob], name || `${String(type || 'doc').toLowerCase()}.png`, { type: blob.type || 'image/png' });
+      }
+      if (uploadFile) {
+        const docRes = await customerService.uploadDocumentMultipart({
+          file: uploadFile,
+          documentType: type
+        });
+        return {
+          documentReferenceId: docRes.documentReferenceId,
+          documentType: docRes.documentType || type,
+          type: docRes.documentType || type,
+          fileName: docRes.fileName || name,
+          name: docRes.fileName || name,
+          dataUrl: dataUrl || null,
+          size: docRes.contentSizeBytes || size || uploadFile.size,
+          state: docRes.status || 'VALIDATED'
+        };
+      }
+    } catch (err) {
+      throw normaliseError(err);
+    }
+  }
   const effCustId = getEffectiveCustomerId(customerId) || customerId;
   const db = getDb();
   if (!db.kycApplications) db.kycApplications = [];

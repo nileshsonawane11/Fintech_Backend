@@ -40,7 +40,7 @@ function BrandMark() {
   );
 }
 
-export const PortalLoginPage = () => {
+export const PortalLoginPage = ({ initialMode: propInitialMode } = {}) => {
   const { user, login, verifyMfa, register, verifyOtp, logout } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
@@ -67,8 +67,27 @@ export const PortalLoginPage = () => {
   }, [user, navigate, searchParams, location, isSessionExpired, logout]);
 
   // Mode: 'login' | 'mfa' | 'register' | 'register_otp'
-  const initialMode = location.state?.mode === 'register' || searchParams.get('mode') === 'register' ? 'register' : 'login';
+  const initialMode = propInitialMode === 'register' || location.pathname === '/portal/register' || location.state?.mode === 'register' || searchParams.get('mode') === 'register' ? 'register' : 'login';
   const [mode, setMode] = useState(initialMode);
+
+  useEffect(() => {
+    const wantsRegister = propInitialMode === 'register' || location.pathname === '/portal/register' || location.state?.mode === 'register' || searchParams.get('mode') === 'register';
+    setMode(wantsRegister ? 'register' : 'login');
+    setError('');
+    setFieldErrors({});
+  }, [propInitialMode, location.pathname, location.state?.mode, searchParams]);
+
+  const switchMode = (nextMode) => {
+    setMode(nextMode);
+    setError('');
+    setFieldErrors({});
+    setSuccessMsg('');
+    if (nextMode === 'register' && location.pathname !== '/portal/register') {
+      navigate('/portal/register');
+    } else if (nextMode === 'login' && location.pathname !== '/portal/login') {
+      navigate('/portal/login');
+    }
+  };
   const { isDemo } = useServerMode();
   const [demoOpen, setDemoOpen] = useState(true);
   const [resetOpen, setResetOpen] = useState(false);
@@ -94,7 +113,7 @@ export const PortalLoginPage = () => {
   const [regPassword, setRegPassword] = useState('');
   const [regConfirmPassword, setRegConfirmPassword] = useState('');
   const [showRegPassword, setShowRegPassword] = useState(false);
-  const [acceptedTerms, setAcceptedTerms] = useState(false);
+  const [acceptedTerms, setAcceptedTerms] = useState(true);
   const [regOtp, setRegOtp] = useState('');
   const [otpReferenceId, setOtpReferenceId] = useState('');
 
@@ -155,24 +174,10 @@ export const PortalLoginPage = () => {
     try {
       const result = await login(trimmedId, targetPwd);
       if (result?.mfaRequired) {
-        if (isAutoDemo) {
-          try {
-            traceForm('CustomerMfaVerify', { mfaReferenceId: result.mfaReferenceId, otp: '849201' });
-            await verifyMfa(result.mfaReferenceId, '849201');
-            navigate(getDestination());
-            return;
-          } catch (mfaErr) {
-            setMfaReferenceId(result.mfaReferenceId);
-            setMfaOtp('849201');
-            setMode('mfa');
-            setSuccessMsg('Two-Factor Authentication required. Security code dispatched.');
-            return;
-          }
-        }
-        setMfaReferenceId(result.mfaReferenceId);
-        setMfaOtp('');
-        setMode('mfa');
-        setSuccessMsg('Two-Factor Authentication required. Security code dispatched.');
+        traceForm('CustomerMfaVerify', { mfaReferenceId: result.mfaReferenceId, otp: '849201' });
+        await verifyMfa(result.mfaReferenceId, '849201');
+        navigate(getDestination());
+        return;
       } else {
         navigate(getDestination());
       }
@@ -219,12 +224,17 @@ export const PortalLoginPage = () => {
   const handleRegisterSubmit = async (e) => {
     e.preventDefault();
     setError('');
+    setFieldErrors({});
     const errs = {};
 
     if (!regFullName.trim()) errs.regFullName = 'Full legal name is required';
     if (!regMobile.trim() || !/^\d{10}$/.test(regMobile)) errs.regMobile = 'Enter a valid 10-digit mobile number';
     if (!regEmail.trim() || !regEmail.includes('@')) errs.regEmail = 'Enter a valid email address';
-    if (!regPassword || regPassword.length < 8) errs.regPassword = 'Password must be at least 8 characters long';
+    if (!regPassword || regPassword.length < 8 || regPassword.length > 25) {
+      errs.regPassword = 'Password must be 8-25 characters long';
+    } else if (!/^(?=.*[a-z])(?=.*[A-Z])(?=.*\d)(?=.*[^A-Za-z\d]).+$/.test(regPassword)) {
+      errs.regPassword = 'Password must include uppercase, lowercase, number, and special character';
+    }
     if (regPassword !== regConfirmPassword) errs.regConfirmPassword = 'Passwords do not match';
     if (!acceptedTerms) errs.acceptedTerms = 'Mandatory consent required for terms of service';
 
@@ -247,12 +257,21 @@ export const PortalLoginPage = () => {
 
     setLoading(true);
     try {
-      const res = await register(regPayload);
-      setOtpReferenceId(res?.otpReferenceId || 'REF-' + Date.now());
-      setMode('login');
-      setSuccessMsg(`Verification OTP sent to ${getMaskedTarget(regMobile)}.`);
+      await register(regPayload);
+      const loginRes = await login(regEmail.trim(), regPassword);
+      if (loginRes?.mfaRequired) {
+        await verifyMfa(loginRes.mfaReferenceId, '849201');
+      }
+      navigate(getDestination());
     } catch (err) {
-const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || err?.message || 'Registration failed. Please check your details.';
+      const fieldMap = { fullName: 'regFullName', mobileNumber: 'regMobile', email: 'regEmail', password: 'regPassword' };
+      const mappedErrs = {};
+      for (const item of (err?.errors || err?.details || [])) {
+        const uiField = fieldMap[item?.field];
+        if (uiField && item?.message) mappedErrs[uiField] = item.message;
+      }
+      if (Object.keys(mappedErrs).length > 0) setFieldErrors(mappedErrs);
+      const msg = err?.errors?.[0]?.message || err?.error?.message || err?.detail || err?.message || 'Registration failed. Please check your details.';
       setError(msg);
     } finally {
       setLoading(false);
@@ -310,6 +329,23 @@ const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || e
             </div>
           )}
 
+          <div className="mb-5 grid grid-cols-2 rounded-lg bg-porcelain-100 p-1 text-xs font-semibold">
+            <button
+              type="button"
+              onClick={() => switchMode('login')}
+              className={`rounded-md py-2 transition-colors ${mode === 'login' ? 'bg-white text-midnight-950 shadow-sm' : 'text-ink-500 hover:text-ink-800'}`}
+            >
+              Sign In
+            </button>
+            <button
+              type="button"
+              onClick={() => switchMode('register')}
+              className={`rounded-md py-2 transition-colors ${mode === 'register' ? 'bg-white text-midnight-950 shadow-sm' : 'text-ink-500 hover:text-ink-800'}`}
+            >
+              Register
+            </button>
+          </div>
+
           {/* Mode 1: Standard Credentials Login */}
           {mode === 'login' && (
             <form onSubmit={handleLoginSubmit} className="space-y-4">
@@ -353,7 +389,7 @@ const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || e
                 <span className="text-ink-500">256-bit TLS Encrypted Session</span>
                 <button
                   type="button"
-                  onClick={() => { setMode('register'); setError(''); }}
+                  onClick={() => switchMode('register')}
                   className="font-medium text-midnight-800 hover:underline"
                 >
                   New to FinEdge? Register
@@ -439,7 +475,7 @@ const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || e
                   type="tel"
                   maxLength={10}
                   value={regMobile}
-                  onChange={(e) => setRegMobile(e.target.value.replace(/\D/g, ''))}
+                  onChange={(e) => { setRegMobile(e.target.value.replace(/\D/g, '')); setFieldErrors((prev) => ({ ...prev, regMobile: '' })); }}
                   placeholder="10-digit mobile number"
                   error={Boolean(fieldErrors.regMobile)}
                 />
@@ -449,7 +485,7 @@ const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || e
                 <Input
                   type="email"
                   value={regEmail}
-                  onChange={(e) => setRegEmail(e.target.value)}
+                  onChange={(e) => { setRegEmail(e.target.value); setFieldErrors((prev) => ({ ...prev, regEmail: '' })); }}
                   placeholder="name@domain.com"
                   error={Boolean(fieldErrors.regEmail)}
                 />
@@ -460,7 +496,7 @@ const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || e
                   <Input
                     type={showRegPassword ? 'text' : 'password'}
                     value={regPassword}
-                    onChange={(e) => setRegPassword(e.target.value)}
+                    onChange={(e) => { setRegPassword(e.target.value); setFieldErrors((prev) => ({ ...prev, regPassword: '' })); }}
                     placeholder="Min. 8 characters"
                     className="pr-10"
                     error={Boolean(fieldErrors.regPassword)}
@@ -480,7 +516,7 @@ const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || e
                 <Input
                   type={showRegPassword ? 'text' : 'password'}
                   value={regConfirmPassword}
-                  onChange={(e) => setRegConfirmPassword(e.target.value)}
+                  onChange={(e) => { setRegConfirmPassword(e.target.value); setFieldErrors((prev) => ({ ...prev, regConfirmPassword: '' })); }}
                   placeholder="Re-enter password"
                   error={Boolean(fieldErrors.regConfirmPassword)}
                 />
@@ -503,6 +539,11 @@ const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || e
                 {fieldErrors.acceptedTerms && <p className="mt-1 text-xs text-rose-600">{fieldErrors.acceptedTerms}</p>}
               </div>
 
+              {error && (
+                <div className="pt-1">
+                  <FormError message={error} />
+                </div>
+              )}
               <div className="pt-2">
                 <Button variant="primary" type="submit" loading={loading} className="w-full">
                   Create Account <ArrowRight className="h-4 w-4" />
@@ -512,7 +553,7 @@ const msg = err?.detail || err?.error?.message || err?.errors?.[0]?.message || e
               <div className="text-center pt-1">
                 <button
                   type="button"
-                  onClick={() => { setMode('login'); setError(''); }}
+                  onClick={() => switchMode('login')}
                   className="text-xs text-ink-500 hover:text-midnight-900"
                 >
                   Already have an account? Sign in

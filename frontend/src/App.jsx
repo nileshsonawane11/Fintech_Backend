@@ -91,6 +91,8 @@ function AppContent() {
 
               {/* Customer NetBanking Portal */}
               <Route path="/portal/login" element={<PortalLoginPage />} />
+              <Route path="/portal/register" element={<PortalLoginPage initialMode="register" />} />
+              <Route path="/register" element={<Navigate to="/portal/register" replace />} />
               <Route
                 path="/portal"
                 element={

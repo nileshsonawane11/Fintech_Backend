@@ -49,11 +49,11 @@ export const managerService = {
 
   // Account Applications Review
   async getAccountApplications() {
-    return apiRequest('/ops/api/v1/accounts/applications', { isManager: true });
+    return apiRequest('/ops/api/v1/account-applications', { isManager: true });
   },
 
   async approveAccountApplication(accountApplicationId, payload = {}) {
-    return apiRequest(`/ops/api/v1/accounts/applications/${accountApplicationId}/approve`, {
+    return apiRequest(`/ops/api/v1/account-applications/${accountApplicationId}/approve`, {
       method: 'POST',
       isManager: true,
       body: JSON.stringify(payload)
@@ -61,7 +61,7 @@ export const managerService = {
   },
 
   async rejectAccountApplication(accountApplicationId, { remarks = 'Application requirements not met' } = {}) {
-    return apiRequest(`/ops/api/v1/accounts/applications/${accountApplicationId}/reject`, {
+    return apiRequest(`/ops/api/v1/account-applications/${accountApplicationId}/reject`, {
       method: 'POST',
       isManager: true,
       body: JSON.stringify({ remarks })
