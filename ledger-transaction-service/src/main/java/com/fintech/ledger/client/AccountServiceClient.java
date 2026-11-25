@@ -21,4 +21,6 @@ public interface AccountServiceClient {
     List<AccountHoldDto> getAccountHolds(String accountId, String status);
 
     BigDecimal getActiveHoldAmount(String accountId);
+
+    List<String> getAllAccounts(String identitySubject);
 }

@@ -3,12 +3,15 @@ package com.fintech.ledger.controller;
 import com.fintech.ledger.dto.response.BalanceHistoryItem;
 import com.fintech.ledger.dto.response.BalanceResponse;
 import com.fintech.ledger.dto.response.CursorPagedResponse;
+import com.fintech.ledger.dto.response.TotalBalanceResponse;
 import com.fintech.ledger.security.SecurityUtils;
 import com.fintech.ledger.service.BalanceService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.format.annotation.DateTimeFormat;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -23,6 +26,7 @@ import java.time.LocalDate;
 @SecurityRequirement(name = "BearerAuth")
 public class BalanceController {
 
+    private static final Logger log = LoggerFactory.getLogger(BalanceController.class);
     private final BalanceService balanceService;
 
     public BalanceController(BalanceService balanceService) {
@@ -58,6 +62,18 @@ public class BalanceController {
         CursorPagedResponse<BalanceHistoryItem> response = balanceService.getBalanceHistory(
                 accountId, customerSubject, isOps, fromDate, toDate, limit, cursor);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/api/v1/ledger/total-balance")
+    @Operation(summary = "Get Balance of All Accounts", description = "Retrieve Balance of all owned accounts of customer")
+    @PreAuthorize("hasAuthority('ACCOUNT_BALANCE_READ_OWN') or hasRole('CUSTOMER') or hasRole('OPERATIONS') or hasRole('ADMIN')")
+    public ResponseEntity<TotalBalanceResponse> getTotalBalance(
+            @AuthenticationPrincipal Jwt jwt
+    ){
+        String identitySubject = jwt.getSubject();
+        log.debug("Called GET /api/v1/accounts/customer/total-balance");
+        TotalBalanceResponse totalBalanceResponse = balanceService.getTotalBalance(identitySubject);
+        return ResponseEntity.ok(totalBalanceResponse);
     }
 
     @GetMapping("/ops/api/v1/accounts/{accountId}/balance")
