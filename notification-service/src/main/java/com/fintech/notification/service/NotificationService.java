@@ -24,7 +24,7 @@ public class NotificationService {
     }
 
     public NotificationListResponse listNotifications(String customerId, boolean unreadOnly, int limit) {
-        int safeLimit = Math.min(limit, 100);
+        int safeLimit = Math.max(1, Math.min(limit, 100));
         Pageable pageable = PageRequest.of(0, safeLimit, Sort.by(Sort.Direction.DESC, "createdAt"));
 
         Page<Notification> page;

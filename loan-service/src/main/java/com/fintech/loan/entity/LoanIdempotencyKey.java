@@ -4,21 +4,24 @@ import jakarta.persistence.*;
 import java.time.Instant;
 
 @Entity
-@Table(name = "loan_idempotency_keys")
+@Table(
+    name = "loan_idempotency_keys",
+    uniqueConstraints = @UniqueConstraint(columnNames = {"idempotency_key", "operation"})
+)
 public class LoanIdempotencyKey {
 
     @Id
     @GeneratedValue(strategy = GenerationType.UUID)
-    @Column(name = "id", nullable = false)
+    @Column(name = "id", nullable = false, length = 36)
     private String id;
 
-    @Column(name = "idempotency_key", nullable = false, unique = true, length = 255)
+    @Column(name = "idempotency_key", nullable = false, length = 100)
     private String idempotencyKey;
 
-    @Column(name = "operation", nullable = false, length = 100)
+    @Column(name = "operation", nullable = false, length = 50)
     private String operation;
 
-    @Column(name = "response_reference", length = 255)
+    @Column(name = "response_reference", length = 100)
     private String responseReference;
 
     @Column(name = "created_at", nullable = false, updatable = false)

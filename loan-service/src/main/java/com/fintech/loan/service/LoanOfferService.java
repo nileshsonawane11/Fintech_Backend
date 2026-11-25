@@ -47,7 +47,7 @@ public class LoanOfferService {
                         "Loan offer not found: " + offerId, HttpStatus.NOT_FOUND));
 
         boolean ownedByCustomer = loanApplicationRepository
-                .findById(offer.getLoanApplicationId())
+                .findByLoanApplicationId(offer.getLoanApplicationId())
                 .filter(application -> customerId.equals(application.getCustomerId()))
                 .isPresent();
         if (!ownedByCustomer) {

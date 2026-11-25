@@ -3,6 +3,7 @@ package com.fintech.loan.dto.request;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
+import jakarta.validation.constraints.Size;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.Digits;
 
@@ -22,6 +23,7 @@ public class LoanApplicationRequest {
     @Positive(message = "tenureMonths must be positive")
     private Integer tenureMonths;
 
+    @Size(max = 100, message = "purpose must not exceed 100 characters")
     private String purpose;
 
     @NotNull(message = "creditBureauConsent is required")

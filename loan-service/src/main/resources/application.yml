@@ -18,12 +18,11 @@ spring:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
-  security:
-    oauth2:
-      resourceserver:
-        jwt:
-          public-key-location: classpath:keys/public.pem
-          issuer-uri: ${JWT_ISSUER:identity-service}
+
+security:
+  jwt:
+    public-key-location: ${JWT_PUBLIC_KEY_LOCATION:classpath:keys/public.pem}
+    issuer: ${JWT_ISSUER:identity-service}
 
 server:
   port: 8087

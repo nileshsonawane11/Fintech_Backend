@@ -3,6 +3,7 @@ package com.fintech.notification.dto.request;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Pattern;
+import jakarta.validation.constraints.Size;
 
 public class CreateSupportTicketRequest {
 
@@ -14,11 +15,13 @@ public class CreateSupportTicketRequest {
     private String category;
 
     @NotBlank(message = "Subject is required")
+    @Size(max = 255, message = "Subject must not exceed 255 characters")
     private String subject;
 
     @NotBlank(message = "Description is required")
     private String description;
 
+    @Size(max = 50, message = "Related payment ID must not exceed 50 characters")
     private String relatedPaymentId;
 
     public CreateSupportTicketRequest() {

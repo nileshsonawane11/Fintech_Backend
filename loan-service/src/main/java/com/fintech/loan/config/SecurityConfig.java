@@ -56,7 +56,7 @@ public class SecurityConfig {
 
     @Bean
     public JwtDecoder jwtDecoder(
-            @Value("${spring.security.oauth2.resourceserver.jwt.public-key-location:classpath:keys/public.pem}")
+            @Value("${security.jwt.public-key-location:classpath:keys/public.pem}")
             Resource publicKeyResource,
 
             @Value("${security.jwt.issuer:identity-service}")

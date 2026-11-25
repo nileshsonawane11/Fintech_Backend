@@ -28,7 +28,7 @@ public class LoanApplication {
     @Column(name = "tenure_months", nullable = false)
     private Integer tenureMonths;
 
-    @Column(name = "purpose", length = 500)
+    @Column(name = "purpose", length = 100)
     private String purpose;
 
     @Column(name = "credit_bureau_consent", nullable = false)
