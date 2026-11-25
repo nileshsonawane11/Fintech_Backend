@@ -1,5 +1,5 @@
 
-CREATE TABLE customer_profiles (
+CREATE TABLE IF NOT EXISTS customer_profiles (
                                    id UUID PRIMARY KEY,
                                    customer_id VARCHAR(32) NOT NULL UNIQUE,
                                    identity_subject VARCHAR(255) NOT NULL UNIQUE,
@@ -18,5 +18,5 @@ CREATE TABLE customer_profiles (
                                    updated_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_customer_profiles_kyc_status
+CREATE INDEX IF NOT EXISTS idx_customer_profiles_kyc_status
     ON customer_profiles (kyc_status);
