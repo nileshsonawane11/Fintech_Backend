@@ -149,7 +149,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
 
   // Fix 0 & Fix 3.2: Clean initial state — empty for logged out; complete prefill from customer record for logged in
   const getInitialFormData = () => {
-    const isLogged = Boolean(user || (typeof localStorage !== 'undefined' && (localStorage.getItem('finedge_session_id') || localStorage.getItem('finedge_session_customer_id'))));
+    const isLogged = Boolean(user);
     const rec = customerRecord;
     return {
       // Personal details (Module 06 Fix 1: clean open; Module 45 complete session prefill)
@@ -388,7 +388,10 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
   // Complete session prefill from customer record (Module 45 Fix 3.2)
   useEffect(() => {
     if (!isModalOpen) return;
-    const hasSession = Boolean(user || (typeof localStorage !== 'undefined' && (localStorage.getItem('finedge_session_id') || localStorage.getItem('finedge_session_customer_id'))));
+    const hasSession = Boolean(user);
+    if (!hasSession) {
+      setCustomerRecord(null);
+    }
     if (hasSession) {
       getMyProfile().then(res => {
         if (res?.customer) {
@@ -1073,6 +1076,12 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (!isAccount && !user) {
+      onClose();
+      const cat = isCard ? 'cards' : isLoan ? 'loans' : 'investments';
+      window.location.href = `/portal/login?redirect=/portal/${cat}&product=${product?.slug || ''}`;
+      return;
+    }
     const validationErrors = validate();
     if (Object.keys(validationErrors).length > 0) {
       setErrors(validationErrors);
@@ -1103,8 +1112,12 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
             : fdBand?.tenure === '3 – 5 years' ? 48
             : 60;
           const fdCalc = calculateFD({ principal: numAmt, annualRatePct: fdRate, tenureMonths });
+          const matDate = new Date();
+          matDate.setMonth(matDate.getMonth() + tenureMonths);
           investmentDetails = {
             depositAmount: numAmt,
+            principal: numAmt,
+            tenureMonths,
             tenureBand: formData.fdTenureBand,
             appliedRate: fdRate,
             isSeniorCitizen: isSenior,
@@ -1112,6 +1125,8 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
             autoRenew: Boolean(formData.fdAutoRenew),
             maturityValue: fdCalc.maturityValue,
             interestEarned: fdCalc.interestEarned,
+            maturityAmount: fdCalc.maturityValue,
+            maturityDate: matDate.toISOString(),
           };
         } else if (isRD) {
           const numAmt = Number(formData.rdMonthlyAmount) || 0;
@@ -1505,7 +1520,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
         {/* Header */}
         <div className="sticky top-0 z-10 flex shrink-0 items-center justify-between border-b border-ink-100 bg-white px-6 py-4 rounded-t-2xl">
           <div className="min-w-0 flex-1 pr-3">
-            <h2 id="apply-modal-title" className="font-display text-lg font-bold text-midnight-950 truncate">
+            <h2 id="apply-modal-title" className="font-sans text-lg font-bold text-midnight-950 truncate">
               {product ? `Apply for ${shortProductName(product.name)}` : 'Product Application'}
             </h2>
             {isLoan ? (
@@ -1637,7 +1652,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
             <div className="flex-1 space-y-6 overflow-y-auto p-6 [scrollbar-width:thin]">
               <div className="flex flex-col items-center text-center space-y-2 py-4">
               <ConfirmationCheckmark size={56} className="mb-2" />
-              <h3 className="font-display text-xl font-bold text-midnight-950">
+              <h3 className="font-sans text-xl font-bold text-midnight-950">
                 Application Successfully Submitted
               </h3>
               <p className="text-xs sm:text-sm text-ink-600 max-w-md">
@@ -1660,15 +1675,15 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                     <>
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-ink-500">Deposit Amount</span>
-                        <span className="font-semibold text-midnight-950">₹{formatINRWhole(formData.fdDepositAmount || submittedApp.investmentDetails?.depositAmount || 0)}</span>
+                        <span className="font-semibold text-midnight-950">{formatINR(formData.fdDepositAmount || submittedApp.depositAmount || submittedApp.investmentDetails?.depositAmount || 0)}</span>
                       </div>
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-ink-500">Tenure</span>
-                        <span className="font-semibold text-midnight-950">{formData.fdTenureBand || submittedApp.investmentDetails?.tenureBand}</span>
+                        <span className="font-semibold text-midnight-950">{formData.fdTenureBand || submittedApp.tenureBand || submittedApp.investmentDetails?.tenureBand}</span>
                       </div>
                       <div className="flex items-center justify-between text-xs">
                         <span className="text-ink-500">Estimated Maturity</span>
-                        <span className="font-semibold text-emerald-700">₹{formatINRWhole(submittedApp.investmentDetails?.maturityAmount || 0)}</span>
+                        <span className="font-semibold text-emerald-700">{formatINR(submittedApp.maturityValue ?? submittedApp.maturityAmount ?? submittedApp.investmentDetails?.maturityValue ?? submittedApp.investmentDetails?.maturityAmount ?? 0)}</span>
                       </div>
                     </>
                   )}
@@ -1859,9 +1874,9 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
               <>
                 {/* Note banner when card was preselected into account form */}
             {cardRequestedNote && (
-              <div className="rounded-lg bg-gold-50/80 p-3 border border-gold-200/60 text-xs font-semibold text-midnight-950 flex items-center justify-between">
+              <div className="rounded-lg bg-bank-primary-light/80 p-3 border border-bank-primary-border text-xs font-semibold text-midnight-950 flex items-center justify-between">
                 <div className="flex items-center gap-2">
-                  <CreditCard className="h-4 w-4 text-gold-600" />
+                  <CreditCard className="h-4 w-4 text-bank-primary" />
                   <span>{cardRequestedNote}</span>
                 </div>
                 <span className="text-xs font-normal text-ink-600">Preselected with this account</span>
@@ -1885,7 +1900,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                   Security deposit
                 </h3>
                 <div className="rounded-lg bg-porcelain-100 p-3 text-xs text-ink-700 mb-4 flex items-start gap-2">
-                  <Info className="h-4 w-4 text-gold-600 shrink-0 mt-0.5" />
+                  <Info className="h-4 w-4 text-bank-primary shrink-0 mt-0.5" />
                   <span>No credit-history check — your limit is secured by your deposit.</span>
                 </div>
 
@@ -1896,7 +1911,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                     </label>
                     <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                       <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                        formData.fdChoice === 'new' ? 'border-gold-500 bg-gold-50/20' : 'border-ink-200 hover:border-ink-300'
+                        formData.fdChoice === 'new' ? 'border-bank-primary-border bg-bank-primary-light/20' : 'border-ink-200 hover:border-ink-300'
                       }`}>
                         <input
                           type="radio"
@@ -1904,7 +1919,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                           value="new"
                           checked={formData.fdChoice === 'new'}
                           onChange={() => handleChange('fdChoice', 'new')}
-                          className="mt-0.5 text-midnight-900 focus:ring-gold-500"
+                          className="mt-0.5 text-midnight-900 focus:ring-bank-primary-border"
                         />
                         <span className="text-xs text-ink-800 font-medium">
                           Open a new fixed deposit with this application
@@ -1913,7 +1928,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
 
                       {user ? (
                         <label className={`flex items-start gap-3 p-3 rounded-lg border cursor-pointer transition-colors ${
-                          formData.fdChoice === 'existing' ? 'border-gold-500 bg-gold-50/20' : 'border-ink-200 hover:border-ink-300'
+                          formData.fdChoice === 'existing' ? 'border-bank-primary-border bg-bank-primary-light/20' : 'border-ink-200 hover:border-ink-300'
                         }`}>
                           <input
                             type="radio"
@@ -1921,7 +1936,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                             value="existing"
                             checked={formData.fdChoice === 'existing'}
                             onChange={() => handleChange('fdChoice', 'existing')}
-                            className="mt-0.5 text-midnight-900 focus:ring-gold-500"
+                            className="mt-0.5 text-midnight-900 focus:ring-bank-primary-border"
                           />
                           <span className="text-xs text-ink-800 font-medium">
                             Link my existing FinEdge FD
@@ -1940,7 +1955,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                         name="existingFdId"
                         value={formData.existingFdId}
                         onChange={(e) => handleChange('existingFdId', e.target.value)}
-                        className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                        className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                       >
                         <option value="">Select FD...</option>
                         <option value="FD-88219">FD-88219 (₹50,000 · 6.95% p.a. · Matures Dec 2027)</option>
@@ -1962,13 +1977,13 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.depositAmount}
                       onChange={(e) => handleChange('depositAmount', e.target.value)}
                       placeholder="e.g. 25000"
-                      className="h-[42px] w-full sm:w-1/2 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                      className="h-[42px] w-full sm:w-1/2 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                     />
                     <p className="text-xs text-ink-500 mt-1">Minimum fixed deposit is ₹10,000</p>
                     {errors.depositAmount && <p className="text-xs text-danger-600 mt-1">{errors.depositAmount}</p>}
 
                     {Number(formData.depositAmount) > 0 && (
-                      <div className="mt-3 rounded-lg bg-gold-50/60 p-2.5 border border-gold-200/60 text-xs font-medium text-midnight-950">
+                      <div className="mt-3 rounded-lg bg-bank-primary-light/60 p-2.5 border border-bank-primary-border text-xs font-medium text-midnight-950">
                         Your credit limit will be <span className="font-bold text-midnight-900">{formatINRWhole(computedAssuredLimit)}</span> — {assuredLimitPct}% of your deposit
                       </div>
                     )}
@@ -2002,7 +2017,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                     value={formData.fullName}
                     onChange={(e) => handleChange('fullName', e.target.value)}
                     placeholder="e.g. Priya Sharma"
-                    className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                    className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                   />
                   {errors.fullName && <p className="text-xs text-danger-600 mt-1">{errors.fullName}</p>}
                 </div>
@@ -2018,7 +2033,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                         type="date"
                         value={formData.dob}
                         onChange={(e) => handleChange('dob', e.target.value)}
-                        className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                        className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                       />
                       <p className="text-xs text-ink-500 mt-1">
                         {isLoan && product?.eligibility
@@ -2038,7 +2053,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                         name="gender"
                         value={formData.gender}
                         onChange={(e) => handleChange('gender', e.target.value)}
-                        className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                        className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                       >
                         <option value="">Select gender</option>
                         <option value="Male">Male</option>
@@ -2064,7 +2079,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.mobile}
                       onChange={(e) => handleChange('mobile', e.target.value.replace(/\D/g, ''))}
                       placeholder="10-digit mobile number"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white pl-12 pr-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white pl-12 pr-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                     />
                   </div>
                   {errors.mobile && <p className="text-xs text-danger-600 mt-1">{errors.mobile}</p>}
@@ -2080,7 +2095,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                     value={formData.email}
                     onChange={(e) => handleChange('email', e.target.value)}
                     placeholder="e.g. priya.sharma@example.com"
-                    className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                    className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                   />
                   {errors.email && <p className="text-xs text-danger-600 mt-1">{errors.email}</p>}
                 </div>
@@ -2106,7 +2121,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.addressLine}
                       onChange={(e) => handleChange('addressLine', e.target.value)}
                       placeholder="Flat / House No., Building Name, Street"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                     />
                     {errors.addressLine && <p className="text-xs text-danger-600 mt-1">{errors.addressLine}</p>}
                   </div>
@@ -2121,7 +2136,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.city}
                       onChange={(e) => handleChange('city', e.target.value)}
                       placeholder="e.g. Mumbai"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                     />
                     {errors.city && <p className="text-xs text-danger-600 mt-1">{errors.city}</p>}
                   </div>
@@ -2134,7 +2149,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       name="state"
                       value={formData.state}
                       onChange={(e) => handleChange('state', e.target.value)}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                     >
                       <option value="">Select state</option>
                       {INDIAN_STATES.map((s) => (
@@ -2155,7 +2170,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.pincode}
                       onChange={(e) => handleChange('pincode', e.target.value.replace(/\D/g, ''))}
                       placeholder="e.g. 400001"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                     />
                     {errors.pincode && <p className="text-xs text-danger-600 mt-1">{errors.pincode}</p>}
                   </div>
@@ -2171,7 +2186,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.panNumber}
                       onChange={(e) => handleChange('panNumber', e.target.value.toUpperCase())}
                       placeholder="e.g. ABCDE1234F"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm font-mono text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors uppercase"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm font-mono text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors uppercase"
                     />
                     <p className="text-xs text-ink-500 mt-1">Format: 5 letters, 4 digits, 1 letter</p>
                     {errors.panNumber && <p className="text-xs text-danger-600 mt-1">{errors.panNumber}</p>}
@@ -2188,7 +2203,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.aadhaarNumber}
                       onChange={(e) => handleChange('aadhaarNumber', e.target.value.replace(/\D/g, ''))}
                       placeholder="•••• •••• ••••"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm font-mono text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors tracking-widest"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm font-mono text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors tracking-widest"
                     />
                     <div className="flex items-center justify-between mt-1 text-xs text-ink-500">
                       <span>Masked view: <strong className="font-mono text-ink-700">{maskAadhaar(formData.aadhaarNumber)}</strong></span>
@@ -2218,7 +2233,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.employmentType}
                       disabled={isAgriLoan}
                       onChange={(e) => handleChange('employmentType', e.target.value)}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors disabled:bg-porcelain-100 disabled:text-ink-600"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors disabled:bg-porcelain-100 disabled:text-ink-600"
                     >
                       {isAgriLoan ? (
                         <option value="Agriculturist">Agriculturist / Farmer</option>
@@ -2248,7 +2263,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                         value={formData.employerName}
                         onChange={(e) => handleChange('employerName', e.target.value)}
                         placeholder="e.g. Acme Technologies Pvt Ltd"
-                        className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                        className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                       />
                       {errors.employerName && <p className="text-xs text-danger-600 mt-1">{errors.employerName}</p>}
                     </div>
@@ -2264,7 +2279,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.monthlyIncome}
                       onChange={(e) => handleChange('monthlyIncome', e.target.value)}
                       placeholder={isGoldLoan ? 'Optional (secured loan)' : 'e.g. 75000'}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                     />
                     {isGoldLoan && <p className="text-xs text-ink-500 mt-1">Optional for FinEdge Gold Loan (fully secured by pledged ornaments)</p>}
                     {errors.monthlyIncome && <p className="text-xs text-danger-600 mt-1">{errors.monthlyIncome}</p>}
@@ -2283,7 +2298,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                           value={formData.employmentVintage}
                           onChange={(e) => handleChange('employmentVintage', e.target.value)}
                           placeholder="e.g. 5"
-                          className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                          className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                         />
                       </div>
 
@@ -2298,7 +2313,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                           value={formData.existingEmi}
                           onChange={(e) => handleChange('existingEmi', e.target.value)}
                           placeholder="0"
-                          className="h-[42px] w-full sm:w-1/2 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                          className="h-[42px] w-full sm:w-1/2 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                         />
                       </div>
                     </>
@@ -2311,7 +2326,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                         name="annualIncomeBracket"
                         value={formData.annualIncomeBracket}
                         onChange={(e) => handleChange('annualIncomeBracket', e.target.value)}
-                        className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                        className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                       >
                         <option value="">Select annual income bracket</option>
                         <option value="BELOW_5L">Below ₹5 Lakhs</option>
@@ -2345,7 +2360,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.loanAmount}
                       onChange={(e) => handleChange('loanAmount', e.target.value)}
                       placeholder={product?.minAmount ? `e.g. ${product.minAmount}` : 'e.g. 500000'}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                     />
                     <p className="text-xs text-ink-500 mt-1">
                       Allowable range: ₹{product?.minAmount ? formatINRWhole(product.minAmount) : '25,000'} to ₹{product?.maxAmount ? formatINRWhole(product.maxAmount) : '—'}
@@ -2365,7 +2380,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.tenureMonths}
                       onChange={(e) => handleChange('tenureMonths', e.target.value)}
                       placeholder={product?.tenureMinMonths ? `e.g. ${product.tenureMinMonths}` : '60'}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                     />
                     <p className="text-xs text-ink-500 mt-1">
                       Tenure range: {product?.tenureMinMonths || 12} to {product?.tenureMaxMonths || 360} months
@@ -2384,7 +2399,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       name="loanPurpose"
                       value={formData.loanPurpose}
                       onChange={(e) => handleChange('loanPurpose', e.target.value)}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                     >
                       {(LOAN_PURPOSES[slug] || ['General Financing', 'Business Expansion', 'Personal Needs']).map((p) => (
                         <option key={p} value={p}>{p}</option>
@@ -2407,7 +2422,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                                 value="bullet"
                                 checked={formData.goldRepaymentMode === 'bullet'}
                                 onChange={(e) => handleChange('goldRepaymentMode', e.target.value)}
-                                className="h-3.5 w-3.5 text-midnight-900 focus:ring-gold-500"
+                                className="h-3.5 w-3.5 text-midnight-900 focus:ring-bank-primary-border"
                               />
                               Bullet Repayment (At maturity)
                             </label>
@@ -2418,7 +2433,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                                 value="emi"
                                 checked={formData.goldRepaymentMode === 'emi'}
                                 onChange={(e) => handleChange('goldRepaymentMode', e.target.value)}
-                                className="h-3.5 w-3.5 text-midnight-900 focus:ring-gold-500"
+                                className="h-3.5 w-3.5 text-midnight-900 focus:ring-bank-primary-border"
                               />
                               Monthly Reducing EMI
                             </label>
@@ -2497,7 +2512,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       name="homePropertyStatus"
                       value={formData.homePropertyStatus}
                       onChange={(e) => handleChange('homePropertyStatus', e.target.value)}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                     >
                       <option value="Ready to move">Ready to move</option>
                       <option value="Under construction">Under construction</option>
@@ -2517,7 +2532,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.homePropertyCity}
                       onChange={(e) => handleChange('homePropertyCity', e.target.value)}
                       placeholder="e.g. Pune"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                     />
                     {errors.homePropertyCity && <p className="text-xs text-danger-600 mt-1">{errors.homePropertyCity}</p>}
                   </div>
@@ -2532,7 +2547,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.homePropertyAddress}
                       onChange={(e) => handleChange('homePropertyAddress', e.target.value)}
                       placeholder="Project Name, Wing/Unit Number, Locality"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                     />
                     {errors.homePropertyAddress && <p className="text-xs text-danger-600 mt-1">{errors.homePropertyAddress}</p>}
                   </div>
@@ -2547,7 +2562,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.homePropertyValue}
                       onChange={(e) => handleChange('homePropertyValue', e.target.value)}
                       placeholder="e.g. 7500000"
-                      className="h-[42px] w-full sm:w-1/2 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                      className="h-[42px] w-full sm:w-1/2 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                     />
                     {errors.homePropertyValue && <p className="text-xs text-danger-600 mt-1">{errors.homePropertyValue}</p>}
 
@@ -2583,7 +2598,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                         name="homeHasCoApplicant"
                         checked={formData.homeHasCoApplicant}
                         onChange={(e) => handleChange('homeHasCoApplicant', e.target.checked)}
-                        className="h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                        className="h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
                       />
                       <span className="text-xs font-semibold text-ink-800">
                         Add a co-applicant to enhance loan eligibility (optional)
@@ -2602,7 +2617,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                             value={formData.homeCoApplicantName}
                             onChange={(e) => handleChange('homeCoApplicantName', e.target.value)}
                             placeholder="e.g. Rahul Sharma"
-                            className="h-[38px] w-full rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-xs text-ink-900 focus:border-gold-500"
+                            className="h-[38px] w-full rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-xs text-ink-900 focus:border-bank-primary-border"
                           />
                           {errors.homeCoApplicantName && <p className="text-xs text-danger-600 mt-1">{errors.homeCoApplicantName}</p>}
                         </div>
@@ -2615,7 +2630,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                             name="homeCoApplicantRelationship"
                             value={formData.homeCoApplicantRelationship}
                             onChange={(e) => handleChange('homeCoApplicantRelationship', e.target.value)}
-                            className="h-[38px] w-full rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-xs text-ink-900 focus:border-gold-500"
+                            className="h-[38px] w-full rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-xs text-ink-900 focus:border-bank-primary-border"
                           >
                             <option value="Spouse">Spouse</option>
                             <option value="Parent">Parent</option>
@@ -2634,7 +2649,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                             value={formData.homeCoApplicantIncome}
                             onChange={(e) => handleChange('homeCoApplicantIncome', e.target.value)}
                             placeholder="e.g. 50000"
-                            className="h-[38px] w-full rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-xs text-ink-900 focus:border-gold-500"
+                            className="h-[38px] w-full rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-xs text-ink-900 focus:border-bank-primary-border"
                           />
                           {errors.homeCoApplicantIncome && <p className="text-xs text-danger-600 mt-1">{errors.homeCoApplicantIncome}</p>}
                         </div>
@@ -2660,7 +2675,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       name="vehicleType"
                       value={formData.vehicleType}
                       onChange={(e) => handleChange('vehicleType', e.target.value)}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                     >
                       <option value="New Car">New Passenger Car</option>
                       <option value="Used Car">Pre-owned / Used Car</option>
@@ -2680,7 +2695,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.vehicleMakeModel}
                       onChange={(e) => handleChange('vehicleMakeModel', e.target.value)}
                       placeholder="e.g. Tata Nexon EV Empowered"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                     />
                     {errors.vehicleMakeModel && <p className="text-xs text-danger-600 mt-1">{errors.vehicleMakeModel}</p>}
                   </div>
@@ -2695,7 +2710,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.vehicleOnRoadPrice}
                       onChange={(e) => handleChange('vehicleOnRoadPrice', e.target.value)}
                       placeholder="e.g. 1500000"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                     />
                     {errors.vehicleOnRoadPrice && <p className="text-xs text-danger-600 mt-1">{errors.vehicleOnRoadPrice}</p>}
                   </div>
@@ -2710,7 +2725,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.vehicleDownPayment}
                       onChange={(e) => handleChange('vehicleDownPayment', e.target.value)}
                       placeholder="e.g. 300000"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                     />
                     {errors.vehicleDownPayment && <p className="text-xs text-danger-600 mt-1">{errors.vehicleDownPayment}</p>}
                   </div>
@@ -2725,7 +2740,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.vehicleDealerName}
                       onChange={(e) => handleChange('vehicleDealerName', e.target.value)}
                       placeholder="e.g. Wasan Motors, Chembur"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                     />
                   </div>
                 </div>
@@ -2747,7 +2762,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       name="eduApplicantRole"
                       value={formData.eduApplicantRole}
                       onChange={(e) => handleChange('eduApplicantRole', e.target.value)}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                     >
                       <option value="Student">Student (Primary Applicant)</option>
                       <option value="Parent / Guardian">Parent / Guardian (Co-applicant Led)</option>
@@ -2765,7 +2780,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                         value={formData.eduStudentName}
                         onChange={(e) => handleChange('eduStudentName', e.target.value)}
                         placeholder="e.g. Rohan Sharma"
-                        className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                        className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                       />
                       {errors.eduStudentName && <p className="text-xs text-danger-600 mt-1">{errors.eduStudentName}</p>}
                     </div>
@@ -2778,7 +2793,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                         name="eduAdmissionStatus"
                         value={formData.eduAdmissionStatus}
                         onChange={(e) => handleChange('eduAdmissionStatus', e.target.value)}
-                        className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500"
+                        className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border"
                       >
                         <option value="Confirmed">Confirmed Admission Offer</option>
                         <option value="Applied / Awaiting result">Applied / Awaiting Entrance Result</option>
@@ -2797,7 +2812,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.eduCourseName}
                       onChange={(e) => handleChange('eduCourseName', e.target.value)}
                       placeholder="e.g. Master of Science in Data Science"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                     />
                     {errors.eduCourseName && <p className="text-xs text-danger-600 mt-1">{errors.eduCourseName}</p>}
                   </div>
@@ -2812,7 +2827,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.eduInstitute}
                       onChange={(e) => handleChange('eduInstitute', e.target.value)}
                       placeholder="e.g. University of Toronto, Canada"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                     />
                     {errors.eduInstitute && <p className="text-xs text-danger-600 mt-1">{errors.eduInstitute}</p>}
                   </div>
@@ -2827,7 +2842,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.eduCourseFee}
                       onChange={(e) => handleChange('eduCourseFee', e.target.value)}
                       placeholder="e.g. 2500000"
-                      className="h-[42px] w-full sm:w-1/2 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                      className="h-[42px] w-full sm:w-1/2 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                     />
                     {errors.eduCourseFee && <p className="text-xs text-danger-600 mt-1">{errors.eduCourseFee}</p>}
                   </div>
@@ -2852,7 +2867,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                             value={formData.eduCoApplicantName}
                             onChange={(e) => handleChange('eduCoApplicantName', e.target.value)}
                             placeholder="e.g. Suresh Sharma"
-                            className="h-[38px] w-full rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-xs text-ink-900 focus:border-gold-500"
+                            className="h-[38px] w-full rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-xs text-ink-900 focus:border-bank-primary-border"
                           />
                           {errors.eduCoApplicantName && <p className="text-xs text-danger-600 mt-1">{errors.eduCoApplicantName}</p>}
                         </div>
@@ -2865,7 +2880,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                             name="eduCoApplicantRelationship"
                             value={formData.eduCoApplicantRelationship}
                             onChange={(e) => handleChange('eduCoApplicantRelationship', e.target.value)}
-                            className="h-[38px] w-full rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-xs text-ink-900 focus:border-gold-500"
+                            className="h-[38px] w-full rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-xs text-ink-900 focus:border-bank-primary-border"
                           >
                             <option value="Father">Father</option>
                             <option value="Mother">Mother</option>
@@ -2884,7 +2899,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                             value={formData.eduCoApplicantIncome}
                             onChange={(e) => handleChange('eduCoApplicantIncome', e.target.value)}
                             placeholder="e.g. 85000"
-                            className="h-[38px] w-full rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-xs text-ink-900 focus:border-gold-500"
+                            className="h-[38px] w-full rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-xs text-ink-900 focus:border-bank-primary-border"
                           />
                           {errors.eduCoApplicantIncome && <p className="text-xs text-danger-600 mt-1">{errors.eduCoApplicantIncome}</p>}
                         </div>
@@ -2914,7 +2929,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                               name="eduCollateralType"
                               value={formData.eduCollateralType}
                               onChange={(e) => handleChange('eduCollateralType', e.target.value)}
-                              className="h-[38px] w-full rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-xs text-ink-900 focus:border-gold-500"
+                              className="h-[38px] w-full rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-xs text-ink-900 focus:border-bank-primary-border"
                             >
                               <option value="Residential / Commercial Property">Residential / Commercial Property</option>
                               <option value="Fixed Deposit (FinEdge or Scheduled Bank)">Fixed Deposit (Bank Term Deposit)</option>
@@ -2933,7 +2948,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                               value={formData.eduCollateralValue}
                               onChange={(e) => handleChange('eduCollateralValue', e.target.value)}
                               placeholder="e.g. 1500000"
-                              className="h-[38px] w-full rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-xs text-ink-900 focus:border-gold-500"
+                              className="h-[38px] w-full rounded-lg border border-ink-200 bg-white px-3 py-1.5 text-xs text-ink-900 focus:border-bank-primary-border"
                             />
                             {errors.eduCollateralValue && <p className="text-xs text-danger-600 mt-1">{errors.eduCollateralValue}</p>}
                           </div>
@@ -2965,7 +2980,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.bizBusinessName}
                       onChange={(e) => handleChange('bizBusinessName', e.target.value)}
                       placeholder="e.g. Apex Industrial Solutions LLP"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                     />
                     {errors.bizBusinessName && <p className="text-xs text-danger-600 mt-1">{errors.bizBusinessName}</p>}
                   </div>
@@ -2978,7 +2993,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       name="bizConstitution"
                       value={formData.bizConstitution}
                       onChange={(e) => handleChange('bizConstitution', e.target.value)}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border"
                     >
                       <option value="Sole Proprietorship">Sole Proprietorship</option>
                       <option value="Partnership">Partnership Firm</option>
@@ -2996,7 +3011,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       name="bizApplicantRole"
                       value={formData.bizApplicantRole}
                       onChange={(e) => handleChange('bizApplicantRole', e.target.value)}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border"
                     >
                       <option value="Proprietor">Proprietor</option>
                       <option value="Managing Partner">Managing Partner</option>
@@ -3016,7 +3031,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.bizGstin}
                       onChange={(e) => handleChange('bizGstin', e.target.value.toUpperCase())}
                       placeholder="e.g. 27ABCDE1234F1Z5"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm font-mono text-ink-900 placeholder:text-ink-400 focus:border-gold-500 uppercase"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm font-mono text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border uppercase"
                     />
                     {errors.bizGstin && <p className="text-xs text-danger-600 mt-1">{errors.bizGstin}</p>}
                   </div>
@@ -3032,7 +3047,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.bizYearsInBusiness}
                       onChange={(e) => handleChange('bizYearsInBusiness', e.target.value)}
                       placeholder="e.g. 4"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                     />
                     <p className="text-xs text-ink-500 mt-1">Minimum 2 years of operation required</p>
                     {errors.bizYearsInBusiness && <p className="text-xs text-danger-600 mt-1">{errors.bizYearsInBusiness}</p>}
@@ -3048,7 +3063,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.bizAnnualTurnover}
                       onChange={(e) => handleChange('bizAnnualTurnover', e.target.value)}
                       placeholder="e.g. 5000000"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                     />
                     <p className="text-xs text-ink-500 mt-1">Minimum annual turnover: ₹25,00,000</p>
                     {errors.bizAnnualTurnover && <p className="text-xs text-danger-600 mt-1">{errors.bizAnnualTurnover}</p>}
@@ -3064,7 +3079,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.bizAddress}
                       onChange={(e) => handleChange('bizAddress', e.target.value)}
                       placeholder="Registered Office / Manufacturing Unit Address"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                     />
                     {errors.bizAddress && <p className="text-xs text-danger-600 mt-1">{errors.bizAddress}</p>}
                   </div>
@@ -3090,7 +3105,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.agriLandArea}
                       onChange={(e) => handleChange('agriLandArea', e.target.value)}
                       placeholder="e.g. 4.5"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                     />
                     {errors.agriLandArea && <p className="text-xs text-danger-600 mt-1">{errors.agriLandArea}</p>}
                   </div>
@@ -3105,7 +3120,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.agriSurveyKhata}
                       onChange={(e) => handleChange('agriSurveyKhata', e.target.value)}
                       placeholder="e.g. 142/3A"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                     />
                     {errors.agriSurveyKhata && <p className="text-xs text-danger-600 mt-1">{errors.agriSurveyKhata}</p>}
                   </div>
@@ -3120,7 +3135,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.agriVillageTaluk}
                       onChange={(e) => handleChange('agriVillageTaluk', e.target.value)}
                       placeholder="e.g. Baramati, Pune District"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                     />
                     {errors.agriVillageTaluk && <p className="text-xs text-danger-600 mt-1">{errors.agriVillageTaluk}</p>}
                   </div>
@@ -3135,7 +3150,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.agriCropType}
                       onChange={(e) => handleChange('agriCropType', e.target.value)}
                       placeholder="e.g. Sugarcane & Soybean"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                     />
                     {errors.agriCropType && <p className="text-xs text-danger-600 mt-1">{errors.agriCropType}</p>}
                   </div>
@@ -3148,7 +3163,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       name="agriSeason"
                       value={formData.agriSeason}
                       onChange={(e) => handleChange('agriSeason', e.target.value)}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border"
                     >
                       <option value="Kharif">Kharif Season (Monsoon)</option>
                       <option value="Rabi">Rabi Season (Winter)</option>
@@ -3165,7 +3180,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       name="agriIrrigation"
                       value={formData.agriIrrigation}
                       onChange={(e) => handleChange('agriIrrigation', e.target.value)}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border"
                     >
                       <option value="Canal Irrigation">Canal Irrigation</option>
                       <option value="Borewell / Tube well">Borewell / Tube well</option>
@@ -3197,7 +3212,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.goldWeight}
                       onChange={(e) => handleChange('goldWeight', e.target.value)}
                       placeholder="e.g. 50"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                     />
                     {errors.goldWeight && <p className="text-xs text-danger-600 mt-1">{errors.goldWeight}</p>}
                   </div>
@@ -3210,7 +3225,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       name="goldPurity"
                       value={formData.goldPurity}
                       onChange={(e) => handleChange('goldPurity', e.target.value)}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border"
                     >
                       <option value="22K (91.6% purity)">22K (91.6% purity) — Standard Ornaments</option>
                       <option value="20K (83.3% purity)">20K (83.3% purity)</option>
@@ -3226,7 +3241,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       name="goldType"
                       value={formData.goldType}
                       onChange={(e) => handleChange('goldType', e.target.value)}
-                      className="h-[42px] w-full sm:w-1/2 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500"
+                      className="h-[42px] w-full sm:w-1/2 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border"
                     >
                       <option value="Gold Jewellery / Ornaments">Gold Jewellery / Ornaments</option>
                       <option value="Specially minted gold coins (up to 50g per customer)">Specially minted gold coins (up to 50g per customer)</option>
@@ -3261,7 +3276,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       name="lapPropertyType"
                       value={formData.lapPropertyType}
                       onChange={(e) => handleChange('lapPropertyType', e.target.value)}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border"
                     >
                       <option value="Residential (Self-occupied)">Residential (Self-occupied)</option>
                       <option value="Residential (Rented out)">Residential (Rented out)</option>
@@ -3278,7 +3293,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       name="lapOwnership"
                       value={formData.lapOwnership}
                       onChange={(e) => handleChange('lapOwnership', e.target.value)}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border"
                     >
                       <option value="Sole Ownership">Sole Ownership</option>
                       <option value="Joint Ownership">Joint Ownership</option>
@@ -3295,7 +3310,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.lapPropertyAddress}
                       onChange={(e) => handleChange('lapPropertyAddress', e.target.value)}
                       placeholder="Complete Postal Address of Property Offered as Security"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                     />
                     {errors.lapPropertyAddress && <p className="text-xs text-danger-600 mt-1">{errors.lapPropertyAddress}</p>}
                   </div>
@@ -3310,7 +3325,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.lapPropertyValue}
                       onChange={(e) => handleChange('lapPropertyValue', e.target.value)}
                       placeholder="e.g. 10000000"
-                      className="h-[42px] w-full sm:w-1/2 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                      className="h-[42px] w-full sm:w-1/2 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                     />
                     {errors.lapPropertyValue && <p className="text-xs text-danger-600 mt-1">{errors.lapPropertyValue}</p>}
 
@@ -3346,7 +3361,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       name="lapHasExistingLoan"
                       value={formData.lapHasExistingLoan}
                       onChange={(e) => handleChange('lapHasExistingLoan', e.target.value)}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border"
                     >
                       <option value="No">No — Property is Debt-Free</option>
                       <option value="Yes">Yes — Existing Mortgage / Loan</option>
@@ -3361,7 +3376,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       name="lapEndUse"
                       value={formData.lapEndUse}
                       onChange={(e) => handleChange('lapEndUse', e.target.value)}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border"
                     >
                       <option value="Business expansion">Business expansion</option>
                       <option value="Working capital">Working capital</option>
@@ -3385,7 +3400,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                           value={formData.lapExistingLender}
                           onChange={(e) => handleChange('lapExistingLender', e.target.value)}
                           placeholder="e.g. HDFC Bank"
-                          className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                          className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                         />
                         {errors.lapExistingLender && <p className="text-xs text-danger-600 mt-1">{errors.lapExistingLender}</p>}
                       </div>
@@ -3400,7 +3415,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                           value={formData.lapExistingBalance}
                           onChange={(e) => handleChange('lapExistingBalance', e.target.value)}
                           placeholder="e.g. 1200000"
-                          className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                          className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                         />
                         {errors.lapExistingBalance && <p className="text-xs text-danger-600 mt-1">{errors.lapExistingBalance}</p>}
                       </div>
@@ -3433,7 +3448,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                           name="loanDisbursalAccountId"
                           value={formData.loanDisbursalAccountId}
                           onChange={(e) => handleChange('loanDisbursalAccountId', e.target.value)}
-                          className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                          className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                         >
                           {accounts.map((a) => (
                             <option key={a.accountId} value={a.accountId}>
@@ -3457,7 +3472,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                           value={formData.loanDisbursalAccountNumber}
                           onChange={(e) => handleChange('loanDisbursalAccountNumber', e.target.value.replace(/\D/g, ''))}
                           placeholder="e.g. 10023412001928"
-                          className="h-[42px] w-full sm:w-1/2 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm font-mono text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                          className="h-[42px] w-full sm:w-1/2 rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm font-mono text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                         />
                         {errors.loanDisbursalAccountNumber && <p className="text-xs text-danger-600 mt-1">{errors.loanDisbursalAccountNumber}</p>}
                       </div>
@@ -3469,7 +3484,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                           type="checkbox"
                           checked={formData.noFinEdgeAccountYet}
                           onChange={(e) => handleChange('noFinEdgeAccountYet', e.target.checked)}
-                          className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                          className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
                         />
                         <span className="text-xs text-ink-700">
                           <strong className="font-semibold text-midnight-950">I don't have a FinEdge account yet</strong> — proceed with this loan application. An operative savings/current account will be opened for you alongside loan sanction.
@@ -3484,7 +3499,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                           name="consentNach"
                           checked={formData.consentNach}
                           onChange={(e) => handleChange('consentNach', e.target.checked)}
-                          className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                          className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
                         />
                         <span className="text-xs text-ink-700">
                           <strong className="font-semibold text-midnight-950">NACH / e-Mandate Authorization:</strong> I authorize FinEdge Bank to set up an automated monthly debit (NACH mandate) on the designated account for scheduled EMI repayment.<span className="text-danger-600"> *</span>
@@ -3517,7 +3532,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.nameOnCard}
                       onChange={(e) => handleChange('nameOnCard', e.target.value.toUpperCase())}
                       placeholder="e.g. PRIYA SHARMA"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm font-mono text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors uppercase"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm font-mono text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors uppercase"
                     />
                     <p className="text-xs text-ink-500 mt-1">Printed on the card exactly as entered (max 21 characters)</p>
                     {errors.nameOnCard && <p className="text-xs text-danger-600 mt-1">{errors.nameOnCard}</p>}
@@ -3533,7 +3548,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.requestedLimit}
                       onChange={(e) => handleChange('requestedLimit', e.target.value)}
                       placeholder={product?.creditLimitRange ? `e.g. ${product.creditLimitRange.min}` : 'e.g. 50000'}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500 focus:outline-none focus:ring-1 focus:ring-gold-500 transition-colors"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border focus:outline-none focus:ring-1 focus:ring-bank-primary-border transition-colors"
                     />
                     {errors.requestedLimit && <p className="text-xs text-danger-600 mt-1">{errors.requestedLimit}</p>}
                   </div>
@@ -3560,7 +3575,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.childName}
                       onChange={(e) => handleChange('childName', e.target.value)}
                       placeholder="e.g. Aarav Sharma"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                     />
                     {errors.childName && <p className="text-xs text-danger-600 mt-1">{errors.childName}</p>}
                   </div>
@@ -3574,7 +3589,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       type="date"
                       value={formData.childDob}
                       onChange={(e) => handleChange('childDob', e.target.value)}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border"
                     />
                     <p className="text-xs text-ink-500 mt-1">Must be under 18 years of age</p>
                     {errors.childDob && <p className="text-xs text-danger-600 mt-1">{errors.childDob}</p>}
@@ -3588,7 +3603,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       name="guardianRelationship"
                       value={formData.guardianRelationship}
                       onChange={(e) => handleChange('guardianRelationship', e.target.value)}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border"
                     >
                       <option value="">Select relationship</option>
                       <option value="Father">Father</option>
@@ -3620,7 +3635,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.college}
                       onChange={(e) => handleChange('college', e.target.value)}
                       placeholder="e.g. St. Xavier's College"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                     />
                     {errors.college && <p className="text-xs text-danger-600 mt-1">{errors.college}</p>}
                   </div>
@@ -3635,14 +3650,14 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.courseYear}
                       onChange={(e) => handleChange('courseYear', e.target.value)}
                       placeholder="e.g. B.Tech Computer Science - Year 2"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                     />
                     {errors.courseYear && <p className="text-xs text-danger-600 mt-1">{errors.courseYear}</p>}
                   </div>
                 </div>
 
                 {isStudentMinor && (
-                  <div className="mt-5 rounded-xl border border-gold-200 bg-gold-50/30 p-4 space-y-4">
+                  <div className="mt-5 rounded-xl border border-bank-primary-border bg-bank-primary-light/30 p-4 space-y-4">
                     <h4 className="text-[13px] font-semibold text-midnight-950">
                       Parent / Guardian details (Required for age 16–17)
                     </h4>
@@ -3657,7 +3672,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                           value={formData.studentGuardianName}
                           onChange={(e) => handleChange('studentGuardianName', e.target.value)}
                           placeholder="e.g. Rajesh Sharma"
-                          className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                          className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                         />
                         {errors.studentGuardianName && <p className="text-xs text-danger-600 mt-1">{errors.studentGuardianName}</p>}
                       </div>
@@ -3671,7 +3686,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                           type="date"
                           value={formData.studentGuardianDob}
                           onChange={(e) => handleChange('studentGuardianDob', e.target.value)}
-                          className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500"
+                          className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border"
                         />
                         {errors.studentGuardianDob && <p className="text-xs text-danger-600 mt-1">{errors.studentGuardianDob}</p>}
                       </div>
@@ -3689,7 +3704,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                             value={formData.studentGuardianMobile}
                             onChange={(e) => handleChange('studentGuardianMobile', e.target.value.replace(/\D/g, ''))}
                             placeholder="10-digit mobile number"
-                            className="h-[42px] w-full rounded-lg border border-ink-200 bg-white pl-12 pr-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                            className="h-[42px] w-full rounded-lg border border-ink-200 bg-white pl-12 pr-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                           />
                         </div>
                         {errors.studentGuardianMobile && <p className="text-xs text-danger-600 mt-1">{errors.studentGuardianMobile}</p>}
@@ -3703,7 +3718,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                           name="studentGuardianRelationship"
                           value={formData.studentGuardianRelationship}
                           onChange={(e) => handleChange('studentGuardianRelationship', e.target.value)}
-                          className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500"
+                          className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border"
                         >
                           <option value="">Select relationship</option>
                           <option value="Father">Father</option>
@@ -3737,7 +3752,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       value={formData.nomineeName}
                       onChange={(e) => handleChange('nomineeName', e.target.value)}
                       placeholder="e.g. Sunita Sharma"
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 placeholder:text-ink-400 focus:border-bank-primary-border"
                     />
                     {errors.nomineeName && <p className="text-xs text-danger-600 mt-1">{errors.nomineeName}</p>}
                   </div>
@@ -3750,7 +3765,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       name="nomineeRelationship"
                       value={formData.nomineeRelationship}
                       onChange={(e) => handleChange('nomineeRelationship', e.target.value)}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border"
                     >
                       <option value="">Select relationship</option>
                       <option value="SPOUSE">Spouse</option>
@@ -3771,7 +3786,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                       type="date"
                       value={formData.nomineeDob}
                       onChange={(e) => handleChange('nomineeDob', e.target.value)}
-                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-gold-500"
+                      className="h-[42px] w-full rounded-lg border border-ink-200 bg-white px-3.5 py-2 text-sm text-ink-900 focus:border-bank-primary-border"
                     />
                     {errors.nomineeDob && <p className="text-xs text-danger-600 mt-1">{errors.nomineeDob}</p>}
                   </div>
@@ -3810,7 +3825,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                     name="declTaxResident"
                     checked={formData.declTaxResident}
                     onChange={(e) => handleChange('declTaxResident', e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                    className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
                   />
                   <span className="text-xs leading-relaxed text-ink-700">
                     I declare that I am an Indian citizen and an Indian tax resident and not a tax resident of any other jurisdiction.<span className="text-danger-600"> *</span>
@@ -3824,7 +3839,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                     name="declNotPep"
                     checked={formData.declNotPep}
                     onChange={(e) => handleChange('declNotPep', e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                    className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
                   />
                   <span className="text-xs leading-relaxed text-ink-700">
                     I confirm that I am not a Politically Exposed Person (PEP) or related to one, per RBI master directions.<span className="text-danger-600"> *</span>
@@ -3841,7 +3856,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                         name="consentCicBureau"
                         checked={formData.consentCicBureau}
                         onChange={(e) => handleChange('consentCicBureau', e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                        className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
                       />
                       <span className="text-xs leading-relaxed text-ink-700">
                         I authorize FinEdge Bank to pull and assess my credit information report from CIBIL, Experian, Equifax, or CRIF High Mark for credit underwriting.<span className="text-danger-600"> *</span>
@@ -3860,7 +3875,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                         name="consentMitc"
                         checked={formData.consentMitc}
                         onChange={(e) => handleChange('consentMitc', e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                        className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
                       />
                       <span className="text-xs leading-relaxed text-ink-700">
                         I have read and agree to the Most Important Terms & Conditions (MITC) for the <strong className="text-midnight-950">{product?.name}</strong>: interest rates {product?.rateMin?.toFixed(2)}% – {product?.rateMax?.toFixed(2)}% p.a., processing fee {product?.processingFee?.pct}% (min {product?.processingFee?.min === 0 ? 'Nil' : `${formatINRWhole(product?.processingFee?.min || 0)}`}). Floating-rate loans carry zero prepayment penalty.<span className="text-danger-600"> *</span>
@@ -3879,7 +3894,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                         name="consentKycTerms"
                         checked={formData.consentKycTerms}
                         onChange={(e) => handleChange('consentKycTerms', e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                        className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
                       />
                       <span className="text-xs leading-relaxed text-ink-700">
                         I agree to the FinEdge Bank General Terms and Conditions, Schedule of Charges, and privacy policy for opening this account.<span className="text-danger-600"> *</span>
@@ -3898,7 +3913,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                         name="consentCardTerms"
                         checked={formData.consentCardTerms}
                         onChange={(e) => handleChange('consentCardTerms', e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                        className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
                       />
                       <span className="text-xs leading-relaxed text-ink-700">
                         I have read and agree to the Most Important Terms & Conditions (MITC) and cardholder agreement for the <strong className="text-midnight-950">{product?.name}</strong>.<span className="text-danger-600"> *</span>
@@ -3917,7 +3932,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                         name="consentDebitTerms"
                         checked={formData.consentDebitTerms}
                         onChange={(e) => handleChange('consentDebitTerms', e.target.checked)}
-                        className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                        className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
                       />
                       <span className="text-xs leading-relaxed text-ink-700">
                         I agree to the debit cardholder terms and Schedule of Charges for the <strong className="text-midnight-950">{product?.name}</strong>.<span className="text-danger-600"> *</span>
@@ -3934,7 +3949,7 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                     name="optInMarketing"
                     checked={formData.optInMarketing}
                     onChange={(e) => handleChange('optInMarketing', e.target.checked)}
-                    className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-gold-500"
+                    className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-bank-primary-border"
                   />
                   <span className="text-xs leading-relaxed text-ink-600">
                     I would like to receive product updates, offers and newsletters from FinEdge Bank.

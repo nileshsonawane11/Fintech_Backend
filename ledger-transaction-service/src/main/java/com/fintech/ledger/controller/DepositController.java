@@ -40,7 +40,7 @@ public class DepositController {
             @Valid @RequestBody DepositRequest request,
             @AuthenticationPrincipal Jwt jwt) {
 
-        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedSubject();
+        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedIdentitySubject();
         DepositResponse response = depositService.initiateDeposit(request, customerSubject, idempotencyKey, correlationId);
         HttpStatus status = response.status() == com.fintech.ledger.enums.TransactionStatus.PENDING
                 ? HttpStatus.ACCEPTED : HttpStatus.CREATED;
@@ -54,7 +54,7 @@ public class DepositController {
             @Parameter(description = "Transaction ID") @PathVariable String transactionId,
             @AuthenticationPrincipal Jwt jwt) {
 
-        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedSubject();
+        String customerSubject = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedIdentitySubject();
         boolean isOps = SecurityUtils.isOperationsOrAdmin();
         DepositResponse response = depositService.getDepositDetails(transactionId, customerSubject, isOps);
         return ResponseEntity.ok(response);
@@ -68,7 +68,7 @@ public class DepositController {
             @RequestBody(required = false) VerifyDepositRequest request,
             @AuthenticationPrincipal Jwt jwt) {
 
-        String opsUser = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedSubject();
+        String opsUser = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedIdentitySubject();
         DepositResponse response = depositService.verifyDeposit(transactionId, request, opsUser);
         return ResponseEntity.ok(response);
     }
@@ -81,7 +81,7 @@ public class DepositController {
             @Valid @RequestBody RejectActionRequest request,
             @AuthenticationPrincipal Jwt jwt) {
 
-        String opsUser = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedSubject();
+        String opsUser = jwt != null ? jwt.getSubject() : SecurityUtils.getAuthenticatedIdentitySubject();
         DepositResponse response = depositService.rejectDeposit(transactionId, request, opsUser);
         return ResponseEntity.ok(response);
     }

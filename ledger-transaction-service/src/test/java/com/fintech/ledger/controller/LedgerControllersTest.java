@@ -3,6 +3,7 @@ package com.fintech.ledger.controller;
 import com.fintech.ledger.dto.request.*;
 import com.fintech.ledger.dto.response.*;
 import com.fintech.ledger.enums.*;
+import com.fintech.ledger.repository.LedgerEntryRepository;
 import com.fintech.ledger.service.*;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.DisplayName;
@@ -16,7 +17,6 @@ import org.springframework.security.oauth2.jwt.Jwt;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.time.LocalDate;
 import java.util.List;
 import java.util.UUID;
 
@@ -46,7 +46,7 @@ class LedgerControllersTest {
     private LedgerPostingEngine postingEngine;
 
     @Mock
-    private HoldService holdService;
+    private LedgerEntryRepository entryRepository;
 
     @Mock
     private ReversalService reversalService;
@@ -54,19 +54,14 @@ class LedgerControllersTest {
     @Mock
     private ReconciliationService reconciliationService;
 
-    @Mock
-    private LedgerAccountAdminService adminService;
-
     private BalanceController balanceController;
     private TransactionController transactionController;
     private TransferController transferController;
     private DepositController depositController;
     private WithdrawalController withdrawalController;
     private LedgerPostingController postingController;
-    private HoldController holdController;
     private ReversalController reversalController;
     private ReconciliationController reconciliationController;
-    private LedgerAccountController accountController;
 
     private Jwt mockJwt;
 
@@ -77,13 +72,12 @@ class LedgerControllersTest {
         transferController = new TransferController(transferService);
         depositController = new DepositController(depositService);
         withdrawalController = new WithdrawalController(withdrawalService);
-        postingController = new LedgerPostingController(postingEngine, transactionService, balanceService, null);
-        holdController = new HoldController(holdService);
+        postingController = new LedgerPostingController(postingEngine, transactionService, balanceService, entryRepository);
         reversalController = new ReversalController(reversalService);
         reconciliationController = new ReconciliationController(reconciliationService);
-        accountController = new LedgerAccountController(adminService, balanceService);
 
         mockJwt = mock(Jwt.class);
+        lenient().when(mockJwt.getClaimAsString("identity_subject")).thenReturn("usr-12345678");
         lenient().when(mockJwt.getSubject()).thenReturn("usr-12345678");
     }
 
@@ -91,18 +85,17 @@ class LedgerControllersTest {
     @DisplayName("GET /api/v1/accounts/{accountId}/balance returns 200 OK with balance breakdown")
     void getAccountBalance_shouldReturnBalance() {
         BalanceResponse mockBalance = new BalanceResponse(
-                "ACC-1001", new BigDecimal("25000.00"), new BigDecimal("23500.00"),
-                new BigDecimal("1500.00"), "INR", Instant.now());
+                "ACC-1001", new BigDecimal("25000.00"), new BigDecimal("25000.00"),
+                BigDecimal.ZERO, "INR", Instant.now());
 
-        when(balanceService.getAccountBalance(eq("ACC-1001"), any(), anyBoolean())).thenReturn(mockBalance);
+        when(balanceService.getAccountBalance(eq("ACC-1001"), eq("usr-12345678"), anyBoolean())).thenReturn(mockBalance);
 
         ResponseEntity<BalanceResponse> response = balanceController.getAccountBalance("ACC-1001", mockJwt);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
         assertEquals(new BigDecimal("25000.00"), response.getBody().ledgerBalance());
-        assertEquals(new BigDecimal("23500.00"), response.getBody().availableBalance());
-        assertEquals(new BigDecimal("1500.00"), response.getBody().holdBalance());
+        assertEquals(new BigDecimal("25000.00"), response.getBody().availableBalance());
     }
 
     @Test
@@ -174,7 +167,7 @@ class LedgerControllersTest {
     void createLedgerPosting_shouldReturnCreated() {
         LedgerPostingRequest request = new LedgerPostingRequest(
                 TransactionType.TRANSFER, "INR", new BigDecimal("15000.00"), "corr-1",
-                "LA-ACC-1001", "LA-ACC-2002", "Customer fund transfer", "PAY-987654");
+                "ACC-1001", "ACC-2002", "Customer fund transfer", "PAY-987654");
 
         LedgerPostingResponse mockResponse = new LedgerPostingResponse(
                 "TXN-554433", TransactionStatus.SUCCESS, new BigDecimal("15000.00"), "INR",
@@ -230,19 +223,71 @@ class LedgerControllersTest {
     }
 
     @Test
-    @DisplayName("POST /ops/api/v1/ledger/accounts/{ledgerAccountId}/rebuild-balance returns 200 OK")
+    @DisplayName("GET /ops/api/v1/reconciliation/runs?limit=20 returns 200 OK with CursorPagedResponse")
+    void listReconciliationRuns_shouldReturnRunsPage() {
+        ReconciliationRunResponse runDto = new ReconciliationRunResponse(
+                "REC-100001", ReconciliationType.LEDGER_BALANCE, ReconciliationStatus.COMPLETED,
+                10, 10, 0, BigDecimal.ZERO, "admin", "All accounts balanced", Instant.now(), Instant.now());
+
+        CursorPagedResponse<ReconciliationRunResponse> mockPage =
+                CursorPagedResponse.of(List.of(runDto), null, false, 20);
+
+        when(reconciliationService.listReconciliationRuns(isNull(), isNull(), isNull(), isNull(), eq(20), isNull()))
+                .thenReturn(mockPage);
+
+        ResponseEntity<CursorPagedResponse<ReconciliationRunResponse>> response =
+                reconciliationController.listReconciliationRuns(null, null, null, null, 20, null);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(1, response.getBody().data().size());
+        assertEquals("REC-100001", response.getBody().data().get(0).reconciliationId());
+    }
+
+    @Test
+    @DisplayName("POST /ops/api/v1/accounts/{accountId}/rebuild-balance returns 200 OK")
     void rebuildBalanceProjection_shouldReturnRebuiltBalance() {
         BalanceResponse mockBalance = new BalanceResponse(
                 "ACC-1001", new BigDecimal("25000.00"), new BigDecimal("25000.00"),
                 BigDecimal.ZERO, "INR", Instant.now());
 
-        when(balanceService.rebuildAccountBalanceProjection(eq("LA-ACC-1001"), any()))
+        when(balanceService.rebuildAccountBalanceProjection(eq("ACC-1001"), any()))
                 .thenReturn(mockBalance);
 
-        ResponseEntity<BalanceResponse> response = accountController.rebuildBalanceProjection("LA-ACC-1001", mockJwt);
+        ResponseEntity<BalanceResponse> response = balanceController.rebuildBalanceProjection("ACC-1001", mockJwt);
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
         assertEquals(new BigDecimal("25000.00"), response.getBody().ledgerBalance());
+    }
+
+    @Test
+    @DisplayName("GET /ops/api/v1/ledger/accounts/{accountId}/entries returns 200 OK with LedgerEntryResponse DTOs")
+    void getLedgerAccountEntries_shouldReturnDtoPage() {
+        TransactionSummaryResponse txSummary = new TransactionSummaryResponse(
+                UUID.randomUUID(), "TXN-554433", TransactionType.TRANSFER, TransactionStatus.SUCCESS,
+                "REF-01", "idemp-01", "corr-01", "INR", new BigDecimal("15000.00"), new BigDecimal("15000.00"),
+                "Transfer", "user", "LEDGER", java.time.LocalDate.now(), Instant.now(), Instant.now(), null, Instant.now(), Instant.now());
+
+        LedgerEntryResponse mockEntry = new LedgerEntryResponse(
+                UUID.randomUUID(), "LE-900001", "TXN-554433", "corr-01", "ACC-1001",
+                EntryType.DEBIT, new BigDecimal("15000.00"), "INR", java.time.LocalDate.now(),
+                "Transfer", "REF-01", Instant.now(), txSummary);
+
+        CursorPagedResponse<LedgerEntryResponse> mockPage = CursorPagedResponse.of(
+                List.of(mockEntry), null, false, 50);
+
+        when(transactionService.getAccountEntries(eq("ACC-1001"), any(), any(), eq(50), any()))
+                .thenReturn(mockPage);
+
+        ResponseEntity<CursorPagedResponse<LedgerEntryResponse>> response =
+                postingController.getLedgerAccountEntries("ACC-1001", null, null, 50, null);
+
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertNotNull(response.getBody());
+        assertEquals(1, response.getBody().data().size());
+        assertEquals("LE-900001", response.getBody().data().get(0).entryId());
+        assertEquals("corr-01", response.getBody().data().get(0).correlationId());
+        assertEquals("corr-01", response.getBody().data().get(0).transaction().correlationId());
     }
 }

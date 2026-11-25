@@ -67,8 +67,8 @@ export default function ManagerProductCatalogueSection() {
     amb: 10000,
     penalty: '₹250/mo below AMB',
     debitCardAnnualFee: 299,
-    rateMin: 3.25,
-    rateMax: 6.75,
+    rateMin: 3.5,
+    rateMax: 7.0,
     amountMin: 10000,
     amountMax: 5000000,
     annualFee: 499,
@@ -155,6 +155,21 @@ export default function ManagerProductCatalogueSection() {
     setModalOpen(true);
   };
 
+const formatLines = (val) => {
+  if (Array.isArray(val)) return val.join('\n');
+  if (typeof val === 'string') return val;
+  if (val && typeof val === 'object') {
+    const lines = [];
+    if (val.note) lines.push(val.note);
+    if (Array.isArray(val.employment)) lines.push(...val.employment);
+    for (const [k, v] of Object.entries(val)) {
+      if (k !== 'note' && k !== 'employment' && v != null) lines.push(k + ': ' + v);
+    }
+    return lines.join('\n');
+  }
+  return '';
+};
+
   const openEditModal = (p) => {
     setEditingSlug(p.slug);
     setFormError('');
@@ -164,8 +179,8 @@ export default function ManagerProductCatalogueSection() {
       tagline: p.tagline || '',
       overview: p.overview || '',
       accountType: p.accountType || 'savings',
-      amb: p.amb || 10000,
-      penalty: p.penalty || '₹250/mo below AMB',
+      amb: typeof p.amb === 'object' && p.amb !== null ? (p.amb.amount ?? 10000) : (p.amb != null ? p.amb : 10000),
+      penalty: p.penalty || (typeof p.amb === 'object' && p.amb?.penaltyPerMonth ? `₹${p.amb.penaltyPerMonth}/mo below AMB` : '₹250/mo below AMB'),
       debitCardAnnualFee: p.debitCardAnnualFee != null ? p.debitCardAnnualFee : 299,
       rateMin: p.rateMin != null ? p.rateMin : 3.5,
       rateMax: p.rateMax != null ? p.rateMax : 7.0,
@@ -176,9 +191,9 @@ export default function ManagerProductCatalogueSection() {
       cardType: p.cardType || 'credit',
       kind: p.kind || 'FD',
       rate: p.rate != null ? p.rate : 7.0,
-      features: Array.isArray(p.features) ? p.features.join('\n') : (p.features || ''),
-      eligibility: Array.isArray(p.eligibility) ? p.eligibility.join('\n') : (p.eligibility || ''),
-      documents: Array.isArray(p.documents) ? p.documents.join('\n') : (p.documents || ''),
+      features: formatLines(p.features),
+      eligibility: formatLines(p.eligibility),
+      documents: formatLines(p.documents),
     });
     setModalOpen(true);
   };
@@ -194,14 +209,22 @@ export default function ManagerProductCatalogueSection() {
         category: form.category,
         tagline: form.tagline.trim(),
         overview: form.overview.trim(),
-        features: form.features.split('\n').map((s) => s.trim()).filter(Boolean),
-        eligibility: form.eligibility.split('\n').map((s) => s.trim()).filter(Boolean),
-        documents: form.documents.split('\n').map((s) => s.trim()).filter(Boolean),
+        features: typeof form.features === 'string' ? form.features.split('\n').map((s) => s.trim()).filter(Boolean) : (Array.isArray(form.features) ? form.features : []),
+        eligibility: typeof form.eligibility === 'string' ? form.eligibility.split('\n').map((s) => s.trim()).filter(Boolean) : (Array.isArray(form.eligibility) ? form.eligibility : []),
+        documents: typeof form.documents === 'string' ? form.documents.split('\n').map((s) => s.trim()).filter(Boolean) : (Array.isArray(form.documents) ? form.documents : []),
       };
 
       if (form.category === 'account') {
         payload.accountType = form.accountType;
-        payload.amb = Number(form.amb);
+        const ambNum = Number(form.amb) || 10000;
+        payload.amb = {
+          amount: ambNum,
+          label: ambNum === 0 ? 'Zero balance' : `Average monthly balance of ₹${ambNum.toLocaleString('en-IN')}`,
+          penaltyPerMonth: 300,
+        };
+        payload.fees = {
+          debitCardAnnual: Number(form.debitCardAnnualFee) || 0,
+        };
         payload.penalty = form.penalty;
         payload.debitCardAnnualFee = Number(form.debitCardAnnualFee);
         payload.rateSlabs = [
@@ -337,7 +360,8 @@ export default function ManagerProductCatalogueSection() {
       label: 'Limits / AMB',
       render: (p) => {
         if (p.category === 'account') {
-          return <span className="text-xs text-ink-700">AMB {formatINR(p.amb || 0)}</span>;
+          const ambVal = typeof p.amb === 'object' && p.amb !== null ? p.amb.amount : (p.amb || 0);
+          return <span className="text-xs text-ink-700">AMB {formatINR(ambVal)}</span>;
         }
         if (p.category === 'loan') {
           return (
@@ -435,8 +459,8 @@ export default function ManagerProductCatalogueSection() {
                 onClick={() => setActiveCategory(cat.id)}
                 className={`flex items-center gap-2 px-3.5 py-2 rounded-xl text-xs font-semibold transition-all ${
                   isCurrent
-                    ? 'bg-midnight-900 text-white shadow-xs'
-                    : 'bg-white text-ink-700 border border-ink-200 hover:border-gold-300'
+                    ? 'bg-bank-primary text-white shadow-xs'
+                    : 'bg-white text-ink-700 border border-ink-200 hover:border-bank-primary-border'
                 }`}
               >
                 <cat.icon className="h-3.5 w-3.5" />
@@ -483,7 +507,7 @@ export default function ManagerProductCatalogueSection() {
         >
           <form onSubmit={handleFormSubmit} className="space-y-4 text-xs">
             {formError && (
-              <div className="p-3 rounded-lg bg-danger-50 border border-danger-200 text-danger-700">
+              <div role="alert" className="p-3 rounded-lg bg-danger-50 border border-danger-200 text-danger-700">
                 {formError}
               </div>
             )}

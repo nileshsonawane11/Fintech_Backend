@@ -10,7 +10,6 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
-import java.util.Optional;
 import java.util.UUID;
 
 @Repository
@@ -18,7 +17,7 @@ public interface ReconciliationDiscrepancyRepository extends JpaRepository<Recon
 
     @Query("SELECT d FROM ReconciliationDiscrepancy d WHERE " +
            "(:reconciliationId IS NULL OR d.reconciliationRun.reconciliationId = :reconciliationId) AND " +
-           "(:accountId IS NULL OR d.ledgerAccount.accountReference = :accountId OR d.ledgerAccount.ledgerAccountId = :accountId) AND " +
+           "(:accountId IS NULL OR d.accountId = :accountId) AND " +
            "(:discrepancyType IS NULL OR d.discrepancyType = :discrepancyType) AND " +
            "(:status IS NULL OR d.status = :status) " +
            "ORDER BY d.createdAt DESC")

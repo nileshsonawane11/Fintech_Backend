@@ -84,7 +84,7 @@ public class ReversalService {
             EntryType invertedType = (entry.getEntryType() == EntryType.DEBIT) ? EntryType.CREDIT : EntryType.DEBIT;
             String narrative = "Reversal of " + originalTx.getTransactionId() + ": " + request.reasonCode();
             compensatingEntries.add(new PostingEntryItem(
-                    entry.getLedgerAccount().getLedgerAccountId(),
+                    entry.getAccountId(),
                     invertedType,
                     entry.getAmount(),
                     narrative,

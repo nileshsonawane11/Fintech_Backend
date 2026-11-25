@@ -17,6 +17,7 @@ export default function ManagerStaffPage() {
   const isAuditor = user?.role === 'AUDITOR' || user?.role === 'AUDIT_COMPLIANCE';
   const actor = user?.fullName || user?.name || 'Chief Branch Manager';
   const actorRole = user?.role || 'BANK_MANAGER';
+  const { toast } = useToast();
 
   const [staff, setStaff] = useState(null);
   const [error, setError] = useState('');
@@ -156,7 +157,7 @@ export default function ManagerStaffPage() {
         <button
           type="button"
           onClick={() => setSelectedStaffId(s.id)}
-          className="font-medium text-midnight-800 underline decoration-gold-400 decoration-2 underline-offset-2 hover:text-midnight-600"
+          className="font-medium text-midnight-800 underline decoration-bank-primary/40 decoration-2 underline-offset-2 hover:text-midnight-600"
         >
           {(s.permissions || []).length} permissions
         </button>
@@ -237,12 +238,12 @@ export default function ManagerStaffPage() {
                     onClick={() => setSelectedStaffId(s.id)}
                     className={`rounded-lg border px-3.5 py-2.5 text-left text-sm transition-colors ${
                       selectedStaffId === s.id
-                        ? 'border-midnight-700 bg-midnight-800 text-porcelain-50'
-                        : 'border-ink-200 bg-white text-ink-800 hover:border-midnight-400'
+                        ? 'border-bank-primary bg-bank-primary text-white shadow-xs'
+                        : 'border-ink-200 bg-white text-ink-800 hover:border-bank-primary-border'
                     }`}
                   >
                     <span className="block font-medium">{s.name}</span>
-                    <span className={`block text-xs ${selectedStaffId === s.id ? 'text-porcelain-200' : 'text-ink-500'}`}>{statusLabel(s.role)} · {(s.permissions || []).length} permissions</span>
+                    <span className={`block text-xs ${selectedStaffId === s.id ? 'text-white/80' : 'text-ink-500'}`}>{statusLabel(s.role)} · {(s.permissions || []).length} permissions</span>
                   </button>
                 ))}
               </div>
@@ -259,7 +260,7 @@ export default function ManagerStaffPage() {
                   </p>
                   {grouped.map(({ module, perms }) => (
                     <div key={module}>
-                      <h3 className="mb-2 font-display text-base font-semibold text-midnight-950">{module}</h3>
+                      <h3 className="mb-2 font-sans text-base font-semibold text-midnight-950">{module}</h3>
                       <Table
                         columns={[
                           {

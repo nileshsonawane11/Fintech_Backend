@@ -29,12 +29,24 @@ public class LedgerException extends RuntimeException {
         return new LedgerException(HttpStatus.FORBIDDEN, "FORBIDDEN", message);
     }
 
+    public static LedgerException accountOwnershipMismatch(String message) {
+        return new LedgerException(HttpStatus.FORBIDDEN, "ACCOUNT_OWNERSHIP_MISMATCH", message);
+    }
+
     public static LedgerException badRequest(String errorCode, String message) {
         return new LedgerException(HttpStatus.BAD_REQUEST, errorCode, message);
     }
 
     public static LedgerException notFound(String errorCode, String message) {
         return new LedgerException(HttpStatus.NOT_FOUND, errorCode, message);
+    }
+
+    public static LedgerException accountNotFound(String message) {
+        return new LedgerException(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND", message);
+    }
+
+    public static LedgerException transactionNotFound(String message) {
+        return new LedgerException(HttpStatus.NOT_FOUND, "TRANSACTION_NOT_FOUND", message);
     }
 
     public static LedgerException conflict(String errorCode, String message) {
@@ -54,11 +66,15 @@ public class LedgerException extends RuntimeException {
     }
 
     public static LedgerException inactiveAccount(String message) {
-        return new LedgerException(HttpStatus.UNPROCESSABLE_ENTITY, "INACTIVE_LEDGER_ACCOUNT", message);
+        return new LedgerException(HttpStatus.UNPROCESSABLE_ENTITY, "INACTIVE_ACCOUNT", message);
     }
 
     public static LedgerException currencyMismatch(String message) {
         return new LedgerException(HttpStatus.UNPROCESSABLE_ENTITY, "CURRENCY_MISMATCH", message);
+    }
+
+    public static LedgerException unsupportedOperation(String message) {
+        return new LedgerException(HttpStatus.UNPROCESSABLE_ENTITY, "UNSUPPORTED_ACCOUNT_OPERATION", message);
     }
 
     public static LedgerException idempotencyKeyReused(String message) {
@@ -69,19 +85,11 @@ public class LedgerException extends RuntimeException {
         return new LedgerException(HttpStatus.CONFLICT, "DUPLICATE_TRANSACTION", message);
     }
 
-    public static LedgerException accountNotFound(String message) {
-        return new LedgerException(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND", message);
+    public static LedgerException serviceUnavailable(String message) {
+        return new LedgerException(HttpStatus.SERVICE_UNAVAILABLE, "SERVICE_UNAVAILABLE", message);
     }
 
     public static LedgerException ledgerAccountNotFound(String message) {
-        return new LedgerException(HttpStatus.NOT_FOUND, "LEDGER_ACCOUNT_NOT_FOUND", message);
-    }
-
-    public static LedgerException transactionNotFound(String message) {
-        return new LedgerException(HttpStatus.NOT_FOUND, "TRANSACTION_NOT_FOUND", message);
-    }
-
-    public static LedgerException holdNotFound(String message) {
-        return new LedgerException(HttpStatus.NOT_FOUND, "HOLD_NOT_FOUND", message);
+        return new LedgerException(HttpStatus.NOT_FOUND, "ACCOUNT_NOT_FOUND", message);
     }
 }

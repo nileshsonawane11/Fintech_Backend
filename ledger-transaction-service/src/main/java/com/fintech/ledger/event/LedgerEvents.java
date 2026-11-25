@@ -1,7 +1,6 @@
 package com.fintech.ledger.event;
 
 import com.fintech.ledger.enums.AccountType;
-import com.fintech.ledger.enums.HoldStatus;
 import com.fintech.ledger.enums.TransactionDirection;
 import com.fintech.ledger.enums.TransactionStatus;
 import com.fintech.ledger.enums.TransactionType;
@@ -14,15 +13,6 @@ import java.util.UUID;
 public final class LedgerEvents {
 
     private LedgerEvents() {}
-
-    public record LedgerAccountCreatedPayload(
-            String ledgerAccountId,
-            String accountReference,
-            UUID customerId,
-            AccountType accountType,
-            String currency,
-            Instant createdAt
-    ) {}
 
     public record TransactionInitiatedPayload(
             String transactionId,
@@ -81,27 +71,12 @@ public final class LedgerEvents {
             BigDecimal holdBalance,
             String currency,
             Instant updatedAt
-    ) {}
-
-    public record HoldPlacedPayload(
-            String holdId,
-            String accountId,
-            BigDecimal amount,
-            String currency,
-            String reasonCode,
-            HoldStatus status,
-            Instant createdAt
-    ) {}
-
-    public record HoldReleasedPayload(
-            String holdId,
-            String accountId,
-            BigDecimal amount,
-            String currency,
-            String reasonCode,
-            HoldStatus status,
-            Instant releasedAt
-    ) {}
+    ) {
+        public BalanceUpdatedPayload(String accountId, BigDecimal ledgerBalance, BigDecimal availableBalance,
+                                     BigDecimal holdBalance, String currency, Instant updatedAt) {
+            this(accountId, accountId, ledgerBalance, availableBalance, holdBalance, currency, updatedAt);
+        }
+    }
 
     public record ReconciliationCompletedPayload(
             String reconciliationId,
@@ -115,11 +90,15 @@ public final class LedgerEvents {
 
     public record ReconciliationDiscrepancyDetectedPayload(
             String reconciliationId,
-            String ledgerAccountId,
+            String accountId,
             String discrepancyType,
             BigDecimal expectedAmount,
             BigDecimal actualAmount,
             BigDecimal differenceAmount,
             Instant detectedAt
-    ) {}
+    ) {
+        public String ledgerAccountId() {
+            return accountId;
+        }
+    }
 }

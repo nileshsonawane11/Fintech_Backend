@@ -29,7 +29,7 @@ public class InternalServiceAuthFilter extends OncePerRequestFilter {
             throws ServletException, IOException {
 
         String path = request.getRequestURI();
-        if (path.startsWith("/internal/") || path.startsWith("/api/v1/holds/reserve") || path.startsWith("/api/v1/holds/release")) {
+        if (path.startsWith("/internal/")) {
             String authHeader = request.getHeader("Authorization");
             String internalHeader = request.getHeader("X-Internal-Service-Secret");
 
@@ -42,9 +42,7 @@ public class InternalServiceAuthFilter extends OncePerRequestFilter {
                         new SimpleGrantedAuthority("ROLE_INTERNAL"),
                         new SimpleGrantedAuthority("LEDGER_POSTING_CREATE"),
                         new SimpleGrantedAuthority("LEDGER_ACCOUNT_READ_INTERNAL"),
-                        new SimpleGrantedAuthority("LEDGER_BALANCE_READ_INTERNAL"),
-                        new SimpleGrantedAuthority("LEDGER_HOLD_CREATE_INTERNAL"),
-                        new SimpleGrantedAuthority("LEDGER_HOLD_RELEASE_INTERNAL")
+                        new SimpleGrantedAuthority("LEDGER_BALANCE_READ_INTERNAL")
                 );
                 UsernamePasswordAuthenticationToken auth =
                         new UsernamePasswordAuthenticationToken("internal-service", null, authorities);

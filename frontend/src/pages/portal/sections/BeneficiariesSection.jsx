@@ -200,7 +200,7 @@ export default function BeneficiariesPage() {
       )}
 
       <Card id="add-beneficiary-form" className="mt-6 scroll-mt-6 px-5 py-5">
-        <h2 className="font-display text-xl font-semibold text-midnight-950">Add a beneficiary</h2>
+        <h2 className="font-sans text-xl font-semibold text-midnight-950">Add a beneficiary</h2>
         <p className="mt-1 text-sm text-ink-600">Details are taken from the beneficiary’s bank records. The account number must be entered twice so a typing mistake cannot send money to the wrong account.</p>
 
         <form onSubmit={submit} noValidate className="mt-5 grid gap-5">

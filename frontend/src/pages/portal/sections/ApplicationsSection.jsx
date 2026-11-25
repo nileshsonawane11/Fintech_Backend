@@ -8,7 +8,7 @@ import { useAuth, useDbTick } from '../../../context/AuthContext.jsx';
 import { formatDate, formatDateTime, formatINR, productDisplayName } from '../../../lib/format.js';
 import { listMyLoanApplications, listMyCardApplications, listMyInvestmentApplications, listAccountApplications } from '../../../services/portalBridge.js';
 
-const ctaCls = 'inline-flex items-center justify-center gap-2 rounded-lg bg-midnight-800 px-4 py-2.5 text-sm font-medium text-porcelain-50 shadow-sm transition-colors hover:bg-midnight-700';
+const ctaCls = 'inline-flex items-center justify-center gap-2 rounded-lg bg-bank-primary px-4 py-2.5 text-sm font-semibold text-white shadow-xs transition-colors hover:bg-bank-primary-hover';
 
 function newestFirst(rows, dateOf) {
   return [...(rows || [])].sort((a, b) => {
@@ -155,7 +155,7 @@ export default function ApplicationsPage() {
             icon={FileText}
             title="No account applications yet"
             body="Accounts you apply for on the public site will be tracked here while they are reviewed."
-            action={<Link to="/accounts" className={ctaCls}>Browse accounts</Link>}
+            action={<Link to="/portal/accounts" className={ctaCls}>Browse accounts</Link>}
           />
         ) : (
           <div className="space-y-3">
@@ -190,7 +190,7 @@ export default function ApplicationsPage() {
             icon={TrendingUp}
             title="No investment applications yet"
             body="Applications for Fixed Deposits, Recurring Deposits, SIPs or SSY will appear here with live tracking."
-            action={<Link to="/investments" className={ctaCls}>Explore investments</Link>}
+            action={<Link to="/portal/investments" className={ctaCls}>Explore investments</Link>}
           />
         ) : (
           <div className="space-y-4">

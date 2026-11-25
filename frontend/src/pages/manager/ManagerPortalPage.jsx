@@ -66,6 +66,25 @@ const NAV_ITEMS = [
 
 
 
+const MANAGER_TITLES = {
+  'dashboard': 'Executive Overview & Queues',
+  'customers': 'Customer Directory & Profiles',
+  'kyc': 'KYC Verification & Document Queue',
+  'accounts': 'Savings & Current Account Applications',
+  'cards': 'Card Issuance & Limit Applications',
+  'loans': 'Credit Underwriting & Loan Queue',
+  'investments': 'Term Deposit & Investment Applications',
+  'tickets': 'Customer Service & Grievance Tickets',
+  'audit': 'Statutory Audit & Operational Logs',
+  'reports': 'Regulatory & Financial MIS Reports',
+  'staff': 'Staff Directory & Access Control',
+  'user-management': 'Internal User Administration',
+  'roles-permissions': 'Role Definitions & Permissions',
+  'product-catalogue': 'Core Product Catalogue & Tariffs',
+  'site-content': 'Public Content & Marketing CMS',
+  'platform-settings': 'Platform & Operational Settings',
+};
+
 export const ManagerPortalPage = () => {
   const { managerUser, managerLogout } = useAuth();
   const navigate = useNavigate();
@@ -152,28 +171,28 @@ export const ManagerPortalPage = () => {
       )}
       <div className="flex-1 lg:flex">
       {/* Desktop Sidebar */}
-      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col bg-midnight-900 px-3 py-5 lg:flex border-r border-midnight-950">
+      <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col bg-white px-3 py-5 lg:flex border-r border-ink-200/80 shadow-xs">
         <div className="px-3">
-          <Link to="/" className="flex items-center gap-2.5" aria-label="FinEdge Bank — home">
-            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-midnight-950 text-gold-300 shadow-sm">
+          <Link to="/manager/dashboard" className="flex items-center gap-2.5" aria-label="FinEdge Bank — home">
+            <span className="flex h-9 w-9 items-center justify-center rounded-lg bg-bank-primary text-white shadow-sm">
               <Landmark className="h-5 w-5" aria-hidden />
             </span>
-            <span className="font-display text-lg font-semibold text-porcelain-50">
+            <span className="font-sans text-lg font-bold text-ink-900">
               FinEdge Bank
             </span>
           </Link>
         </div>
 
-        <div className="mt-5 mx-2 rounded-lg bg-midnight-950/60 p-3 text-xs leading-relaxed text-midnight-200 border border-midnight-800">
-          <p className="text-xs uppercase tracking-wider text-gold-400 font-semibold">Staff Clearance</p>
-          <p className="mt-0.5 font-semibold text-porcelain-50 truncate">{managerUser?.fullName || managerUser?.name || 'Chief Branch Manager'}</p>
-          <p className="text-xs text-porcelain-300 truncate">{managerUser?.roleTitle || managerUser?.role || 'BANK_MANAGER'}</p>
+        <div className="mt-5 mx-2 rounded-xl bg-porcelain-100 p-3 text-xs leading-relaxed text-ink-700 border border-ink-200/80 shadow-xs">
+          <p className="text-xs uppercase tracking-wider text-ink-500 font-semibold">Staff Clearance</p>
+          <p className="mt-0.5 font-semibold text-ink-900 truncate">{managerUser?.fullName || managerUser?.name || 'Chief Branch Manager'}</p>
+          <p className="text-xs text-ink-500 truncate">{managerUser?.roleTitle || managerUser?.role || 'BANK_MANAGER'}</p>
         </div>
 
         <nav className="mt-4 flex-1 space-y-0.5 overflow-y-auto px-1" aria-label="Staff console">
           {visibleNav.map((n, i) =>
             n.group ? (
-              <p key={i} className="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-[0.14em] text-midnight-300">
+              <p key={i} className="px-3 pb-1 pt-4 text-xs font-semibold uppercase tracking-wider text-ink-500">
                 {n.group}
               </p>
             ) : (
@@ -184,8 +203,8 @@ export const ManagerPortalPage = () => {
                   const isCurrent = isActive || pathname === n.altTo;
                   return `relative flex items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium transition-colors ${
                     isCurrent
-                      ? 'bg-midnight-800 text-porcelain-50'
-                      : 'text-midnight-200 hover:bg-midnight-800/60 hover:text-porcelain-50'
+                      ? 'bg-bank-primary-light text-bank-primary font-semibold shadow-xs'
+                      : 'text-ink-600 hover:bg-porcelain-100 hover:text-bank-primary'
                   }`;
                 }}
               >
@@ -194,7 +213,7 @@ export const ManagerPortalPage = () => {
                   return (
                     <>
                       {isCurrent && (
-                        <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-gold-400" aria-hidden />
+                        <span className="absolute left-0 top-1/2 h-5 w-[3px] -translate-y-1/2 rounded-full bg-bank-primary" aria-hidden />
                       )}
                       <n.icon className="h-4.5 w-4.5 shrink-0" aria-hidden />
                       <span className="flex-1">{n.label}</span>
@@ -206,65 +225,91 @@ export const ManagerPortalPage = () => {
           )}
         </nav>
 
-        <div className="pt-3 border-t border-midnight-800 px-1">
+        <div className="pt-3 border-t border-ink-100 px-1">
           <button
             type="button"
             onClick={handleLogout}
-            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-midnight-200 transition-colors hover:bg-midnight-800 hover:text-porcelain-50"
+            className="flex w-full items-center gap-3 rounded-lg px-3 py-2 text-sm font-medium text-ink-600 transition-colors hover:bg-porcelain-100 hover:text-danger-600"
           >
             <LogOut className="h-4.5 w-4.5" aria-hidden /> Logout Session
           </button>
         </div>
       </aside>
 
-      {/* Mobile Top Header */}
-      <header className="sticky top-0 z-40 flex items-center justify-between bg-midnight-900 px-4 py-2.5 lg:hidden border-b border-midnight-950 shadow-xs">
-        <div className="flex items-center gap-2.5 min-w-0">
-          <Link to="/" className="flex items-center gap-2 shrink-0" aria-label="FinEdge Bank Home">
-            <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-midnight-950 text-gold-300 shadow-xs">
-              <Landmark className="h-4 w-4" />
-            </span>
-            <span className="font-display font-semibold text-porcelain-50 text-sm">Staff Ops</span>
-          </Link>
-          <span className="inline-block truncate rounded-full bg-midnight-950/80 px-2.5 py-0.5 text-xs font-semibold text-gold-400 border border-midnight-800">
-            {managerUser?.roleTitle || managerUser?.role || 'BANK_MANAGER'}
-          </span>
-        </div>
-        <button
-          onClick={handleLogout}
-          className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-porcelain-200 hover:bg-midnight-800 hover:text-white transition-colors"
-          aria-label="Logout Staff Session"
-        >
-          <LogOut className="h-4 w-4" /> <span>Logout</span>
-        </button>
-      </header>
-
-      {/* Mobile Nav Strip */}
-      <nav className="flex gap-1.5 overflow-x-auto border-b border-ink-200 bg-porcelain-100/90 px-3 py-2 lg:hidden [scrollbar-width:none] touch-pan-x" aria-label="Staff mobile nav">
-        {visibleNav.filter((n) => n.to).map((n) => {
-          const isCurrent = pathname === n.to || pathname === n.altTo;
-          return (
-            <Link
-              key={n.to}
-              to={n.to}
-              className={`whitespace-nowrap min-h-[44px] inline-flex items-center rounded-full px-3.5 py-2 text-xs font-semibold transition-colors ${
-                isCurrent ? 'bg-midnight-900 text-porcelain-50 shadow-xs' : 'bg-white text-ink-700 border border-ink-200 hover:border-midnight-400'
-              }`}
+      {/* Main Operations Container with Desktop Top Bar and Mobile Header */}
+      <div className="flex-1 flex flex-col min-w-0 bg-porcelain-100">
+        {/* Desktop Top Bar ≥ lg */}
+        <header className="hidden lg:flex items-center justify-between bg-white border-b border-ink-200/80 px-8 py-3.5 shadow-xs sticky top-0 z-30">
+          <div>
+            <h1 className="text-lg font-bold text-ink-900">
+              {MANAGER_TITLES[activeSection] || 'Operations Terminal'}
+            </h1>
+          </div>
+          <div className="flex items-center gap-4">
+            <div className="flex items-center gap-2 rounded-full border border-ink-200 bg-porcelain-50 px-3 py-1 text-xs text-ink-600">
+              <span className="h-2 w-2 rounded-full bg-bank-primary" aria-hidden />
+              <span>{managerUser?.fullName || managerUser?.name || 'Staff User'}</span>
+              <span className="text-ink-400">·</span>
+              <span className="font-semibold text-ink-900">{managerUser?.roleTitle || managerUser?.role || 'STAFF'}</span>
+            </div>
+            <button
+              type="button"
+              onClick={handleLogout}
+              className="flex items-center gap-1.5 text-xs font-semibold text-ink-600 hover:text-danger-600 px-2.5 py-1.5 rounded-lg hover:bg-danger-50 transition-colors"
             >
-              {n.label}
-            </Link>
-          );
-        })}
-      </nav>
+              <LogOut className="h-4 w-4" /> Logout
+            </button>
+          </div>
+        </header>
 
-      {/* Main Operations Container */}
-      <main className="w-full flex-1 px-4 py-5 sm:px-6 lg:py-7 overflow-x-auto">
+        {/* Mobile Top Header */}
+        <header className="sticky top-0 z-40 flex items-center justify-between bg-white px-4 py-2.5 lg:hidden border-b border-ink-200 shadow-xs">
+          <div className="flex items-center gap-2.5 min-w-0">
+            <Link to="/manager/dashboard" className="flex items-center gap-2 shrink-0" aria-label="FinEdge Bank Home">
+              <span className="flex h-8 w-8 items-center justify-center rounded-lg bg-bank-primary text-white shadow-xs">
+                <Landmark className="h-4 w-4" />
+              </span>
+              <span className="font-sans font-bold text-ink-900 text-sm">Staff Ops</span>
+            </Link>
+            <span className="inline-block truncate rounded-full bg-porcelain-100 px-2.5 py-0.5 text-xs font-semibold text-ink-900 border border-ink-200">
+              {managerUser?.roleTitle || managerUser?.role || 'BANK_MANAGER'}
+            </span>
+          </div>
+          <button
+            onClick={handleLogout}
+            className="flex min-h-[44px] min-w-[44px] items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-xs font-semibold text-ink-600 hover:text-danger-600 transition-colors"
+            aria-label="Logout Staff Session"
+          >
+            <LogOut className="h-4 w-4" /> <span>Logout</span>
+          </button>
+        </header>
+
+        {/* Mobile Nav Strip */}
+        <nav className="flex gap-1.5 overflow-x-auto border-b border-ink-200 bg-white px-3 py-2 lg:hidden [scrollbar-width:none] touch-pan-x" aria-label="Staff mobile nav">
+          {visibleNav.filter((n) => n.to).map((n) => {
+            const isCurrent = pathname === n.to || pathname === n.altTo;
+            return (
+              <Link
+                key={n.to}
+                to={n.to}
+                className={`whitespace-nowrap min-h-[44px] inline-flex items-center rounded-full px-3.5 py-2 text-xs font-semibold transition-colors ${
+                  isCurrent ? 'bg-bank-primary text-white shadow-xs' : 'bg-porcelain-50 text-ink-700 border border-ink-200 hover:border-bank-primary'
+                }`}
+              >
+                {n.label}
+              </Link>
+            );
+          })}
+        </nav>
+
+        {/* Main Operations Container */}
+        <main className="w-full flex-1 px-4 py-5 sm:px-6 lg:py-7 overflow-x-auto">
         {!isAllowed ? (
           <div className="mx-auto max-w-lg rounded-xl border border-danger-200 bg-white p-8 text-center shadow-card mt-12">
             <div className="mx-auto mb-4 flex h-12 w-12 items-center justify-center rounded-full bg-danger-50 text-danger-600">
               <ShieldAlert className="h-6 w-6" aria-hidden="true" />
             </div>
-            <h2 className="font-display text-xl font-semibold text-midnight-950">Access Denied</h2>
+            <h2 className="font-sans text-xl font-semibold text-midnight-950">Access Denied</h2>
             <p className="mt-2 text-sm text-ink-600 leading-relaxed">
               Your staff clearance level ({managerUser?.roleTitle || managerUser?.role || 'Staff'}) lacks permissions for this section. Direct operational actions are prohibited.
             </p>
@@ -295,6 +340,7 @@ export const ManagerPortalPage = () => {
       </main>
       </div>
     </div>
+  </div>
   );
 };
 

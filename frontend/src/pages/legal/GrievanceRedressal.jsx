@@ -175,7 +175,7 @@ export default function GrievanceRedressal() {
 
   const inputCls = (hasError) =>
     `w-full rounded-lg border bg-white px-3 py-2.5 text-sm text-ink-900 placeholder:text-ink-400 ${
-      hasError ? "border-danger-600 ring-1 ring-danger-600" : "border-ink-300 focus:border-midnight-800 focus:ring-1 focus:ring-midnight-800"
+      hasError ? "border-danger-600 ring-1 ring-danger-600" : "border-ink-300 focus:border-bank-primary focus:ring-1 focus:ring-bank-primary"
     }`;
 
   return (
@@ -197,14 +197,14 @@ export default function GrievanceRedressal() {
         <p className="flex flex-wrap items-center gap-x-6 gap-y-2 pt-2">
           <a
             href="tel:18002674100"
-            className="inline-flex items-center gap-2 font-medium text-midnight-900 hover:text-gold-700 transition-colors"
+            className="inline-flex items-center gap-2 font-medium text-midnight-900 hover:text-bank-primary transition-colors"
           >
             <Phone className="h-4 w-4 text-midnight-700" aria-hidden />
             <span>Toll-free 1800 267 4100 ({BRAND.support.hours})</span>
           </a>
           <a
             href={`mailto:${BRAND.support.email}`}
-            className="inline-flex items-center gap-2 font-medium text-midnight-900 hover:text-gold-700 transition-colors"
+            className="inline-flex items-center gap-2 font-medium text-midnight-900 hover:text-bank-primary transition-colors"
           >
             <Mail className="h-4 w-4 text-midnight-700" aria-hidden />
             <span>{BRAND.support.email}</span>
@@ -223,11 +223,11 @@ export default function GrievanceRedressal() {
               }}
               className="reveal-schedule-row flex gap-4 rounded-card border border-ink-200 bg-porcelain-50 p-4 shadow-card transition-all duration-200 hover:border-midnight-300"
             >
-              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-midnight-800 text-porcelain-50">
+              <div className="flex h-11 w-11 shrink-0 items-center justify-center rounded-full bg-bank-primary-light text-bank-primary">
                 <level.icon className="h-5 w-5" aria-hidden />
               </div>
               <div>
-                <p className="text-xs font-semibold uppercase tracking-wider text-gold-700">
+                <p className="text-xs font-semibold uppercase tracking-wider text-bank-primary">
                   {level.n}
                 </p>
                 <h3 className="mt-0.5 text-base font-semibold text-ink-900">
@@ -330,7 +330,7 @@ export default function GrievanceRedressal() {
                 </h3>
                 <p className="text-sm leading-6 text-ink-700">
                   Your reference is{" "}
-                  <strong className="tnum font-bold text-midnight-950 underline decoration-gold-500 underline-offset-2 confirm-ref-settle">{reference}</strong>
+                  <strong className="tnum font-bold text-midnight-950 underline decoration-bank-primary/40 underline-offset-2 confirm-ref-settle">{reference}</strong>
                   . A Level 1 acknowledgement has been issued, our resolution
                   target is 7 working days, and updates will go to the email
                   and mobile you provided. If we have not resolved it within
@@ -346,7 +346,7 @@ export default function GrievanceRedressal() {
                     responses and reply to staff directly in{" "}
                     <Link
                       to="/portal/support"
-                      className="font-semibold text-midnight-900 underline hover:text-gold-700"
+                      className="font-semibold text-midnight-900 underline hover:text-bank-primary"
                     >
                       My Requests
                     </Link>
@@ -359,7 +359,7 @@ export default function GrievanceRedressal() {
                     account, you can also{" "}
                     <Link
                       to="/portal/login"
-                      className="font-semibold text-midnight-900 underline hover:text-gold-700"
+                      className="font-semibold text-midnight-900 underline hover:text-bank-primary"
                     >
                       sign in to your portal
                     </Link>{" "}
@@ -574,7 +574,7 @@ export default function GrievanceRedressal() {
             <button
               type="submit"
               disabled={status === "submitting"}
-              className="rounded-lg bg-midnight-800 px-5 py-2.5 text-sm font-semibold text-porcelain-50 transition-colors hover:bg-midnight-700 disabled:cursor-not-allowed disabled:opacity-60 shadow-xs"
+              className="rounded-lg bg-bank-primary px-5 py-2.5 text-sm font-semibold text-white transition-colors hover:bg-bank-primary-hover disabled:cursor-not-allowed disabled:opacity-60 shadow-xs"
             >
               {status === "submitting"
                 ? "Recording your complaint…"

@@ -247,8 +247,8 @@ export default function ManagerRolesPermissionsSection() {
                     onClick={() => setSelectedRoleId(r.id)}
                     className={`group relative flex items-start justify-between p-3.5 rounded-xl border transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-midnight-900 border-midnight-950 text-white shadow-md'
-                        : 'bg-white border-ink-100 hover:border-gold-300 text-ink-900'
+                        ? 'bg-bank-primary border-bank-primary text-white shadow-xs'
+                        : 'bg-white border-ink-100 hover:border-bank-primary-border text-ink-900'
                     }`}
                   >
                     <div className="min-w-0 pr-2">
@@ -260,7 +260,7 @@ export default function ManagerRolesPermissionsSection() {
                           <span
                             className={`inline-flex items-center px-1.5 py-0.2 rounded text-xs font-semibold uppercase tracking-wider ${
                               isSelected
-                                ? 'bg-gold-500/20 text-gold-300 border border-gold-500/30'
+                                ? 'bg-bank-primary/20 text-bank-primary border border-bank-primary-border'
                                 : 'bg-porcelain-100 text-ink-600 border border-ink-200'
                             }`}
                           >
@@ -278,10 +278,10 @@ export default function ManagerRolesPermissionsSection() {
                           </span>
                         )}
                       </div>
-                      <p className={`text-xs mt-0.5 line-clamp-1 ${isSelected ? 'text-midnight-200' : 'text-ink-500'}`}>
+                      <p className={`text-xs mt-0.5 line-clamp-1 ${isSelected ? 'text-white/80' : 'text-ink-500'}`}>
                         {r.description || r.id}
                       </p>
-                      <p className={`text-xs font-mono mt-1 ${isSelected ? 'text-gold-400' : 'text-ink-600'}`}>
+                      <p className={`text-xs font-mono mt-1 ${isSelected ? 'text-bank-primary' : 'text-ink-600'}`}>
                         {(r.permissions || []).length} / 23 permissions
                       </p>
                     </div>
@@ -302,7 +302,7 @@ export default function ManagerRolesPermissionsSection() {
                           <Trash2 className="h-4 w-4" />
                         </button>
                       )}
-                      <ChevronRight className={`h-4 w-4 ${isSelected ? 'text-gold-400' : 'text-ink-300'}`} />
+                      <ChevronRight className={`h-4 w-4 ${isSelected ? 'text-bank-primary' : 'text-ink-300'}`} />
                     </div>
                   </div>
                 );
@@ -318,7 +318,7 @@ export default function ManagerRolesPermissionsSection() {
                 <div className="flex flex-wrap items-center justify-between pb-4 border-b border-ink-100 gap-3">
                   <div>
                     <div className="flex items-center gap-2">
-                      <h2 className="font-display text-base font-semibold text-midnight-950">
+                      <h2 className="font-sans text-base font-semibold text-midnight-950">
                         {selectedRole.name}
                       </h2>
                       {selectedRole.isSystem && (
@@ -341,7 +341,7 @@ export default function ManagerRolesPermissionsSection() {
 
                 {/* Staged Changes Indicator Banner */}
                 {changeCount > 0 && (
-                  <div className="my-4 rounded-xl border border-gold-300 bg-gold-50/50 p-3.5 flex items-center justify-between">
+                  <div className="my-4 rounded-xl border border-bank-primary-border bg-bank-primary-light/50 p-3.5 flex items-center justify-between">
                     <div>
                       <p className="text-xs font-semibold text-midnight-950">
                         {changeCount} permission modification{changeCount === 1 ? '' : 's'} staged
@@ -387,7 +387,7 @@ export default function ManagerRolesPermissionsSection() {
                                 key={p.code}
                                 className={`flex items-start gap-2.5 p-2 rounded-lg border transition-colors cursor-pointer ${
                                   isChecked
-                                    ? 'bg-midnight-950/5 border-midnight-200'
+                                    ? 'bg-bank-primary-light/50 border-bank-primary-border'
                                     : 'bg-white border-ink-100 hover:border-ink-200'
                                 }`}
                               >
@@ -395,7 +395,7 @@ export default function ManagerRolesPermissionsSection() {
                                   type="checkbox"
                                   checked={isChecked}
                                   onChange={() => togglePermission(p.code)}
-                                  className="mt-0.5 h-4 w-4 rounded border-ink-300 text-midnight-900 focus:ring-midnight-900"
+                                  className="mt-0.5 h-4 w-4 rounded border-ink-300 text-bank-primary focus:ring-bank-primary"
                                 />
                                 <div className="text-xs min-w-0">
                                   <p className="font-semibold text-ink-900 leading-tight">{p.label}</p>
@@ -519,7 +519,7 @@ export default function ManagerRolesPermissionsSection() {
                             setNewRolePerms([...newRolePerms, p.code]);
                           }
                         }}
-                        className="rounded border-ink-300 text-midnight-900"
+                        className="rounded border-ink-300 text-bank-primary focus:ring-bank-primary"
                       />
                       <span>{p.label} <code className="text-ink-400">({p.code})</code></span>
                     </label>

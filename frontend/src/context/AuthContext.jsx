@@ -60,14 +60,31 @@ export const AuthProvider = ({ children }) => {
 
       if (profData) {
         setProfile(profData);
-        setUser(prev => ({
-          ...prev,
-          name: profData.fullName || prev?.name || 'FinEdge Customer',
-          email: profData.email || prev?.email,
-          mobile: profData.mobileNumber || prev?.mobile,
-          customerId: profData.customerId || prev?.customerId,
-          kycStatus: profData.kycStatus || 'APPROVED'
-        }));
+        setUser(prev => {
+          if (!prev) return prev;
+          const nextName = profData.fullName || prev.name || 'FinEdge Customer';
+          const nextEmail = profData.email || prev.email;
+          const nextMobile = profData.mobileNumber || prev.mobile;
+          const nextCustId = profData.customerId || prev.customerId;
+          const nextKyc = profData.kycStatus || prev.kycStatus || 'APPROVED';
+          if (
+            prev.name === nextName &&
+            prev.email === nextEmail &&
+            prev.mobile === nextMobile &&
+            prev.customerId === nextCustId &&
+            prev.kycStatus === nextKyc
+          ) {
+            return prev;
+          }
+          return {
+            ...prev,
+            name: nextName,
+            email: nextEmail,
+            mobile: nextMobile,
+            customerId: nextCustId,
+            kycStatus: nextKyc
+          };
+        });
       }
 
       const accList = accsData?.data || accsData || [];
@@ -207,7 +224,18 @@ export const AuthProvider = ({ children }) => {
 
   const logout = () => {
     authService.logout();
+    if (typeof localStorage !== 'undefined') {
+      localStorage.removeItem('finedge_demo_user');
+      localStorage.removeItem('finedge_session_id');
+      localStorage.removeItem('finedge_session_customer_id');
+      localStorage.removeItem('finedge_access_token');
+      localStorage.removeItem('finedge_user');
+    }
     setUser(null);
+    setProfile(null);
+    setAccounts([]);
+    setCards([]);
+    setApplications([]);
   };
 
   // Manager Login
@@ -263,7 +291,7 @@ export const AuthProvider = ({ children }) => {
       const res = await bookFd(user?.customerId || null, {
         ...applicationData,
         customerId: user?.customerId || null,
-        accountId: applicationData.accountId || applicationData.sourceAccountId || accounts[0]?.accountId || 'ACC-1001'
+        accountId: applicationData.accountId || applicationData.sourceAccountId || accounts[0]?.accountId || null
       });
       refreshCustomerData();
       return res;
@@ -271,7 +299,7 @@ export const AuthProvider = ({ children }) => {
       const res = await applyLoan(user?.customerId || null, {
         ...applicationData,
         customerId: user?.customerId || null,
-        disbursementAccountId: applicationData.disbursementAccountId || accounts[0]?.accountId || 'ACC-1001'
+        disbursementAccountId: applicationData.disbursementAccountId || accounts[0]?.accountId || null
       });
       refreshCustomerData();
       return res;
@@ -296,7 +324,7 @@ export const AuthProvider = ({ children }) => {
         cardType: applicationData.cardType || 'CREDIT',
         cardName: applicationData.cardName || applicationData.productName || applicationData.title || 'FinEdge Edge Cashback Card',
         productSlug: applicationData.productSlug || 'edge-cashback-credit',
-        linkedAccountId: applicationData.linkedAccountId || accounts[0]?.accountId || 'ACC-1001',
+        linkedAccountId: applicationData.linkedAccountId || accounts[0]?.accountId || null,
         requestedLimit: applicationData.requestedLimit,
         ...applicationData
       });

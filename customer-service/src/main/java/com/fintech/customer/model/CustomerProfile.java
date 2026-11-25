@@ -36,6 +36,9 @@ public class CustomerProfile {
     @Column(name = "pan_masked")
     private String panMasked;
 
+    @Column(name = "aadhar_no")
+    private String aadharNo;
+
     @Column(name = "kyc_status", nullable = false)
     private String kycStatus = "NOT_STARTED";
 
@@ -98,6 +101,9 @@ public class CustomerProfile {
     public String getGender() { return gender; }
     public Instant getCreatedAt() { return createdAt; }
     public String getPanEncrypted() { return panEncrypted; }
+    public String getAadharNo() { return aadharNo;}
+
+    public void setAadharNo(String aadharNo) { this.aadharNo = aadharNo; }
 
     public void setId(UUID id) {
         this.id = id;

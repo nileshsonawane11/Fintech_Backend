@@ -1,6 +1,7 @@
 package com.fintech.customer.service;
 
 import com.fintech.customer.dto.request.ApplicantProfileRequest;
+import com.fintech.customer.dto.response.CustomerAddressResponse;
 import com.fintech.customer.dto.response.CustomerProfileResponse;
 import com.fintech.customer.exception.ApiException;
 import com.fintech.customer.model.CustomerAddress;
@@ -74,7 +75,9 @@ public class CustomerProfileService {
                         "Customer profile was not found."
                 ));
 
-        return toResponse(profile);
+        List<CustomerAddress> customerAddress = customerAddressRepository.findAllByCustomerProfile_Id(profile.getId());
+
+        return toResponse(profile, customerAddress);
     }
 
     @Transactional
@@ -102,14 +105,14 @@ public class CustomerProfileService {
                     profile.setDateOfBirth(request.dateOfBirth());
                 }
                 if (profile.getPanMasked() == null && request.pan() != null && !request.pan().isBlank()) {
-                    profile.setPanMasked(CustomerProfile.maskPan(request.pan().trim().toUpperCase()));
+                    profile.setPanMasked(request.pan().trim().toUpperCase());
                     profile.setPanEncrypted(encryptionService.encrypt(request.pan().trim().toUpperCase()));
                 }
                 if (profile.getMobileMasked() == null && request.mobileNumber() != null) {
-                    profile.setMobileMasked(maskMobile(request.mobileNumber()));
+                    profile.setMobileMasked(request.mobileNumber());
                 }
                 if (profile.getEmailMasked() == null && request.email() != null) {
-                    profile.setEmailMasked(maskEmail(request.email()));
+                    profile.setEmailMasked(request.email());
                 }
                 if (profile.getGender() == null && request.gender() != null) {
                     profile.setGender(request.gender());
@@ -124,10 +127,10 @@ public class CustomerProfileService {
             profile.setFullName(request.fullName().trim());
             profile.setDateOfBirth(request.dateOfBirth());
             profile.setGender(request.gender());
-            profile.setMobileMasked(maskMobile(request.mobileNumber()));
-            profile.setEmailMasked(maskEmail(request.email()));
+            profile.setMobileMasked(request.mobileNumber());
+            profile.setEmailMasked(request.email());
             if (request.pan() != null && !request.pan().isBlank()) {
-                profile.setPanMasked(CustomerProfile.maskPan(request.pan().trim().toUpperCase()));
+                profile.setPanMasked(request.pan().trim().toUpperCase());
                 profile.setPanEncrypted(encryptionService.encrypt(request.pan().trim().toUpperCase()));
             }
             profile.setKycStatus("NOT_STARTED");
@@ -181,7 +184,9 @@ public class CustomerProfileService {
             }
         }
 
-        return toResponse(profile);
+        List<CustomerAddress> customerAddress = customerAddressRepository.findAllByCustomerProfile_Id(profile.getId());
+
+        return toResponse(profile, customerAddress);
     }
 
     private String maskMobile(String mobile) {
@@ -198,18 +203,45 @@ public class CustomerProfileService {
         return local.substring(0, 1) + "***@" + domain;
     }
 
-    private CustomerProfileResponse toResponse(CustomerProfile profile) {
+    private CustomerAddressResponse toAddressResponse(CustomerAddress address) {
+        return new CustomerAddressResponse(
+                address.getId(),
+                address.getAddressType(),
+                address.getAddressLine1(),
+                address.getAddressLine2(),
+                address.getCity(),
+                address.getState(),
+                address.getPostalCode(),
+                address.getCountry(),
+                address.getStatus(),
+                address.isDeliverable(),
+                address.getCreatedAt()
+        );
+    }
+
+    private CustomerProfileResponse toResponse(
+            CustomerProfile profile,
+            List<CustomerAddress> customerAddresses
+    ) {
+        List<CustomerAddressResponse> addressResponses =
+                customerAddresses.stream()
+                        .map(this::toAddressResponse)
+                        .toList();
+
         return new CustomerProfileResponse(
                 profile.getCustomerId(),
                 profile.getFullName(),
                 profile.getDateOfBirth(),
-                profile.getMobileMasked(), // Populate by decrypting mobileNumberEncrypted.
-                profile.getEmailMasked(), // Populate by decrypting emailEncrypted.
-                profile.getPanMasked(), // Prefer a masked PAN, not the full PAN.
+                profile.getMobileMasked(),
+                profile.getEmailMasked(),
+                profile.getPanMasked(),
+                profile.getAadharNo(),
                 profile.getKycStatus(),
                 profile.getRiskCategory(),
                 profile.getCreatedAt(),
-                profile.getGender()
+                profile.getGender(),
+                addressResponses
         );
     }
+
 }

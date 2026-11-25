@@ -11,6 +11,8 @@ import java.util.UUID;
 public interface CustomerAddressRepository
         extends JpaRepository<CustomerAddress, UUID> {
 
+    List<CustomerAddress> findAllByCustomerProfile_Id(UUID customerId);
+
     interface AddressDetails {
         UUID getCustomerProfileId();
         String getAddressType();

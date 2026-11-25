@@ -10,12 +10,13 @@ export function getEffectiveCustomerId(customerId) {
         return sess.customerId;
       }
     }
-    const sessionCust = localStorage.getItem('finedge_session_customer_id');
-    if (sessionCust && db.customers?.some(c => c.customerId === sessionCust)) {
-      return sessionCust;
-    }
+    return null;
   }
-  return customerId;
+  if (customerId) {
+    const cust = (db.customers || []).find(c => c.customerId === customerId);
+    if (cust) return customerId;
+  }
+  return null;
 }
 
 // Portal Bridge Service
@@ -215,6 +216,9 @@ export function canonicalCard(c) {
     number: c.maskedCardNumber || c.cardNumber || '************1234',
     expiryDate: c.expiryDate || (c.expiryMonth && c.expiryYear ? `${String(c.expiryMonth).padStart(2, '0')}/${String(c.expiryYear).slice(-2)}` : '12/30'),
     status: c.status || 'ACTIVE',
+    blockType: c.blockType || (c.status === 'BLOCKED' ? 'PERMANENT' : null),
+    linkedAccountId: c.linkedAccountId || 'ACC-1001',
+    customerId: c.customerId,
     creditLimit: totalLimit,
     limit: totalLimit,
     outstanding,
@@ -234,7 +238,12 @@ export function canonicalCard(c) {
       spendDaily,
       dailySpend: spendDaily,
       atmDaily,
-      atmWithdrawal: atmDaily
+      atmWithdrawal: atmDaily,
+      atm: rawLimits.atm ?? atmDaily,
+      pos: rawLimits.pos ?? spendDaily,
+      ecommerce: rawLimits.ecommerce ?? (product?.limits?.onlineDaily || (isCredit ? 150000 : 100000)),
+      contactless: rawLimits.contactless ?? (product?.limits?.contactlessDaily || 5000),
+      ...rawLimits
     }
   };
 }
@@ -471,7 +480,9 @@ export async function getMyProfile(customerId) {
     documents: rawDocs.map(d => ({
       type: d.documentType || d.type,
       name: d.fileName || d.name || 'document.pdf',
-      state: d.state || 'UPLOADED'
+      state: d.state || 'UPLOADED',
+      dataUrl: d.dataUrl || d.url || null,
+      size: d.size || null
     }))
   };
 
@@ -486,11 +497,13 @@ export async function getMyKyc(customerId) {
 export async function submitKyc(customerId, payload, documents = []) {
   const db = getDb();
   if (!db.kycApplications) db.kycApplications = [];
-  const kycId = 'KYC-' + Math.floor(500000 + Math.random() * 100000);
+  const effCustId = getEffectiveCustomerId(customerId) || customerId;
+  const existingKyc = (db.kycApplications || []).find(k => k.customerId === effCustId);
+  const kycId = existingKyc ? (existingKyc.kycCaseId || existingKyc.id) : ('KYC-' + Math.floor(500000 + Math.random() * 100000));
   const newCase = {
     kycCaseId: kycId,
     id: kycId,
-    customerId,
+    customerId: effCustId,
     fullName: payload.fullName || 'Customer',
     pan: payload.pan,
     dateOfBirth: payload.dob,
@@ -501,30 +514,40 @@ export async function submitKyc(customerId, payload, documents = []) {
     aadhaarConsent: true,
     status: 'SUBMITTED',
     submittedAt: new Date().toISOString(),
-    documents: documents.map(d => ({
-      documentType: d.type,
-      type: d.type,
-      fileName: d.name,
-      name: d.name,
-      state: 'UPLOADED'
-    })),
-    submittedDocuments: documents.map(d => ({
-      documentType: d.type,
-      type: d.type,
-      fileName: d.name,
-      name: d.name,
-      state: 'UPLOADED'
-    }))
+    documents: documents.map(d => {
+      const existingDoc = (existingKyc?.documents || []).find(ed => (ed.documentType || ed.type) === d.type);
+      return {
+        documentType: d.type,
+        type: d.type,
+        fileName: d.name,
+        name: d.name,
+        dataUrl: d.dataUrl || existingDoc?.dataUrl || null,
+        size: d.size || existingDoc?.size || null,
+        state: 'UPLOADED'
+      };
+    }),
+    submittedDocuments: documents.map(d => {
+      const existingDoc = (existingKyc?.documents || []).find(ed => (ed.documentType || ed.type) === d.type);
+      return {
+        documentType: d.type,
+        type: d.type,
+        fileName: d.name,
+        name: d.name,
+        dataUrl: d.dataUrl || existingDoc?.dataUrl || null,
+        size: d.size || existingDoc?.size || null,
+        state: 'UPLOADED'
+      };
+    })
   };
 
-  const existingIdx = db.kycApplications.findIndex(k => k.customerId === customerId);
+  const existingIdx = db.kycApplications.findIndex(k => k.customerId === effCustId);
   if (existingIdx !== -1) {
     db.kycApplications[existingIdx] = newCase;
   } else {
     db.kycApplications.unshift(newCase);
   }
 
-  const cust = (db.customers || []).find(c => c.customerId === customerId);
+  const cust = (db.customers || []).find(c => c.customerId === effCustId);
   if (cust) {
     cust.kycStatus = 'SUBMITTED';
     if (payload.pan) cust.pan = payload.pan;
@@ -574,17 +597,79 @@ export async function updateCardControls(cardId, patch, actorName) {
   return cardService.updateControls(cardId, patch);
 }
 
-export async function blockCard(cardId, actorName) {
-  return cardService.blockCard(cardId, { reason: 'CUSTOMER_REQUEST', remarks: `Card blocked by ${actorName || 'cardholder'}` });
+export async function blockCard(cardId, optionsOrActor, actorName) {
+  const isObj = typeof optionsOrActor === 'object' && optionsOrActor !== null;
+  const blockType = isObj ? (optionsOrActor.blockType || 'TEMPORARY') : 'TEMPORARY';
+  const reason = isObj ? (optionsOrActor.reason || 'CUSTOMER_REQUEST') : 'CUSTOMER_REQUEST';
+  const remarks = isObj ? (optionsOrActor.remarks || `Card blocked by ${actorName || 'cardholder'}`) : `Card blocked by ${optionsOrActor || 'cardholder'}`;
+  try {
+    return await cardService.blockCard(cardId, { blockType, reason, remarks });
+  } catch (e) {
+    const db = getDb();
+    const card = (db.cards || []).find(c => c.cardId === cardId || c.id === cardId);
+    if (card) {
+      card.status = 'BLOCKED';
+      card.blockType = blockType;
+      card.blockedAt = new Date().toISOString();
+      card.reason = reason;
+      saveDb(db);
+      return { cardId: card.cardId, status: 'BLOCKED', blockType };
+    }
+    throw e;
+  }
+}
+
+export async function unblockCard(cardId, actorName) {
+  try {
+    return await cardService.unblockCard(cardId);
+  } catch (e) {
+    const db = getDb();
+    const card = (db.cards || []).find(c => c.cardId === cardId || c.id === cardId);
+    if (card) {
+      if (card.blockType === 'PERMANENT') {
+        const err = new Error('This card was permanently blocked and cannot be unblocked. Please apply for a replacement card.');
+        err.status = 422;
+        err.code = 'UNBLOCK_NOT_ALLOWED';
+        err.title = 'UNBLOCK_NOT_ALLOWED';
+        err.detail = 'This card was permanently blocked and cannot be unblocked. Please apply for a replacement card.';
+        throw err;
+      }
+      card.status = 'ACTIVE';
+      card.blockType = null;
+      card.unblockedAt = new Date().toISOString();
+      saveDb(db);
+      return { cardId: card.cardId, status: 'ACTIVE' };
+    }
+    throw e;
+  }
 }
 
 export async function applyCard(customerId, { productSlug, productName, kind, accountId, requestedLimit }) {
+  const effCustId = getEffectiveCustomerId(customerId);
+  if (!effCustId) {
+    throw {
+      status: 401,
+      code: 'UNAUTHENTICATED',
+      title: 'Authentication Required',
+      detail: 'Active customer session required to apply for a card.'
+    };
+  }
+  const db = getDb();
+  const customerAccounts = (db.accounts || []).filter(a => a.customerId === effCustId);
+  if (customerAccounts.length === 0) {
+    throw {
+      status: 400,
+      code: 'ACCOUNT_REQUIRED',
+      title: 'Account Required',
+      detail: 'An existing account is required before you can apply for a card.'
+    };
+  }
   try {
     const res = await cardService.applyForCard({
       cardType: kind ? kind.toUpperCase() : 'CREDIT',
       cardName: productName,
       productSlug,
-      linkedAccountId: accountId,
+      linkedAccountId: accountId || customerAccounts[0]?.id || customerAccounts[0]?.accountId,
       requestedLimit: requestedLimit != null ? Number(requestedLimit) : undefined
     });
     return {
@@ -627,7 +712,12 @@ export async function applyLoan(customerId, payload = {}) {
     effPayload = customerId;
     rawCustId = effPayload.customerId || null;
   }
-  const effCustId = getEffectiveCustomerId(rawCustId) || rawCustId || ('CUS-' + Math.floor(100000 + Math.random() * 900000));
+  const effCustId = getEffectiveCustomerId(rawCustId);
+  if (!effCustId) {
+    const err = new Error('Authentication required: a valid customer session is required to apply for a loan.');
+    err.status = 401;
+    throw err;
+  }
   const db = getDb();
   if (!db.loanApplications) db.loanApplications = [];
   if (!db.idempotencyKeys) db.idempotencyKeys = {};
@@ -645,9 +735,10 @@ export async function applyLoan(customerId, payload = {}) {
     throw new Error('Requested loan amount is outside allowable product limits (₹25,000 – ₹5,00,00,000).');
   }
 
-  const disbId = effPayload.disbursementAccountId || effPayload.accountId || 'EXT-ACC-DISBURSE';
+  const custAccts = (db.accounts || []).filter(a => a.customerId === effCustId);
+  const disbId = effPayload.disbursementAccountId || effPayload.accountId || (custAccts[0]?.accountId || 'DISBURSE-ON-APPROVAL');
   const tenure = Number(effPayload.tenureMonths) || 36;
-  const rate = 8.75;
+  const rate = Number(effPayload.rate) || 8.75;
   const emiCalc = calculateEMI(principal, rate, tenure);
   const appId = 'LAPP-' + Math.floor(100000 + Math.random() * 900000);
 
@@ -687,7 +778,19 @@ export async function applyLoan(customerId, payload = {}) {
 
 export async function listHoldings(customerId) {
   const db = getDb();
-  return (db.investments || []).filter(i => !customerId || i.customerId === customerId);
+  const effCustId = getEffectiveCustomerId(customerId) || customerId;
+  const invs = (db.investments || []).filter(i => !effCustId || i.customerId === effCustId);
+  const holdings = (db.investmentHoldings || []).filter(h => !effCustId || h.customerId === effCustId);
+  const seen = new Set();
+  const combined = [];
+  for (const item of [...invs, ...holdings]) {
+    const id = item.investmentId || item.id;
+    if (id && !seen.has(id)) {
+      seen.add(id);
+      combined.push(item);
+    }
+  }
+  return combined;
 }
 
 export async function bookFd(customerId, payload = {}) {
@@ -697,7 +800,12 @@ export async function bookFd(customerId, payload = {}) {
     effPayload = customerId;
     rawCustId = effPayload.customerId || null;
   }
-  const effCustId = getEffectiveCustomerId(rawCustId) || rawCustId || ('CUS-' + Math.floor(100000 + Math.random() * 900000));
+  const effCustId = getEffectiveCustomerId(rawCustId);
+  if (!effCustId) {
+    const err = new Error('Authentication required: a valid customer session is required to invest.');
+    err.status = 401;
+    throw err;
+  }
   const db = getDb();
   if (!db.idempotencyKeys) db.idempotencyKeys = {};
 
@@ -706,17 +814,39 @@ export async function bookFd(customerId, payload = {}) {
     return db.idempotencyKeys[`${effCustId}:${idemKey}`].response;
   }
 
-  const amt = Number(effPayload.amount != null ? effPayload.amount : effPayload.depositAmount != null ? effPayload.depositAmount : 25000);
+  const details = effPayload.investmentDetails || {};
+  const amt = Number(effPayload.amount != null ? effPayload.amount : effPayload.depositAmount != null ? effPayload.depositAmount : (details.depositAmount != null ? details.depositAmount : 25000));
   if (!Number.isFinite(amt) || amt <= 0) {
     throw new Error('Deposit amount must be a finite positive number.');
   }
   if (amt < 5000) {
     throw new Error('Fixed deposit minimum amount is ₹5,000.');
   }
-  const tenure = Number(effPayload.tenureDays || effPayload.tenureMonths * 30 || 365);
-  const rate = effPayload.rate != null ? Number(effPayload.rate) : 7.5;
+
+  const tenureMonths = Number(effPayload.tenureMonths || details.tenureMonths || (effPayload.tenureDays ? Math.round(effPayload.tenureDays / 30) : 36));
+  const tenureDays = Number(effPayload.tenureDays || details.tenureDays || tenureMonths * 30);
+  const isSenior = Boolean(effPayload.seniorCitizen || effPayload.isSenior || details.isSeniorCitizen);
+
+  let rate = effPayload.rate != null ? Number(effPayload.rate) : (effPayload.appliedRate != null ? Number(effPayload.appliedRate) : (details.appliedRate != null ? Number(details.appliedRate) : null));
+  if (!rate) {
+    const days = tenureMonths * 30.4167;
+    const match = (FD.rateGrid || []).find(r => days >= r.minDays && days <= r.maxDays);
+    rate = match ? (isSenior ? match.senior : match.general) : 6.95;
+  }
+
+  const fdCalc = calculateFD({ principal: amt, annualRatePct: rate, tenureMonths });
+  const maturityAmount = fdCalc.maturityValue;
+  const tenureBand = effPayload.tenureBand || details.tenureBand || `${tenureMonths} months`;
   const fdId = 'INV-FD-' + Math.floor(100000 + Math.random() * 900000);
-  const maturityAmount = effPayload.maturityAmount != null ? Number(effPayload.maturityAmount) : Math.round(amt + (amt * rate * (tenure / 365) / 100));
+
+  const calcMaturityDate = () => {
+    if (effPayload.maturityDate) return effPayload.maturityDate;
+    if (details.maturityDate) return details.maturityDate;
+    const d = new Date();
+    d.setMonth(d.getMonth() + tenureMonths);
+    return d.toISOString();
+  };
+  const maturityDate = calcMaturityDate();
 
   const fundingAcct = (db.accounts || []).find(a => (a.accountId || a.id) === (effPayload.accountId || effPayload.sourceAccountId));
   if (fundingAcct) {
@@ -728,63 +858,152 @@ export async function bookFd(customerId, payload = {}) {
     }
   }
 
+  const nowIso = new Date().toISOString();
   const newFd = {
     id: fdId,
     investmentId: fdId,
     applicationId: fdId,
     customerId: effCustId,
-    applicantName: effPayload.applicantName || effPayload.fullName || 'Investment Applicant',
+    applicantName: effPayload.applicantName || effPayload.fullName || effPayload.applicant?.fullName || 'Investment Applicant',
     kind: 'FD',
     productName: effPayload.productName || 'FinEdge Fixed Deposit',
     productSlug: effPayload.productSlug || 'fixed-deposit',
     amount: amt,
     principal: amt,
-    tenureDays: tenure,
+    depositAmount: amt,
+    tenureMonths,
+    tenureDays,
+    tenureBand,
     interestRate: rate,
     rate,
+    appliedRate: rate,
+    annualRatePct: rate,
     maturityAmount,
-    status: 'UNDER_REVIEW',
-    bookingDate: new Date().toISOString(),
-    submittedAt: new Date().toISOString(),
-    createdAt: new Date().toISOString()
+    maturityValue: maturityAmount,
+    maturityDate,
+    interestEarned: fdCalc.interestEarned,
+    status: 'ACTIVE',
+    investmentDetails: {
+      principal: amt,
+      depositAmount: amt,
+      tenureMonths,
+      tenureBand,
+      appliedRate: rate,
+      interestRate: rate,
+      rate,
+      annualRatePct: rate,
+      maturityAmount,
+      maturityValue: maturityAmount,
+      maturityDate,
+      interestEarned: fdCalc.interestEarned,
+      isSeniorCitizen: isSenior
+    },
+    startDate: nowIso,
+    bookingDate: nowIso,
+    submittedAt: nowIso,
+    createdAt: nowIso
   };
   if (!db.investments) db.investments = [];
   db.investments.unshift(newFd);
+  if (!db.investmentHoldings) db.investmentHoldings = [];
+  db.investmentHoldings.unshift(newFd);
   if (!db.investmentApplications) db.investmentApplications = [];
   db.investmentApplications.unshift(newFd);
+  if (idemKey) {
+    db.idempotencyKeys[`${effCustId}:${idemKey}`] = { response: newFd, timestamp: nowIso };
+  }
   saveDb(db);
   return newFd;
 }
 
-export async function bookRd(customerId, payload) {
+export async function bookRd(customerId, payload = {}) {
   let effPayload = payload;
   let rawCustId = customerId;
   if (typeof customerId === 'object' && customerId !== null) {
     effPayload = customerId;
     rawCustId = effPayload.customerId || null;
   }
-  const effCustId = getEffectiveCustomerId(rawCustId) || rawCustId || ('CUS-' + Math.floor(100000 + Math.random() * 900000));
+  const effCustId = getEffectiveCustomerId(rawCustId);
+  if (!effCustId) {
+    const err = new Error('Authentication required: a valid customer session is required to invest.');
+    err.status = 401;
+    throw err;
+  }
   const db = getDb();
-  const amt = Number(effPayload.monthlyInstallment || effPayload.monthly || effPayload.amount || 5000);
+  const details = effPayload.investmentDetails || {};
+  const amt = Number(effPayload.monthlyInstallment ?? effPayload.monthly ?? effPayload.amount ?? details.monthlyDeposit ?? 5000);
   if (amt % 100 !== 0) {
     throw new Error('RD monthly installment must be a multiple of ₹100.');
   }
-  const tenure = Number(effPayload.tenureMonths || 12);
+  const tenureMonths = Number(effPayload.tenureMonths || details.tenureMonths || 12);
+  let rate = effPayload.rate != null ? Number(effPayload.rate) : (effPayload.appliedRate != null ? Number(effPayload.appliedRate) : (details.appliedRate != null ? Number(details.appliedRate) : null));
+  if (!rate) {
+    const match = (RD.rateBands || []).find(r => tenureMonths >= (r.minMonths || 0) && tenureMonths <= (r.maxMonths || 120));
+    rate = match ? match.rate : 6.85;
+  }
+  const rdCalc = calculateRD({ monthlyDeposit: amt, annualRatePct: rate, tenureMonths });
+  const maturityAmount = rdCalc.maturityValue;
+  const d = new Date();
+  d.setMonth(d.getMonth() + tenureMonths);
+  const maturityDate = effPayload.maturityDate || details.maturityDate || d.toISOString();
+
+  const fundingAcct = (db.accounts || []).find(a => (a.accountId || a.id) === (effPayload.accountId || effPayload.sourceAccountId));
+  if (fundingAcct) {
+    if (typeof fundingAcct.balance === 'object' && fundingAcct.balance !== null) {
+      fundingAcct.balance.availableBalance = (fundingAcct.balance.availableBalance || 0) - amt;
+      fundingAcct.balance.ledgerBalance = (fundingAcct.balance.ledgerBalance || 0) - amt;
+    } else {
+      fundingAcct.balance = (Number(fundingAcct.balance) || 0) - amt;
+    }
+  }
+
+  const nowIso = new Date().toISOString();
   const rdId = 'INV-RD-' + Math.floor(100000 + Math.random() * 900000);
   const newRd = {
     id: rdId,
     investmentId: rdId,
+    applicationId: rdId,
     customerId: effCustId,
+    applicantName: effPayload.applicantName || effPayload.fullName || effPayload.applicant?.fullName || 'Investment Applicant',
     kind: 'RD',
-    productName: 'Recurring Deposit (RD)',
+    productName: effPayload.productName || RD.name || 'Recurring Deposit (RD)',
     amount: amt,
     monthlyInstallment: amt,
-    tenureMonths: tenure,
+    monthly: amt,
+    monthlyAmount: amt,
+    tenureMonths,
+    rate,
+    appliedRate: rate,
+    annualRatePct: rate,
+    interestRate: rate,
+    maturityAmount,
+    maturityValue: maturityAmount,
+    maturityDate,
+    interestEarned: rdCalc.interestEarned,
+    totalDeposited: rdCalc.totalDeposited,
     status: 'ACTIVE',
-    bookingDate: new Date().toISOString()
+    investmentDetails: {
+      monthlyDeposit: amt,
+      tenureMonths,
+      appliedRate: rate,
+      rate,
+      maturityAmount,
+      maturityValue: maturityAmount,
+      maturityDate,
+      interestEarned: rdCalc.interestEarned,
+      totalDeposited: rdCalc.totalDeposited,
+    },
+    startDate: nowIso,
+    bookingDate: nowIso,
+    submittedAt: nowIso,
+    createdAt: nowIso
   };
   if (!db.investments) db.investments = [];
   db.investments.unshift(newRd);
+  if (!db.investmentHoldings) db.investmentHoldings = [];
+  db.investmentHoldings.unshift(newRd);
+  if (!db.investmentApplications) db.investmentApplications = [];
+  db.investmentApplications.unshift(newRd);
   saveDb(db);
   return newRd;
 }
@@ -796,22 +1015,69 @@ export async function startSip(customerId, payload = {}) {
     effPayload = customerId;
     rawCustId = effPayload.customerId || null;
   }
-  const effCustId = getEffectiveCustomerId(rawCustId) || rawCustId || ('CUS-' + Math.floor(100000 + Math.random() * 900000));
+  const effCustId = getEffectiveCustomerId(rawCustId);
+  if (!effCustId) {
+    const err = new Error('Authentication required: a valid customer session is required to invest.');
+    err.status = 401;
+    throw err;
+  }
   const db = getDb();
-  const amt = Number(effPayload.monthly || effPayload.monthlyAmount || 2000);
+  const details = effPayload.investmentDetails || {};
+  const amt = Number(effPayload.monthly ?? effPayload.monthlyAmount ?? details.monthlyInvestment ?? 2000);
+  const tenureMonths = Number(effPayload.tenureMonths || (details.durationYears ? details.durationYears * 12 : 12));
+  const rate = Number(effPayload.rate || effPayload.expectedReturnPct || 12);
+  const sipCalc = calculateSIP({ monthlyInvestment: amt, expectedReturnPct: rate, tenureMonths });
   const sipId = 'INV-SIP-' + Math.floor(100000 + Math.random() * 900000);
+
+  const fundingAcct = (db.accounts || []).find(a => (a.accountId || a.id) === (effPayload.accountId || effPayload.sourceAccountId));
+  if (fundingAcct) {
+    if (typeof fundingAcct.balance === 'object' && fundingAcct.balance !== null) {
+      fundingAcct.balance.availableBalance = (fundingAcct.balance.availableBalance || 0) - amt;
+      fundingAcct.balance.ledgerBalance = (fundingAcct.balance.ledgerBalance || 0) - amt;
+    } else {
+      fundingAcct.balance = (Number(fundingAcct.balance) || 0) - amt;
+    }
+  }
+
+  const nowIso = new Date().toISOString();
   const newSip = {
     id: sipId,
     investmentId: sipId,
+    applicationId: sipId,
     customerId: effCustId,
     kind: 'SIP',
-    productName: effPayload.fundName || 'FinEdge Large Cap Index Fund',
+    productName: effPayload.productName || effPayload.fundName || 'FinEdge Large Cap Index Fund',
+    fundName: effPayload.fundName || 'FinEdge Large Cap Index Fund',
+    monthly: amt,
     monthlyAmount: amt,
+    debitDate: Number(effPayload.debitDate || details.sipDate) || 5,
+    tenureMonths,
+    rate,
+    maturityAmount: sipCalc.maturityValue,
+    maturityValue: sipCalc.maturityValue,
+    estimatedGain: sipCalc.estimatedGain,
+    totalInvested: sipCalc.totalInvested,
     status: 'ACTIVE',
-    bookingDate: new Date().toISOString()
+    investmentDetails: {
+      monthlyInvestment: amt,
+      tenureMonths,
+      rate,
+      maturityAmount: sipCalc.maturityValue,
+      maturityValue: sipCalc.maturityValue,
+      estimatedGain: sipCalc.estimatedGain,
+      totalInvested: sipCalc.totalInvested
+    },
+    startDate: nowIso,
+    bookingDate: nowIso,
+    submittedAt: nowIso,
+    createdAt: nowIso
   };
   if (!db.investments) db.investments = [];
   db.investments.unshift(newSip);
+  if (!db.investmentHoldings) db.investmentHoldings = [];
+  db.investmentHoldings.unshift(newSip);
+  if (!db.investmentApplications) db.investmentApplications = [];
+  db.investmentApplications.unshift(newSip);
   saveDb(db);
   return newSip;
 }
@@ -823,25 +1089,73 @@ export async function openSsy(customerId, payload = {}) {
     effPayload = customerId;
     rawCustId = effPayload.customerId || null;
   }
-  const effCustId = getEffectiveCustomerId(rawCustId) || rawCustId || ('CUS-' + Math.floor(100000 + Math.random() * 900000));
+  const effCustId = getEffectiveCustomerId(rawCustId);
+  if (!effCustId) {
+    const err = new Error('Authentication required: a valid customer session is required to invest.');
+    err.status = 401;
+    throw err;
+  }
   const db = getDb();
-  const amt = Number(effPayload.amount || effPayload.annualDeposit || 10000);
+  const details = effPayload.investmentDetails || {};
+  const amt = Number(effPayload.amount || effPayload.annualDeposit || details.annualDeposit || 10000);
+  const rate = effPayload.rate != null ? Number(effPayload.rate) : (SSY.rate || 8.05);
+  const ssyCalc = calculateSSY({ annualDeposit: amt, annualRatePct: rate });
   const ssyId = 'INV-SSY-' + Math.floor(100000 + Math.random() * 900000);
+  const d = new Date();
+  d.setFullYear(d.getFullYear() + (SSY.tenureYears || 21));
+  const maturityDate = effPayload.maturityDate || details.maturityDate || d.toISOString();
+
+  const fundingAcct = (db.accounts || []).find(a => (a.accountId || a.id) === (effPayload.accountId || effPayload.sourceAccountId));
+  if (fundingAcct) {
+    if (typeof fundingAcct.balance === 'object' && fundingAcct.balance !== null) {
+      fundingAcct.balance.availableBalance = (fundingAcct.balance.availableBalance || 0) - amt;
+      fundingAcct.balance.ledgerBalance = (fundingAcct.balance.ledgerBalance || 0) - amt;
+    } else {
+      fundingAcct.balance = (Number(fundingAcct.balance) || 0) - amt;
+    }
+  }
+
+  const nowIso = new Date().toISOString();
   const newSsy = {
     id: ssyId,
     investmentId: ssyId,
+    applicationId: ssyId,
     customerId: effCustId,
     kind: 'SSY',
-    productName: 'Sukanya Samriddhi Yojana (SSY)',
-    childName: effPayload.childName || 'Child',
-    girlChildName: effPayload.childName || 'Child',
-    rate: effPayload.rate != null ? Number(effPayload.rate) : 8.05,
+    productName: effPayload.productName || SSY.name || 'Sukanya Samriddhi Yojana (SSY)',
+    childName: effPayload.childName || effPayload.girlChildName || details.childName || 'Child',
+    girlChildName: effPayload.childName || effPayload.girlChildName || details.childName || 'Child',
+    guardianName: effPayload.guardianName || details.guardianName || '',
+    guardianRelationship: effPayload.guardianRelationship || details.guardianRelationship || 'Father',
+    rate,
+    appliedRate: rate,
     annualDeposit: amt,
+    depositAmount: amt,
+    principal: amt,
+    maturityAmount: ssyCalc.maturityValue,
+    maturityValue: ssyCalc.maturityValue,
+    maturityDate,
+    interestEarned: ssyCalc.interestEarned,
     status: 'ACTIVE',
-    bookingDate: new Date().toISOString()
+    investmentDetails: {
+      annualDeposit: amt,
+      rate,
+      maturityAmount: ssyCalc.maturityValue,
+      maturityValue: ssyCalc.maturityValue,
+      maturityDate,
+      interestEarned: ssyCalc.interestEarned
+    },
+    startDate: nowIso,
+    bookingDate: nowIso,
+    submittedAt: nowIso,
+    createdAt: nowIso
   };
   if (!db.investments) db.investments = [];
   db.investments.unshift(newSsy);
+  if (!db.investmentHoldings) db.investmentHoldings = [];
+  db.investmentHoldings.unshift(newSsy);
+  if (!db.investmentApplications) db.investmentApplications = [];
+  db.investmentApplications.unshift(newSsy);
   saveDb(db);
   return newSsy;
 }
@@ -1014,6 +1328,109 @@ export async function changePassword(customerId, oldPassword, newPassword) {
   }
 }
 
+export async function applyAccount(customerId, { accountType, productCode, productName, initialFunding, branch, nominee } = {}) {
+  const effCustId = getEffectiveCustomerId(customerId);
+  if (!effCustId) {
+    throw {
+      status: 401,
+      code: 'UNAUTHENTICATED',
+      title: 'Authentication Required',
+      detail: 'Active customer session required to apply for an account.'
+    };
+  }
+  const db = getDb();
+  const newAppId = 'ACC-APP-' + Math.floor(900000 + Math.random() * 100000);
+  const cust = (db.customers || []).find(c => c.customerId === effCustId);
+  const newApp = {
+    id: newAppId,
+    accountApplicationId: newAppId,
+    applicationId: newAppId,
+    customerId: effCustId,
+    customerName: cust?.fullName || 'FinEdge Customer',
+    email: cust?.email || '',
+    mobileNumber: cust?.mobileNumber || '',
+    pan: cust?.pan || '',
+    accountType: accountType || 'Everyday Savings',
+    productCode: productCode || 'SAVINGS_REGULAR',
+    productName: productName || accountType || 'FinEdge Everyday Savings Account',
+    initialFunding: Number(initialFunding) || 10000,
+    initialFundingAmount: Number(initialFunding) || 10000,
+    branch: branch || 'FinEdge Digital Branch, Mumbai',
+    nominee: nominee || { fullName: 'Nominee on file', relationship: 'Spouse' },
+    status: 'UNDER_REVIEW',
+    submittedAt: new Date().toISOString(),
+    createdAt: new Date().toISOString()
+  };
+  if (!Array.isArray(db.accountApplications)) db.accountApplications = [];
+  db.accountApplications.unshift(newApp);
+  saveDb(db);
+  return newApp;
+}
+
+export async function uploadKycDocument(customerId, { type, name, dataUrl, size } = {}) {
+  const effCustId = getEffectiveCustomerId(customerId) || customerId;
+  const db = getDb();
+  if (!db.kycApplications) db.kycApplications = [];
+  let kyc = db.kycApplications.find(k => k.customerId === effCustId);
+  if (!kyc) {
+    const kycId = 'KYC-' + Math.floor(500000 + Math.random() * 100000);
+    kyc = {
+      id: kycId,
+      kycCaseId: kycId,
+      customerId: effCustId,
+      status: 'APPROVED',
+      submittedAt: new Date().toISOString(),
+      documents: [
+        { documentType: 'PAN', type: 'PAN', fileName: 'pan-card.pdf', name: 'pan-card.pdf', verified: true, state: 'UPLOADED' },
+        { documentType: 'ADDRESS_PROOF', type: 'ADDRESS_PROOF', fileName: 'utility-bill.pdf', name: 'utility-bill.pdf', verified: true, state: 'UPLOADED' }
+      ]
+    };
+    db.kycApplications.unshift(kyc);
+  }
+  if (!kyc.documents) kyc.documents = [];
+  kyc.documents = kyc.documents.filter(d => (d.documentType || d.type) !== type);
+  const docObj = {
+    documentType: type,
+    type,
+    fileName: name,
+    name,
+    dataUrl: dataUrl || null,
+    size: size || null,
+    state: 'UPLOADED',
+    uploadedAt: new Date().toISOString()
+  };
+  kyc.documents.push(docObj);
+  saveDb(db);
+  return docObj;
+}
+
+export async function deleteKycDocument(customerId, type) {
+  const effCustId = getEffectiveCustomerId(customerId) || customerId;
+  const db = getDb();
+  if (!db.kycApplications) db.kycApplications = [];
+  let kyc = db.kycApplications.find(k => k.customerId === effCustId);
+  if (!kyc) {
+    const kycId = 'KYC-' + Math.floor(500000 + Math.random() * 100000);
+    kyc = {
+      id: kycId,
+      kycCaseId: kycId,
+      customerId: effCustId,
+      status: 'APPROVED',
+      submittedAt: new Date().toISOString(),
+      documents: [
+        { documentType: 'PAN', type: 'PAN', fileName: 'pan-card.pdf', name: 'pan-card.pdf', verified: true, state: 'UPLOADED' },
+        { documentType: 'ADDRESS_PROOF', type: 'ADDRESS_PROOF', fileName: 'utility-bill.pdf', name: 'utility-bill.pdf', verified: true, state: 'UPLOADED' }
+      ]
+    };
+    db.kycApplications.unshift(kyc);
+  }
+  if (kyc && kyc.documents) {
+    kyc.documents = kyc.documents.filter(d => (d.documentType || d.type) !== type);
+    saveDb(db);
+  }
+  return true;
+}
+
 export async function resetDemoData() {
   resetDemoDb();
   return { success: true };
@@ -1027,6 +1444,7 @@ export const portalBridge = {
   canonicalCard,
   listAccounts,
   getAccount,
+  applyAccount,
   listTransactions,
   statementCsv,
   listBeneficiaries,
@@ -1036,10 +1454,13 @@ export const portalBridge = {
   getMyProfile,
   getMyKyc,
   submitKyc,
+  uploadKycDocument,
+  deleteKycDocument,
   listMyCards,
   listMyCardApplications,
   updateCardControls,
   blockCard,
+  unblockCard,
   applyCard,
   payCard,
   listMyLoans,
@@ -1063,5 +1484,10 @@ export const portalBridge = {
   changePassword,
   resetDemoData
 };
+
+if (typeof window !== 'undefined') {
+  window.__portalBridge = portalBridge;
+  window.__applyCard = applyCard;
+}
 
 export default portalBridge;

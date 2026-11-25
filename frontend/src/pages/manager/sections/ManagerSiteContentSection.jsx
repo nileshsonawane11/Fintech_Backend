@@ -359,7 +359,7 @@ export default function ManagerSiteContentSection() {
                   <div key={offer.id || idx} className="rounded-xl border border-ink-200 p-4 bg-porcelain-50/50 space-y-4">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-midnight-900 text-xs font-bold text-porcelain-50">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-bank-primary text-xs font-bold text-white">
                           {idx + 1}
                         </span>
                         <span className="text-sm font-semibold text-midnight-950">{offer.title || 'Untitled Offer'}</span>
@@ -460,7 +460,7 @@ export default function ManagerSiteContentSection() {
                               next[idx].active = e.target.checked;
                               setOffersDraft(next);
                             }}
-                            className="h-4 w-4 rounded border-ink-300 text-midnight-600"
+                            className="h-4 w-4 rounded border-ink-300 text-bank-primary"
                           />
                           Active Campaign
                         </label>
@@ -514,7 +514,7 @@ export default function ManagerSiteContentSection() {
                   <div key={faq.id || idx} className="rounded-xl border border-ink-200 p-4 bg-porcelain-50/50 space-y-4">
                     <div className="flex items-center justify-between gap-3">
                       <div className="flex items-center gap-2">
-                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-midnight-900 text-xs font-bold text-porcelain-50">
+                        <span className="flex h-6 w-6 items-center justify-center rounded-full bg-bank-primary text-xs font-bold text-white">
                           {idx + 1}
                         </span>
                         <span className="text-sm font-semibold text-midnight-950">{faq.q}</span>
@@ -587,7 +587,7 @@ export default function ManagerSiteContentSection() {
                               next[idx].active = e.target.checked;
                               setFaqsDraft(next);
                             }}
-                            className="h-4 w-4 rounded border-ink-300 text-midnight-600"
+                            className="h-4 w-4 rounded border-ink-300 text-bank-primary"
                           />
                           Show in Accordion
                         </label>
@@ -639,7 +639,7 @@ export default function ManagerSiteContentSection() {
                 <div key={point.id || idx} className="rounded-xl border border-ink-200 p-4 bg-porcelain-50/50 space-y-4">
                   <div className="flex items-center justify-between gap-3">
                     <div className="flex items-center gap-2">
-                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-midnight-900 text-xs font-bold text-porcelain-50">
+                      <span className="flex h-6 w-6 items-center justify-center rounded-full bg-bank-primary text-xs font-bold text-white">
                         {idx + 1}
                       </span>
                       <span className="text-sm font-semibold text-midnight-950">{point.title}</span>

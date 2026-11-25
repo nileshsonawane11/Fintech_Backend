@@ -1,12 +1,13 @@
 import { traceData } from '../../../lib/trace.js';
 import React, { useCallback, useEffect, useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { ArrowLeft, Download, FileText, SearchX } from 'lucide-react';
-import { Button, Card, EmptyState, Field, FormError, Input, PageLoading, SectionHeader, StatusChip, Table, useToast } from '../../../components/ui.jsx';
+import { ArrowLeft, CreditCard, Download, FileText, Landmark, Layers, Plus, SearchX } from 'lucide-react';
+import { Button, Card, EmptyState, Field, FormError, Input, Modal, PageLoading, SectionHeader, StatusChip, Table, useToast } from '../../../components/ui.jsx';
 import { formatDate, formatINR, maskAccount } from '../../../lib/format.js';
-import { getAccount, listTransactions, statementCsv } from '../../../services/portalBridge.js';
+import { getAccount, listAccounts, listMyCards, listTransactions, statementCsv } from '../../../services/portalBridge.js';
 import { useAuth, useDbTick } from '../../../context/AuthContext.jsx';
 import { accountLabel } from './AccountsSection.jsx';
+import { InPortalAccountApplyModal } from '../../../components/common/InPortalAccountApplyModal.jsx';
 
 function isoDay(d) {
   const y = d.getFullYear();
@@ -30,6 +31,12 @@ export default function AccountDetailPage({ accountId }) {
   const [from, setFrom] = useState('');
   const [to, setTo] = useState('');
 
+  // Additional data for Part 4, 7, 9
+  const [cards, setCards] = useState([]);
+  const [allAccounts, setAllAccounts] = useState([]);
+  const [applyModalOpen, setApplyModalOpen] = useState(false);
+  const [allAccountsModalOpen, setAllAccountsModalOpen] = useState(false);
+
   // Preference-driven format default (Fix 78)
   const preferredFormat = (() => {
     try {
@@ -39,14 +46,28 @@ export default function AccountDetailPage({ accountId }) {
     return 'PDF';
   })();
 
-  useEffect(() => {
+  const loadAccountAndCards = useCallback(() => {
     let alive = true;
     traceData('PortalAccountDetail');
     getAccount(id)
       .then((acc) => { if (alive) setAccount(acc); })
       .catch((e) => { if (alive) setAccountError(e.message || 'Account not found.'); });
+
+    if (user?.customerId) {
+      listMyCards(user.customerId)
+        .then((cardList) => { if (alive) setCards(cardList || []); })
+        .catch(() => {});
+
+      listAccounts(user.customerId)
+        .then((accList) => { if (alive) setAllAccounts(accList || []); })
+        .catch(() => {});
+    }
     return () => { alive = false; };
-  }, [id]);
+  }, [id, user?.customerId]);
+
+  useEffect(() => {
+    loadAccountAndCards();
+  }, [loadAccountAndCards]);
 
   const loadTransactions = useCallback(() => {
     let alive = true;
@@ -124,6 +145,16 @@ export default function AccountDetailPage({ accountId }) {
 
   if (!account) return <PageLoading />;
 
+  // Filter cards linked to this account (Part 7)
+  const linkedCards = (cards || []).filter(c => 
+    c.linkedAccountId === account.id || 
+    c.linkedAccountId === account.accountId || 
+    c.linkedAccountId === account.accountNumber ||
+    c.linkedAccountId === account.rawAccountNumber
+  );
+
+  const totalAllAccounts = (allAccounts || []).reduce((sum, a) => sum + Number(a.balance || 0), 0);
+
   const columns = [
     { key: 'date', label: 'Date', render: (t) => <span className="whitespace-nowrap">{formatDate(t.date)}</span> },
     {
@@ -144,15 +175,28 @@ export default function AccountDetailPage({ accountId }) {
 
   return (
     <div>
-      <Link to="/portal/accounts" className="mb-4 inline-flex items-center gap-1.5 text-sm font-medium text-midnight-800 hover:text-midnight-600">
-        <ArrowLeft className="h-4 w-4" aria-hidden /> Back to accounts
-      </Link>
+      {/* Top Header Affordances */}
+      <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
+        <Link to="/portal/accounts" className="inline-flex items-center gap-1.5 text-sm font-medium text-midnight-800 hover:text-midnight-600">
+          <ArrowLeft className="h-4 w-4" aria-hidden /> Back to accounts
+        </Link>
+        <div className="flex flex-wrap items-center gap-2">
+          {/* Part 9: All-accounts balance view affordance */}
+          <Button variant="secondary" size="sm" onClick={() => setAllAccountsModalOpen(true)}>
+            <Layers className="h-4 w-4" aria-hidden /> View All Accounts Balance
+          </Button>
+          {/* Part 4: Apply for an account affordance inside account detail view */}
+          <Button variant="primary" size="sm" onClick={() => setApplyModalOpen(true)}>
+            <Plus className="h-4 w-4" aria-hidden /> Apply for an Account
+          </Button>
+        </div>
+      </div>
 
       <Card className="mb-6 px-5 py-5">
         <div className="flex flex-wrap items-start justify-between gap-4">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-700">{accountLabel(account)}</p>
-            <h1 className="tnum mt-1 font-display text-2xl font-semibold text-midnight-950">{maskAccount(account.accountNumber)}</h1>
+            <p className="text-xs font-semibold uppercase tracking-[0.14em] text-bank-primary">{accountLabel(account)}</p>
+            <h1 className="tnum mt-1 font-sans text-2xl font-semibold text-midnight-950">{maskAccount(account.accountNumber)}</h1>
             <p className="tnum mt-1 text-[13px] text-ink-500">
               Account {account.accountNumber || '—'}{account.ifsc ? ` · IFSC ${account.ifsc}` : ''}{account.branch ? ` · ${account.branch}` : ''}
             </p>
@@ -162,7 +206,7 @@ export default function AccountDetailPage({ accountId }) {
         <div className="mt-4 flex flex-wrap gap-x-10 gap-y-3 border-t border-ink-100 pt-4">
           <div>
             <p className="text-xs text-ink-500">Available balance</p>
-            <p className="tnum mt-0.5 font-display text-2xl font-semibold text-midnight-950">{formatINR(account.balance)}</p>
+            <p className="tnum mt-0.5 font-sans text-2xl font-semibold text-midnight-950">{formatINR(account.balance)}</p>
           </div>
           <div>
             <p className="text-xs text-ink-500">Opened</p>
@@ -175,6 +219,63 @@ export default function AccountDetailPage({ accountId }) {
             </div>
           )}
         </div>
+      </Card>
+
+      {/* Part 7: Issued Cards Section */}
+      <Card className="mb-6 px-5 py-5">
+        <div className="flex items-center justify-between mb-3">
+          <h2 className="flex items-center gap-2 text-base font-bold text-ink-900">
+            <CreditCard className="h-4.5 w-4.5 text-bank-primary" />
+            Cards Issued Against This Account
+          </h2>
+          <span className="text-xs font-medium text-ink-500">
+            {linkedCards.length} {linkedCards.length === 1 ? 'card' : 'cards'}
+          </span>
+        </div>
+        {linkedCards.length > 0 ? (
+          <div className="grid gap-3 sm:grid-cols-2">
+            {linkedCards.map((c) => {
+              const isBlocked = c.status === 'BLOCKED';
+              const isTempBlocked = isBlocked && c.blockType === 'TEMPORARY';
+              return (
+                <div
+                  key={c.id}
+                  className="rounded-lg border border-ink-200 bg-porcelain-50 p-4 flex items-center justify-between gap-3 text-xs"
+                >
+                  <div className="flex items-center gap-3 min-w-0">
+                    <span className="flex h-10 w-10 shrink-0 items-center justify-center rounded-lg bg-white border border-ink-200 text-bank-primary shadow-xs">
+                      <CreditCard className="h-5 w-5" />
+                    </span>
+                    <div className="min-w-0">
+                      <p className="font-semibold text-ink-900 text-sm truncate">{c.productName || c.cardName}</p>
+                      <p className="font-mono text-ink-500 text-xs truncate mt-0.5">
+                        {c.maskedCardNumber || c.number} · {c.cardType || c.kind}
+                      </p>
+                      <p className="text-[11px] text-ink-500 truncate mt-0.5">
+                        Cardholder: {user?.name || 'Customer'}
+                      </p>
+                    </div>
+                  </div>
+                  <div className="shrink-0 text-right">
+                    {isBlocked ? (
+                      <span className={`inline-flex items-center rounded-full px-2.5 py-1 text-[11px] font-bold ${isTempBlocked ? 'bg-amber-100 text-amber-800' : 'bg-danger-100 text-danger-800'}`}>
+                        {isTempBlocked ? 'TEMPORARILY BLOCKED' : 'PERMANENTLY BLOCKED'}
+                      </span>
+                    ) : (
+                      <StatusChip status={c.status} />
+                    )}
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        ) : (
+          <div className="rounded-lg border border-dashed border-ink-200 p-6 text-center">
+            <CreditCard className="mx-auto h-7 w-7 text-ink-300 mb-1.5" />
+            <p className="text-sm font-medium text-ink-600">No cards issued against this account.</p>
+            <p className="text-xs text-ink-400 mt-0.5">Debit or credit cards linked to this account number will appear here.</p>
+          </div>
+        )}
       </Card>
 
       <SectionHeader
@@ -258,6 +359,65 @@ export default function AccountDetailPage({ accountId }) {
           }
         />
       )}
+
+      {/* Part 9: All Accounts Balance Overview Modal */}
+      <Modal
+        open={allAccountsModalOpen}
+        onClose={() => setAllAccountsModalOpen(false)}
+        title="All Accounts Balance Overview"
+        footer={
+          <Button variant="primary" onClick={() => setAllAccountsModalOpen(false)}>
+            Done
+          </Button>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-ink-500">
+            Live balance across all FinEdge accounts in your name. All figures match your portal dashboard and accounts list.
+          </p>
+          <div className="space-y-2 max-h-72 overflow-y-auto pr-1">
+            {(allAccounts || []).map((acc) => (
+              <div
+                key={acc.id}
+                className={`flex items-center justify-between rounded-lg border p-3 ${
+                  acc.id === id ? 'border-bank-primary bg-bank-primary-light/20' : 'border-ink-200 bg-porcelain-50'
+                }`}
+              >
+                <div className="flex items-center gap-3">
+                  <span className={`flex h-8 w-8 items-center justify-center rounded-full ${acc.id === id ? 'bg-bank-primary text-white' : 'bg-porcelain-100 text-ink-700'}`}>
+                    <Landmark className="h-4 w-4" />
+                  </span>
+                  <div>
+                    <p className="text-sm font-semibold text-ink-900">{accountLabel(acc)}</p>
+                    <p className="font-mono text-xs text-ink-500">{maskAccount(acc.accountNumber)}</p>
+                  </div>
+                </div>
+                <div className="text-right">
+                  <p className="tnum font-sans text-sm font-bold text-ink-900">{formatINR(acc.balance)}</p>
+                  <StatusChip status={acc.status} />
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="mt-4 rounded-lg bg-midnight-950 p-4 text-white flex items-center justify-between shadow-xs">
+            <div>
+              <p className="text-xs uppercase tracking-wider text-ink-300 font-semibold">Total Combined Balance</p>
+              <p className="text-xs text-ink-400 mt-0.5">Sum across {allAccounts.length} {allAccounts.length === 1 ? 'account' : 'accounts'}</p>
+            </div>
+            <p className="tnum font-sans text-2xl font-bold text-white">
+              {formatINR(totalAllAccounts)}
+            </p>
+          </div>
+        </div>
+      </Modal>
+
+      {/* Part 4: In-Portal Account Application Modal */}
+      <InPortalAccountApplyModal
+        open={applyModalOpen}
+        onClose={() => setApplyModalOpen(false)}
+        onApplied={() => loadAccountAndCards()}
+      />
     </div>
   );
 }

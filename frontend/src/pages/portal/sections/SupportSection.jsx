@@ -290,7 +290,7 @@ export default function SupportPage() {
       {/* Raise a request — below, behind the button state */}
       {showForm && (
         <Card className="p-5">
-          <h3 className="font-display text-lg font-semibold text-midnight-950">Raise a request</h3>
+          <h3 className="font-sans text-lg font-semibold text-midnight-950">Raise a request</h3>
           <p className="mt-1 text-sm leading-relaxed text-ink-600">
             Tell us what went wrong. Never include your password, PIN or any one-time code in a support message.
           </p>
@@ -306,8 +306,8 @@ export default function SupportPage() {
                     aria-pressed={category === c}
                     className={`rounded-full border px-3.5 py-2 text-sm font-medium transition-colors ${
                       category === c
-                        ? 'border-midnight-800 bg-midnight-800 text-porcelain-50'
-                        : 'border-ink-200 bg-white text-ink-700 hover:border-midnight-400 hover:text-midnight-800'
+                        ? 'border-bank-primary bg-bank-primary text-white shadow-xs'
+                        : 'border-ink-200 bg-white text-ink-700 hover:border-bank-primary-border hover:text-ink-900'
                     }`}
                   >
                     {c}

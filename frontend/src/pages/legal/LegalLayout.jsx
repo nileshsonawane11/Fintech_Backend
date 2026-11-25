@@ -65,21 +65,21 @@ export default function LegalLayout({
   return (
     <main className="bg-porcelain-100">
       {/* ── Title band ─────────────────────────────────────────── */}
-      <div className="bg-midnight-900 text-porcelain-50">
+      <div className="bg-white border-b border-ink-100 text-ink-900">
         <div className="mx-auto max-w-6xl px-4 py-10 sm:px-6 lg:px-8">
-          <p className="hero-enter-headline text-xs font-semibold uppercase tracking-[0.18em] text-gold-300">
+          <p className="hero-enter-headline text-xs font-semibold uppercase tracking-[0.18em] text-bank-primary">
             FinEdge Bank · Legal &amp; Trust
           </p>
-          <h1 className="hero-enter-headline mt-3 font-display text-3xl font-semibold leading-tight text-porcelain-50 sm:text-4xl">
+          <h1 className="hero-enter-headline mt-3 font-sans text-3xl font-semibold leading-tight text-ink-900 sm:text-4xl">
             {title}
           </h1>
           {subtitle ? (
-            <p className="hero-enter-subtext mt-3 max-w-[70ch] text-[15px] leading-7 text-porcelain-200">
+            <p className="hero-enter-subtext mt-3 max-w-[70ch] text-[15px] leading-7 text-ink-600">
               {subtitle}
             </p>
           ) : null}
-          <p className="hero-enter-cta mt-5 inline-flex items-center gap-2 rounded-full border border-midnight-700 bg-midnight-800 px-3 py-1.5 text-xs font-medium text-porcelain-200">
-            <Clock className="h-3.5 w-3.5 text-gold-300" aria-hidden />
+          <p className="hero-enter-cta mt-5 inline-flex items-center gap-2 rounded-full border border-ink-200 bg-porcelain-100 px-3 py-1.5 text-xs font-medium text-ink-600">
+            <Clock className="h-3.5 w-3.5 text-bank-primary" aria-hidden />
             Last updated: {updated}
           </p>
         </div>
@@ -102,8 +102,8 @@ export default function LegalLayout({
                   onClick={handleNavClick(s.id)}
                   className={`rounded-full px-3.5 py-1.5 text-xs font-medium transition-all duration-160 ${
                     active
-                      ? "bg-midnight-900 text-porcelain-50 border border-gold-500 shadow-xs font-semibold"
-                      : "border border-ink-200 bg-white text-ink-700 hover:bg-midnight-50 hover:text-midnight-900"
+                      ? "bg-bank-primary text-white border border-bank-primary shadow-xs font-semibold"
+                      : "border border-ink-200 bg-white text-ink-700 hover:bg-porcelain-100 hover:text-ink-900"
                   }`}
                 >
                   {s.label}
@@ -132,8 +132,8 @@ export default function LegalLayout({
                         onClick={handleNavClick(s.id)}
                         className={`block rounded-md px-3 py-2 text-sm transition-all duration-160 ${
                           active
-                            ? "bg-midnight-900 text-porcelain-50 border-l-2 border-gold-500 font-semibold shadow-xs"
-                            : "text-ink-700 hover:bg-midnight-50 hover:text-midnight-800"
+                            ? "bg-bank-primary-light text-bank-primary border-l-2 border-bank-primary font-semibold shadow-xs"
+                            : "text-ink-700 hover:bg-porcelain-100 hover:text-ink-900"
                         }`}
                       >
                         {s.label}
@@ -150,9 +150,9 @@ export default function LegalLayout({
 
             {/* Standing honesty notice — registration facts a licensed
                 bank would print here are deliberately NOT invented. */}
-            <div className="mt-12 flex max-w-[70ch] gap-3 rounded-card border border-gold-300 bg-gold-50 p-4">
+            <div className="mt-12 flex max-w-[70ch] gap-3 rounded-card border border-bank-primary-border bg-bank-primary-light p-4">
               <TriangleAlert
-                className="mt-0.5 h-5 w-5 shrink-0 text-gold-700"
+                className="mt-0.5 h-5 w-5 shrink-0 text-bank-primary"
                 aria-hidden
               />
               <div className="text-sm leading-6 text-ink-700">
@@ -185,7 +185,7 @@ export default function LegalLayout({
 export function LegalSection({ id, title, children }) {
   return (
     <section id={id} className="scroll-mt-28 pt-9 first:pt-0">
-      <h2 className="font-display text-[22px] font-semibold leading-snug text-midnight-900">
+      <h2 className="font-sans text-[22px] font-semibold leading-snug text-midnight-900">
         {title}
       </h2>
       <div className="mt-3 space-y-3 text-[15px] leading-7 text-ink-700 [&_li]:leading-7 [&_strong]:font-semibold [&_strong]:text-ink-900 [&_ul]:list-disc [&_ul]:space-y-1.5 [&_ul]:pl-5">
@@ -211,7 +211,7 @@ export function LegalTable({ caption, head, rows }) {
       <div className="overflow-x-auto rounded-card border border-ink-200 bg-porcelain-50 shadow-card">
         <table className="w-full min-w-[520px] border-collapse text-sm">
           <thead>
-            <tr className="bg-midnight-800 text-left text-porcelain-50">
+            <tr className="bg-bank-primary text-left text-white">
               {head.map((h) => (
                 <th
                   key={h}

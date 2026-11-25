@@ -1,5 +1,5 @@
 
-CREATE TABLE kyc_cases (
+CREATE TABLE IF NOT EXISTS kyc_cases (
                            id UUID PRIMARY KEY,
                            kyc_case_id VARCHAR(32) NOT NULL UNIQUE,
                            customer_profile_id UUID NOT NULL
@@ -23,19 +23,19 @@ CREATE TABLE kyc_cases (
                            version BIGINT NOT NULL DEFAULT 0
 );
 
-CREATE INDEX idx_kyc_cases_customer
+CREATE INDEX IF NOT EXISTS idx_kyc_cases_customer
     ON kyc_cases(customer_profile_id, created_at DESC);
 
-CREATE INDEX idx_kyc_cases_status
+CREATE INDEX IF NOT EXISTS idx_kyc_cases_status
     ON kyc_cases(status, submitted_at);
 
-CREATE UNIQUE INDEX uq_kyc_one_active_case_per_customer
+CREATE UNIQUE INDEX IF NOT EXISTS uq_kyc_one_active_case_per_customer
     ON kyc_cases(customer_profile_id)
     WHERE status IN (
         'SUBMITTED', 'UNDER_REVIEW', 'ON_HOLD', 'NEEDS_INFO'
     );
 
-CREATE TABLE customer_addresses (
+CREATE TABLE IF NOT EXISTS customer_addresses (
                                     id UUID PRIMARY KEY,
                                     customer_profile_id UUID NOT NULL
                                         REFERENCES customer_profiles(id),
@@ -49,7 +49,7 @@ CREATE TABLE customer_addresses (
                                     created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE kyc_documents (
+CREATE TABLE IF NOT EXISTS kyc_documents (
                                id UUID PRIMARY KEY,
                                document_reference_id VARCHAR(64) NOT NULL UNIQUE,
                                kyc_case_id UUID REFERENCES kyc_cases(id),
@@ -66,10 +66,10 @@ CREATE TABLE kyc_documents (
                                created_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE INDEX idx_kyc_documents_case
+CREATE INDEX IF NOT EXISTS idx_kyc_documents_case
     ON kyc_documents(kyc_case_id);
 
-CREATE TABLE kyc_verification_results (
+CREATE TABLE IF NOT EXISTS kyc_verification_results (
                                           id UUID PRIMARY KEY,
                                           kyc_case_id UUID NOT NULL REFERENCES kyc_cases(id),
                                           verification_type VARCHAR(40) NOT NULL,
@@ -79,7 +79,7 @@ CREATE TABLE kyc_verification_results (
                                           checked_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE kyc_decision_history (
+CREATE TABLE IF NOT EXISTS kyc_decision_history (
                                       id UUID PRIMARY KEY,
                                       kyc_case_id UUID NOT NULL REFERENCES kyc_cases(id),
                                       previous_status VARCHAR(32),
@@ -89,7 +89,7 @@ CREATE TABLE kyc_decision_history (
                                       occurred_at TIMESTAMPTZ NOT NULL DEFAULT CURRENT_TIMESTAMP
 );
 
-CREATE TABLE customer_audit_events (
+CREATE TABLE IF NOT EXISTS customer_audit_events (
                                        id UUID PRIMARY KEY,
                                        customer_profile_id UUID NOT NULL
                                            REFERENCES customer_profiles(id),

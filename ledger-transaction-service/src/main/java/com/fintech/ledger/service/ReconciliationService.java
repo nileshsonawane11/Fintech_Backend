@@ -5,16 +5,25 @@ import com.fintech.ledger.dto.request.ResolveDiscrepancyRequest;
 import com.fintech.ledger.dto.response.CursorPagedResponse;
 import com.fintech.ledger.dto.response.DiscrepancyResponse;
 import com.fintech.ledger.dto.response.ReconciliationRunResponse;
-import com.fintech.ledger.entity.*;
-import com.fintech.ledger.enums.*;
+import com.fintech.ledger.entity.LedgerBalanceSnapshot;
+import com.fintech.ledger.entity.ReconciliationDiscrepancy;
+import com.fintech.ledger.entity.ReconciliationRun;
+import com.fintech.ledger.enums.DiscrepancyStatus;
+import com.fintech.ledger.enums.DiscrepancyType;
+import com.fintech.ledger.enums.ReconciliationStatus;
+import com.fintech.ledger.enums.ReconciliationType;
 import com.fintech.ledger.event.LedgerEventProducer;
 import com.fintech.ledger.event.LedgerEvents;
 import com.fintech.ledger.exception.LedgerException;
-import com.fintech.ledger.repository.*;
+import com.fintech.ledger.repository.LedgerBalanceSnapshotRepository;
+import com.fintech.ledger.repository.LedgerEntryRepository;
+import com.fintech.ledger.repository.ReconciliationDiscrepancyRepository;
+import com.fintech.ledger.repository.ReconciliationRunRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
+import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -31,28 +40,19 @@ public class ReconciliationService {
 
     private final ReconciliationRunRepository runRepository;
     private final ReconciliationDiscrepancyRepository discrepancyRepository;
-    private final LedgerAccountRepository accountRepository;
     private final LedgerBalanceSnapshotRepository snapshotRepository;
     private final LedgerEntryRepository entryRepository;
-    private final LedgerTransactionRepository transactionRepository;
-    private final AccountHoldRepository holdRepository;
     private final LedgerEventProducer eventProducer;
 
     public ReconciliationService(ReconciliationRunRepository runRepository,
                                  ReconciliationDiscrepancyRepository discrepancyRepository,
-                                 LedgerAccountRepository accountRepository,
                                  LedgerBalanceSnapshotRepository snapshotRepository,
                                  LedgerEntryRepository entryRepository,
-                                 LedgerTransactionRepository transactionRepository,
-                                 AccountHoldRepository holdRepository,
                                  LedgerEventProducer eventProducer) {
         this.runRepository = runRepository;
         this.discrepancyRepository = discrepancyRepository;
-        this.accountRepository = accountRepository;
         this.snapshotRepository = snapshotRepository;
         this.entryRepository = entryRepository;
-        this.transactionRepository = transactionRepository;
-        this.holdRepository = holdRepository;
         this.eventProducer = eventProducer;
     }
 
@@ -86,22 +86,19 @@ public class ReconciliationService {
                     systemDebits, systemCredits, diff));
         }
 
-        // Check 2: Account-by-Account Snapshot Verification
-        List<LedgerAccount> accounts = accountRepository.findAll();
-        totalAccounts = accounts.size();
+        // Check 2: Account-by-Account Snapshot Verification from immutable entries
+        List<String> accountIds = entryRepository.findDistinctAccountIds();
+        totalAccounts = accountIds.size();
 
-        for (LedgerAccount account : accounts) {
-            BigDecimal actualDebits = entryRepository.sumDebitsByAccountId(account.getId());
-            BigDecimal actualCredits = entryRepository.sumCreditsByAccountId(account.getId());
+        for (String accountId : accountIds) {
+            BigDecimal actualDebits = entryRepository.sumDebitsByAccountId(accountId);
+            BigDecimal actualCredits = entryRepository.sumCreditsByAccountId(accountId);
 
-            BigDecimal expectedBalance;
-            if (account.getAccountType() == AccountType.ASSET || account.getAccountType() == AccountType.EXPENSE) {
-                expectedBalance = actualDebits.subtract(actualCredits);
-            } else {
-                expectedBalance = actualCredits.subtract(actualDebits);
-            }
+            BigDecimal expectedBalance = isSystemAssetAccount(accountId)
+                    ? actualDebits.subtract(actualCredits)
+                    : actualCredits.subtract(actualDebits);
 
-            LedgerBalanceSnapshot snapshot = snapshotRepository.findByLedgerAccount(account).orElse(null);
+            LedgerBalanceSnapshot snapshot = snapshotRepository.findByAccountId(accountId).orElse(null);
             BigDecimal recordedBalance = snapshot != null ? snapshot.getLedgerBalance() : BigDecimal.ZERO;
 
             if (expectedBalance.compareTo(recordedBalance) != 0) {
@@ -112,7 +109,7 @@ public class ReconciliationService {
                 ReconciliationDiscrepancy discrepancy = new ReconciliationDiscrepancy(
                         UUID.randomUUID(),
                         run,
-                        account,
+                        accountId,
                         DiscrepancyType.BALANCE_MISMATCH,
                         expectedBalance,
                         recordedBalance,
@@ -129,7 +126,7 @@ public class ReconciliationService {
                         UUID.randomUUID().toString(),
                         new LedgerEvents.ReconciliationDiscrepancyDetectedPayload(
                                 recId,
-                                account.getLedgerAccountId(),
+                                accountId,
                                 DiscrepancyType.BALANCE_MISMATCH.name(),
                                 expectedBalance,
                                 recordedBalance,
@@ -139,24 +136,6 @@ public class ReconciliationService {
                 );
             } else {
                 matchedAccounts++;
-            }
-
-            // Check 3: Holds consistency
-            if (account.getAccountType() == AccountType.LIABILITY) {
-                BigDecimal activeHolds = holdRepository.sumActiveHoldsByLedgerAccountId(account.getId());
-                if (activeHolds.compareTo(expectedBalance) > 0) {
-                    ReconciliationDiscrepancy disc = new ReconciliationDiscrepancy(
-                            UUID.randomUUID(),
-                            run,
-                            account,
-                            DiscrepancyType.HOLD_EXCEEDS_BALANCE,
-                            expectedBalance,
-                            activeHolds,
-                            activeHolds.subtract(expectedBalance),
-                            String.format("Active holds (%s) exceed available ledger balance (%s)", activeHolds, expectedBalance)
-                    );
-                    discrepancyRepository.save(disc);
-                }
             }
         }
 
@@ -236,7 +215,11 @@ public class ReconciliationService {
             } catch (NumberFormatException ignored) {}
         }
 
-        Page<ReconciliationRun> runs = runRepository.searchRuns(status, type, fromDate, toDate, PageRequest.of(page, limit));
+        int pageSize = limit > 0 ? limit : 20;
+        Page<ReconciliationRun> runs = runRepository.searchRuns(
+                status, type, fromDate, toDate,
+                PageRequest.of(page, pageSize, Sort.by(Sort.Direction.DESC, "startedAt"))
+        );
         List<ReconciliationRunResponse> list = runs.getContent().stream()
                 .map(r -> new ReconciliationRunResponse(
                         r.getReconciliationId(),
@@ -254,7 +237,7 @@ public class ReconciliationService {
                 .toList();
 
         String nextCursor = runs.hasNext() ? String.valueOf(page + 1) : null;
-        return CursorPagedResponse.of(list, nextCursor, runs.hasNext(), limit);
+        return CursorPagedResponse.of(list, nextCursor, runs.hasNext(), pageSize);
     }
 
     @Transactional(readOnly = true)
@@ -276,7 +259,7 @@ public class ReconciliationService {
                 .map(d -> new DiscrepancyResponse(
                         d.getId(),
                         d.getReconciliationRun().getReconciliationId(),
-                        d.getLedgerAccount().getAccountReference() != null ? d.getLedgerAccount().getAccountReference() : d.getLedgerAccount().getLedgerAccountId(),
+                        d.getAccountId(),
                         d.getDiscrepancyType(),
                         d.getExpectedAmount(),
                         d.getActualAmount(),
@@ -301,7 +284,7 @@ public class ReconciliationService {
         return new DiscrepancyResponse(
                 d.getId(),
                 d.getReconciliationRun().getReconciliationId(),
-                d.getLedgerAccount().getAccountReference() != null ? d.getLedgerAccount().getAccountReference() : d.getLedgerAccount().getLedgerAccountId(),
+                d.getAccountId(),
                 d.getDiscrepancyType(),
                 d.getExpectedAmount(),
                 d.getActualAmount(),
@@ -334,7 +317,7 @@ public class ReconciliationService {
         return new DiscrepancyResponse(
                 d.getId(),
                 d.getReconciliationRun().getReconciliationId(),
-                d.getLedgerAccount().getAccountReference() != null ? d.getLedgerAccount().getAccountReference() : d.getLedgerAccount().getLedgerAccountId(),
+                d.getAccountId(),
                 d.getDiscrepancyType(),
                 d.getExpectedAmount(),
                 d.getActualAmount(),
@@ -344,6 +327,19 @@ public class ReconciliationService {
                 d.getCreatedAt(),
                 d.getResolvedAt(),
                 d.getResolvedBy()
+        );
+    }
+
+    private boolean isSystemAssetAccount(String accountId) {
+        return accountId != null && (
+                accountId.startsWith("LA-BANK-CASH") ||
+                accountId.startsWith("LA-BANK-SETTLEMENT") ||
+                accountId.startsWith("LA-BANK-CLEARING") ||
+                accountId.startsWith("LA-INTEREST-EXPENSE") ||
+                accountId.startsWith("SYSTEM-CASH") ||
+                accountId.startsWith("SYSTEM-SETTLEMENT") ||
+                accountId.startsWith("SYSTEM-CLEARING") ||
+                accountId.startsWith("SYSTEM-INTEREST")
         );
     }
 }

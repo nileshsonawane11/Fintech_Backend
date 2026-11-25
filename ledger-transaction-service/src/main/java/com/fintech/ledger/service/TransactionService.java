@@ -2,9 +2,9 @@ package com.fintech.ledger.service;
 
 import com.fintech.ledger.client.AccountServiceClient;
 import com.fintech.ledger.dto.response.CursorPagedResponse;
+import com.fintech.ledger.dto.response.LedgerEntryResponse;
 import com.fintech.ledger.dto.response.TransactionReceiptResponse;
 import com.fintech.ledger.dto.response.TransactionResponse;
-import com.fintech.ledger.entity.LedgerAccount;
 import com.fintech.ledger.entity.LedgerEntry;
 import com.fintech.ledger.entity.LedgerTransaction;
 import com.fintech.ledger.enums.EntryType;
@@ -12,7 +12,6 @@ import com.fintech.ledger.enums.TransactionDirection;
 import com.fintech.ledger.enums.TransactionStatus;
 import com.fintech.ledger.enums.TransactionType;
 import com.fintech.ledger.exception.LedgerException;
-import com.fintech.ledger.repository.LedgerAccountRepository;
 import com.fintech.ledger.repository.LedgerEntryRepository;
 import com.fintech.ledger.repository.LedgerTransactionRepository;
 import org.slf4j.Logger;
@@ -33,16 +32,13 @@ public class TransactionService {
 
     private final LedgerTransactionRepository transactionRepository;
     private final LedgerEntryRepository entryRepository;
-    private final LedgerAccountRepository accountRepository;
     private final AccountServiceClient accountServiceClient;
 
     public TransactionService(LedgerTransactionRepository transactionRepository,
                               LedgerEntryRepository entryRepository,
-                              LedgerAccountRepository accountRepository,
                               AccountServiceClient accountServiceClient) {
         this.transactionRepository = transactionRepository;
         this.entryRepository = entryRepository;
-        this.accountRepository = accountRepository;
         this.accountServiceClient = accountServiceClient;
     }
 
@@ -53,10 +49,12 @@ public class TransactionService {
             TransactionStatus status, TransactionDirection direction,
             BigDecimal minAmount, BigDecimal maxAmount, int limit, String cursor) {
 
-        LedgerAccount account = findAccountOrThrow(accountId);
+        if (accountId == null || accountId.isBlank()) {
+            throw LedgerException.badRequest("INVALID_ACCOUNT_ID", "Account ID must not be blank");
+        }
 
-        if (!isOps) {
-            verifyOwnership(account, accountId, customerSubject);
+        if (!isOps && !isSystemAccount(accountId)) {
+            accountServiceClient.validateCustomerOwnership(accountId, customerSubject);
         }
 
         int page = 0;
@@ -67,13 +65,13 @@ public class TransactionService {
         }
 
         Page<LedgerTransaction> txPage = transactionRepository.findByAccountAndFilters(
-                account.getId(), fromDate, toDate, txType, status, minAmount, maxAmount, PageRequest.of(page, limit));
+                accountId, fromDate, toDate, txType, status, minAmount, maxAmount, PageRequest.of(page, limit));
 
         List<TransactionResponse> responseList = new ArrayList<>();
         for (LedgerTransaction tx : txPage.getContent()) {
             List<LedgerEntry> entries = entryRepository.findByTransaction_Id(tx.getId());
             Optional<LedgerEntry> accountEntry = entries.stream()
-                    .filter(e -> e.getLedgerAccount().getId().equals(account.getId()))
+                    .filter(e -> accountId.equalsIgnoreCase(e.getAccountId()))
                     .findFirst();
 
             TransactionDirection derivedDirection = accountEntry
@@ -88,7 +86,7 @@ public class TransactionService {
 
             responseList.add(new TransactionResponse(
                     tx.getTransactionId(),
-                    account.getAccountReference() != null ? account.getAccountReference() : account.getLedgerAccountId(),
+                    accountId,
                     tx.getTransactionType(),
                     derivedDirection,
                     amount,
@@ -115,20 +113,18 @@ public class TransactionService {
 
         List<LedgerEntry> entries = entryRepository.findByTransaction_Id(tx.getId());
 
-        if (!isOps && customerSubject != null) {
-            boolean ownsAnyEntry = entries.stream().anyMatch(e -> {
-                UUID custId = e.getLedgerAccount().getCustomerId();
-                return custId != null && customerSubject.equalsIgnoreCase(custId.toString());
-            });
-            if (!ownsAnyEntry) {
+        if (!isOps && customerSubject != null && !customerSubject.isBlank()) {
+            boolean ownsAny = entries.stream()
+                    .filter(e -> !isSystemAccount(e.getAccountId()))
+                    .anyMatch(e -> accountServiceClient.verifyAccountOwnership(e.getAccountId(), customerSubject));
+
+            if (!ownsAny) {
                 throw LedgerException.forbidden("Access denied: You do not have permission to view transaction " + transactionId);
             }
         }
 
         LedgerEntry primaryEntry = entries.isEmpty() ? null : entries.get(0);
-        String accountRef = primaryEntry != null
-                ? (primaryEntry.getLedgerAccount().getAccountReference() != null ? primaryEntry.getLedgerAccount().getAccountReference() : primaryEntry.getLedgerAccount().getLedgerAccountId())
-                : "SYSTEM";
+        String accountRef = primaryEntry != null ? primaryEntry.getAccountId() : "SYSTEM";
         TransactionDirection direction = (primaryEntry != null && primaryEntry.getEntryType() == EntryType.DEBIT)
                 ? TransactionDirection.DEBIT : TransactionDirection.CREDIT;
 
@@ -165,13 +161,16 @@ public class TransactionService {
         LedgerEntry sourceEntry = entries.stream().filter(e -> e.getEntryType() == EntryType.DEBIT).findFirst().orElse(null);
         LedgerEntry destEntry = entries.stream().filter(e -> e.getEntryType() == EntryType.CREDIT).findFirst().orElse(null);
 
-        String sourceAcc = sourceEntry != null ? getAccountRef(sourceEntry.getLedgerAccount()) : "SYSTEM";
-        String destAcc = destEntry != null ? getAccountRef(destEntry.getLedgerAccount()) : "SYSTEM";
+        String sourceAcc = sourceEntry != null ? sourceEntry.getAccountId() : "SYSTEM";
+        String destAcc = destEntry != null ? destEntry.getAccountId() : "SYSTEM";
 
-        if (!isOps && customerSubject != null) {
-            boolean ownsAccount = (sourceEntry != null && isAccountOwnedBy(sourceEntry.getLedgerAccount(), customerSubject)) ||
-                                  (destEntry != null && isAccountOwnedBy(destEntry.getLedgerAccount(), customerSubject));
-            if (!ownsAccount) {
+        if (!isOps && customerSubject != null && !customerSubject.isBlank()) {
+            boolean ownsSource = sourceEntry != null && !isSystemAccount(sourceAcc) &&
+                    accountServiceClient.verifyAccountOwnership(sourceAcc, customerSubject);
+            boolean ownsDest = destEntry != null && !isSystemAccount(destAcc) &&
+                    accountServiceClient.verifyAccountOwnership(destAcc, customerSubject);
+
+            if (!ownsSource && !ownsDest) {
                 throw LedgerException.forbidden("Access denied: You do not own this transaction receipt");
             }
         }
@@ -206,45 +205,11 @@ public class TransactionService {
             throw LedgerException.unauthorized("Authentication required");
         }
 
-        UUID customerId;
-        try {
-            customerId = UUID.fromString(customerSubject);
-        } catch (IllegalArgumentException ex) {
-            throw LedgerException.unauthorized("Invalid customer subject format");
+        if (accountId == null || accountId.isBlank()) {
+            throw LedgerException.badRequest("ACCOUNT_ID_REQUIRED", "Account ID is required to query transactions");
         }
 
-        int page = 0;
-        if (cursor != null && !cursor.isBlank()) {
-            try {
-                page = Integer.parseInt(cursor);
-            } catch (NumberFormatException ignored) {}
-        }
-
-        Page<LedgerTransaction> txPage = transactionRepository.findByCustomerAndFilters(
-                customerId, accountId, fromDate, toDate, txType, status, PageRequest.of(page, limit));
-
-        List<TransactionResponse> list = new ArrayList<>();
-        for (LedgerTransaction tx : txPage.getContent()) {
-            list.add(new TransactionResponse(
-                    tx.getTransactionId(),
-                    accountId != null ? accountId : "ALL",
-                    tx.getTransactionType(),
-                    TransactionDirection.DEBIT,
-                    tx.getTotalDebit(),
-                    tx.getCurrency(),
-                    tx.getTransactionStatus(),
-                    tx.getNarrative(),
-                    tx.getReferenceNumber(),
-                    tx.getValueDate(),
-                    tx.getInitiatedAt(),
-                    tx.getPostedAt(),
-                    tx.getReversedAt(),
-                    tx.getCreatedAt()
-            ));
-        }
-
-        String nextCursor = txPage.hasNext() ? String.valueOf(page + 1) : null;
-        return CursorPagedResponse.of(list, nextCursor, txPage.hasNext(), limit);
+        return getAccountTransactions(accountId, customerSubject, false, fromDate, toDate, txType, status, null, null, null, limit, cursor);
     }
 
     @Transactional(readOnly = true)
@@ -261,7 +226,7 @@ public class TransactionService {
         }
 
         Page<LedgerTransaction> txPage = transactionRepository.searchOperations(
-                transactionId, referenceNumber, txType, status, fromDate, toDate, minAmount, maxAmount, PageRequest.of(page, limit));
+                transactionId, accountId, referenceNumber, txType, status, fromDate, toDate, minAmount, maxAmount, PageRequest.of(page, limit));
 
         List<TransactionResponse> list = new ArrayList<>();
         for (LedgerTransaction tx : txPage.getContent()) {
@@ -287,26 +252,39 @@ public class TransactionService {
         return CursorPagedResponse.of(list, nextCursor, txPage.hasNext(), limit);
     }
 
-    private LedgerAccount findAccountOrThrow(String identifier) {
-        return accountRepository.findByAccountReference(identifier)
-                .or(() -> accountRepository.findByLedgerAccountId(identifier))
-                .orElseThrow(() -> LedgerException.ledgerAccountNotFound("No ledger account found for: " + identifier));
-    }
+    @Transactional(readOnly = true)
+    public CursorPagedResponse<LedgerEntryResponse> getAccountEntries(
+            String accountId, LocalDate fromDate, LocalDate toDate, int limit, String cursor) {
 
-    private String getAccountRef(LedgerAccount acc) {
-        return acc.getAccountReference() != null ? acc.getAccountReference() : acc.getLedgerAccountId();
-    }
-
-    private boolean isAccountOwnedBy(LedgerAccount acc, String customerSubject) {
-        if (acc.getCustomerId() != null) {
-            return customerSubject.equalsIgnoreCase(acc.getCustomerId().toString());
+        if (accountId == null || accountId.isBlank()) {
+            throw LedgerException.badRequest("INVALID_ACCOUNT_ID", "Account ID must not be blank");
         }
-        return accountServiceClient.verifyAccountOwnership(acc.getAccountReference(), customerSubject);
+
+        int page = 0;
+        if (cursor != null && !cursor.isBlank()) {
+            try {
+                page = Integer.parseInt(cursor);
+            } catch (NumberFormatException ignored) {}
+        }
+
+        Page<LedgerEntry> entriesPage = entryRepository.findByAccountIdAndDates(
+                accountId, fromDate, toDate, PageRequest.of(page, limit));
+
+        List<LedgerEntryResponse> dtoList = entriesPage.getContent().stream()
+                .map(LedgerEntryResponse::fromEntity)
+                .toList();
+
+        String nextCursor = entriesPage.hasNext() ? String.valueOf(page + 1) : null;
+        return CursorPagedResponse.of(dtoList, nextCursor, entriesPage.hasNext(), limit);
     }
 
-    private void verifyOwnership(LedgerAccount account, String accountId, String customerSubject) {
-        if (!isAccountOwnedBy(account, customerSubject)) {
-            throw LedgerException.forbidden("Access denied: You do not own account " + accountId);
-        }
+    private boolean isSystemAccount(String accountId) {
+        return accountId != null && (
+                accountId.startsWith("LA-BANK-") ||
+                accountId.startsWith("LA-INTEREST-") ||
+                accountId.startsWith("LA-FEE-") ||
+                accountId.startsWith("LA-SUSPENSE-") ||
+                accountId.startsWith("SYSTEM-")
+        );
     }
 }

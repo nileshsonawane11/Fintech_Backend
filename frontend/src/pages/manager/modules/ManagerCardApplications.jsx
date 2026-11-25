@@ -124,7 +124,7 @@ export const ManagerCardApplications = ({
                     {c.status === 'PENDING_APPROVAL' ? (
                       <button
                         onClick={() => setSelectedCardApp(c)}
-                        className="px-3 py-1.5 bg-midnight-900 hover:bg-midnight-800 text-white rounded text-xs font-semibold shadow-sm transition-colors"
+                        className="px-3 py-1.5 bg-bank-primary hover:bg-bank-primary-hover text-white rounded text-xs font-semibold shadow-sm transition-colors"
                       >
                         Underwrite
                       </button>

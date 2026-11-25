@@ -119,7 +119,7 @@ export default function ManagerReportsPage() {
             {cards.map((c) => (
               <Card key={c.label} className="p-5">
                 <p className="text-xs font-semibold uppercase tracking-wide text-ink-500">{c.label}</p>
-                <p className={`tnum mt-2 font-display text-3xl font-semibold text-midnight-950 ${c.money ? '' : ''}`}>{c.value}</p>
+                <p className={`tnum mt-2 font-sans text-3xl font-semibold text-midnight-950 ${c.money ? '' : ''}`}>{c.value}</p>
                 <p className="mt-1 text-[13px] text-ink-500">{c.sub}</p>
               </Card>
             ))}

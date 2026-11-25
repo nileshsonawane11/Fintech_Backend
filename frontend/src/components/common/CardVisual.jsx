@@ -388,7 +388,7 @@ export function CardVisual({
         <text
           x="66"
           y="38"
-          className="font-display"
+          className="font-sans"
           fontSize="13"
           fontWeight="600"
           letterSpacing="0.5"

@@ -210,7 +210,7 @@ export const ACCOUNTS_DATA = [
     title: 'FinEdge Junior Step Account',
     category: 'Accounts',
     tagline: 'Teach sound financial habits to children under guardian supervision',
-    interestRate: 'Up to 6.75% p.a.',
+    interestRate: `Up to ${FINEDGE_RATES_CONFIG.savings.peakRate}`,
     minBalance: FINEDGE_RATES_CONFIG.savings.ambRequirements.juniorStep,
     overview: 'A supervised savings account designed for minors under age 18. Enables parents and guardians to instill financial literacy while maintaining comprehensive transaction controls.',
     features: [
@@ -221,7 +221,7 @@ export const ACCOUNTS_DATA = [
     ],
     keyBenefits: [
       { title: 'Supervised Spending', desc: 'Guardians control daily withdrawal and POS spending caps via NetBanking.' },
-      { title: 'High Yield', desc: 'Earn up to 6.75% p.a. to help college funds grow faster.' }
+      { title: 'High Yield', desc: `Earn up to ${FINEDGE_RATES_CONFIG.savings.peakRate} to help college funds grow faster.` }
     ],
     eligibility: {
       entityType: 'Minors from birth up to 18 years represented by natural or legal guardian',

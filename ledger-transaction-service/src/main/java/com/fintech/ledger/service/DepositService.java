@@ -1,5 +1,6 @@
 package com.fintech.ledger.service;
 
+import com.fintech.ledger.client.AccountDetailsDto;
 import com.fintech.ledger.client.AccountServiceClient;
 import com.fintech.ledger.dto.request.DepositRequest;
 import com.fintech.ledger.dto.request.PostingEntryItem;
@@ -7,15 +8,12 @@ import com.fintech.ledger.dto.request.RejectActionRequest;
 import com.fintech.ledger.dto.request.VerifyDepositRequest;
 import com.fintech.ledger.dto.response.DepositResponse;
 import com.fintech.ledger.dto.response.LedgerPostingResponse;
-import com.fintech.ledger.entity.LedgerAccount;
 import com.fintech.ledger.entity.LedgerTransaction;
-import com.fintech.ledger.enums.AccountStatus;
 import com.fintech.ledger.enums.DepositMethod;
 import com.fintech.ledger.enums.EntryType;
 import com.fintech.ledger.enums.TransactionStatus;
 import com.fintech.ledger.enums.TransactionType;
 import com.fintech.ledger.exception.LedgerException;
-import com.fintech.ledger.repository.LedgerAccountRepository;
 import com.fintech.ledger.repository.LedgerTransactionRepository;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -36,26 +34,23 @@ public class DepositService {
 
     private final LedgerPostingEngine postingEngine;
     private final IdempotencyService idempotencyService;
-    private final LedgerAccountRepository accountRepository;
     private final LedgerTransactionRepository transactionRepository;
     private final AccountServiceClient accountServiceClient;
 
     public DepositService(LedgerPostingEngine postingEngine,
                           IdempotencyService idempotencyService,
-                          LedgerAccountRepository accountRepository,
                           LedgerTransactionRepository transactionRepository,
                           AccountServiceClient accountServiceClient) {
         this.postingEngine = postingEngine;
         this.idempotencyService = idempotencyService;
-        this.accountRepository = accountRepository;
         this.transactionRepository = transactionRepository;
         this.accountServiceClient = accountServiceClient;
     }
 
     @Transactional
     public DepositResponse initiateDeposit(DepositRequest request, String customerSubject, String idempotencyKey, String correlationId) {
-        log.info("Initiating deposit: account={}, amount={} {}, method={}",
-                request.accountId(), request.amount(), request.currency(), request.depositMethod());
+        log.info("Initiating deposit: account={}, amount={} {}, method={}, customerSubject={}",
+                request.accountId(), request.amount(), request.currency(), request.depositMethod(), customerSubject);
 
         // 1. Idempotency check
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
@@ -71,20 +66,15 @@ public class DepositService {
             throw LedgerException.badRequest("INVALID_TRANSACTION_AMOUNT", "Deposit amount must be strictly positive");
         }
 
-        // 3. Resolve customer account
-        LedgerAccount customerAccount = accountRepository.findByAccountReference(request.accountId())
-                .or(() -> accountRepository.findByLedgerAccountId(request.accountId()))
-                .orElseThrow(() -> LedgerException.accountNotFound("Customer ledger account not found: " + request.accountId()));
+        // 3. Resolve customer account & validate eligibility through Account Service
+        AccountDetailsDto account = accountServiceClient.validateAccountEligible(request.accountId(), request.currency());
 
-        if (customerAccount.getStatus() != AccountStatus.ACTIVE) {
-            throw LedgerException.inactiveAccount("Customer ledger account is not active");
+        // Validate customer ownership if customer subject provided
+        if (customerSubject != null && !customerSubject.isBlank()) {
+            accountServiceClient.validateCustomerOwnership(request.accountId(), customerSubject);
         }
 
-        if (!customerAccount.getCurrency().equalsIgnoreCase(request.currency())) {
-            throw LedgerException.currencyMismatch("Currency mismatch between account and deposit currency");
-        }
-
-        // 4. Cash and Cheque require authorized operational processing or verified external settlement
+        // 4. Cash and Cheque require authorized operational processing
         boolean requiresOpsVerification = (request.depositMethod() == DepositMethod.CASH || request.depositMethod() == DepositMethod.CHEQUE);
 
         if (requiresOpsVerification) {
@@ -126,13 +116,13 @@ public class DepositService {
 
         // Direct bank transfer / initial funding posting:
         // Debit: LA-BANK-SETTLEMENT-INR
-        // Credit: Customer Account
+        // Credit: Customer Account (request.accountId)
         String bankSettlementAccountId = "LA-BANK-SETTLEMENT-" + request.currency();
         String narrative = "Deposit via " + request.depositMethod() + " (" + (request.referenceNumber() != null ? request.referenceNumber() : "") + ")";
 
         List<PostingEntryItem> entries = List.of(
                 new PostingEntryItem(bankSettlementAccountId, EntryType.DEBIT, request.amount(), narrative, request.referenceNumber()),
-                new PostingEntryItem(customerAccount.getLedgerAccountId(), EntryType.CREDIT, request.amount(), narrative, request.referenceNumber())
+                new PostingEntryItem(request.accountId(), EntryType.CREDIT, request.amount(), narrative, request.referenceNumber())
         );
 
         TransactionType txType = request.depositMethod() == DepositMethod.INITIAL_FUNDING
@@ -196,10 +186,6 @@ public class DepositService {
             throw LedgerException.badRequest("INVALID_TRANSACTION_STATE",
                     "Only PENDING deposits can be verified. Current status: " + tx.getTransactionStatus());
         }
-
-        // Find customer account from reference number or correlation
-        String bankAccountId = tx.getTransactionType() == TransactionType.CASH_DEPOSIT
-                ? "LA-BANK-CASH-" + tx.getCurrency() : "LA-BANK-SETTLEMENT-" + tx.getCurrency();
 
         log.info("Operations user {} verifying deposit {}", opsUser, transactionId);
 

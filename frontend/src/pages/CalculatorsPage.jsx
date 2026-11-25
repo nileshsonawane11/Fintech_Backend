@@ -89,7 +89,7 @@ function CalculatorTabs({ tabs, active, onChange }) {
         );
       })}
       <span
-        className="pointer-events-none absolute bottom-0 h-0.5 bg-gold-500 rounded-full transition-all duration-240 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+        className="pointer-events-none absolute bottom-0 h-0.5 bg-bank-primary rounded-full transition-all duration-240 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
         style={{
           transform: `translateX(${indicatorStyle.left}px)`,
           width: `${indicatorStyle.width}px`,
@@ -120,21 +120,18 @@ function SliderControl({ label, value, min, max, step = 1, decimals = 0, suffix,
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [value, focused, decimals]);
 
+  const percent = max > min ? Math.max(0, Math.min(100, ((value - min) / (max - min)) * 100)) : 0;
+
   return (
-    <Field label={label} hint={hint}>
-      <div className="flex items-center gap-3">
-        <input
-          type="range"
-          min={min}
-          max={max}
-          step={step}
-          value={Number.isFinite(Number(value)) ? value : min}
-          aria-label={label}
-          onChange={(e) => onChange(clamp(Number(e.target.value), min, max))}
-          className="min-w-0 flex-1 accent-midnight-800"
-        />
-        <div className="flex w-44 shrink-0 items-center gap-2">
-          <Input
+    <div className="space-y-2 mb-4">
+      <div className="flex items-center justify-between">
+        <div>
+          <label className="text-xs font-bold uppercase tracking-wider text-neutral-700 block">{label}</label>
+          {hint && <span className="text-[11px] text-neutral-400 font-normal">{hint}</span>}
+        </div>
+        <div className="flex items-center rounded-lg border border-neutral-300 bg-white px-2.5 py-1 shadow-xs focus-within:border-[#981a1d] focus-within:ring-1 focus-within:ring-[#981a1d]">
+          <input
+            type="text"
             value={text}
             inputMode="decimal"
             aria-label={`${label} value`}
@@ -149,16 +146,32 @@ function SliderControl({ label, value, min, max, step = 1, decimals = 0, suffix,
               setFocused(false);
               setText(formatText(value));
             }}
-            className="text-right"
+            className="w-24 text-right font-mono text-sm font-bold text-neutral-900 focus:outline-hidden"
           />
-          {suffix && <span className="whitespace-nowrap text-sm text-ink-500">{suffix}</span>}
+          {suffix && <span className="whitespace-nowrap text-xs font-semibold text-neutral-500 ml-1">{suffix}</span>}
         </div>
       </div>
-      <span className="mt-1 flex justify-between text-xs text-ink-400">
-        <span>{decimals > 0 ? min.toFixed(decimals) : indianNumber.format(min)}</span>
-        <span>{decimals > 0 ? max.toFixed(decimals) : indianNumber.format(max)}</span>
-      </span>
-    </Field>
+
+      <div className="relative pt-1">
+        <input
+          type="range"
+          min={min}
+          max={max}
+          step={step}
+          value={Number.isFinite(Number(value)) ? value : min}
+          aria-label={label}
+          onChange={(e) => onChange(clamp(Number(e.target.value), min, max))}
+          className="idfc-slider w-full h-1.5 cursor-pointer appearance-none rounded-lg bg-neutral-200"
+          style={{
+            background: `linear-gradient(to right, #981a1d 0%, #981a1d ${percent}%, #e5e7eb ${percent}%, #e5e7eb 100%)`,
+          }}
+        />
+        <div className="flex justify-between text-[11px] font-medium text-neutral-400 mt-1">
+          <span>{decimals > 0 ? min.toFixed(decimals) : indianNumber.format(min)}{suffix ? ` ${suffix}` : ''}</span>
+          <span>{decimals > 0 ? max.toFixed(decimals) : indianNumber.format(max)}{suffix ? ` ${suffix}` : ''}</span>
+        </div>
+      </div>
+    </div>
   );
 }
 
@@ -198,33 +211,33 @@ function ResultPanel({ headlineLabel, headlineValue, headlineNote, children, cta
 
   return (
     <div
-      className={`rounded-xl border bg-midnight-900 p-6 text-porcelain-100 shadow-none transition-colors duration-120 motion-reduce:transition-none ${
-        pulsing ? 'border-gold-400 ring-1 ring-gold-400/60' : 'border-midnight-800'
+      className={`rounded-2xl border bg-neutral-50 p-6 sm:p-7 text-neutral-900 shadow-sm transition-colors duration-120 motion-reduce:transition-none ${
+        pulsing ? 'border-[#981a1d] ring-1 ring-[#981a1d]/60' : 'border-neutral-200'
       }`}
     >
-      <p className="text-xs font-semibold uppercase tracking-[0.14em] text-gold-300">{headlineLabel}</p>
-      <p className="mt-2 font-display text-4xl font-semibold text-porcelain-50">{headlineValue}</p>
-      {headlineNote && <p className="mt-1.5 text-sm leading-relaxed text-porcelain-200/80">{headlineNote}</p>}
+      <p className="text-xs font-bold uppercase tracking-[0.14em] text-neutral-500">{headlineLabel}</p>
+      <p className="mt-2 font-sans text-4xl sm:text-5xl font-black text-[#981a1d] tracking-tight">{headlineValue}</p>
+      {headlineNote && <p className="mt-1.5 text-xs sm:text-sm leading-relaxed text-neutral-600">{headlineNote}</p>}
       {children}
-      <div className="mt-6 border-t border-porcelain-50/15 pt-5">
+      <div className="mt-6 border-t border-neutral-200 pt-5">
         {onCtaClick ? (
           <button
             type="button"
             onClick={onCtaClick}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-porcelain-50 px-5 py-3 text-sm font-semibold text-midnight-950 transition-colors hover:bg-porcelain-200 cursor-pointer"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-[#981a1d] px-6 py-3 text-sm font-bold text-white shadow-xs transition-colors hover:bg-[#801417] cursor-pointer"
           >
             {ctaLabel} <ArrowRight className="h-4 w-4" aria-hidden />
           </button>
         ) : (
           <Link
             to={ctaTo}
-            className="inline-flex items-center justify-center gap-2 rounded-lg bg-porcelain-50 px-5 py-3 text-sm font-semibold text-midnight-950 transition-colors hover:bg-porcelain-200"
+            className="w-full sm:w-auto inline-flex items-center justify-center gap-2 rounded-full bg-[#981a1d] px-6 py-3 text-sm font-bold text-white shadow-xs transition-colors hover:bg-[#801417]"
           >
             {ctaLabel} <ArrowRight className="h-4 w-4" aria-hidden />
           </Link>
         )}
-        <p className="mt-4 flex items-start gap-1.5 text-xs leading-relaxed text-porcelain-200/70">
-          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" aria-hidden />
+        <p className="mt-4 flex items-start gap-1.5 text-xs leading-relaxed text-neutral-500">
+          <Info className="mt-0.5 h-3.5 w-3.5 shrink-0 text-neutral-400" aria-hidden />
           <span>Illustrative simulation. {RATE_DISCLAIMER}</span>
         </p>
       </div>
@@ -234,9 +247,9 @@ function ResultPanel({ headlineLabel, headlineValue, headlineNote, children, cta
 
 function ResultRow({ label, value, strong = false }) {
   return (
-    <div className="flex items-baseline justify-between gap-4 border-b border-porcelain-50/10 py-2.5 last:border-0">
-      <span className="text-sm text-porcelain-200/80">{label}</span>
-      <span className={`text-right text-sm ${strong ? 'font-semibold text-porcelain-50' : 'text-porcelain-100'}`}>{value}</span>
+    <div className="flex items-baseline justify-between gap-4 border-b border-neutral-200/80 py-2.5 last:border-0">
+      <span className="text-xs sm:text-sm text-neutral-600">{label}</span>
+      <span className={`text-right text-xs sm:text-sm font-mono ${strong ? 'font-bold text-neutral-900' : 'font-medium text-neutral-800'}`}>{value}</span>
     </div>
   );
 }
@@ -246,23 +259,23 @@ function ProportionBar({ aLabel, aValue, bLabel, bValue }) {
   const aPct = total > 0 ? Math.round(((aValue || 0) / total) * 100) : 0;
   return (
     <div className="mt-5">
-      <div className="flex h-3 overflow-hidden rounded-full bg-porcelain-50/10" role="img" aria-label={`${aLabel} ${aPct}%, ${bLabel} ${100 - aPct}%`}>
+      <div className="flex h-3 overflow-hidden rounded-full bg-neutral-200" role="img" aria-label={`${aLabel} ${aPct}%, ${bLabel} ${100 - aPct}%`}>
         <div
-          className="bg-midnight-400 transition-[width] duration-240 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+          className="bg-[#981a1d] transition-[width] duration-240 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
           style={{ width: `${aPct}%` }}
         />
         <div
-          className="bg-midnight-300 transition-[width] duration-240 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
+          className="bg-neutral-400 transition-[width] duration-240 [transition-timing-function:cubic-bezier(0.22,1,0.36,1)] motion-reduce:transition-none"
           style={{ width: `${100 - aPct}%` }}
         />
       </div>
-      <div className="mt-2.5 space-y-1 text-xs text-porcelain-200/80">
+      <div className="mt-2.5 space-y-1 text-xs text-neutral-600 font-medium">
         <p className="flex items-center justify-between">
-          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-midnight-400" aria-hidden />{aLabel}</span>
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-[#981a1d]" aria-hidden />{aLabel}</span>
           <span>{formatINR(aValue)} · {aPct}%</span>
         </p>
         <p className="flex items-center justify-between">
-          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-midnight-300" aria-hidden />{bLabel}</span>
+          <span className="flex items-center gap-1.5"><span className="h-2 w-2 rounded-full bg-neutral-400" aria-hidden />{bLabel}</span>
           <span>{formatINR(bValue)} · {100 - aPct}%</span>
         </p>
       </div>
@@ -334,8 +347,8 @@ function EmiCalculator({ onOpenApply }) {
                 onClick={() => handleLoanChange(l.slug)}
                 className={`rounded-lg px-3.5 py-2 text-xs sm:text-sm font-semibold transition-all cursor-pointer ${
                   isSelected
-                    ? 'bg-midnight-900 text-porcelain-50 shadow-xs ring-1 ring-midnight-800'
-                    : 'border border-ink-200 bg-white text-ink-700 hover:border-midnight-300 hover:text-midnight-900'
+                    ? 'bg-bank-primary text-white shadow-xs ring-1 ring-bank-primary'
+                    : 'border border-ink-200 bg-white text-ink-700 hover:border-bank-primary hover:text-bank-primary'
                 }`}
               >
                 {shortProductName(l.name)}
@@ -361,7 +374,7 @@ function EmiCalculator({ onOpenApply }) {
                       type="button"
                       onClick={() => setLoanMode('emi')}
                       className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors cursor-pointer ${
-                        loanMode === 'emi' ? 'bg-midnight-900 text-porcelain-50' : 'text-ink-600 hover:text-midnight-900'
+                        loanMode === 'emi' ? 'bg-bank-primary text-white shadow-xs' : 'text-ink-600 hover:text-ink-900'
                       }`}
                     >
                       Regular EMI
@@ -370,7 +383,7 @@ function EmiCalculator({ onOpenApply }) {
                       type="button"
                       onClick={() => setLoanMode('bullet')}
                       className={`rounded-md px-3 py-1 text-xs font-semibold transition-colors cursor-pointer ${
-                        loanMode === 'bullet' ? 'bg-midnight-900 text-porcelain-50' : 'text-ink-600 hover:text-midnight-900'
+                        loanMode === 'bullet' ? 'bg-bank-primary text-white shadow-xs' : 'text-ink-600 hover:text-ink-900'
                       }`}
                     >
                       Bullet Repayment
@@ -469,7 +482,7 @@ function EmiCalculator({ onOpenApply }) {
       {/* Amortisation or Bullet Summary */}
       {isBullet && bulletResult ? (
         <div className="mt-6 rounded-xl border border-ink-100 bg-white p-6 shadow-card">
-          <h3 className="font-display text-base font-semibold text-midnight-900">
+          <h3 className="font-sans text-base font-semibold text-midnight-900">
             Bullet Repayment Schedule Summary
           </h3>
           <p className="mt-1 text-xs text-ink-500">
@@ -478,17 +491,17 @@ function EmiCalculator({ onOpenApply }) {
           <div className="mt-4 grid gap-4 sm:grid-cols-3">
             <div className="rounded-lg border border-ink-100 bg-porcelain-50 p-4">
               <span className="text-xs text-ink-500 uppercase tracking-wide">Monthly Servicing</span>
-              <p className="mt-1 font-display text-lg font-semibold text-midnight-950">{formatINR(bulletResult.monthlyInterest)}</p>
+              <p className="mt-1 font-sans text-lg font-semibold text-midnight-950">{formatINR(bulletResult.monthlyInterest)}</p>
               <span className="text-xs text-ink-400">Paid monthly for {tenureMonths} months</span>
             </div>
             <div className="rounded-lg border border-ink-100 bg-porcelain-50 p-4">
               <span className="text-xs text-ink-500 uppercase tracking-wide">Total Interest Accrued</span>
-              <p className="mt-1 font-display text-lg font-semibold text-midnight-950">{formatINR(bulletResult.totalInterest)}</p>
+              <p className="mt-1 font-sans text-lg font-semibold text-midnight-950">{formatINR(bulletResult.totalInterest)}</p>
               <span className="text-xs text-ink-400">At {rate.toFixed(2)}% p.a. simple interest</span>
             </div>
             <div className="rounded-lg border border-ink-100 bg-porcelain-50 p-4">
               <span className="text-xs text-ink-500 uppercase tracking-wide">Bullet Lump Sum at Maturity</span>
-              <p className="mt-1 font-display text-lg font-semibold text-midnight-950">{formatINR(bulletResult.totalPayment)}</p>
+              <p className="mt-1 font-sans text-lg font-semibold text-midnight-950">{formatINR(bulletResult.totalPayment)}</p>
               <span className="text-xs text-ink-400">Principal + final month interest</span>
             </div>
           </div>
@@ -533,7 +546,7 @@ function EmiCalculator({ onOpenApply }) {
                 <button
                   type="button"
                   onClick={() => setShowAll((v) => !v)}
-                  className="mt-3 text-sm font-semibold text-midnight-800 underline decoration-gold-400 decoration-2 underline-offset-2 hover:text-midnight-600 cursor-pointer"
+                  className="mt-3 text-sm font-semibold text-midnight-800 underline decoration-bank-primary/40 decoration-2 underline-offset-2 hover:text-midnight-600 cursor-pointer"
                 >
                   {showAll ? 'Show first 12 months only' : `Show all ${emiResult.schedule.length} months`}
                 </button>
@@ -648,8 +661,8 @@ function FdCalculator({ onOpenApply }) {
                     onClick={() => handleBandSelect(b)}
                     className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-midnight-900 text-porcelain-50 shadow-xs ring-1 ring-midnight-800'
-                        : 'border border-ink-200 bg-white text-ink-700 hover:border-midnight-300 hover:text-midnight-900'
+                        ? 'bg-bank-primary text-white shadow-xs ring-1 ring-bank-primary'
+                        : 'border border-ink-200 bg-white text-ink-700 hover:border-bank-primary hover:text-bank-primary'
                     }`}
                   >
                     {b.tenure} ({senior ? `${b.senior.toFixed(2)}%` : `${b.general.toFixed(2)}%`})
@@ -792,8 +805,8 @@ function RdCalculator({ onOpenApply }) {
                     onClick={() => handleBandSelect(b)}
                     className={`rounded-lg px-3 py-1.5 text-xs font-semibold transition-all cursor-pointer ${
                       isSelected
-                        ? 'bg-midnight-900 text-porcelain-50 shadow-xs ring-1 ring-midnight-800'
-                        : 'border border-ink-200 bg-white text-ink-700 hover:border-midnight-300 hover:text-midnight-900'
+                        ? 'bg-bank-primary text-white shadow-xs ring-1 ring-bank-primary'
+                        : 'border border-ink-200 bg-white text-ink-700 hover:border-bank-primary hover:text-bank-primary'
                     }`}
                   >
                     {b.tenure} ({b.rate.toFixed(2)}%)
@@ -920,7 +933,7 @@ function SipCalculator({ onOpenApply }) {
           onCtaClick={() => onOpenApply?.(SIP, monthly, years)}
         >
           <div className="mt-5 flex items-start gap-2 rounded-lg border border-porcelain-50/20 bg-white/5 px-3 py-2.5 text-sm leading-relaxed text-porcelain-200">
-            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-gold-300" aria-hidden />
+            <AlertTriangle className="mt-0.5 h-4 w-4 shrink-0 text-bank-primary" aria-hidden />
             <span>
               <strong className="font-semibold text-porcelain-50">Market-linked — returns not guaranteed.</strong>{' '}
               Mutual fund investments are subject to market risks; the value can fall as well as rise and past performance does not predict future returns.
@@ -1065,27 +1078,49 @@ export default function CalculatorsPage() {
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 py-14 sm:px-6 lg:py-20">
-      <SectionHeader
-        reveal
-        titleAs="h1"
-        eyebrow="Calculators"
-        title="Plan the numbers before you apply"
-        description="The same finance library the bank's loan and deposit engines use — no rounded-off marketing maths. Every result is an illustration based on the figures you enter."
-        action={<Calculator className="hidden h-8 w-8 text-gold-500 sm:block" aria-hidden />}
-      />
-      <CalculatorTabs
-        tabs={TABS}
-        active={active}
-        onChange={(id) => setSearchParams({ tab: id }, { replace: true })}
-      />
-      <div key={active} className="mt-6 animate-calc-fade-rise motion-reduce:animate-none">
-        {active === 'emi' && <EmiCalculator onOpenApply={handleOpenApply} />}
-        {active === 'fd' && <FdCalculator onOpenApply={handleOpenApply} />}
-        {active === 'rd' && <RdCalculator onOpenApply={handleOpenApply} />}
-        {active === 'sip' && <SipCalculator onOpenApply={handleOpenApply} />}
-        {active === 'ssy' && <SsyCalculator onOpenApply={handleOpenApply} />}
-      </div>
+    <div className="w-full bg-[#f5f6f7] text-neutral-900 min-h-screen">
+      {/* PART I: BLUSH MINI-HERO ON TOP WITH BREADCRUMB PILL */}
+      <section className="bg-[#fdecec] py-10 sm:py-14 border-b border-red-100">
+        <div className="idfc-container mx-auto px-4 sm:px-6 lg:px-8">
+          <nav aria-label="Breadcrumb" className="inline-flex items-center gap-2 px-3 py-1 rounded-full bg-white/90 text-xs font-semibold text-neutral-700 border border-red-150 shadow-xs mb-4">
+            <Link to="/" className="hover:text-[#981a1d] transition-colors">Home</Link>
+            <span className="text-neutral-400">/</span>
+            <span className="text-[#981a1d] font-bold">Calculators</span>
+          </nav>
+
+          <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4">
+            <div>
+              <h1 className="text-3xl sm:text-4xl font-bold tracking-tight text-neutral-950">
+                Financial Calculators
+              </h1>
+              <p className="mt-2 text-sm sm:text-base text-neutral-700 max-w-2xl">
+                The same finance library the bank's loan and deposit engines use — no rounded-off marketing maths. Every result is an illustration based on the figures you enter.
+              </p>
+            </div>
+            <Calculator className="hidden h-10 w-10 text-[#981a1d] sm:block shrink-0" aria-hidden />
+          </div>
+        </div>
+      </section>
+
+      {/* PART E: ONE WIDE WHITE CARD ON VERY LIGHT GREY BACKGROUND (#f5f6f7) */}
+      <section className="py-12 bg-[#f5f6f7]">
+        <div className="idfc-container mx-auto px-4 sm:px-6 lg:px-8">
+          <div className="rounded-2xl border border-neutral-200/90 bg-white p-6 sm:p-8 lg:p-10 shadow-sm">
+            <CalculatorTabs
+              tabs={TABS}
+              active={active}
+              onChange={(id) => setSearchParams({ tab: id }, { replace: true })}
+            />
+            <div key={active} className="mt-8 animate-calc-fade-rise motion-reduce:animate-none">
+              {active === 'emi' && <EmiCalculator onOpenApply={handleOpenApply} />}
+              {active === 'fd' && <FdCalculator onOpenApply={handleOpenApply} />}
+              {active === 'rd' && <RdCalculator onOpenApply={handleOpenApply} />}
+              {active === 'sip' && <SipCalculator onOpenApply={handleOpenApply} />}
+              {active === 'ssy' && <SsyCalculator onOpenApply={handleOpenApply} />}
+            </div>
+          </div>
+        </div>
+      </section>
 
       {applyModalState && (
         <ApplyModal

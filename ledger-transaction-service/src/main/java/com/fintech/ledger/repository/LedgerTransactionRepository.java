@@ -12,7 +12,6 @@ import org.springframework.stereotype.Repository;
 
 import java.math.BigDecimal;
 import java.time.LocalDate;
-import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -27,7 +26,7 @@ public interface LedgerTransactionRepository extends JpaRepository<LedgerTransac
 
     @Query("SELECT DISTINCT t FROM LedgerTransaction t " +
            "JOIN LedgerEntry e ON e.transaction = t " +
-           "WHERE e.ledgerAccount.id = :ledgerAccountId " +
+           "WHERE e.accountId = :accountId " +
            "AND (:fromDate IS NULL OR t.valueDate >= :fromDate) " +
            "AND (:toDate IS NULL OR t.valueDate <= :toDate) " +
            "AND (:txType IS NULL OR t.transactionType = :txType) " +
@@ -36,7 +35,7 @@ public interface LedgerTransactionRepository extends JpaRepository<LedgerTransac
            "AND (:maxAmount IS NULL OR t.totalDebit <= :maxAmount) " +
            "ORDER BY t.createdAt DESC")
     Page<LedgerTransaction> findByAccountAndFilters(
-            @Param("ledgerAccountId") UUID ledgerAccountId,
+            @Param("accountId") String accountId,
             @Param("fromDate") LocalDate fromDate,
             @Param("toDate") LocalDate toDate,
             @Param("txType") TransactionType txType,
@@ -47,26 +46,10 @@ public interface LedgerTransactionRepository extends JpaRepository<LedgerTransac
     );
 
     @Query("SELECT DISTINCT t FROM LedgerTransaction t " +
-           "JOIN LedgerEntry e ON e.transaction = t " +
-           "WHERE e.ledgerAccount.customerId = :customerId " +
-           "AND (:accountId IS NULL OR e.ledgerAccount.accountReference = :accountId) " +
-           "AND (:fromDate IS NULL OR t.valueDate >= :fromDate) " +
-           "AND (:toDate IS NULL OR t.valueDate <= :toDate) " +
-           "AND (:txType IS NULL OR t.transactionType = :txType) " +
-           "AND (:status IS NULL OR t.transactionStatus = :status) " +
-           "ORDER BY t.createdAt DESC")
-    Page<LedgerTransaction> findByCustomerAndFilters(
-            @Param("customerId") UUID customerId,
-            @Param("accountId") String accountId,
-            @Param("fromDate") LocalDate fromDate,
-            @Param("toDate") LocalDate toDate,
-            @Param("txType") TransactionType txType,
-            @Param("status") TransactionStatus status,
-            Pageable pageable
-    );
-
-    @Query("SELECT t FROM LedgerTransaction t WHERE " +
+           "LEFT JOIN LedgerEntry e ON e.transaction = t " +
+           "WHERE " +
            "(:transactionId IS NULL OR t.transactionId = :transactionId) AND " +
+           "(:accountId IS NULL OR e.accountId = :accountId) AND " +
            "(:referenceNumber IS NULL OR t.referenceNumber = :referenceNumber) AND " +
            "(:txType IS NULL OR t.transactionType = :txType) AND " +
            "(:status IS NULL OR t.transactionStatus = :status) AND " +
@@ -77,6 +60,7 @@ public interface LedgerTransactionRepository extends JpaRepository<LedgerTransac
            "ORDER BY t.createdAt DESC")
     Page<LedgerTransaction> searchOperations(
             @Param("transactionId") String transactionId,
+            @Param("accountId") String accountId,
             @Param("referenceNumber") String referenceNumber,
             @Param("txType") TransactionType txType,
             @Param("status") TransactionStatus status,
@@ -87,7 +71,7 @@ public interface LedgerTransactionRepository extends JpaRepository<LedgerTransac
             Pageable pageable
     );
 
-    @Query("SELECT t FROM LedgerTransaction t WHERE t.transactionType = 'TRANSFER' " +
+    @Query("SELECT t FROM LedgerTransaction t WHERE t.transactionType = com.fintech.ledger.enums.TransactionType.TRANSFER " +
            "ORDER BY t.createdAt DESC")
     Page<LedgerTransaction> findTransfers(Pageable pageable);
 }

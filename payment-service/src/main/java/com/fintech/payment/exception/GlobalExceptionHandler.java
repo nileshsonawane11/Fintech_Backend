@@ -268,6 +268,25 @@ public class GlobalExceptionHandler {
         return response(problem, request);
     }
 
+    // 8b. Spring Security authorization denial
+    @ExceptionHandler(org.springframework.security.access.AccessDeniedException.class)
+    public ResponseEntity<ProblemDetail> handleAccessDenied(
+            org.springframework.security.access.AccessDeniedException ex,
+            HttpServletRequest request) {
+
+        ProblemDetail problem = buildProblem(
+                HttpStatus.FORBIDDEN,
+                "Forbidden",
+                "You do not have permission to perform this operation.",
+                "ACCESS_DENIED",
+                BASE_ERROR_TYPE + "access-denied",
+                request,
+                List.of()
+        );
+
+        return response(problem, request);
+    }
+
     // 9. Final fallback for unexpected controller/application exceptions
     @ExceptionHandler(Exception.class)
     public ResponseEntity<ProblemDetail> handleUnexpectedException(
