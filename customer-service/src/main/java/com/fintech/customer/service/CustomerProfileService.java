@@ -102,14 +102,14 @@ public class CustomerProfileService {
                     profile.setDateOfBirth(request.dateOfBirth());
                 }
                 if (profile.getPanMasked() == null && request.pan() != null && !request.pan().isBlank()) {
-                    profile.setPanMasked(CustomerProfile.maskPan(request.pan().trim().toUpperCase()));
+                    profile.setPanMasked(request.pan().trim().toUpperCase());
                     profile.setPanEncrypted(encryptionService.encrypt(request.pan().trim().toUpperCase()));
                 }
                 if (profile.getMobileMasked() == null && request.mobileNumber() != null) {
-                    profile.setMobileMasked(maskMobile(request.mobileNumber()));
+                    profile.setMobileMasked(request.mobileNumber());
                 }
                 if (profile.getEmailMasked() == null && request.email() != null) {
-                    profile.setEmailMasked(maskEmail(request.email()));
+                    profile.setEmailMasked(request.email());
                 }
                 if (profile.getGender() == null && request.gender() != null) {
                     profile.setGender(request.gender());
@@ -124,10 +124,10 @@ public class CustomerProfileService {
             profile.setFullName(request.fullName().trim());
             profile.setDateOfBirth(request.dateOfBirth());
             profile.setGender(request.gender());
-            profile.setMobileMasked(maskMobile(request.mobileNumber()));
-            profile.setEmailMasked(maskEmail(request.email()));
+            profile.setMobileMasked(request.mobileNumber());
+            profile.setEmailMasked(request.email());
             if (request.pan() != null && !request.pan().isBlank()) {
-                profile.setPanMasked(CustomerProfile.maskPan(request.pan().trim().toUpperCase()));
+                profile.setPanMasked(request.pan().trim().toUpperCase());
                 profile.setPanEncrypted(encryptionService.encrypt(request.pan().trim().toUpperCase()));
             }
             profile.setKycStatus("NOT_STARTED");

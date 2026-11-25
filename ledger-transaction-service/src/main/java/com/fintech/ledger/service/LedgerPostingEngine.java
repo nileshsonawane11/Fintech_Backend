@@ -73,6 +73,52 @@ public class LedgerPostingEngine {
             throw LedgerException.unprocessable("INVALID_POSTING", "A double-entry posting requires at least two lines");
         }
 
+        // 1b. Idempotency protection for internal/direct postings
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<LedgerTransaction> existingOpt = transactionRepository.findByIdempotencyKey(idempotencyKey);
+            if (existingOpt.isPresent()) {
+                LedgerTransaction existing = existingOpt.get();
+                if (existing.getTransactionStatus() == TransactionStatus.PROCESSING
+                        || existing.getTransactionStatus() == TransactionStatus.INITIATED
+                        || existing.getTransactionStatus() == TransactionStatus.PENDING) {
+                    throw LedgerException.conflict("CONCURRENT_REQUEST",
+                            "A ledger posting with this idempotency key is currently in progress");
+                }
+                if (existing.getTransactionStatus() == TransactionStatus.SUCCESS) {
+                    BigDecimal requestedDebit = entries.stream()
+                            .filter(item -> item.entryType() == EntryType.DEBIT && item.amount() != null)
+                            .map(item -> item.amount().setScale(4, RoundingMode.HALF_UP))
+                            .reduce(BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP), BigDecimal::add);
+                    if (existing.getTransactionType() != transactionType
+                            || !existing.getCurrency().equalsIgnoreCase(currency)
+                            || existing.getTotalDebit().compareTo(requestedDebit) != 0) {
+                        throw LedgerException.idempotencyKeyReused(
+                                "Idempotency key has already been used with a different ledger posting payload");
+                    }
+                    List<LedgerEntry> existingEntries = entryRepository.findByTransaction_Id(existing.getId());
+                    List<String> entryIds = existingEntries.stream().map(LedgerEntry::getEntryId).toList();
+                    String debitId = existingEntries.stream()
+                            .filter(e -> e.getEntryType() == EntryType.DEBIT)
+                            .map(LedgerEntry::getEntryId)
+                            .findFirst().orElse(null);
+                    String creditId = existingEntries.stream()
+                            .filter(e -> e.getEntryType() == EntryType.CREDIT)
+                            .map(LedgerEntry::getEntryId)
+                            .findFirst().orElse(null);
+                    return new LedgerPostingResponse(
+                            existing.getTransactionId(),
+                            existing.getTransactionStatus(),
+                            existing.getTotalDebit(),
+                            existing.getCurrency(),
+                            debitId,
+                            creditId,
+                            entryIds,
+                            existing.getPostedAt()
+                    );
+                }
+            }
+        }
+
         // 2. Validate currency and positive amounts
         BigDecimal totalDebit = BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);
         BigDecimal totalCredit = BigDecimal.ZERO.setScale(4, RoundingMode.HALF_UP);

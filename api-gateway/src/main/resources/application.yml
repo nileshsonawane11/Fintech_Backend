@@ -102,7 +102,7 @@ spring:
             - id: payment-service
               uri: lb://PAYMENT-SERVICE
               predicates:
-                - Path=/api/v1/beneficiaries/**,/api/v1/payments/**
+                - Path=/api/v1/beneficiaries/**,/api/v1/payments/**,/ops/api/v1/payments/**,/ops/api/v1/beneficiaries/**
 
             # Card Service
             - id: card-service
