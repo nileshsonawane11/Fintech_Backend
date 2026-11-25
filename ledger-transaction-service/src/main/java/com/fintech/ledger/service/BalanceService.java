@@ -5,6 +5,7 @@ import com.fintech.ledger.client.AccountServiceClient;
 import com.fintech.ledger.dto.response.BalanceHistoryItem;
 import com.fintech.ledger.dto.response.BalanceResponse;
 import com.fintech.ledger.dto.response.CursorPagedResponse;
+import com.fintech.ledger.dto.response.TotalBalanceResponse;
 import com.fintech.ledger.entity.LedgerBalanceSnapshot;
 import com.fintech.ledger.entity.LedgerEntry;
 import com.fintech.ledger.enums.EntryType;
@@ -40,6 +41,23 @@ public class BalanceService {
         this.snapshotRepository = snapshotRepository;
         this.entryRepository = entryRepository;
         this.accountServiceClient = accountServiceClient;
+    }
+
+    @Transactional(readOnly = true)
+    public TotalBalanceResponse getTotalBalance(String identitySubject) {
+
+        List<String> accountIds =
+                accountServiceClient.getAllAccounts(identitySubject);
+
+        BigDecimal totalLedgerBalance =
+                accountIds.isEmpty()
+                        ? BigDecimal.ZERO
+                        : snapshotRepository.findTotalLedgerBalanceByAccountIds(accountIds);
+
+        return new TotalBalanceResponse(
+                totalLedgerBalance,
+                accountIds.size()
+        );
     }
 
     @Transactional(readOnly = true)

@@ -1,5 +1,6 @@
 package com.fintech.account.controller;
 
+import com.fintech.account.dto.response.AccountDetailsDto;
 import com.fintech.account.dto.response.AccountHoldResponse;
 import com.fintech.account.dto.response.CursorPagedResponse;
 import com.fintech.account.dto.response.InternalAccountResponse;
@@ -12,9 +13,13 @@ import com.fintech.account.service.AccountHoldService;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.Parameter;
 import io.swagger.v3.oas.annotations.tags.Tag;
+import jakarta.validation.constraints.Max;
+import jakarta.validation.constraints.Min;
 import org.springframework.http.ResponseEntity;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
 
 @RestController
 @RequestMapping("/internal/api/v1/accounts")
@@ -64,5 +69,17 @@ public class InternalAccountController {
 
         CursorPagedResponse<AccountHoldResponse> response = holdService.listAccountHolds(accountId, status, cursor, limit);
         return ResponseEntity.ok(response);
+    }
+
+    @GetMapping("/customer/{identitySubject}")
+    @Transactional(readOnly = true)
+    public ResponseEntity<List<String>> getCustomerAccounts(
+            @PathVariable String identitySubject,
+            @RequestParam(defaultValue = "100")
+            @Min(1) @Max(100) int limit,
+            @RequestParam(required = false) String cursor
+    ) {
+        List<String> accounts = accountRepository.findAllAccountIdByIdentitySubject(identitySubject);
+        return ResponseEntity.ok(accounts);
     }
 }
