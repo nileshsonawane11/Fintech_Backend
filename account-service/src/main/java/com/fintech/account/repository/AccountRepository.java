@@ -10,6 +10,7 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -50,5 +51,15 @@ public interface AccountRepository extends JpaRepository<Account, UUID> {
             @Param("accountType") AccountType accountType,
             @Param("cursor") String cursor,
             Pageable pageable
+    );
+
+    @Query("""
+    SELECT a.accountId AS accountId
+    FROM Account a
+    WHERE a.identitySubject = :identitySubject
+    ORDER BY a.accountId DESC
+    """)
+    List<String> findAllAccountIdByIdentitySubject(
+            @Param("identitySubject") String identitySubject
     );
 }

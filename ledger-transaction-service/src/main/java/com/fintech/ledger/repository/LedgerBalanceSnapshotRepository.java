@@ -8,6 +8,9 @@ import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
 
+import java.math.BigDecimal;
+import java.util.Collection;
+import java.util.List;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -21,4 +24,13 @@ public interface LedgerBalanceSnapshotRepository extends JpaRepository<LedgerBal
     Optional<LedgerBalanceSnapshot> findWithLockByAccountId(@Param("accountId") String accountId);
 
     void deleteByAccountId(String accountId);
+
+    @Query("""
+    SELECT COALESCE(SUM(l.ledgerBalance), 0)
+    FROM LedgerBalanceSnapshot l
+    WHERE l.accountId IN :accountIds
+""")
+    BigDecimal findTotalLedgerBalanceByAccountIds(
+            @Param("accountIds") Collection<String> accountIds
+    );
 }

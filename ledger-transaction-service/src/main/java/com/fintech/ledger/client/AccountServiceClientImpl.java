@@ -320,6 +320,150 @@ public class AccountServiceClientImpl implements AccountServiceClient {
                 .reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 
+    @Override
+    public List<String> getAllAccounts(String identitySubject) {
+
+        if (identitySubject == null || identitySubject.isBlank()) {
+            throw LedgerException.badRequest(
+                    "INVALID_IDENTITY_SUBJECT",
+                    "Identity subject must not be blank."
+            );
+        }
+
+        String correlationId = resolveCorrelationId();
+        String bearerToken = extractBearerToken();
+
+        log.debug(
+                "Calling Account Service to retrieve all customer accounts: identitySubject={}, correlationId={}",
+                identitySubject,
+                correlationId
+        );
+
+        try {
+
+            ParameterizedTypeReference<List<String>> responseType =
+                    new ParameterizedTypeReference<>() {};
+
+            List<String> accountIds = restClient.get()
+                    .uri(
+                            "/internal/api/v1/accounts/customer/{identitySubject}",
+                            identitySubject
+                    )
+                    .header(
+                            CorrelationIdFilter.CORRELATION_ID_HEADER,
+                            correlationId
+                    )
+                    .headers(headers -> {
+                        if (bearerToken != null) {
+                            headers.setBearerAuth(bearerToken);
+                        }
+                    })
+                    .retrieve()
+                    .onStatus(HttpStatusCode::is4xxClientError, (req, res) -> {
+
+                        int statusCode = res.getStatusCode().value();
+
+                        log.warn(
+                                "Account Service returned 4xx while retrieving customer accounts: status={}, identitySubject={}, correlationId={}",
+                                statusCode,
+                                identitySubject,
+                                correlationId
+                        );
+
+                        if (statusCode == 401 || statusCode == 403) {
+                            throw LedgerException.unauthorized(
+                                    "Access denied while retrieving customer accounts."
+                            );
+                        }
+
+                        if (statusCode == 404) {
+                            throw LedgerException.accountNotFound(
+                                    "Customer accounts were not found."
+                            );
+                        }
+
+                        throw LedgerException.badRequest(
+                                "ACCOUNT_SERVICE_CLIENT_ERROR",
+                                "Customer account retrieval failed with status: " + statusCode
+                        );
+                    })
+                    .onStatus(HttpStatusCode::is5xxServerError, (req, res) -> {
+
+                        int statusCode = res.getStatusCode().value();
+
+                        log.error(
+                                "Account Service returned 5xx while retrieving customer accounts: status={}, identitySubject={}, correlationId={}",
+                                statusCode,
+                                identitySubject,
+                                correlationId
+                        );
+
+                        throw LedgerException.serviceUnavailable(
+                                "Account Service failed with server error (HTTP "
+                                        + statusCode + ")."
+                        );
+                    })
+                    .body(responseType);
+
+            if (accountIds == null) {
+                throw LedgerException.serviceUnavailable(
+                        "Invalid response received from Account Service while retrieving customer accounts."
+                );
+            }
+
+            List<String> validAccountIds = accountIds.stream()
+                    .filter(Objects::nonNull)
+                    .filter(id -> !id.isBlank())
+                    .toList();
+
+            log.debug(
+                    "Retrieved customer accounts successfully: identitySubject={}, accountCount={}, correlationId={}",
+                    identitySubject,
+                    validAccountIds.size(),
+                    correlationId
+            );
+
+            return validAccountIds;
+
+        } catch (LedgerException le) {
+            throw le;
+
+        } catch (ResourceAccessException rae) {
+
+            log.error(
+                    "Account Service connection/timeout failure while retrieving customer accounts: identitySubject={}, correlationId={}, error={}",
+                    identitySubject,
+                    correlationId,
+                    rae.getMessage(),
+                    rae
+            );
+
+            if (rae.getCause() instanceof SocketTimeoutException) {
+                throw LedgerException.serviceUnavailable(
+                        "Account Service timed out while retrieving customer accounts."
+                );
+            }
+
+            throw LedgerException.serviceUnavailable(
+                    "Account Service is currently unreachable."
+            );
+
+        } catch (Exception ex) {
+
+            log.error(
+                    "Unexpected error retrieving customer accounts: identitySubject={}, correlationId={}, error={}",
+                    identitySubject,
+                    correlationId,
+                    ex.getMessage(),
+                    ex
+            );
+
+            throw LedgerException.serviceUnavailable(
+                    "Unable to contact Account Service for customer account retrieval."
+            );
+        }
+    }
+
     private AccountDetailsDto createMockAccount(String accountId) {
         return new AccountDetailsDto(
                 UUID.randomUUID(),
