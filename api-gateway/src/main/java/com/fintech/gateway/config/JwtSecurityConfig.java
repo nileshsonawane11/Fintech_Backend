@@ -82,7 +82,9 @@ public class JwtSecurityConfig {
                                 "/api/v1/account-products",
                                 "/api/v1/accounts/unregistered",
                                 "/api/v1/accounts/apply-unregistered",
-                                "/api/v1/customers/"
+                                "/api/v1/customers/",
+                                "/api/v1/loans/products",
+                                "/api/v1/loans/products/**"
                         ).permitAll()
 
                         // Health endpoint
