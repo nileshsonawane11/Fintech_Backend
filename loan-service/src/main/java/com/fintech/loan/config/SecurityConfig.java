@@ -60,6 +60,7 @@ public class SecurityConfig {
                                 "/api/v1/loans/offers/active",
                                 "/api/v1/loans/offers/active/**"
                         ).permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/v1/loans/webhooks/**").permitAll()
                         .requestMatchers("/api/v1/loans/admin/**")
                         .hasRole(LoanConstants.ROLE_ADMIN)
                         .requestMatchers("/api/v1/loans/ops/**")

@@ -34,8 +34,41 @@ public class LoanAccount {
     @Column(name = "principal_amount", nullable = false, precision = 15, scale = 2)
     private BigDecimal principalAmount;
 
+    @Column(name = "approved_amount", precision = 19, scale = 2)
+    private BigDecimal approvedAmount;
+
+    @Column(name = "disbursed_amount", precision = 19, scale = 2)
+    private BigDecimal disbursedAmount;
+
     @Column(name = "outstanding_principal", nullable = false, precision = 15, scale = 2)
     private BigDecimal outstandingPrincipal;
+
+    @Column(name = "interest_outstanding", nullable = false, precision = 19, scale = 2)
+    private BigDecimal interestOutstanding = BigDecimal.ZERO;
+
+    @Column(name = "charges_outstanding", nullable = false, precision = 19, scale = 2)
+    private BigDecimal chargesOutstanding = BigDecimal.ZERO;
+
+    @Column(name = "total_principal_repaid", nullable = false, precision = 19, scale = 2)
+    private BigDecimal totalPrincipalRepaid = BigDecimal.ZERO;
+
+    @Column(name = "total_interest_repaid", nullable = false, precision = 19, scale = 2)
+    private BigDecimal totalInterestRepaid = BigDecimal.ZERO;
+
+    @Column(name = "total_charges_repaid", nullable = false, precision = 19, scale = 2)
+    private BigDecimal totalChargesRepaid = BigDecimal.ZERO;
+
+    @Column(name = "repayment_frequency", nullable = false, length = 30)
+    private String repaymentFrequency = "MONTHLY";
+
+    @Column(name = "current_schedule_version", nullable = false)
+    private Integer currentScheduleVersion = 1;
+
+    @Column(name = "dpd", nullable = false)
+    private Integer dpd = 0;
+
+    @Column(name = "closed_at")
+    private Instant closedAt;
 
     @Column(name = "interest_rate", nullable = false, precision = 5, scale = 2)
     private BigDecimal interestRate;
@@ -106,8 +139,41 @@ public class LoanAccount {
     public BigDecimal getPrincipalAmount() { return principalAmount; }
     public void setPrincipalAmount(BigDecimal principalAmount) { this.principalAmount = principalAmount; }
 
+    public BigDecimal getApprovedAmount() { return approvedAmount; }
+    public void setApprovedAmount(BigDecimal approvedAmount) { this.approvedAmount = approvedAmount; }
+
+    public BigDecimal getDisbursedAmount() { return disbursedAmount; }
+    public void setDisbursedAmount(BigDecimal disbursedAmount) { this.disbursedAmount = disbursedAmount; }
+
     public BigDecimal getOutstandingPrincipal() { return outstandingPrincipal; }
     public void setOutstandingPrincipal(BigDecimal outstandingPrincipal) { this.outstandingPrincipal = outstandingPrincipal; }
+
+    public BigDecimal getInterestOutstanding() { return interestOutstanding; }
+    public void setInterestOutstanding(BigDecimal interestOutstanding) { this.interestOutstanding = interestOutstanding; }
+
+    public BigDecimal getChargesOutstanding() { return chargesOutstanding; }
+    public void setChargesOutstanding(BigDecimal chargesOutstanding) { this.chargesOutstanding = chargesOutstanding; }
+
+    public BigDecimal getTotalPrincipalRepaid() { return totalPrincipalRepaid; }
+    public void setTotalPrincipalRepaid(BigDecimal totalPrincipalRepaid) { this.totalPrincipalRepaid = totalPrincipalRepaid; }
+
+    public BigDecimal getTotalInterestRepaid() { return totalInterestRepaid; }
+    public void setTotalInterestRepaid(BigDecimal totalInterestRepaid) { this.totalInterestRepaid = totalInterestRepaid; }
+
+    public BigDecimal getTotalChargesRepaid() { return totalChargesRepaid; }
+    public void setTotalChargesRepaid(BigDecimal totalChargesRepaid) { this.totalChargesRepaid = totalChargesRepaid; }
+
+    public String getRepaymentFrequency() { return repaymentFrequency; }
+    public void setRepaymentFrequency(String repaymentFrequency) { this.repaymentFrequency = repaymentFrequency; }
+
+    public Integer getCurrentScheduleVersion() { return currentScheduleVersion; }
+    public void setCurrentScheduleVersion(Integer currentScheduleVersion) { this.currentScheduleVersion = currentScheduleVersion; }
+
+    public Integer getDpd() { return dpd; }
+    public void setDpd(Integer dpd) { this.dpd = dpd; }
+
+    public Instant getClosedAt() { return closedAt; }
+    public void setClosedAt(Instant closedAt) { this.closedAt = closedAt; }
 
     public BigDecimal getInterestRate() { return interestRate; }
     public void setInterestRate(BigDecimal interestRate) { this.interestRate = interestRate; }

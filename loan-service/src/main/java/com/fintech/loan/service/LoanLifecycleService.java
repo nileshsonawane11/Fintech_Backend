@@ -88,6 +88,7 @@ public class LoanLifecycleService {
     private final LoanApplicationService applicationService;
     private final LoanOutboxService outboxService;
     private final LoanNotificationService notificationService;
+    private LoanDisbursementService disbursementService;
     private final BigDecimal managerApprovalLimit;
     private final int offerExpiryDays;
     private final String statusChangedTopic;
@@ -130,6 +131,11 @@ public class LoanLifecycleService {
         this.approvedTopic = approvedTopic;
         this.rejectedTopic = rejectedTopic;
         this.disbursedTopic = disbursedTopic;
+    }
+
+    @org.springframework.beans.factory.annotation.Autowired(required = false)
+    public void setDisbursementService(LoanDisbursementService disbursementService) {
+        this.disbursementService = disbursementService;
     }
 
     @Transactional
@@ -434,6 +440,22 @@ public class LoanLifecycleService {
         LoanApplication app = findApplicationOrThrow(applicationId);
         LoanApplicationStatus current = parseStatus(app.getStatus());
 
+        if (current == LoanApplicationStatus.DISBURSED && disbursementService != null) {
+            LoanOffer offer = sanctionedOfferRepository
+                    .findFirstByLoanApplicationIdOrderByCreatedAtDesc(app.getLoanApplicationId())
+                    .orElseThrow(() -> ApiException.unprocessable("OFFER_NOT_FOUND",
+                            "No sanctioned offer found for loan application: " + applicationId));
+            LoanDisbursementService.DisbursementExecutionResult res =
+                    disbursementService.executeDisbursement(app, offer, null, actorId);
+            LoanAccount acc = res.loanAccount();
+            return new LoanDisbursementResponse(
+                    app.getLoanApplicationId(), acc.getLoanAccountId(), acc.getDisbursementAccountId(),
+                    acc.getDisbursedAmount(), acc.getInterestRate(), acc.getTenureMonths(),
+                    acc.getEmiAmount(), acc.getCurrency(), "DISBURSED",
+                    acc.getDisbursementDate(), acc.getNextDueDate(), app.getDisbursedAt()
+            );
+        }
+
         if (current == LoanApplicationStatus.OFFER_ACCEPTED) {
             transitionStatus(app, LoanApplicationStatus.DISBURSEMENT_PENDING, actorId, actorRole,
                     "Disbursement initiated automatically prior to settlement", "DISBURSEMENT_INITIATED");
@@ -444,65 +466,92 @@ public class LoanLifecycleService {
                 .orElseThrow(() -> ApiException.unprocessable("OFFER_NOT_FOUND",
                         "No sanctioned offer found for loan application: " + applicationId));
 
-        String targetDisbursementAccount = offer.getDisbursementAccountId() != null
-                ? offer.getDisbursementAccountId()
-                : app.getDisbursementAccountId();
-
-        // Re-verify disbursement account is still ACTIVE & owned by customer before disbursing funds
-        accountServiceClient.validateDisbursementAccount(
-                targetDisbursementAccount,
-                app.getIdentitySubject() != null ? app.getIdentitySubject() : app.getCustomerId(),
-                app.getCustomerId(),
-                app.getCurrency()
-        );
-
-        LoanProduct product = productService.findActiveProductOrThrow(app.getProductCode());
-        BigDecimal principal = offer.getSanctionedAmount();
-        BigDecimal rate = offer.getInterestRate();
-        int tenure = offer.getTenureMonths();
-        BigDecimal emi = calculator.calculateEmi(principal, rate, tenure, product.getInterestCalculationMethod());
-
-        LocalDate disbursementDate = LocalDate.now();
-        LocalDate nextDueDate = disbursementDate.plusMonths(1);
+        LoanAccount loanAccount;
+        BigDecimal principal;
+        BigDecimal rate;
+        int tenure;
+        BigDecimal emi;
+        LocalDate disbursementDate;
+        LocalDate nextDueDate;
+        String targetDisbursementAccount;
         Instant disbursedAt = Instant.now();
 
-        String loanAccountId = "LN-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase();
+        if (disbursementService != null) {
+            LoanDisbursementService.DisbursementExecutionResult result =
+                    disbursementService.executeDisbursement(app, offer, null, actorId);
+            loanAccount = result.loanAccount();
+            principal = loanAccount.getDisbursedAmount();
+            rate = loanAccount.getInterestRate();
+            tenure = loanAccount.getTenureMonths();
+            emi = loanAccount.getEmiAmount();
+            disbursementDate = loanAccount.getDisbursementDate();
+            nextDueDate = loanAccount.getNextDueDate();
+            targetDisbursementAccount = loanAccount.getDisbursementAccountId();
+        } else {
+            targetDisbursementAccount = offer.getDisbursementAccountId() != null
+                    ? offer.getDisbursementAccountId()
+                    : app.getDisbursementAccountId();
+            accountServiceClient.validateDisbursementAccount(
+                    targetDisbursementAccount,
+                    app.getIdentitySubject() != null ? app.getIdentitySubject() : app.getCustomerId(),
+                    app.getCustomerId(),
+                    app.getCurrency()
+            );
+            LoanProduct product = productService.findActiveProductOrThrow(app.getProductCode());
+            principal = app.getApprovedAmount() != null ? app.getApprovedAmount() : offer.getSanctionedAmount();
+            rate = offer.getInterestRate();
+            tenure = offer.getTenureMonths();
+            emi = calculator.calculateEmi(principal, rate, tenure, product.getInterestCalculationMethod());
+            disbursementDate = LocalDate.now();
+            nextDueDate = disbursementDate.plusMonths(1);
+            String loanAccountId = "LN-" + UUID.randomUUID().toString().replace("-", "").substring(0, 10).toUpperCase();
 
-        LoanAccount loanAccount = new LoanAccount();
-        loanAccount.setLoanAccountId(loanAccountId);
-        loanAccount.setLoanApplicationId(app.getLoanApplicationId());
-        loanAccount.setOfferId(offer.getOfferId());
-        loanAccount.setCustomerId(app.getCustomerId());
-        loanAccount.setIdentitySubject(app.getIdentitySubject());
-        loanAccount.setProductCode(app.getProductCode());
-        loanAccount.setDisbursementAccountId(targetDisbursementAccount);
-        loanAccount.setPrincipalAmount(principal);
-        loanAccount.setOutstandingPrincipal(principal);
-        loanAccount.setInterestRate(rate);
-        loanAccount.setTenureMonths(tenure);
-        loanAccount.setCurrency(app.getCurrency());
-        loanAccount.setEmiAmount(emi);
-        loanAccount.setDisbursementDate(disbursementDate);
-        loanAccount.setNextDueDate(nextDueDate);
-        loanAccount.setStatus("ACTIVE");
-        loanAccountRepository.save(loanAccount);
+            loanAccount = new LoanAccount();
+            loanAccount.setLoanAccountId(loanAccountId);
+            loanAccount.setLoanApplicationId(app.getLoanApplicationId());
+            loanAccount.setOfferId(offer.getOfferId());
+            loanAccount.setCustomerId(app.getCustomerId());
+            loanAccount.setIdentitySubject(app.getIdentitySubject());
+            loanAccount.setProductCode(app.getProductCode());
+            loanAccount.setDisbursementAccountId(targetDisbursementAccount);
+            loanAccount.setApprovedAmount(principal);
+            loanAccount.setDisbursedAmount(principal);
+            loanAccount.setPrincipalAmount(principal);
+            loanAccount.setOutstandingPrincipal(principal);
+            loanAccount.setInterestRate(rate);
+            loanAccount.setTenureMonths(tenure);
+            loanAccount.setCurrency(app.getCurrency());
+            loanAccount.setEmiAmount(emi);
+            loanAccount.setDisbursementDate(disbursementDate);
+            loanAccount.setNextDueDate(nextDueDate);
+            loanAccount.setStatus("ACTIVE");
+            loanAccountRepository.save(loanAccount);
+            repaymentScheduleService.generateAndPersistSchedule(loanAccount, product.getInterestCalculationMethod());
+        }
 
-        repaymentScheduleService.generateAndPersistSchedule(loanAccount, product.getInterestCalculationMethod());
-
+        String loanAccountId = loanAccount.getLoanAccountId();
         app.setDisbursedAt(disbursedAt);
         transitionStatus(app, LoanApplicationStatus.DISBURSED, actorId, actorRole,
                 remarks != null ? remarks : "Loan disbursed to account " + targetDisbursementAccount,
                 "LOAN_DISBURSED");
 
+        LoanEvents.LoanApplicationDisbursedPayload disbursedPayload = new LoanEvents.LoanApplicationDisbursedPayload(
+                app.getLoanApplicationId(), loanAccountId, app.getCustomerId(),
+                app.getIdentitySubject(), targetDisbursementAccount, principal, rate, tenure, emi, disbursedAt
+        );
         outboxService.enqueueEvent(
                 disbursedTopic,
                 app.getLoanApplicationId(),
                 "LOAN_APPLICATION",
                 LoanConstants.EVT_APPLICATION_DISBURSED,
-                new LoanEvents.LoanApplicationDisbursedPayload(
-                        app.getLoanApplicationId(), loanAccountId, app.getCustomerId(),
-                        app.getIdentitySubject(), targetDisbursementAccount, principal, rate, tenure, emi, disbursedAt
-                )
+                disbursedPayload
+        );
+        outboxService.enqueueEvent(
+                LoanConstants.TOPIC_LOAN_DISBURSED,
+                loanAccountId,
+                "LOAN_ACCOUNT",
+                LoanConstants.EVT_APPLICATION_DISBURSED,
+                disbursedPayload
         );
 
         notificationService.notifyCustomer(

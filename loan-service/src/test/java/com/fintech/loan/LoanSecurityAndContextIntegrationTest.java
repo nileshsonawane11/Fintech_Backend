@@ -217,5 +217,33 @@ class LoanSecurityAndContextIntegrationTest {
                                 .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
                 .andExpect(status().isOk())
                 .andExpect(jsonPath("$.loanApplicationId").value("LN-APP-OWN-1"));
+
+        // Repayment endpoints: attacker denied, owner allowed, customer denied ops, staff allowed ops
+        mockMvc.perform(get("/api/v1/loans/LN-ACC-OWN-1/repayment-summary")
+                        .with(jwt().jwt(j -> j.subject("sub-attacker-b").claim("token_use", "ACCESS").claim("roles", List.of("CUSTOMER")))
+                                .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/v1/loans/LN-ACC-OWN-1/repayment-summary")
+                        .with(jwt().jwt(j -> j.subject("sub-owner-a").claim("token_use", "ACCESS").claim("roles", List.of("CUSTOMER")))
+                                .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
+                .andExpect(status().isOk())
+                .andExpect(jsonPath("$.loanAccountId").value("LN-ACC-OWN-1"));
+
+        mockMvc.perform(get("/api/v1/loans/ops/repayments")
+                        .with(jwt().jwt(j -> j.subject("sub-owner-a").claim("token_use", "ACCESS").claim("roles", List.of("CUSTOMER")))
+                                .authorities(new SimpleGrantedAuthority("ROLE_CUSTOMER"))))
+                .andExpect(status().isForbidden());
+
+        mockMvc.perform(get("/api/v1/loans/ops/repayments")
+                        .with(jwt().jwt(j -> j.subject("off-1").claim("token_use", "ACCESS").claim("roles", List.of("LOAN_OFFICER")))
+                                .authorities(new SimpleGrantedAuthority("ROLE_LOAN_OFFICER"))))
+                .andExpect(status().isOk());
+
+        // Unsigned webhook rejected with 400
+        mockMvc.perform(post("/api/v1/loans/webhooks/payments/razorpay")
+                        .contentType(MediaType.APPLICATION_JSON)
+                        .content("{\"event\":\"payment.captured\"}"))
+                .andExpect(status().isBadRequest());
     }
 }

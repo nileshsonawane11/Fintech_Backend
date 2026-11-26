@@ -2,12 +2,12 @@
 -- V2: Seed loan products, a sample application, offer, and account
 
 -- Loan Products
-INSERT INTO loan_products (id, product_code, product_name, loan_type, currency, min_amount, max_amount,
+INSERT INTO loan_products (product_code, product_name, loan_type, currency, min_amount, max_amount,
     min_tenure_months, max_tenure_months, interest_rate_from, interest_type, secured)
 VALUES
-    ('a1b2c3d4-e5f6-7890-abcd-ef1234567890','PL_SALARIED_001', 'Personal Loan - Salaried', 'PERSONAL', 'INR',
+    ('PL_SALARIED_001', 'Personal Loan - Salaried', 'PERSONAL', 'INR',
      50000.00, 2000000.00, 12, 60, 11.50, 'REDUCING', FALSE),
-    ('a1b2c3d4-0000-7890-0000-ef1234567891','HL_001', 'Home Loan', 'HOME', 'INR',
+    ('HL_001', 'Home Loan', 'HOME', 'INR',
      500000.00, 10000000.00, 60, 240, 8.50, 'REDUCING', TRUE)
     ON CONFLICT (product_code) DO NOTHING;
 

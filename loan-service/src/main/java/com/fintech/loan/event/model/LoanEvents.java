@@ -107,4 +107,59 @@ public final class LoanEvents {
             List<String> metadataTags,
             Instant createdAt
     ) {}
+
+    public record RepaymentScheduleGeneratedPayload(
+            String loanAccountId,
+            String customerId,
+            Integer scheduleVersion,
+            Integer installmentsCount,
+            BigDecimal principalBasis,
+            BigDecimal emiAmount,
+            String reason,
+            Instant occurredAt
+    ) {}
+
+    public record LoanRepaymentEventPayload(
+            String repaymentId,
+            String repaymentReference,
+            String loanAccountId,
+            String customerId,
+            String installmentId,
+            BigDecimal amount,
+            BigDecimal principalAmount,
+            BigDecimal interestAmount,
+            BigDecimal chargesAmount,
+            String paymentMethod,
+            String status,
+            String ledgerTransactionReference,
+            String failureCode,
+            Instant occurredAt
+    ) {}
+
+    public record LoanMandateEventPayload(
+            String mandateId,
+            String loanAccountId,
+            String customerId,
+            String mandateType,
+            String status,
+            Instant occurredAt
+    ) {}
+
+    public record InstallmentReminderPayload(
+            String installmentId,
+            String loanAccountId,
+            String customerId,
+            Integer installmentNumber,
+            BigDecimal remainingAmount,
+            Integer dpd,
+            Instant occurredAt
+    ) {}
+
+    public record LoanClosedPayload(
+            String loanAccountId,
+            String customerId,
+            String closureType,
+            BigDecimal finalSettlementAmount,
+            Instant closedAt
+    ) {}
 }

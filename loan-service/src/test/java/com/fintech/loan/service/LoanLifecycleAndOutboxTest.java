@@ -158,7 +158,7 @@ class LoanLifecycleAndOutboxTest {
         sanctionedOffer.setStatus("PENDING");
         sanctionedOffer.setExpiresAt(Instant.now().plus(5, ChronoUnit.DAYS));
 
-        when(offerRepository.findById("OFFER-123")).thenReturn(Optional.of(sanctionedOffer));
+        when(offerRepository.findByOfferId("OFFER-123")).thenReturn(Optional.of(sanctionedOffer));
         when(offerRepository.findFirstByLoanApplicationIdOrderByCreatedAtDesc("LN-APP-LIFE1"))
                 .thenReturn(Optional.of(sanctionedOffer));
         when(accountServiceClient.validateDisbursementAccount("ACC-1001", "sub-cust-1", "CUS-1001", "INR"))

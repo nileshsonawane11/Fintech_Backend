@@ -153,6 +153,46 @@ public class AccountServiceClient {
         return account;
     }
 
+    public InternalAccountDto validateRepaymentAccount(
+            String accountIdentifier,
+            String expectedIdentitySubject,
+            String expectedCustomerId,
+            String expectedCurrency) {
+
+        InternalAccountDto account = getAccount(accountIdentifier);
+
+        boolean subjectMatch = expectedIdentitySubject != null
+                && account.identitySubject() != null
+                && expectedIdentitySubject.equalsIgnoreCase(account.identitySubject());
+        boolean customerMatch = expectedCustomerId != null
+                && account.customerId() != null
+                && expectedCustomerId.equalsIgnoreCase(account.customerId());
+
+        if (!subjectMatch && !customerMatch) {
+            throw ApiException.forbidden("ACCOUNT_OWNERSHIP_MISMATCH",
+                    "The specified repayment account does not belong to the authenticated customer.");
+        }
+
+        if (account.status() == null || !LoanConstants.ACCOUNT_STATUS_ACTIVE.equalsIgnoreCase(account.status())) {
+            throw ApiException.unprocessable("ACCOUNT_NOT_ACTIVE",
+                    "Repayment account must be ACTIVE. Current status: " + account.status());
+        }
+
+        String type = account.accountType() != null ? account.accountType().trim().toUpperCase() : "";
+        if (!LoanConstants.DISBURSEMENT_ELIGIBLE_ACCOUNT_TYPES.contains(type)) {
+            throw ApiException.unprocessable("ACCOUNT_NOT_ELIGIBLE_FOR_REPAYMENT",
+                    "Account type '" + type + "' is not eligible for loan repayment.");
+        }
+
+        if (expectedCurrency != null && account.currency() != null
+                && !expectedCurrency.equalsIgnoreCase(account.currency())) {
+            throw ApiException.unprocessable("CURRENCY_MISMATCH",
+                    "Account currency (" + account.currency() + ") does not match loan currency (" + expectedCurrency + ").");
+        }
+
+        return account;
+    }
+
     private String resolveCorrelationId() {
         String id = MDC.get(LoanConstants.MDC_CORRELATION_ID);
         return (id != null && !id.isBlank()) ? id : UUID.randomUUID().toString();

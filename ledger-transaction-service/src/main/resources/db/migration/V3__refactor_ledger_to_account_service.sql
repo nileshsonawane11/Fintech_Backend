@@ -19,9 +19,10 @@ BEGIN
     END IF;
 END $$;
 
--- Set account_id NOT NULL and drop foreign key constraint
+-- Set account_id NOT NULL and drop legacy ledger_account_id column & foreign key constraint
 ALTER TABLE ledger_entries ALTER COLUMN account_id SET NOT NULL;
 ALTER TABLE ledger_entries DROP CONSTRAINT IF EXISTS ledger_entries_ledger_account_id_fkey;
+DROP INDEX IF EXISTS idx_ledger_entries_acc;
 ALTER TABLE ledger_entries DROP COLUMN IF EXISTS ledger_account_id;
 CREATE INDEX IF NOT EXISTS idx_ledger_entries_account_id ON ledger_entries(account_id);
 
@@ -45,6 +46,7 @@ ALTER TABLE ledger_balance_snapshots ALTER COLUMN account_id SET NOT NULL;
 ALTER TABLE ledger_balance_snapshots DROP CONSTRAINT IF EXISTS ledger_balance_snapshots_ledger_account_id_key;
 ALTER TABLE ledger_balance_snapshots DROP CONSTRAINT IF EXISTS ledger_balance_snapshots_ledger_account_id_fkey;
 ALTER TABLE ledger_balance_snapshots DROP COLUMN IF EXISTS ledger_account_id;
+ALTER TABLE ledger_balance_snapshots DROP CONSTRAINT IF EXISTS uq_ledger_balance_snapshots_account_id;
 ALTER TABLE ledger_balance_snapshots ADD CONSTRAINT uq_ledger_balance_snapshots_account_id UNIQUE (account_id);
 CREATE INDEX IF NOT EXISTS idx_ledger_balance_snapshots_acc ON ledger_balance_snapshots(account_id);
 
@@ -69,9 +71,6 @@ ALTER TABLE reconciliation_discrepancies DROP COLUMN IF EXISTS ledger_account_id
 CREATE INDEX IF NOT EXISTS idx_rec_disc_account_id ON reconciliation_discrepancies(account_id);
 
 
--- 4. REMOVE DUPLICATE ACCOUNT HOLDS TABLE (Managed authoritatively by Account Service)
+-- 4. REMOVE DUPLICATE ACCOUNT HOLDS & LEDGER ACCOUNTS TABLES (Managed authoritatively by Account Service)
 DROP TABLE IF EXISTS account_holds CASCADE;
-
-
--- 5. REMOVE DUPLICATE LEDGER ACCOUNTS TABLE (Managed authoritatively by Account Service)
 DROP TABLE IF EXISTS ledger_accounts CASCADE;

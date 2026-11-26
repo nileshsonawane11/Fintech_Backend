@@ -135,4 +135,48 @@ public class KafkaConfig {
     @Bean public NewTopic accountLifecycleDlqTopic() {
         return TopicBuilder.name(LoanConstants.TOPIC_ACCOUNT_LIFECYCLE + ".dlq").partitions(1).replicas(1).build();
     }
+
+    @Bean public NewTopic loanDisbursedTopic() {
+        return TopicBuilder.name(LoanConstants.TOPIC_LOAN_DISBURSED).partitions(3).replicas(1).build();
+    }
+
+    @Bean public NewTopic repaymentScheduleGeneratedTopic() {
+        return TopicBuilder.name(LoanConstants.TOPIC_REPAYMENT_SCHEDULE_GENERATED).partitions(3).replicas(1).build();
+    }
+
+    @Bean public NewTopic installmentDueTopic() {
+        return TopicBuilder.name(LoanConstants.TOPIC_INSTALLMENT_DUE).partitions(3).replicas(1).build();
+    }
+
+    @Bean public NewTopic repaymentInitiatedTopic() {
+        return TopicBuilder.name(LoanConstants.TOPIC_REPAYMENT_INITIATED).partitions(3).replicas(1).build();
+    }
+
+    @Bean public NewTopic repaymentCompletedTopic() {
+        return TopicBuilder.name(LoanConstants.TOPIC_REPAYMENT_COMPLETED).partitions(3).replicas(1).build();
+    }
+
+    @Bean public NewTopic repaymentFailedTopic() {
+        return TopicBuilder.name(LoanConstants.TOPIC_REPAYMENT_FAILED).partitions(3).replicas(1).build();
+    }
+
+    @Bean public NewTopic repaymentAllocatedTopic() {
+        return TopicBuilder.name(LoanConstants.TOPIC_REPAYMENT_ALLOCATED).partitions(3).replicas(1).build();
+    }
+
+    @Bean public NewTopic mandateActivatedTopic() {
+        return TopicBuilder.name(LoanConstants.TOPIC_MANDATE_ACTIVATED).partitions(3).replicas(1).build();
+    }
+
+    @Bean public NewTopic installmentOverdueTopic() {
+        return TopicBuilder.name(LoanConstants.TOPIC_INSTALLMENT_OVERDUE).partitions(3).replicas(1).build();
+    }
+
+    @Bean public NewTopic prepaymentCompletedTopic() {
+        return TopicBuilder.name(LoanConstants.TOPIC_PREPAYMENT_COMPLETED).partitions(3).replicas(1).build();
+    }
+
+    @Bean public NewTopic loanClosedTopic() {
+        return TopicBuilder.name(LoanConstants.TOPIC_LOAN_CLOSED).partitions(3).replicas(1).build();
+    }
 }
