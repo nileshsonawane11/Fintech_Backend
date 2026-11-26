@@ -10,6 +10,10 @@ import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
+import java.util.LinkedHashSet;
+import java.util.List;
+import java.util.Set;
+
 @RestController
 @RequestMapping("/api/v1/notifications")
 public class NotificationController {
@@ -27,7 +31,28 @@ public class NotificationController {
             @RequestParam(defaultValue = "20") int limit) {
 
         String customerId = jwt.getSubject();
-        NotificationListResponse response = notificationService.listNotifications(customerId, unreadOnly, limit);
+        Set<String> roles = extractRoles(jwt);
+        NotificationListResponse response = notificationService.listNotifications(customerId, roles, unreadOnly, limit);
         return ResponseEntity.ok(response);
+    }
+
+    private Set<String> extractRoles(Jwt jwt) {
+        List<String> raw = jwt.getClaimAsStringList("roles");
+        if (raw == null || raw.isEmpty()) {
+            return Set.of();
+        }
+        Set<String> roles = new LinkedHashSet<>();
+        for (String role : raw) {
+            if (role != null && !role.isBlank()) {
+                String clean = role.trim().toUpperCase();
+                if (clean.startsWith("ROLE_")) {
+                    clean = clean.substring(5);
+                }
+                roles.add(clean);
+                if ("OPERATIONS".equals(clean)) roles.add("LOAN_OFFICER");
+                if ("MANAGER".equals(clean)) roles.add("LOAN_MANAGER");
+            }
+        }
+        return roles;
     }
 }

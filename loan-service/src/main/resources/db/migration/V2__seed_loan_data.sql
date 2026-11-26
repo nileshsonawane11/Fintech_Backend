@@ -8,7 +8,8 @@ VALUES
     ('PL_SALARIED_001', 'Personal Loan - Salaried', 'PERSONAL', 'INR',
      50000.00, 2000000.00, 12, 60, 11.50, 'REDUCING', FALSE),
     ('HL_001', 'Home Loan', 'HOME', 'INR',
-     500000.00, 10000000.00, 60, 240, 8.50, 'REDUCING', TRUE);
+     500000.00, 10000000.00, 60, 240, 8.50, 'REDUCING', TRUE)
+    ON CONFLICT (product_code) DO NOTHING;
 
 -- Sample loan application for testing
 INSERT INTO loan_applications (id, loan_application_id, customer_id, product_code,
@@ -29,7 +30,7 @@ VALUES (
     'SALARIED',
     95000.00,
     'ABC Technologies'
-);
+)ON CONFLICT (id) DO NOTHING;
 
 -- Sample loan offer for testing (linked to LN-APP-700123)
 INSERT INTO loan_offers (offer_id, loan_application_id, sanctioned_amount, interest_rate,
@@ -43,8 +44,7 @@ VALUES (
     'INR',
     'PENDING',
     NOW() + INTERVAL '7 days'
-);
-
+)ON CONFLICT (offer_id) DO NOTHING;
 -- Sample loan account for repayment schedule testing
 INSERT INTO loan_accounts (loan_account_id, customer_id, loan_application_id, offer_id, principal_amount,
     outstanding_principal, interest_rate, tenure_months, currency, emi_amount, status, next_due_date, disbursement_date)
@@ -62,4 +62,4 @@ VALUES (
     'ACTIVE',
     CURRENT_DATE + INTERVAL '25 days',
     CURRENT_DATE - INTERVAL '35 days'
-);
+)ON CONFLICT (loan_account_id) DO NOTHING;

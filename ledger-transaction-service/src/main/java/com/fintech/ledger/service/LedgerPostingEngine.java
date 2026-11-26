@@ -312,6 +312,7 @@ public class LedgerPostingEngine {
                 accountId.startsWith("LA-INTEREST-") ||
                 accountId.startsWith("LA-FEE-") ||
                 accountId.startsWith("LA-SUSPENSE-") ||
+                accountId.startsWith("LA-LOAN-") ||
                 accountId.startsWith("SYSTEM-")
         );
     }
@@ -322,10 +323,12 @@ public class LedgerPostingEngine {
                 accountId.startsWith("LA-BANK-SETTLEMENT") ||
                 accountId.startsWith("LA-BANK-CLEARING") ||
                 accountId.startsWith("LA-INTEREST-EXPENSE") ||
+                accountId.startsWith("LA-LOAN-PRINCIPAL") ||
                 accountId.startsWith("SYSTEM-CASH") ||
                 accountId.startsWith("SYSTEM-SETTLEMENT") ||
                 accountId.startsWith("SYSTEM-CLEARING") ||
-                accountId.startsWith("SYSTEM-INTEREST")
+                accountId.startsWith("SYSTEM-INTEREST") ||
+                accountId.startsWith("SYSTEM-LOAN-PRINCIPAL")
         );
     }
 }

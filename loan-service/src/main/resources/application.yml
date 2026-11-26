@@ -1,12 +1,18 @@
+server:
+  port: ${LOAN_SERVICE_PORT:8087}
+
 spring:
   application:
     name: LOAN-SERVICE
+
   datasource:
     url: ${LOAN_DB_URL:jdbc:postgresql://localhost:5432/fintech_loan}
     username: ${LOAN_DB_USERNAME:postgres}
     password: ${LOAN_DB_PASSWORD:root}
     driver-class-name: org.postgresql.Driver
+
   jpa:
+    open-in-view: false
     hibernate:
       ddl-auto: validate
     show-sql: false
@@ -14,18 +20,77 @@ spring:
       hibernate:
         dialect: org.hibernate.dialect.PostgreSQLDialect
         format_sql: true
+        jdbc:
+          time_zone: UTC
+
   flyway:
     enabled: true
     locations: classpath:db/migration
     baseline-on-migrate: true
+    create-schemas: true
+
+  jackson:
+    time-zone: UTC
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.apache.kafka.common.serialization.StringSerializer
+      acks: all
+      retries: 3
+    consumer:
+      group-id: ${LOAN_KAFKA_GROUP_ID:loan-service-group}
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.apache.kafka.common.serialization.StringDeserializer
 
 security:
   jwt:
     public-key-location: ${JWT_PUBLIC_KEY_LOCATION:classpath:keys/public.pem}
     issuer: ${JWT_ISSUER:identity-service}
 
-server:
-  port: 8087
+app:
+  services:
+    customer-service:
+      service-id: ${CUSTOMER_SERVICE_ID:CUSTOMER-SERVICE}
+    account-service:
+      service-id: ${ACCOUNT_SERVICE_ID:ACCOUNT-SERVICE}
+    identity-service:
+      service-id: ${IDENTITY_SERVICE_ID:IDENTITY-SERVICE}
+    notification-service:
+      service-id: ${NOTIFICATION_SERVICE_ID:NOTIFICATION-SERVICE}
+    connect-timeout-ms: ${INTERNAL_CLIENT_CONNECT_TIMEOUT_MS:3000}
+    read-timeout-ms: ${INTERNAL_CLIENT_READ_TIMEOUT_MS:5000}
+    max-retries: ${INTERNAL_CLIENT_MAX_RETRIES:2}
+  kafka:
+    topics:
+      application-submitted: ${KAFKA_TOPIC_LOAN_APP_SUBMITTED:loan.application.submitted.v1}
+      application-status-changed: ${KAFKA_TOPIC_LOAN_APP_STATUS_CHANGED:loan.application.status-changed.v1}
+      application-approved: ${KAFKA_TOPIC_LOAN_APP_APPROVED:loan.application.approved.v1}
+      application-rejected: ${KAFKA_TOPIC_LOAN_APP_REJECTED:loan.application.rejected.v1}
+      application-disbursed: ${KAFKA_TOPIC_LOAN_APP_DISBURSED:loan.application.disbursed.v1}
+      offer-created: ${KAFKA_TOPIC_LOAN_OFFER_CREATED:loan.offer.created.v1}
+      offer-updated: ${KAFKA_TOPIC_LOAN_OFFER_UPDATED:loan.offer.updated.v1}
+      offer-activated: ${KAFKA_TOPIC_LOAN_OFFER_ACTIVATED:loan.offer.activated.v1}
+      offer-deactivated: ${KAFKA_TOPIC_LOAN_OFFER_DEACTIVATED:loan.offer.deactivated.v1}
+      product-created: ${KAFKA_TOPIC_LOAN_PRODUCT_CREATED:loan.product.created.v1}
+      product-updated: ${KAFKA_TOPIC_LOAN_PRODUCT_UPDATED:loan.product.updated.v1}
+      notification-events: ${KAFKA_TOPIC_LOAN_NOTIFICATIONS:loan.notification.events.v1}
+      kyc-events: ${KAFKA_TOPIC_KYC_EVENTS:customer.kyc-events.v1}
+      account-lifecycle-events: ${KAFKA_TOPIC_ACCOUNT_LIFECYCLE:account.lifecycle-events.v1}
+  outbox:
+    poll-interval-ms: ${LOAN_OUTBOX_POLL_INTERVAL_MS:3000}
+    max-retries: ${LOAN_OUTBOX_MAX_RETRIES:5}
+    batch-size: ${LOAN_OUTBOX_BATCH_SIZE:50}
+  loan:
+    default-currency: INR
+    max-foir-percentage: ${LOAN_DEFAULT_MAX_FOIR:55.00}
+    manager-approval-limit: ${LOAN_MANAGER_APPROVAL_LIMIT:10000000.00}
+    offer-expiry-days: ${LOAN_OFFER_EXPIRY_DAYS:15}
+    idempotency-ttl-hours: ${LOAN_IDEMPOTENCY_TTL_HOURS:24}
+    notification-http-fallback-enabled: ${LOAN_NOTIFICATION_HTTP_FALLBACK:false}
 
 eureka:
   client:
@@ -45,6 +110,14 @@ management:
   endpoint:
     health:
       show-details: never
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
 
 logging:
   level:

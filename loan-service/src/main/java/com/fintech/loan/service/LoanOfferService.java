@@ -1,58 +1,76 @@
 package com.fintech.loan.service;
 
+import com.fintech.loan.client.AccountServiceClient;
+import com.fintech.loan.client.dto.InternalAccountDto;
+import com.fintech.loan.constants.LoanConstants;
 import com.fintech.loan.dto.request.AcceptLoanOfferRequest;
 import com.fintech.loan.dto.response.AcceptOfferResponse;
-import com.fintech.loan.entity.LoanIdempotencyKey;
+import com.fintech.loan.dto.response.LoanLifecycleResponses.SanctionedOfferDetailsResponse;
+import com.fintech.loan.entity.LoanApplication;
 import com.fintech.loan.entity.LoanOffer;
+import com.fintech.loan.enums.InterestCalculationMethod;
+import com.fintech.loan.enums.LoanApplicationStatus;
 import com.fintech.loan.exception.ApiException;
-import com.fintech.loan.repository.LoanIdempotencyKeyRepository;
-import com.fintech.loan.repository.LoanOfferRepository;
 import com.fintech.loan.repository.LoanApplicationRepository;
+import com.fintech.loan.repository.LoanOfferRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
-import java.math.MathContext;
-import java.math.RoundingMode;
 import java.time.Instant;
+import java.util.Optional;
 
 @Service
 public class LoanOfferService {
 
     private final LoanOfferRepository loanOfferRepository;
-    private final LoanIdempotencyKeyRepository idempotencyKeyRepository;
     private final LoanApplicationRepository loanApplicationRepository;
+    private final LoanIdempotencyService idempotencyService;
+    private final LoanLifecycleService lifecycleService;
+    private final AccountServiceClient accountServiceClient;
+    private final LoanFinancialCalculator calculator;
+    private final LoanNotificationService notificationService;
 
-    public LoanOfferService(LoanOfferRepository loanOfferRepository,
-                            LoanIdempotencyKeyRepository idempotencyKeyRepository,
-                            LoanApplicationRepository loanApplicationRepository) {
+    public LoanOfferService(
+            LoanOfferRepository loanOfferRepository,
+            LoanApplicationRepository loanApplicationRepository,
+            LoanIdempotencyService idempotencyService,
+            LoanLifecycleService lifecycleService,
+            AccountServiceClient accountServiceClient,
+            LoanFinancialCalculator calculator,
+            LoanNotificationService notificationService) {
         this.loanOfferRepository = loanOfferRepository;
-        this.idempotencyKeyRepository = idempotencyKeyRepository;
         this.loanApplicationRepository = loanApplicationRepository;
+        this.idempotencyService = idempotencyService;
+        this.lifecycleService = lifecycleService;
+        this.accountServiceClient = accountServiceClient;
+        this.calculator = calculator;
+        this.notificationService = notificationService;
     }
 
     @Transactional
-    public AcceptOfferResponse acceptOffer(String customerId, String offerId, String idempotencyKey,
-                                           AcceptLoanOfferRequest request) {
-        // Idempotency check
-        idempotencyKeyRepository.findByIdempotencyKeyAndOperation(idempotencyKey, "ACCEPT_OFFER")
-                .ifPresent(existing -> {
-                    throw new ApiException("DUPLICATE_REQUEST",
-                            "This offer acceptance request has already been processed.", HttpStatus.CONFLICT);
-                });
+    public AcceptOfferResponse acceptOffer(String identitySubject, String offerId,
+                                           String idempotencyKey, AcceptLoanOfferRequest request) {
+        String requestHash = idempotencyService.computeHash(offerId + ":" + request.getAcceptedTermsVersion() + ":" + request.getDisbursementAccountId());
+        Optional<AcceptOfferResponse> cached = idempotencyService.findReplay(
+                idempotencyKey, "ACCEPT_OFFER", identitySubject, requestHash, AcceptOfferResponse.class);
+        if (cached.isPresent()) {
+            return cached.get();
+        }
 
-        LoanOffer offer = loanOfferRepository.findById(offerId)
+        LoanOffer offer = loanOfferRepository.findByOfferId(offerId)
                 .orElseThrow(() -> new ApiException("OFFER_NOT_FOUND",
                         "Loan offer not found: " + offerId, HttpStatus.NOT_FOUND));
 
-        boolean ownedByCustomer = loanApplicationRepository
-                .findByLoanApplicationId(offer.getLoanApplicationId())
-                .filter(application -> customerId.equals(application.getCustomerId()))
-                .isPresent();
+        LoanApplication application = loanApplicationRepository.findByLoanApplicationId(offer.getLoanApplicationId())
+                .orElseThrow(() -> new ApiException("APPLICATION_NOT_FOUND",
+                        "Loan application not found for offer: " + offerId, HttpStatus.NOT_FOUND));
+
+        boolean ownedByCustomer = (application.getIdentitySubject() != null && application.getIdentitySubject().equalsIgnoreCase(identitySubject))
+                || (application.getCustomerId() != null && application.getCustomerId().equalsIgnoreCase(identitySubject));
         if (!ownedByCustomer) {
-            throw new ApiException("OFFER_NOT_FOUND",
-                    "Loan offer not found: " + offerId, HttpStatus.NOT_FOUND);
+            throw new ApiException("OFFER_NOT_FOUND", "Loan offer not found: " + offerId, HttpStatus.NOT_FOUND);
         }
 
         if ("ACCEPTED".equals(offer.getStatus())) {
@@ -62,49 +80,108 @@ public class LoanOfferService {
 
         if ("EXPIRED".equals(offer.getStatus())
                 || (offer.getExpiresAt() != null && !offer.getExpiresAt().isAfter(Instant.now()))) {
-            throw new ApiException("OFFER_EXPIRED",
-                    "This loan offer has expired.", HttpStatus.GONE);
+            throw new ApiException("OFFER_EXPIRED", "This loan offer has expired.", HttpStatus.GONE);
         }
 
-        // Update offer
+        // Verify disbursement account ownership & active status
+        String accountIdentifier = (request.getDisbursementAccountId() != null && !request.getDisbursementAccountId().isBlank())
+                ? request.getDisbursementAccountId()
+                : application.getDisbursementAccountId();
+
+        InternalAccountDto verifiedAccount = accountServiceClient.validateDisbursementAccount(
+                accountIdentifier,
+                identitySubject,
+                application.getCustomerId(),
+                offer.getCurrency()
+        );
+
         offer.setStatus("ACCEPTED");
         offer.setTermsVersion(request.getAcceptedTermsVersion());
-        offer.setDisbursementAccountId(request.getDisbursementAccountId());
+        offer.setDisbursementAccountId(verifiedAccount.accountId());
         offer.setAcceptedAt(Instant.now());
         offer.setUpdatedAt(Instant.now());
         loanOfferRepository.save(offer);
 
-        // Store idempotency key
-        LoanIdempotencyKey ikey = new LoanIdempotencyKey();
-        ikey.setIdempotencyKey(idempotencyKey);
-        ikey.setOperation("ACCEPT_OFFER");
-        ikey.setResponseReference(offerId);
-        idempotencyKeyRepository.save(ikey);
+        application.setDisbursementAccountId(verifiedAccount.accountId());
+        application.setDisbursementAccountNumber(verifiedAccount.accountNumberMasked());
 
-        // Calculate EMI: P * r * (1+r)^n / ((1+r)^n - 1)
-        BigDecimal monthlyEmi = calculateEmi(offer.getSanctionedAmount(),
-                offer.getInterestRate(), offer.getTenureMonths());
+        lifecycleService.transitionStatus(
+                application,
+                LoanApplicationStatus.OFFER_ACCEPTED,
+                identitySubject,
+                LoanConstants.ROLE_CUSTOMER,
+                "Customer accepted sanctioned offer " + offerId + " (terms " + request.getAcceptedTermsVersion() + ")",
+                "OFFER_ACCEPTED"
+        );
 
-        AcceptOfferResponse response = new AcceptOfferResponse();
-        response.setLoanApplicationId(offer.getLoanApplicationId());
-        response.setOfferId(offer.getOfferId());
-        response.setStatus("ACCEPTED");
-        response.setSanctionedAmount(offer.getSanctionedAmount());
-        response.setInterestRate(offer.getInterestRate());
-        response.setTenureMonths(offer.getTenureMonths());
-        response.setMonthlyEmi(monthlyEmi);
+        notificationService.notifyCustomer(
+                identitySubject,
+                "LOAN_OFFER_ACCEPTED",
+                "Loan Offer Accepted: " + offerId,
+                "You have accepted loan offer " + offerId + " for application " + application.getLoanApplicationId()
+                        + ". Disbursement is being scheduled.",
+                application.getLoanApplicationId()
+        );
+        notificationService.notifyRole(
+                LoanConstants.ROLE_LOAN_MANAGER, null,
+                "LOAN_OFFER_ACCEPTED",
+                "Offer Accepted - Ready for Disbursement: " + application.getLoanApplicationId(),
+                "Customer accepted offer " + offerId + " for application " + application.getLoanApplicationId() + ".",
+                application.getLoanApplicationId()
+        );
+
+        BigDecimal monthlyEmi = calculator.calculateEmi(
+                offer.getSanctionedAmount(), offer.getInterestRate(), offer.getTenureMonths(),
+                InterestCalculationMethod.REDUCING_BALANCE);
+
+        AcceptOfferResponse response = new AcceptOfferResponse(
+                offer.getLoanApplicationId(),
+                offer.getOfferId(),
+                "ACCEPTED",
+                offer.getSanctionedAmount(),
+                offer.getInterestRate(),
+                offer.getTenureMonths(),
+                monthlyEmi
+        );
+
+        idempotencyService.record(idempotencyKey, "ACCEPT_OFFER", identitySubject, requestHash, offerId, response);
         return response;
     }
 
-    private BigDecimal calculateEmi(BigDecimal principal, BigDecimal annualRate, int n) {
-        if (annualRate.compareTo(BigDecimal.ZERO) == 0) {
-            return principal.divide(BigDecimal.valueOf(n), 2, RoundingMode.HALF_UP);
+    @Transactional(readOnly = true)
+    public SanctionedOfferDetailsResponse getSanctionedOfferForApplication(String applicationId, String actorSubject, boolean isStaff) {
+        LoanApplication app = loanApplicationRepository.findByLoanApplicationId(applicationId)
+                .orElseThrow(() -> ApiException.notFound("APPLICATION_NOT_FOUND",
+                        "Loan application not found: " + applicationId));
+
+        if (!isStaff) {
+            boolean owns = (app.getIdentitySubject() != null && app.getIdentitySubject().equalsIgnoreCase(actorSubject))
+                    || (app.getCustomerId() != null && app.getCustomerId().equalsIgnoreCase(actorSubject));
+            if (!owns) {
+                throw ApiException.forbidden("ACCESS_DENIED", "You do not own this loan application.");
+            }
         }
-        BigDecimal r = annualRate.divide(BigDecimal.valueOf(1200), 10, RoundingMode.HALF_UP);
-        BigDecimal onePlusR = BigDecimal.ONE.add(r);
-        BigDecimal onePlusRPowN = onePlusR.pow(n, new MathContext(15, RoundingMode.HALF_UP));
-        BigDecimal numerator = principal.multiply(r).multiply(onePlusRPowN);
-        BigDecimal denominator = onePlusRPowN.subtract(BigDecimal.ONE);
-        return numerator.divide(denominator, 2, RoundingMode.HALF_UP);
+
+        LoanOffer offer = loanOfferRepository.findFirstByLoanApplicationIdOrderByCreatedAtDesc(applicationId)
+                .orElseThrow(() -> ApiException.notFound("OFFER_NOT_FOUND",
+                        "No sanctioned offer exists yet for application: " + applicationId));
+
+        BigDecimal emi = calculator.calculateEmi(
+                offer.getSanctionedAmount(), offer.getInterestRate(), offer.getTenureMonths(),
+                InterestCalculationMethod.REDUCING_BALANCE);
+
+        return new SanctionedOfferDetailsResponse(
+                offer.getOfferId(),
+                offer.getLoanApplicationId(),
+                offer.getSanctionedAmount(),
+                offer.getInterestRate(),
+                offer.getTenureMonths(),
+                emi,
+                offer.getCurrency(),
+                offer.getStatus(),
+                offer.getDisbursementAccountId(),
+                offer.getExpiresAt(),
+                offer.getAcceptedAt()
+        );
     }
 }

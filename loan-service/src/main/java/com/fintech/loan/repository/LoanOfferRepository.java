@@ -10,4 +10,8 @@ import java.util.Optional;
 public interface LoanOfferRepository extends JpaRepository<LoanOffer, String> {
 
     Optional<LoanOffer> findByOfferIdAndStatus(String offerId, String status);
+
+    Optional<LoanOffer> findFirstByLoanApplicationIdOrderByCreatedAtDesc(String loanApplicationId);
+
+    Optional<LoanOffer> findByOfferId(String offerId);
 }

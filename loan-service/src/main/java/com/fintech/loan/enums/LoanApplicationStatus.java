@@ -1,0 +1,15 @@
+package com.fintech.loan.enums;
+
+public enum LoanApplicationStatus {
+    SUBMITTED,
+    UNDER_REVIEW,
+    DOCUMENT_VERIFICATION,
+    ADDITIONAL_INFORMATION_REQUIRED,
+    APPROVED,
+    REJECTED,
+    OFFER_ACCEPTED,
+    DISBURSEMENT_PENDING,
+    DISBURSED,
+    CANCELLED,
+    EXPIRED
+}

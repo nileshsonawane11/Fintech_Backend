@@ -12,5 +12,9 @@ public enum TransactionType {
     FEE_CHARGE,
     REFUND,
     REVERSAL,
-    ADJUSTMENT
+    ADJUSTMENT,
+    LOAN_DISBURSEMENT,
+    LOAN_REPAYMENT,
+    LOAN_PREPAYMENT,
+    LOAN_FORECLOSURE
 }
