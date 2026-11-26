@@ -3969,11 +3969,6 @@ export const ApplyModal = ({ isOpen, open, onClose, product: initialProduct, ini
                   {errors.form}
                 </div>
               )}
-              {isDemo && (
-                <p className="text-xs text-amber-700 text-right">
-                  Demo mode: this application will be recorded in this browser&apos;s demonstration data and reviewed in the staff console demo.
-                </p>
-              )}
               <div className="flex items-center justify-end gap-3">
                 <Button
                   type="button"

@@ -42,7 +42,7 @@ public class CustomerProfileService {
         this.encryptionService = encryptionService;
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public CustomerProfileResponse getCurrentCustomer(Jwt jwt) {
 
         if (jwt == null || jwt.getSubject() == null
@@ -54,7 +54,17 @@ public class CustomerProfileService {
             );
         }
 
-        return getMyProfile(jwt.getSubject());
+        String subject = jwt.getSubject();
+        CustomerProfile profile = customerProfileRepository
+                .findByIdentitySubject(subject)
+                .orElseGet(() -> {
+                    String customerId = "CUS-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+                    CustomerProfile created = CustomerProfile.create(customerId, subject);
+                    return customerProfileRepository.save(created);
+                });
+
+        List<CustomerAddress> customerAddress = customerAddressRepository.findAllByCustomerProfile_Id(profile.getId());
+        return toResponse(profile, customerAddress);
     }
 
     @Transactional(readOnly = true)

@@ -1381,8 +1381,8 @@ export function HomePage() {
             </div>
           </div>
 
-          {/* Row of 3 Access Tiles Below */}
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-6 mt-14 pt-12 border-t border-red-200/50">
+          {/* Access Tiles Below */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-6 mt-14 pt-12 border-t border-red-200/50">
             <div className="bg-white/80 backdrop-blur-xs rounded-2xl p-6 border border-red-100 space-y-2 shadow-xs">
               <div className="w-10 h-10 rounded-xl bg-[#981a1d]/10 text-[#981a1d] flex items-center justify-center font-bold">
                 <Lock className="w-5 h-5" />
@@ -1394,21 +1394,6 @@ export function HomePage() {
               <div className="pt-2">
                 <Link to="/portal/login" className="text-xs font-bold text-[#981a1d] hover:underline inline-flex items-center gap-1">
                   Log In →
-                </Link>
-              </div>
-            </div>
-
-            <div className="bg-white/80 backdrop-blur-xs rounded-2xl p-6 border border-red-100 space-y-2 shadow-xs">
-              <div className="w-10 h-10 rounded-xl bg-[#981a1d]/10 text-[#981a1d] flex items-center justify-center font-bold">
-                <Sparkles className="w-5 h-5" />
-              </div>
-              <h3 className="text-base font-bold text-gray-900">One-Click Demo Access</h3>
-              <p className="text-xs text-gray-600 leading-relaxed">
-                Experience simulated customer workflows and bank manager operations immediately.
-              </p>
-              <div className="pt-2">
-                <Link to="/portal/login" className="text-xs font-bold text-[#981a1d] hover:underline inline-flex items-center gap-1">
-                  Demo Login →
                 </Link>
               </div>
             </div>

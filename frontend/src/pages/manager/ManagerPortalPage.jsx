@@ -164,11 +164,6 @@ export const ManagerPortalPage = () => {
 
   return (
     <div className="min-h-screen bg-porcelain-100 flex flex-col">
-      {isDemo && (
-        <div className="w-full bg-amber-500/10 border-b border-amber-500/20 px-4 py-1 text-center text-xs font-medium text-amber-900 tracking-wide z-20 shrink-0">
-          Demo mode · demonstration data — nothing here is a real bank record.
-        </div>
-      )}
       <div className="flex-1 lg:flex">
       {/* Desktop Sidebar */}
       <aside className="sticky top-0 hidden h-screen w-64 shrink-0 flex-col bg-white px-3 py-5 lg:flex border-r border-ink-200/80 shadow-xs">

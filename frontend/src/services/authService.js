@@ -114,22 +114,34 @@ export const authService = {
   // A2 & A3: The staff login authenticates staff records only.
   // Refuses customer records with generic invalid credentials error.
   async managerLogin({ identifier, password, role }) {
-    traceRequest('POST', '/api/v1/auth/login', { identifier, password, role });
+    const BACKEND_STAFF_ROLE_MAP = {
+      ADMIN: 'ADMIN',
+      BANK_MANAGER: 'MANAGER',
+      MANAGER: 'MANAGER',
+      KYC_OFFICER: 'OPERATIONS',
+      ACCOUNT_OPS: 'OPERATIONS',
+      AUDIT_COMPLIANCE: 'OPERATIONS',
+      CUSTOMER_SUPPORT: 'OPERATIONS',
+      OPERATIONS: 'OPERATIONS',
+      STAFF: 'OPERATIONS'
+    };
+    const apiRole = role ? (BACKEND_STAFF_ROLE_MAP[role] || role) : undefined;
+    traceRequest('POST', '/api/v1/auth/login', { identifier, password, role: apiRole });
     let res;
     try {
       res = await apiRequest('/api/v1/auth/login', {
         method: 'POST',
         isManager: true,
-        body: JSON.stringify({ identifier, password, role })
+        body: JSON.stringify({ identifier, password, role: apiRole })
       });
     } catch (err) {
       // If server does not have /admin prefix, fallback to /api/v1/auth/login
       if (err.status === 404 || err.code === 'NOT_FOUND') {
-        traceRequest('POST', '/api/v1/auth/login', { identifier, password, role });
+        traceRequest('POST', '/api/v1/auth/login', { identifier, password, role: apiRole });
         res = await apiRequest('/api/v1/auth/login', {
           method: 'POST',
           isManager: true,
-          body: JSON.stringify({ identifier, password, role })
+          body: JSON.stringify({ identifier, password, role: apiRole })
         });
       } else {
         throw err;
@@ -147,7 +159,7 @@ export const authService = {
     // B.5 Response-side check tightened:
     // The returned record's role must equal the selected role - not merely be a staff role!
     // Keep staff-role guard as well; keep !res.staffId refusal from Module 51.
-    if (!isStaff || recordRole === 'CUSTOMER' || recordType === 'CUSTOMER' || !res?.customer?.id || (role && recordRole !== role)) {
+    if (!isStaff || recordRole === 'CUSTOMER' || recordType === 'CUSTOMER' || !res?.customer?.id || (apiRole && recordRole !== apiRole)) {
       clearManagerToken();
       if (typeof localStorage !== 'undefined') {
         localStorage.removeItem('finedge_manager_user');

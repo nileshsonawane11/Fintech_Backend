@@ -9,6 +9,8 @@ import org.springframework.stereotype.Component;
 import org.springframework.transaction.event.TransactionPhase;
 import org.springframework.transaction.event.TransactionalEventListener;
 
+import java.util.concurrent.CompletableFuture;
+
 @Component
 public class CustomerRegisteredEventPublisher {
 
@@ -37,22 +39,28 @@ public class CustomerRegisteredEventPublisher {
         ProducerRecord<String, CustomerRegisteredEvent> record =
                 new ProducerRecord<>(TOPIC, key, event);
 
-        kafkaTemplate.send(record).whenComplete((result, exception) -> {
-            if (exception != null) {
-                log.error(
-                        "Kafka publish failed: topic={}, identityId={}",
-                        TOPIC, key, exception
-                );
-                return;
-            }
+        CompletableFuture.runAsync(() -> {
+            try {
+                kafkaTemplate.send(record).whenComplete((result, exception) -> {
+                    if (exception != null) {
+                        log.warn(
+                                "Kafka publish failed (broker unavailable?): topic={}, identityId={}, reason={}",
+                                TOPIC, key, exception.getMessage()
+                        );
+                        return;
+                    }
 
-            log.info(
-                    "Kafka publish successful: topic={}, partition={}, offset={}, identityId={}",
-                    result.getRecordMetadata().topic(),
-                    result.getRecordMetadata().partition(),
-                    result.getRecordMetadata().offset(),
-                    key
-            );
+                    log.info(
+                            "Kafka publish successful: topic={}, partition={}, offset={}, identityId={}",
+                            result.getRecordMetadata().topic(),
+                            result.getRecordMetadata().partition(),
+                            result.getRecordMetadata().offset(),
+                            key
+                    );
+                });
+            } catch (Exception ex) {
+                log.warn("Kafka publish skipped: topic={}, identityId={}, reason={}", TOPIC, key, ex.getMessage());
+            }
         });
     }
 }

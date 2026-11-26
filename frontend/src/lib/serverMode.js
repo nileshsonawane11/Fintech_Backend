@@ -93,7 +93,7 @@ export function useServerMode() {
 
   return {
     mode,
-    isDemo: mode === 'demo',
+    isDemo: false,
     isServer: mode === 'server',
     isUnknown: mode === 'unknown'
   };

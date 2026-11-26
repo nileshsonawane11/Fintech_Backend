@@ -1,4 +1,3 @@
-
 server:
   port: 8084
 
@@ -40,6 +39,7 @@ spring:
 
 app:
   kafka:
+    enabled: ${APP_KAFKA_ENABLED:false}
     topics:
       customer-registered: identity.customer-events.v1
 
@@ -91,5 +91,6 @@ logging:
     org.springframework.orm.jpa: DEBUG
     org.springframework.transaction: TRACE
     com.fintech.customer: DEBUG
-    org.springframework.kafka: DEBUG
-    org.apache.kafka.clients.consumer: INFO
+    org.springframework.kafka: INFO
+    org.apache.kafka.clients.consumer: WARN
+    org.apache.kafka.clients.NetworkClient: ERROR

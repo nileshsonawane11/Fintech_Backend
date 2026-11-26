@@ -545,22 +545,28 @@ export async function getMyProfile(customerId) {
             state: primaryAddr.state || '',
             pin: primaryAddr.postalCode || ''
           } : { line1: '', city: '', state: '', pin: '' },
-          kycStatus: prof.kycStatus || kyc?.status || 'NOT_STARTED'
+          kycStatus: (prof.kycStatus && prof.kycStatus !== 'NOT_STARTED' ? prof.kycStatus : kyc?.status) || prof.kycStatus || 'NOT_STARTED'
         };
         const kycCase = {
           id: kyc?.kycCaseId || kyc?.id || null,
           kycCaseId: kyc?.kycCaseId || kyc?.id || null,
-          status: kyc?.status || prof.kycStatus || 'NOT_STARTED',
+          status: (prof.kycStatus && prof.kycStatus !== 'NOT_STARTED' ? prof.kycStatus : kyc?.status) || prof.kycStatus || 'NOT_STARTED',
           submittedAt: kyc?.submittedAt || kyc?.createdAt || prof.createdAt || null,
           rejectionReason: kyc?.rejectionReason || kyc?.decisionReason || null,
-          documents: rawDocs.map(d => ({
-            documentReferenceId: d.documentReferenceId,
-            type: d.documentType || d.type,
-            name: d.fileName || d.name || 'document.pdf',
-            state: d.status || d.state || 'UPLOADED',
-            dataUrl: d.dataUrl || null,
-            size: d.contentSizeBytes || d.size || null
-          }))
+          documents: rawDocs.map(d => {
+            const rawType = String(d.documentType || d.type || '').toUpperCase();
+            const fn = String(d.fileName || d.name || '').toLowerCase();
+            const uiType = rawType === 'IDENTITY_PROOF' ? (fn.includes('photo') || fn.includes('selfie') ? 'PHOTO' : 'AADHAAR') : rawType;
+            return {
+              documentReferenceId: d.documentReferenceId,
+              type: uiType,
+              documentType: rawType,
+              name: d.fileName || d.name || 'document.pdf',
+              state: d.status || d.state || 'UPLOADED',
+              dataUrl: d.dataUrl || null,
+              size: d.contentSizeBytes || d.size || null
+            };
+          })
         };
         return { customer, kycCase };
       }
@@ -607,45 +613,42 @@ export async function getMyProfile(customerId) {
   }
   const targetCustId = cust.customerId;
   const kyc = (db.kycApplications || []).find(k => k.customerId === targetCustId) || {
-    id: 'KYC-500987',
-    kycCaseId: 'KYC-500987',
-    status: 'APPROVED',
-    documents: [
-      { documentType: 'PAN', fileName: 'pan-card.pdf', verified: true },
-      { documentType: 'ADDRESS_PROOF', fileName: 'utility-bill.pdf', verified: true }
-    ]
+    id: null,
+    kycCaseId: null,
+    status: cust?.kycStatus || 'NOT_STARTED',
+    documents: []
   };
 
   const customer = {
     customerId: cust?.customerId || targetCustId,
-    fullName: cust?.fullName || cust?.name || 'Vikramaditya Sharma',
-    email: cust?.email || 'vikram.sharma@finedge.customer',
-    mobile: cust?.mobileNumber || cust?.mobile || cust?.phone || '9820110023',
-    dob: cust?.dateOfBirth || cust?.dob || '1995-08-14',
+    fullName: cust?.fullName || cust?.name || '',
+    email: cust?.email || '',
+    mobile: cust?.mobileNumber || cust?.mobile || cust?.phone || '',
+    dob: cust?.dateOfBirth || cust?.dob || '',
     gender: cust?.gender || 'MALE',
     pan: cust?.pan || cust?.panNumber || '',
     occupation: cust?.occupation || 'SALARIED',
-    annualIncome: cust?.annualIncome || 1200000,
+    annualIncome: cust?.annualIncome || '',
     address: cust?.address ? {
-      line1: cust.address.addressLine1 || cust.address.line1 || '402, FinEdge Horizon Towers',
-      city: cust.address.city || 'Mumbai',
-      state: cust.address.state || 'Maharashtra',
-      pin: cust.address.postalCode || cust.address.pin || '400051'
+      line1: cust.address.addressLine1 || cust.address.line1 || '',
+      city: cust.address.city || '',
+      state: cust.address.state || '',
+      pin: cust.address.postalCode || cust.address.pin || ''
     } : {
-      line1: '402, FinEdge Horizon Towers',
-      city: 'Mumbai',
-      state: 'Maharashtra',
-      pin: '400051'
+      line1: '',
+      city: '',
+      state: '',
+      pin: ''
     },
-    kycStatus: kyc?.status || cust?.kycStatus || 'APPROVED'
+    kycStatus: kyc?.status || cust?.kycStatus || 'NOT_STARTED'
   };
 
   const rawDocs = kyc.documents || kyc.submittedDocuments || [];
   const kycCase = {
-    id: kyc.kycCaseId || kyc.id || 'KYC-500987',
-    kycCaseId: kyc.kycCaseId || kyc.id || 'KYC-500987',
-    status: kyc.status || 'APPROVED',
-    submittedAt: kyc.submittedAt || kyc.createdAt || '2026-10-01T06:30:00Z',
+    id: kyc.kycCaseId || kyc.id || null,
+    kycCaseId: kyc.kycCaseId || kyc.id || null,
+    status: kyc.status || 'NOT_STARTED',
+    submittedAt: kyc.submittedAt || kyc.createdAt || null,
     documents: rawDocs.map(d => ({
       type: d.documentType || d.type,
       name: d.fileName || d.name || 'document.pdf',
@@ -671,18 +674,24 @@ export async function submitKyc(customerId, payload, documents = []) {
       const docReferences = [];
 
       for (const d of (documents || [])) {
+        const mappedType = customerService.mapDocumentType(d.type);
         if (d.documentReferenceId) {
-          docReferences.push({ documentType: d.type, documentReferenceId: d.documentReferenceId });
+          docReferences.push({ documentType: mappedType, documentReferenceId: d.documentReferenceId });
         } else {
-          const matched = docList.find(ed => (ed.documentType || ed.type) === d.type);
+          const matched = docList.find(ed => (ed.documentType || ed.type) === mappedType || (ed.fileName && d.name && ed.fileName === d.name));
           if (matched?.documentReferenceId) {
-            docReferences.push({ documentType: d.type, documentReferenceId: matched.documentReferenceId });
+            docReferences.push({ documentType: mappedType, documentReferenceId: matched.documentReferenceId });
+          } else if (d.file || d.dataUrl) {
+            const uploaded = await uploadKycDocument(customerId, d);
+            if (uploaded?.documentReferenceId) {
+              docReferences.push({ documentType: mappedType, documentReferenceId: uploaded.documentReferenceId });
+            }
           }
         }
       }
       if (docReferences.length === 0 && docList.length > 0) {
         docList.forEach(ed => {
-          docReferences.push({ documentType: ed.documentType, documentReferenceId: ed.documentReferenceId });
+          docReferences.push({ documentType: customerService.mapDocumentType(ed.documentType), documentReferenceId: ed.documentReferenceId });
         });
       }
 
@@ -693,7 +702,7 @@ export async function submitKyc(customerId, payload, documents = []) {
         gender: String(payload.gender || 'MALE').toUpperCase(),
         pan: String(payload.pan || '').trim().toUpperCase(),
         aadhaarConsent: Boolean(payload.aadhaarConsent ?? true),
-        occupation: String(payload.occupation || 'SALARIED').toUpperCase().replace(/[s-]+/g, '_'),
+        occupation: String(payload.occupation || 'SALARIED').toUpperCase().replace(/[\s-]+/g, '_'),
         annualIncomeRange: mapIncomeRangeEnum(payload.annualIncomeRange || payload.annualIncome),
         address: {
           addressLine1: (addr.line1 || addr.addressLine1 || '').trim(),
@@ -1748,7 +1757,8 @@ export async function uploadKycDocument(customerId, { type, name, file, dataUrl,
       if (uploadFile) {
         const docRes = await customerService.uploadDocumentMultipart({
           file: uploadFile,
-          documentType: type
+          documentType: customerService.mapDocumentType(type),
+          documentName: name || uploadFile.name
         });
         return {
           documentReferenceId: docRes.documentReferenceId,
@@ -1802,6 +1812,24 @@ export async function uploadKycDocument(customerId, { type, name, file, dataUrl,
 }
 
 export async function deleteKycDocument(customerId, type) {
+  if (isLiveBackendActive()) {
+    try {
+      const docsRes = await customerService.getKycDocuments().catch(() => []);
+      const docList = Array.isArray(docsRes) ? docsRes : docsRes?.data || [];
+      const mappedType = customerService.mapDocumentType(type);
+      const match = docList.find(d => d.documentReferenceId === type || d.documentType === mappedType || d.documentType === type);
+      if (match?.documentReferenceId) {
+        await customerService.deleteKycDocument(match.documentReferenceId);
+        return true;
+      }
+      if (String(type || '').startsWith('DOC-')) {
+        await customerService.deleteKycDocument(type);
+        return true;
+      }
+    } catch (err) {
+      throw normaliseError(err);
+    }
+  }
   const effCustId = getEffectiveCustomerId(customerId) || customerId;
   const db = getDb();
   if (!db.kycApplications) db.kycApplications = [];

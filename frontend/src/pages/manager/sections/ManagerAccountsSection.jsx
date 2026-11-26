@@ -47,7 +47,7 @@ const DECISION_CODES = [
 ];
 
 const PAN_RE = /^[A-Z]{5}[0-9]{4}[A-Z]$/;
-const ACTIONABLE = ['UNDER_REVIEW', 'PENDING', 'INFO_REQUIRED'];
+const ACTIONABLE = ['UNDER_REVIEW', 'PENDING', 'PENDING_APPROVAL', 'PENDING_REVIEW', 'SUBMITTED', 'INFO_REQUIRED'];
 
 function productFor(app) {
   if (!app) return null;
@@ -428,7 +428,7 @@ export default function ManagerAccountsPage() {
                     <Button variant="secondary" disabled title="Reopen workflow is not part of this prototype">Reopen</Button>
                   </div>
                 </div>
-              ) : detail.status === 'APPROVED' ? (
+              ) : (detail.status === 'APPROVED' || detail.status === 'ACCOUNT_CREATED') ? (
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <p className="text-[13px] text-ink-500">This application was approved and the account has been created. No further decisions are available.</p>
                   <Button variant="secondary" onClick={() => setDetailId(null)}>Close</Button>

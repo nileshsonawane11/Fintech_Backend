@@ -3,11 +3,14 @@ package com.fintech.customer.service;
 import com.fintech.customer.dto.request.KycApplicationRequest;
 import com.fintech.customer.dto.response.KycApplicationResponse;
 import com.fintech.customer.exception.ApiException;
+import com.fintech.customer.model.CustomerAddress;
 import com.fintech.customer.model.CustomerProfile;
 import com.fintech.customer.model.KycCase;
 import com.fintech.customer.model.kyc.state.KycStatus;
+import com.fintech.customer.repository.CustomerAddressRepository;
 import com.fintech.customer.repository.CustomerProfileRepository;
 import com.fintech.customer.repository.KycCaseRepository;
+import org.springframework.beans.factory.annotation.Autowired;
 import com.fintech.customer.security.FieldEncryptionService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -26,18 +29,59 @@ public class KycApplicationService {
     private final CustomerProfileRepository customerProfileRepository;
     private final KycCaseRepository kycCaseRepository;
     private final FieldEncryptionService encryptionService;
+    private final CustomerAddressRepository customerAddressRepository;
 
     public KycApplicationService(CustomerProfileRepository customerProfileRepository,
                                  KycCaseRepository kycCaseRepository,
                                  FieldEncryptionService encryptionService) {
+        this(customerProfileRepository, kycCaseRepository, encryptionService, null);
+    }
+
+    @Autowired
+    public KycApplicationService(CustomerProfileRepository customerProfileRepository,
+                                 KycCaseRepository kycCaseRepository,
+                                 FieldEncryptionService encryptionService,
+                                 CustomerAddressRepository customerAddressRepository) {
         this.customerProfileRepository = customerProfileRepository;
         this.kycCaseRepository = kycCaseRepository;
         this.encryptionService = encryptionService;
+        this.customerAddressRepository = customerAddressRepository;
     }
 
     @Transactional
     public KycApplicationResponse submitApplication(String identitySubject, KycApplicationRequest request) {
-        CustomerProfile profile = getCustomerProfileOrThrow(identitySubject);
+        CustomerProfile profile = getOrCreateCustomerProfile(identitySubject);
+
+        if (!"APPROVED".equalsIgnoreCase(profile.getKycStatus())) {
+            profile.setFullName(request.fullName().trim());
+            profile.setDateOfBirth(request.dateOfBirth());
+            profile.setGender(request.gender());
+            String panUpper = request.pan().trim().toUpperCase();
+            profile.setPanMasked(panUpper);
+            profile.setPanEncrypted(encryptionService.encrypt(panUpper));
+            profile.setKycStatus("SUBMITTED");
+            profile = customerProfileRepository.save(profile);
+        }
+
+        if (customerAddressRepository != null && request.address() != null) {
+            var existingAddresses = customerAddressRepository.findAddressDetailsByCustomerIds(List.of(profile.getId()));
+            boolean addrExists = existingAddresses.stream().anyMatch(a ->
+                    request.address().addressLine1().equalsIgnoreCase(a.getAddressLine1()) &&
+                    request.address().city().equalsIgnoreCase(a.getCity()));
+            if (!addrExists) {
+                CustomerAddress address = CustomerAddress.create(
+                        profile,
+                        request.address().addressType(),
+                        request.address().addressLine1().trim(),
+                        request.address().addressLine2() != null ? request.address().addressLine2().trim() : null,
+                        request.address().city().trim(),
+                        request.address().state().trim(),
+                        request.address().postalCode().trim(),
+                        request.address().country()
+                );
+                customerAddressRepository.save(address);
+            }
+        }
 
         // Check if an active application already exists
         kycCaseRepository.findFirstByCustomerProfile_IdentitySubjectOrderByCreatedAtDesc(identitySubject)
@@ -131,13 +175,12 @@ public class KycApplicationService {
 
     // --- Helper Methods ---
 
-    private CustomerProfile getCustomerProfileOrThrow(String identitySubject) {
+    private CustomerProfile getOrCreateCustomerProfile(String identitySubject) {
         return customerProfileRepository.findByIdentitySubject(identitySubject)
-                .orElseThrow(() -> new ApiException(
-                        HttpStatus.NOT_FOUND,
-                        "CUSTOMER_NOT_FOUND",
-                        "Customer profile was not found."
-                ));
+                .orElseGet(() -> {
+                    String customerId = "CUS-" + UUID.randomUUID().toString().substring(0, 8).toUpperCase();
+                    return customerProfileRepository.save(CustomerProfile.create(customerId, identitySubject));
+                });
     }
 
     private KycCase getKycCaseAndVerifyOwnership(String identitySubject, String kycCaseId) {

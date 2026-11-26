@@ -39,7 +39,7 @@ public class CustomerProfileController {
             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt) {
 
         CustomerProfileResponse response =
-                customerService.getMyProfile(jwt.getSubject());
+                customerService.getCurrentCustomer(jwt);
 
         return ResponseEntity.ok(response);
     }

@@ -1,8 +1,6 @@
-import { useServerMode } from '../../lib/serverMode.js';
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useLocation, useSearchParams, Link } from 'react-router-dom';
 import { useAuth } from '../../context/AuthContext';
-import { getDemoAccounts, resetDemoDb } from '../../services/api.js';
 import {
   Card,
   Button,
@@ -86,17 +84,6 @@ export const PortalLoginPage = ({ initialMode: propInitialMode } = {}) => {
       navigate('/portal/register');
     } else if (nextMode === 'login' && location.pathname !== '/portal/login') {
       navigate('/portal/login');
-    }
-  };
-  const { isDemo } = useServerMode();
-  const [demoOpen, setDemoOpen] = useState(true);
-  const [resetOpen, setResetOpen] = useState(false);
-
-  const handleResetConfirm = () => {
-    resetDemoDb();
-    setResetOpen(false);
-    if (typeof window !== 'undefined') {
-      window.location.reload();
     }
   };
 
@@ -187,15 +174,6 @@ export const PortalLoginPage = ({ initialMode: propInitialMode } = {}) => {
     } finally {
       setLoading(false);
     }
-  };
-
-  const populateDemo = (acc) => {
-    const id = acc.email || acc.phone || acc.mobileNumber;
-    const pwd = acc.password || 'Password@123';
-    setIdentifier(id);
-    setPassword(pwd);
-    setError('');
-    handleLoginSubmit(null, id, pwd, true);
   };
 
   const handleMfaSubmit = async (codeToSubmit) => {
@@ -316,12 +294,6 @@ export const PortalLoginPage = ({ initialMode: propInitialMode } = {}) => {
 
         <Card className="mt-8 p-6 sm:p-8 shadow-card border border-ink-100 bg-white">
           {/* FormError placed above submit button per G.1 */}
-          {isDemo && (
-            <div className="mb-4 flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 shadow-sm">
-              <Info className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
-              <span>Demo mode — no server is connected. You are signing in to demonstration data stored only in this browser.</span>
-            </div>
-          )}
           {successMsg && (
             <div className="mb-4 flex items-start gap-2.5 rounded-lg border border-emerald-200 bg-emerald-50 p-3 text-xs text-emerald-800">
               <CheckCircle2 className="h-4 w-4 shrink-0 text-emerald-600 mt-0.5" />
@@ -608,81 +580,6 @@ export const PortalLoginPage = ({ initialMode: propInitialMode } = {}) => {
         </Card>
 
         
-        {/* Demo Credentials Expander - Module 51 Part C */}
-        {isDemo && (
-          <div className="mt-6 rounded-xl border border-ink-200 bg-white/80 p-4">
-            <button
-              type="button"
-              onClick={() => setDemoOpen(!demoOpen)}
-              className="flex w-full items-center justify-between text-left text-xs font-semibold text-ink-900"
-            >
-              <span className="flex items-center gap-1.5">
-                <KeyRound className="h-4 w-4 text-bank-primary" />
-                <span>Demo access</span>
-              </span>
-              <ChevronDown className={`h-4 w-4 transition-transform ${demoOpen ? 'rotate-180' : ''}`} />
-            </button>
-            <p className="mt-1 text-xs text-ink-500">Demonstration accounts — no real credentials.</p>
-
-            {demoOpen && (
-              <div className="mt-3 space-y-2 border-t border-ink-100 pt-3 text-xs text-ink-700">
-                <p className="text-xs text-ink-500 leading-relaxed">
-                  Click any profile below to populate standard credentials. Simulated OTP code is <span className="font-mono font-bold text-ink-900">849201</span>.
-                </p>
-                <div className="space-y-1.5">
-                  {getDemoAccounts().map((acc) => (
-                    <button
-                      key={acc.email}
-                      type="button"
-                      onClick={() => {
-                        populateDemo(acc);
-                        setMode('login');
-                      }}
-                      className="flex w-full items-center justify-between rounded-lg border border-ink-100 bg-porcelain-50 p-2.5 text-left hover:border-bank-primary hover:bg-bank-primary-light/40 transition-colors"
-                    >
-                      <div>
-                        <p className="font-semibold text-ink-900">{acc.fullName || acc.name}</p>
-                        <p className="text-xs font-mono text-ink-500">{acc.email}</p>
-                      </div>
-                      <span className="text-xs font-medium text-bank-primary underline">
-                        Use account →
-                      </span>
-                    </button>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            <div className="mt-3 text-center border-t border-ink-100 pt-2.5">
-              <button
-                type="button"
-                onClick={() => setResetOpen(true)}
-                className="text-xs font-medium text-ink-500 hover:text-ink-700 underline transition-colors"
-              >
-                Reset demo data
-              </button>
-            </div>
-          </div>
-        )}
-
-        <Modal
-          open={resetOpen}
-          onClose={() => setResetOpen(false)}
-          title="Reset demo data?"
-          footer={(
-            <>
-              <Button variant="secondary" onClick={() => setResetOpen(false)}>Cancel</Button>
-              <Button variant="danger" onClick={handleResetConfirm}>Reset demo data</Button>
-            </>
-          )}
-        >
-          <p className="text-sm leading-relaxed text-ink-700">
-            This clears everything this prototype has stored in your browser — accounts, applications,
-            transfers, KYC decisions and preferences — and restores the original seeded demo data.
-            You will be signed out, and the reset cannot be undone.
-          </p>
-        </Modal>
-
         <p className="mt-6 text-center text-xs text-ink-500">
           Bank staff member?{' '}
           <Link to="/manager/login" className="font-medium text-bank-primary underline hover:text-bank-primary-hover">

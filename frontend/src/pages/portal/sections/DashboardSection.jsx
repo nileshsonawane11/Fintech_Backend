@@ -423,16 +423,6 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-8">
-      {/* Simulation Banner Notice */}
-      <div className="flex items-center justify-between rounded-lg border border-bank-primary-border bg-bank-primary/10 px-4 py-2 text-xs text-midnight-950">
-        <div className="flex items-center gap-2">
-          <Sparkles className="h-4 w-4 text-bank-primary" />
-          <span className="font-semibold">Demonstration Environment</span>
-          <span className="hidden sm:inline text-ink-600">— Simulated payment rails &amp; balances. No real money is moved.</span>
-        </div>
-        <span className="font-mono text-xs font-bold text-bank-primary">ACTIVE SESSION</span>
-      </div>
-
       {/* Greeting row */}
       <div className="flex flex-wrap items-start justify-between gap-3">
         <div>

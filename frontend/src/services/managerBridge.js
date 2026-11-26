@@ -77,6 +77,7 @@ export const ROLE_ALLOWED_SECTIONS = {
   AUDITOR: ['dashboard', 'customers', 'audit', 'reports'],
   OFFICER: ['dashboard', 'kyc', 'customers', 'audit'],
   MANAGER: ['dashboard', 'kyc', 'accounts', 'loans', 'investments', 'cards', 'tickets', 'customers', 'audit', 'reports', 'staff'],
+  OPERATIONS: ['dashboard', 'kyc', 'accounts', 'cards', 'tickets', 'customers', 'audit'],
   ADMIN: ['dashboard', 'kyc', 'accounts', 'loans', 'investments', 'cards', 'tickets', 'customers', 'audit', 'reports', 'staff', 'user-management', 'roles-permissions', 'product-catalogue']
 };
 
@@ -144,7 +145,7 @@ export function getCurrentStaffActor(override = {}) {
     }
   }
 
-  // 3. Compatibility with saved manager user in storage
+  // 3. Compatibility with saved manager user in storage (live backend or persisted session)
   if (!staffUser && typeof localStorage !== 'undefined') {
     const saved = localStorage.getItem('finedge_manager_user');
     if (saved) {
@@ -154,6 +155,14 @@ export function getCurrentStaffActor(override = {}) {
           (st.email && st.email.toLowerCase() === parsed.email?.toLowerCase()) ||
           st.staffId === (parsed.staffId || parsed.id)
         );
+        if (!staffUser && parsed && (parsed.email || parsed.role)) {
+          return {
+            email: parsed.email || 'staff@finedge.bank',
+            role: parsed.role || 'OPERATIONS',
+            name: parsed.name || parsed.fullName || 'Staff Member',
+            staffId: parsed.staffId || parsed.id || parsed.email
+          };
+        }
       } catch {}
     }
   }
@@ -395,14 +404,20 @@ export function normalizeAccountApplication(a, db) {
     kycStatus: cust.kycStatus || 'NOT_STARTED'
   } : null;
 
+  const PRODUCT_NAME_MAP = {
+    SAVINGS_REGULAR: 'FinEdge Everyday Savings Account',
+    SAVINGS_PREMIUM: 'FinEdge Premier Savings Account',
+    CURRENT_STANDARD: 'FinEdge Trade Current Account'
+  };
+  const resolvedProductName = a.productName || PRODUCT_NAME_MAP[a.productCode] || a.productCode || 'FinEdge Account';
   return {
     id,
     accountApplicationId: id,
     customerId: a.customerId,
-    customerName: cust?.fullName || a.customerName || a.fullName || '—',
-    applicantName: cust?.fullName || a.customerName || a.fullName || '—',
+    customerName: cust?.fullName || a.customerName || a.fullName || a.customerId || '—',
+    applicantName: cust?.fullName || a.customerName || a.fullName || a.customerId || '—',
     customer: custObj,
-    productName: a.productName,
+    productName: resolvedProductName,
     productCode: a.productCode,
     productSlug: a.productSlug,
     initialFunding: Number(a.initialFundingAmount ?? a.initialFunding ?? 10000),
@@ -652,53 +667,31 @@ export async function listKycCases({ status = '', query = '' } = {}) {
 }
 
 export async function getKycCase(caseId) {
+  try {
+    const allCases = await listKycCases({});
+    const found = (allCases || []).find(c => c.id === caseId || c.kycCaseId === caseId);
+    if (found) return found;
+  } catch {}
+  try {
+    const res = await apiRequest(`/ops/api/v1/kyc/applications/${caseId}`, { method: 'GET', isManager: true });
+    if (res) return normalizeKycCase(res, getDb());
+  } catch {}
   const db = getDb();
   const kyc = (db.kycApplications || []).find(k => (k.kycCaseId || k.caseId || k.id) === caseId);
   return kyc ? normalizeKycCase(kyc, db) : null;
 }
 
 export async function decideKycCase(caseId, { decision, reasonCode, note, actor, actorRole, actorEmail }) {
-  const staff = assertStaffPermission('kyc.review', { actor, actorRole, actorEmail });
-  const db = getDb();
-  const kyc = (db.kycApplications || []).find(k => (k.kycCaseId || k.caseId || k.id) === caseId);
-  if (!kyc) throw { status: 404, message: 'KYC case not found' };
-
+  assertStaffPermission('kyc.review', { actor, actorRole, actorEmail });
   if (decision === 'APPROVED') {
-    kyc.status = 'APPROVED';
-    kyc.approvedBy = staff.email;
-    kyc.approvedAt = new Date().toISOString();
-    const cust = (db.customers || []).find(c => c.customerId === kyc.customerId);
-    if (cust) {
-      cust.kycStatus = 'APPROVED';
-      cust.riskCategory = 'LOW';
-    }
-    saveDb(db);
-    appendAuditLog(staff.email, staff.role, 'KYC_APPROVED', kyc.kycCaseId, 'SUCCESS', note || 'Approved with remarks: All documents verified');
-    return normalizeKycCase(kyc, db);
-  } else if (decision === 'INFO_REQUIRED') {
-    kyc.status = 'INFO_REQUIRED';
-    kyc.infoRequiredAt = new Date().toISOString();
-    kyc.decisionReason = note || reasonCode || 'Additional documents required';
-    const cust = (db.customers || []).find(c => c.customerId === kyc.customerId);
-    if (cust) {
-      cust.kycStatus = 'INFO_REQUIRED';
-    }
-    saveDb(db);
-    appendAuditLog(staff.email, staff.role, 'KYC_INFO_REQUIRED', kyc.kycCaseId, 'SUCCESS', `Marked Info Required: ${note || reasonCode || 'Documents missing'}`);
-    return normalizeKycCase(kyc, db);
-  } else {
-    kyc.status = 'REJECTED';
-    kyc.rejectedBy = staff.email;
-    kyc.rejectedAt = new Date().toISOString();
-    kyc.decisionReason = note || reasonCode || 'Documents failed statutory checks';
-    const cust = (db.customers || []).find(c => c.customerId === kyc.customerId);
-    if (cust) {
-      cust.kycStatus = 'REJECTED';
-    }
-    saveDb(db);
-    appendAuditLog(staff.email, staff.role, 'KYC_REJECTED', kyc.kycCaseId, 'SUCCESS', `Rejected with remarks: ${note || reasonCode}`);
-    return normalizeKycCase(kyc, db);
+    return managerService.approveKyc(caseId, {
+      remarks: note || 'All documents verified',
+      riskCategory: 'LOW'
+    });
   }
+  return managerService.rejectKyc(caseId, {
+    remarks: note || reasonCode || 'Documents failed verification checks'
+  });
 }
 
 // ============================================================================
@@ -707,25 +700,42 @@ export async function decideKycCase(caseId, { decision, reasonCode, note, actor,
 
 export async function listAccountApplications({ status } = {}) {
   const db = getDb();
-  const list = db.accountApplications || [];
+  let list = [];
+  try {
+    const res = await managerService.getAccountApplications();
+    list = Array.isArray(res) ? res : res?.data || res?.items || res?.content || [];
+  } catch {
+    list = db.accountApplications || [];
+  }
   const normalized = list.map(a => normalizeAccountApplication(a, db));
   if (!status || status === 'ALL') return normalized;
 
   const target = status.toUpperCase();
   if (target === 'PENDING' || target === 'UNDER_REVIEW') {
-    return normalized.filter(a => ['UNDER_REVIEW', 'PENDING', 'PENDING_APPROVAL', 'PENDING_REVIEW'].includes(a.status));
+    return normalized.filter(a => ['UNDER_REVIEW', 'PENDING', 'PENDING_APPROVAL', 'PENDING_REVIEW', 'SUBMITTED'].includes(a.status));
+  }
+  if (target === 'APPROVED') {
+    return normalized.filter(a => ['APPROVED', 'ACCOUNT_CREATED'].includes(a.status));
   }
   return normalized.filter(a => a.status === target);
 }
 
 export async function decideAccountApplication(appId, { decision, reasonCode, note, overrideReason, actor, actorRole, actorEmail } = {}) {
-  const staff = assertStaffPermission('accounts.review', { actor, actorRole, actorEmail });
+  assertStaffPermission('accounts.review', { actor, actorRole, actorEmail });
   if (decision === 'APPROVED') {
-    return managerService.approveAccountApplication(appId, { actor: staff.name, actorRole: staff.role, actorEmail: staff.email });
+    return managerService.approveAccountApplication(appId, {
+      remarks: note || overrideReason || 'Application approved after verification'
+    });
   } else if (decision === 'INFO_REQUIRED') {
-    return managerService.requestInfoAccountApplication(appId, { remarks: note || reasonCode || 'Additional information required', actor: staff.name, actorRole: staff.role, actorEmail: staff.email });
+    return managerService.requestInfoAccountApplication(appId, {
+      reasonCode: reasonCode || 'OTHER',
+      remarks: note || reasonCode || 'Additional information required'
+    });
   } else {
-    return managerService.rejectAccountApplication(appId, { remarks: note || reasonCode || 'Application rejected', actor: staff.name, actorRole: staff.role, actorEmail: staff.email });
+    return managerService.rejectAccountApplication(appId, {
+      reasonCode: reasonCode || 'OTHER',
+      remarks: note || reasonCode || 'Application rejected'
+    });
   }
 }
 

@@ -1,11 +1,9 @@
-import { useServerMode } from '../../lib/serverMode.js';
 import React, { useState, useEffect } from 'react';
 import { Link, useNavigate, useLocation, useSearchParams } from 'react-router-dom';
 import { Eye, EyeOff, ShieldCheck, Lock, Mail, ArrowRight, ChevronDown, KeyRound, Info } from 'lucide-react';
 import { Button, Card, Field, FormError, Input, Modal, Select } from '../../components/ui.jsx';
 import { useAuth } from '../../context/AuthContext';
 import { getFirstQueueForRole, hasSectionAccess } from '../../services/managerBridge.js';
-import { resetDemoDb, getDemoStaffAccounts } from '../../services/api.js';
 import { traceForm } from '../../lib/trace.js';
 
 
@@ -23,9 +21,6 @@ export const ManagerLoginPage = () => {
   const location = useLocation();
   const [searchParams] = useSearchParams();
   const { managerUser, isManagerAuthenticated, managerLogin, managerLogout } = useAuth();
-  const { isDemo } = useServerMode();
-  const [demoOpen, setDemoOpen] = useState(true);
-  const [resetOpen, setResetOpen] = useState(false);
 
   // Status & Feedback - Part 1(d) Session expiry notice
   const isSessionExpired = Boolean(
@@ -46,15 +41,6 @@ export const ManagerLoginPage = () => {
       navigate(dest, { replace: true });
     }
   }, [managerUser, isManagerAuthenticated, navigate, location, isSessionExpired, managerLogout]);
-
-  const handleResetConfirm = () => {
-    resetDemoDb();
-    setResetOpen(false);
-    setUserHasTyped(false);
-    if (typeof window !== 'undefined') {
-      window.location.reload();
-    }
-  };
 
   const [role, setRole] = useState('');
   const [roleError, setRoleError] = useState('');
@@ -99,10 +85,9 @@ export const ManagerLoginPage = () => {
 
     setLoading(true);
     try {
-      const res = await managerLogin(trimmed, password, targetRole);
-      console.log(res);
-      const role = res?.customer?.role;
-      const defaultTarget = getFirstQueueForRole(role);
+      const res = await managerLogin(trimmed, targetPassword, targetRole);
+      const loggedRole = res?.managerUser?.role || res?.customer?.role || targetRole;
+      const defaultTarget = getFirstQueueForRole(loggedRole);
       const fromPath = location.state?.from?.pathname;
       const fromSection = fromPath?.replace(/^\/manager\/?/, '');
       const target = (fromPath && fromPath.startsWith('/manager') && fromSection && hasSectionAccess(fromSection, res?.managerUser))
@@ -117,50 +102,10 @@ export const ManagerLoginPage = () => {
     }
   };
 
-  const populateStaff = (s) => {
-    const nextRole = s.role || '';
-    setRole(nextRole);
-    setRoleError('');
-    setEmail(s.email || '');
-    setPassword(s.password || '');
-    setError('');
-    setUserHasTyped(false);
-
-    if (nextRole) {
-      handleSubmit(null, { role: nextRole, email: s.email, password: s.password });
-    }
-  };
-
   const handleRoleChange = (e) => {
     const newRole = e.target.value;
     setRole(newRole);
     setRoleError('');
-
-    if (!isDemo || !newRole) {
-      return;
-    }
-
-    const demoAccounts = getDemoStaffAccounts() || [];
-    const demoEmails = demoAccounts.map((a) => (a.email || '').trim().toLowerCase());
-    const currentEmailTrimmed = (email || '').trim().toLowerCase();
-
-    // Guard: if the email field currently holds a value that is NOT one of the seeded demo account emails
-    // (the user has typed something of their own), changing the dropdown changes ONLY the role
-    // — never overwrite typed credentials, never auto-submit.
-    if (userHasTyped || (currentEmailTrimmed && !demoEmails.includes(currentEmailTrimmed))) {
-      return;
-    }
-
-    const match = demoAccounts.find((a) => a.role === newRole);
-    if (!match) {
-      // If no demo account exists for the selected role, change only the role (no populate, no submit, no error).
-      return;
-    }
-
-    setEmail(match.email);
-    setPassword(match.password);
-    setError('');
-    handleSubmit(null, { role: newRole, email: match.email, password: match.password });
   };
 
   return (
@@ -178,13 +123,6 @@ export const ManagerLoginPage = () => {
           </div>
 
           {/* FormError placed above submit button per G.1 */}
-          {isDemo && (
-            <div className="mb-4 flex items-start gap-2.5 rounded-lg border border-amber-300 bg-amber-50 p-3 text-xs text-amber-900 shadow-sm">
-              <Info className="h-4 w-4 shrink-0 text-amber-600 mt-0.5" />
-              <span>Demo mode — no server is connected. You are signing in to demonstration data stored only in this browser.</span>
-            </div>
-          )}
-
           <form onSubmit={handleSubmit} className="space-y-4">
             <Field label="Signing in as" required error={roleError}>
               <Select
@@ -257,76 +195,6 @@ export const ManagerLoginPage = () => {
           </form>
 
           
-          {/* Demo Staff Expander - Module 51 Part C */}
-          {isDemo && (
-            <div className="mt-6 border-t border-ink-100 pt-4">
-              <button
-                type="button"
-                onClick={() => setDemoOpen(!demoOpen)}
-                className="flex w-full items-center justify-between text-left text-xs font-semibold text-ink-900"
-              >
-                <span className="flex items-center gap-1.5">
-                  <KeyRound className="h-4 w-4 text-bank-primary" />
-                  <span>Demo access</span>
-                </span>
-                <ChevronDown className={`h-4 w-4 transition-transform ${demoOpen ? 'rotate-180' : ''}`} />
-              </button>
-              <p className="mt-1 text-xs text-ink-500">Demonstration accounts — no real credentials.</p>
-
-              {demoOpen && (
-                <div className="mt-3 space-y-2 text-xs text-ink-700">
-                  <p className="text-xs text-ink-500 leading-relaxed">
-                    Click any clearance role to populate operational login credentials:
-                  </p>
-                  <div className="space-y-2">
-                    {getDemoStaffAccounts().map((s) => (
-                      <button
-                        key={s.email}
-                        type="button"
-                        onClick={() => populateStaff(s)}
-                        className="w-full rounded-md border border-ink-200 bg-porcelain-50 p-2 text-left transition-colors hover:border-bank-primary hover:bg-bank-primary-light/40"
-                      >
-                        <div className="flex items-center justify-between">
-                          <span className="font-semibold text-ink-900">{s.role}</span>
-                          <span className="font-mono text-xs text-ink-500">{s.email}</span>
-                        </div>
-                        <p className="mt-0.5 text-xs text-ink-600 line-clamp-1">{s.clearance || s.department || s.name}</p>
-                      </button>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              <div className="mt-3 text-center border-t border-ink-100 pt-2.5">
-                <button
-                  type="button"
-                  onClick={() => setResetOpen(true)}
-                  className="text-xs font-medium text-ink-500 hover:text-ink-700 underline transition-colors"
-                >
-                  Reset demo data
-                </button>
-              </div>
-            </div>
-          )}
-
-          <Modal
-            open={resetOpen}
-            onClose={() => setResetOpen(false)}
-            title="Reset demo data?"
-            footer={(
-              <>
-                <Button variant="secondary" onClick={() => setResetOpen(false)}>Cancel</Button>
-                <Button variant="danger" onClick={handleResetConfirm}>Reset demo data</Button>
-              </>
-            )}
-          >
-            <p className="text-sm leading-relaxed text-ink-700">
-              This clears everything this prototype has stored in your browser — accounts, applications,
-              transfers, KYC decisions and preferences — and restores the original seeded demo data.
-              You will be signed out, and the reset cannot be undone.
-            </p>
-          </Modal>
-
           <div className="mt-6 text-center text-xs text-ink-500">
             <Link to="/portal/login" className="text-bank-primary underline hover:text-bank-primary-hover">
               Return to Customer Online Banking Portal
