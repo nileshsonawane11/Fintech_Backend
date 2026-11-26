@@ -1,7 +1,7 @@
 -- Loan Service DB Schema
 -- V1: Create core tables
 
-CREATE TABLE loan_products (
+CREATE TABLE IF NOT EXISTS loan_products (
     product_code        VARCHAR(50)     PRIMARY KEY,
     product_name        VARCHAR(200)    NOT NULL,
     loan_type           VARCHAR(50)     NOT NULL,
@@ -17,7 +17,7 @@ CREATE TABLE loan_products (
     created_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE loan_applications (
+CREATE TABLE IF NOT EXISTS loan_applications (
     id                          VARCHAR(36)     PRIMARY KEY,
     loan_application_id         VARCHAR(20)     NOT NULL UNIQUE,
     customer_id                 VARCHAR(100)    NOT NULL,
@@ -26,7 +26,7 @@ CREATE TABLE loan_applications (
     tenure_months               INTEGER         NOT NULL,
     purpose                     VARCHAR(100),
     credit_bureau_consent       BOOLEAN         NOT NULL DEFAULT FALSE,
-    status                      VARCHAR(30)     NOT NULL DEFAULT 'SUBMITTED',
+    status                      VARCHAR(35)     NOT NULL DEFAULT 'SUBMITTED',
     credit_assessment_status    VARCHAR(30)     NOT NULL DEFAULT 'INITIATED',
     estimated_decision_time     TIMESTAMPTZ,
     employment_type             VARCHAR(50),
@@ -36,9 +36,9 @@ CREATE TABLE loan_applications (
     updated_at                  TIMESTAMPTZ     NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_loan_applications_customer_id ON loan_applications(customer_id);
+CREATE INDEX IF NOT EXISTS idx_loan_applications_customer_id ON loan_applications(customer_id);
 
-CREATE TABLE loan_offers (
+CREATE TABLE IF NOT EXISTS loan_offers (
     offer_id                VARCHAR(50)     PRIMARY KEY,
     loan_application_id     VARCHAR(20)     NOT NULL,
     sanctioned_amount       NUMERIC(15,2)   NOT NULL,
@@ -54,9 +54,9 @@ CREATE TABLE loan_offers (
     updated_at              TIMESTAMPTZ     NOT NULL DEFAULT NOW()
 );
 
-CREATE INDEX idx_loan_offers_application_id ON loan_offers(loan_application_id);
+CREATE INDEX IF NOT EXISTS idx_loan_offers_application_id ON loan_offers(loan_application_id);
 
-CREATE TABLE loan_accounts (
+CREATE TABLE IF NOT EXISTS loan_accounts (
     loan_account_id     VARCHAR(20)     PRIMARY KEY,
     customer_id         VARCHAR(100)    NOT NULL,
     loan_application_id VARCHAR(20)     NOT NULL,
@@ -74,7 +74,7 @@ CREATE TABLE loan_accounts (
     updated_at          TIMESTAMPTZ     NOT NULL DEFAULT NOW()
 );
 
-CREATE TABLE loan_idempotency_keys (
+CREATE TABLE IF NOT EXISTS loan_idempotency_keys (
     id                  VARCHAR(36)     PRIMARY KEY,
     idempotency_key     VARCHAR(100)    NOT NULL,
     operation           VARCHAR(50)     NOT NULL,

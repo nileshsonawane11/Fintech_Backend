@@ -22,6 +22,15 @@ public class LoanAccount {
     @Column(name = "customer_id", nullable = false, length = 100)
     private String customerId;
 
+    @Column(name = "identity_subject", length = 100)
+    private String identitySubject;
+
+    @Column(name = "product_code", length = 50)
+    private String productCode;
+
+    @Column(name = "disbursement_account_id", length = 100)
+    private String disbursementAccountId;
+
     @Column(name = "principal_amount", nullable = false, precision = 15, scale = 2)
     private BigDecimal principalAmount;
 
@@ -50,12 +59,28 @@ public class LoanAccount {
     private String status;
 
     @Column(name = "created_at", nullable = false, updatable = false)
-    private Instant createdAt = Instant.now();
+    private Instant createdAt;
 
     @Column(name = "updated_at", nullable = false)
-    private Instant updatedAt = Instant.now();
+    private Instant updatedAt;
+
+    @Version
+    @Column(name = "version", nullable = false)
+    private Long version = 0L;
 
     public LoanAccount() {}
+
+    @PrePersist
+    public void prePersist() {
+        Instant now = Instant.now();
+        if (createdAt == null) createdAt = now;
+        if (updatedAt == null) updatedAt = now;
+    }
+
+    @PreUpdate
+    public void preUpdate() {
+        updatedAt = Instant.now();
+    }
 
     public String getLoanAccountId() { return loanAccountId; }
     public void setLoanAccountId(String loanAccountId) { this.loanAccountId = loanAccountId; }
@@ -68,6 +93,15 @@ public class LoanAccount {
 
     public String getCustomerId() { return customerId; }
     public void setCustomerId(String customerId) { this.customerId = customerId; }
+
+    public String getIdentitySubject() { return identitySubject; }
+    public void setIdentitySubject(String identitySubject) { this.identitySubject = identitySubject; }
+
+    public String getProductCode() { return productCode; }
+    public void setProductCode(String productCode) { this.productCode = productCode; }
+
+    public String getDisbursementAccountId() { return disbursementAccountId; }
+    public void setDisbursementAccountId(String disbursementAccountId) { this.disbursementAccountId = disbursementAccountId; }
 
     public BigDecimal getPrincipalAmount() { return principalAmount; }
     public void setPrincipalAmount(BigDecimal principalAmount) { this.principalAmount = principalAmount; }
@@ -101,4 +135,7 @@ public class LoanAccount {
 
     public Instant getUpdatedAt() { return updatedAt; }
     public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+
+    public Long getVersion() { return version; }
+    public void setVersion(Long version) { this.version = version; }
 }

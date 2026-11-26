@@ -2,8 +2,6 @@ package com.fintech.notification.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
-import jakarta.persistence.GeneratedValue;
-import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.Table;
 
@@ -22,6 +20,15 @@ public class Notification {
 
     @Column(name = "customer_id", nullable = false)
     private String customerId;
+
+    @Column(name = "target_role", length = 50)
+    private String targetRole;
+
+    @Column(name = "event_id", length = 100)
+    private String eventId;
+
+    @Column(name = "reference_id", length = 100)
+    private String referenceId;
 
     @Column(name = "template_code", nullable = false)
     private String templateCode;
@@ -44,75 +51,39 @@ public class Notification {
     public Notification() {
     }
 
-    public String getId() {
-        return id;
-    }
+    public String getId() { return id; }
+    public void setId(String id) { this.id = id; }
 
-    public void setId(String id) {
-        this.id = id;
-    }
+    public String getNotificationId() { return notificationId; }
+    public void setNotificationId(String notificationId) { this.notificationId = notificationId; }
 
-    public String getNotificationId() {
-        return notificationId;
-    }
+    public String getCustomerId() { return customerId; }
+    public void setCustomerId(String customerId) { this.customerId = customerId; }
 
-    public void setNotificationId(String notificationId) {
-        this.notificationId = notificationId;
-    }
+    public String getTargetRole() { return targetRole; }
+    public void setTargetRole(String targetRole) { this.targetRole = targetRole; }
 
-    public String getCustomerId() {
-        return customerId;
-    }
+    public String getEventId() { return eventId; }
+    public void setEventId(String eventId) { this.eventId = eventId; }
 
-    public void setCustomerId(String customerId) {
-        this.customerId = customerId;
-    }
+    public String getReferenceId() { return referenceId; }
+    public void setReferenceId(String referenceId) { this.referenceId = referenceId; }
 
-    public String getTemplateCode() {
-        return templateCode;
-    }
+    public String getTemplateCode() { return templateCode; }
+    public void setTemplateCode(String templateCode) { this.templateCode = templateCode; }
 
-    public void setTemplateCode(String templateCode) {
-        this.templateCode = templateCode;
-    }
+    public String getChannel() { return channel; }
+    public void setChannel(String channel) { this.channel = channel; }
 
-    public String getChannel() {
-        return channel;
-    }
+    public String getTitle() { return title; }
+    public void setTitle(String title) { this.title = title; }
 
-    public void setChannel(String channel) {
-        this.channel = channel;
-    }
+    public String getBody() { return body; }
+    public void setBody(String body) { this.body = body; }
 
-    public String getTitle() {
-        return title;
-    }
+    public boolean isRead() { return read; }
+    public void setRead(boolean read) { this.read = read; }
 
-    public void setTitle(String title) {
-        this.title = title;
-    }
-
-    public String getBody() {
-        return body;
-    }
-
-    public void setBody(String body) {
-        this.body = body;
-    }
-
-    public boolean isRead() {
-        return read;
-    }
-
-    public void setRead(boolean read) {
-        this.read = read;
-    }
-
-    public Instant getCreatedAt() {
-        return createdAt;
-    }
-
-    public void setCreatedAt(Instant createdAt) {
-        this.createdAt = createdAt;
-    }
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
 }

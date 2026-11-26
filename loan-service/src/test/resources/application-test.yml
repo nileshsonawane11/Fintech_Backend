@@ -1,0 +1,54 @@
+server:
+  port: 0
+
+spring:
+  application:
+    name: LOAN-SERVICE
+
+  datasource:
+    url: jdbc:h2:mem:fintech_loan_test;MODE=PostgreSQL;DATABASE_TO_LOWER=TRUE;DB_CLOSE_DELAY=-1
+    driver-class-name: org.h2.Driver
+    username: sa
+    password: ""
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: create-drop
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.H2Dialect
+        format_sql: false
+
+  flyway:
+    enabled: false
+
+  kafka:
+    bootstrap-servers: localhost:9092
+    admin:
+      auto-create: false
+    listener:
+      auto-startup: false
+
+eureka:
+  client:
+    enabled: false
+    register-with-eureka: false
+    fetch-registry: false
+
+security:
+  jwt:
+    public-key-location: classpath:keys/public.pem
+    issuer: identity-service
+
+app:
+  services:
+    customer-service:
+      service-id: CUSTOMER-SERVICE
+    account-service:
+      service-id: ACCOUNT-SERVICE
+    notification-service:
+      service-id: NOTIFICATION-SERVICE
+  loan:
+    manager-approval-limit: 10000000.00
+    offer-expiry-days: 15

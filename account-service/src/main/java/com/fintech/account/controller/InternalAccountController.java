@@ -40,6 +40,7 @@ public class InternalAccountController {
             description = "Retrieves customer ownership, account type, and active status for an account ID")
     public ResponseEntity<InternalAccountResponse> getAccountById(@PathVariable String accountId) {
         Account account = accountRepository.findByAccountId(accountId)
+                .or(() -> accountRepository.findByAccountNumber(accountId))
                 .orElseThrow(() -> AccountException.notFound("Account not found: " + accountId));
 
         InternalAccountResponse response = new InternalAccountResponse(
