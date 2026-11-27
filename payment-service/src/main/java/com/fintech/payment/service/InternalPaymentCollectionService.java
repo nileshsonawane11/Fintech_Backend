@@ -1,203 +1,158 @@
 package com.fintech.payment.service;
 
+import com.fintech.payment.config.RazorpayProperties;
+import com.fintech.payment.constants.PaymentConstants;
 import com.fintech.payment.dto.internal.InternalPaymentDtos.*;
-import com.fintech.payment.entity.PaymentCollectionOrder;
-import com.fintech.payment.entity.PaymentMandateRegistration;
+import com.fintech.payment.dto.request.RefundPaymentRequest;
+import com.fintech.payment.dto.response.RefundResponse;
+import com.fintech.payment.entity.Payment;
+import com.fintech.payment.enums.PaymentPurpose;
+import com.fintech.payment.enums.PaymentTransactionStatus;
 import com.fintech.payment.exception.ApiException;
-import com.fintech.payment.repository.PaymentCollectionOrderRepository;
-import com.fintech.payment.repository.PaymentMandateRegistrationRepository;
+import com.fintech.payment.provider.RazorpayOrdersProvider;
+import com.fintech.payment.provider.model.ProviderModels.CreateOrderCommand;
+import com.fintech.payment.provider.model.ProviderModels.RazorpayOrderResult;
+import com.fintech.payment.repository.PaymentRepository;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.RoundingMode;
+import java.util.Map;
 import java.util.Optional;
-import java.util.Set;
 import java.util.UUID;
 
 @Service
 public class InternalPaymentCollectionService {
 
-    private static final Set<String> SUPPORTED_METHODS = Set.of(
-            "UPI", "NET_BANKING", "CARD", "UPI_AUTOPAY", "ENACH"
-    );
-    private static final Set<String> SUPPORTED_MANDATE_TYPES = Set.of(
-            "UPI_AUTOPAY", "ENACH"
-    );
-
-    private final PaymentCollectionOrderRepository collectionRepository;
-    private final PaymentMandateRegistrationRepository mandateRepository;
+    private final PaymentRepository paymentRepository;
+    private final RazorpayOrdersProvider razorpayOrdersProvider;
+    private final RazorpayProperties razorpayProperties;
+    private final PaymentService paymentService;
 
     public InternalPaymentCollectionService(
-            PaymentCollectionOrderRepository collectionRepository,
-            PaymentMandateRegistrationRepository mandateRepository) {
-        this.collectionRepository = collectionRepository;
-        this.mandateRepository = mandateRepository;
+            PaymentRepository paymentRepository,
+            RazorpayOrdersProvider razorpayOrdersProvider,
+            RazorpayProperties razorpayProperties,
+            PaymentService paymentService) {
+        this.paymentRepository = paymentRepository;
+        this.razorpayOrdersProvider = razorpayOrdersProvider;
+        this.razorpayProperties = razorpayProperties;
+        this.paymentService = paymentService;
     }
 
     @Transactional
     public CollectionOrderResponse initiateCollection(String idempotencyKey, InitiateCollectionRequest request) {
         if (idempotencyKey != null && !idempotencyKey.isBlank()) {
-            Optional<PaymentCollectionOrder> existing = collectionRepository.findByIdempotencyKey(idempotencyKey);
+            Optional<Payment> existing = paymentRepository.findByIdempotencyKey(idempotencyKey);
             if (existing.isPresent()) {
                 return toCollectionResponse(existing.get());
             }
         }
 
-        String method = request.paymentMethod().trim().toUpperCase();
-        if (!SUPPORTED_METHODS.contains(method)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "UNSUPPORTED_PAYMENT_METHOD",
-                    "Unsupported external payment method: " + method);
-        }
+        PaymentPurpose purpose = resolvePurpose(request.sourceService());
+        String currency = request.currency().trim().toUpperCase();
+        String paymentId = "PAY-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
 
-        if (("UPI_AUTOPAY".equals(method) || "ENACH".equals(method))
-                && (request.mandateReference() == null || request.mandateReference().isBlank())) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "MANDATE_REFERENCE_REQUIRED",
-                    "Mandate reference is required for recurring method " + method);
-        }
+        Payment payment = new Payment();
+        payment.setPaymentId(paymentId);
+        payment.setIdentitySubject(
+                request.identitySubject() != null && !request.identitySubject().isBlank()
+                        ? request.identitySubject()
+                        : request.customerId());
+        payment.setCustomerId(request.customerId());
+        payment.setDestinationAccountId(request.destinationAccountId());
+        payment.setPurpose(purpose);
+        payment.setSourceService(request.sourceService());
+        payment.setBusinessReference(request.businessReference());
+        payment.setAmount(request.amount().setScale(4, RoundingMode.HALF_UP));
+        payment.setCurrency(currency);
+        payment.setPaymentMethod(request.paymentMethod());
+        payment.setStatus(PaymentTransactionStatus.INITIATED);
+        payment.setReceipt(paymentId);
+        payment.setIdempotencyKey(idempotencyKey);
+        payment = paymentRepository.save(payment);
 
-        String collectionRef = "COL-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
-        String providerRef = "RZP-COL-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
+        RazorpayOrderResult rzpOrder = razorpayOrdersProvider.createOrder(new CreateOrderCommand(
+                payment.getAmount(),
+                currency,
+                paymentId,
+                razorpayProperties.isAutoCapture(),
+                Map.of(
+                        "paymentId", paymentId,
+                        "sourceService", request.sourceService(),
+                        "businessReference", request.businessReference(),
+                        "purpose", purpose.name()
+                )
+        ));
 
-        PaymentCollectionOrder order = new PaymentCollectionOrder();
-        order.setCollectionReference(collectionRef);
-        order.setIdempotencyKey(idempotencyKey);
-        order.setSourceService(request.sourceService());
-        order.setBusinessReference(request.businessReference());
-        order.setCustomerId(request.customerId());
-        order.setPaymentMethod(method);
-        order.setAmount(request.amount());
-        order.setCurrency(request.currency().trim().toUpperCase());
-        order.setMandateReference(request.mandateReference());
-        order.setProviderName("RAZORPAY");
-        order.setProviderReference(providerRef);
-        // Never mark SUCCESS synchronously; wait for webhook or verification
-        order.setStatus("PENDING");
+        payment.setRazorpayOrderId(rzpOrder.orderId());
+        payment.setStatus(PaymentTransactionStatus.ORDER_CREATED);
+        payment = paymentRepository.save(payment);
 
-        return toCollectionResponse(collectionRepository.save(order));
+        return toCollectionResponse(payment);
     }
 
     @Transactional(readOnly = true)
     public CollectionOrderResponse getCollectionStatus(String collectionReference) {
-        PaymentCollectionOrder order = collectionRepository.findByCollectionReference(collectionReference)
-                .or(() -> collectionRepository.findByProviderReference(collectionReference))
+        Payment payment = paymentRepository.findByPaymentId(collectionReference)
+                .or(() -> paymentRepository.findByRazorpayOrderId(collectionReference))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "COLLECTION_NOT_FOUND",
                         "Collection order not found: " + collectionReference));
-        return toCollectionResponse(order);
+        return toCollectionResponse(payment);
     }
 
     @Transactional
     public CollectionOrderResponse refundCollection(String collectionReference, RefundCollectionRequest request) {
-        PaymentCollectionOrder order = collectionRepository.findByCollectionReference(collectionReference)
+        Payment payment = paymentRepository.findByPaymentId(collectionReference)
+                .or(() -> paymentRepository.findByRazorpayOrderId(collectionReference))
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "COLLECTION_NOT_FOUND",
                         "Collection order not found: " + collectionReference));
 
-        if (!"SUCCESS".equalsIgnoreCase(order.getStatus()) && !"CAPTURED".equalsIgnoreCase(order.getStatus())) {
-            throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "REFUND_NOT_ALLOWED",
-                    "Only settled collections can be refunded. Current status: " + order.getStatus());
-        }
-
-        if (order.getRefundReference() == null) {
-            order.setRefundReference("RFND-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase());
-        }
-        order.setStatus("REFUNDED");
-        order.setFailureReason(request.reason());
-        return toCollectionResponse(collectionRepository.save(order));
-    }
-
-    @Transactional
-    public MandateRegistrationResponse registerMandate(String idempotencyKey, RegisterMandateRequest request) {
-        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
-            Optional<PaymentMandateRegistration> existing = mandateRepository.findByIdempotencyKey(idempotencyKey);
-            if (existing.isPresent()) {
-                return toMandateResponse(existing.get());
-            }
-        }
-
-        String mandateType = request.mandateType().trim().toUpperCase();
-        if (!SUPPORTED_MANDATE_TYPES.contains(mandateType)) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "UNSUPPORTED_MANDATE_TYPE",
-                    "Unsupported external mandate type: " + mandateType);
-        }
-
-        String providerRef = "RZP-MND-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
-
-        PaymentMandateRegistration reg = new PaymentMandateRegistration();
-        reg.setMandateReference(request.mandateReference());
-        reg.setProviderReference(providerRef);
-        reg.setIdempotencyKey(idempotencyKey);
-        reg.setSourceService(request.sourceService());
-        reg.setCustomerId(request.customerId());
-        reg.setMandateType(mandateType);
-        reg.setProviderName("RAZORPAY");
-        reg.setMaxAmount(request.maxAmount());
-        reg.setFrequency(request.frequency().trim().toUpperCase());
-        reg.setStartDate(request.startDate());
-        reg.setEndDate(request.endDate());
-        // External mandates always start PENDING until confirmed by provider callback
-        reg.setStatus("PENDING");
-
-        return toMandateResponse(mandateRepository.save(reg));
-    }
-
-    @Transactional(readOnly = true)
-    public MandateRegistrationResponse getMandateStatus(String providerReference) {
-        PaymentMandateRegistration reg = findMandate(providerReference);
-        return toMandateResponse(reg);
-    }
-
-    @Transactional
-    public MandateRegistrationResponse pauseMandate(String providerReference) {
-        PaymentMandateRegistration reg = findMandate(providerReference);
-        if (!"ACTIVE".equalsIgnoreCase(reg.getStatus())) {
-            throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "MANDATE_INVALID_STATE",
-                    "Only ACTIVE mandates can be paused. Current status: " + reg.getStatus());
-        }
-        reg.setStatus("PAUSED");
-        return toMandateResponse(mandateRepository.save(reg));
-    }
-
-    @Transactional
-    public MandateRegistrationResponse resumeMandate(String providerReference) {
-        PaymentMandateRegistration reg = findMandate(providerReference);
-        if (!"PAUSED".equalsIgnoreCase(reg.getStatus())) {
-            throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "MANDATE_INVALID_STATE",
-                    "Only PAUSED mandates can be resumed. Current status: " + reg.getStatus());
-        }
-        reg.setStatus("ACTIVE");
-        return toMandateResponse(mandateRepository.save(reg));
-    }
-
-    @Transactional
-    public MandateRegistrationResponse revokeMandate(String providerReference) {
-        PaymentMandateRegistration reg = findMandate(providerReference);
-        if ("REVOKED".equalsIgnoreCase(reg.getStatus())) {
-            return toMandateResponse(reg);
-        }
-        reg.setStatus("REVOKED");
-        return toMandateResponse(mandateRepository.save(reg));
-    }
-
-    private PaymentMandateRegistration findMandate(String providerReference) {
-        return mandateRepository.findByProviderReference(providerReference)
-                .or(() -> mandateRepository.findByMandateReference(providerReference))
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "MANDATE_NOT_FOUND",
-                        "Mandate not found: " + providerReference));
-    }
-
-    private CollectionOrderResponse toCollectionResponse(PaymentCollectionOrder o) {
-        return new CollectionOrderResponse(
-                o.getCollectionReference(), o.getBusinessReference(), o.getProviderName(),
-                o.getProviderReference(), o.getPaymentMethod(), o.getAmount(), o.getCurrency(),
-                o.getStatus(), o.getFailureCode(), o.getFailureReason(), o.getRefundReference(),
-                o.getCreatedAt(), o.getUpdatedAt()
+        RefundResponse refund = paymentService.initiateRefund(
+                payment.getIdentitySubject(),
+                "INT-REF-" + collectionReference,
+                payment.getPaymentId(),
+                new RefundPaymentRequest(request.amount(), request.reason()),
+                true
         );
+
+        Payment updated = paymentRepository.findByPaymentId(payment.getPaymentId()).orElse(payment);
+        return toCollectionResponse(updated);
     }
 
-    private MandateRegistrationResponse toMandateResponse(PaymentMandateRegistration m) {
-        return new MandateRegistrationResponse(
-                m.getMandateReference(), m.getProviderReference(), m.getMandateType(), m.getProviderName(),
-                m.getMaxAmount(), m.getFrequency(), m.getStartDate(), m.getEndDate(),
-                m.getStatus(), m.getFailureReason(), m.getCreatedAt(), m.getUpdatedAt()
+    private PaymentPurpose resolvePurpose(String sourceService) {
+        if ("LOAN-SERVICE".equalsIgnoreCase(sourceService)) {
+            return PaymentPurpose.LOAN_REPAYMENT;
+        }
+        if ("INVESTMENT-SERVICE".equalsIgnoreCase(sourceService)) {
+            return PaymentPurpose.INVESTMENT_PAYMENT;
+        }
+        return PaymentPurpose.OTHER_SUPPORTED_PAYMENT;
+    }
+
+    private CollectionOrderResponse toCollectionResponse(Payment p) {
+        String mappedStatus = switch (p.getStatus()) {
+            case CAPTURED, PROCESSING, COMPLETED -> "CAPTURED";
+            case FAILED, CANCELLED -> "FAILED";
+            case REFUNDED, PARTIALLY_REFUNDED -> "REFUNDED";
+            default -> "PENDING";
+        };
+        return new CollectionOrderResponse(
+                p.getPaymentId(),
+                p.getSourceService(),
+                p.getBusinessReference(),
+                p.getCustomerId(),
+                p.getPaymentMethod(),
+                p.getAmount(),
+                p.getCurrency(),
+                PaymentConstants.PROVIDER_RAZORPAY,
+                p.getRazorpayOrderId(),
+                p.getRazorpayOrderId(),
+                razorpayProperties.getKeyId(),
+                mappedStatus,
+                p.getFailureCode(),
+                p.getFailureReason()
         );
     }
 }

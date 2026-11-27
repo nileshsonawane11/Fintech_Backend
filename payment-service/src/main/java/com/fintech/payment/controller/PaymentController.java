@@ -1,11 +1,13 @@
 package com.fintech.payment.controller;
 
 import com.fintech.payment.constants.PaymentConstants;
-import com.fintech.payment.dto.request.InitiateTransferRequest;
-import com.fintech.payment.dto.request.InitiateUpiTransferRequest;
+import com.fintech.payment.dto.request.CreatePaymentOrderRequest;
+import com.fintech.payment.dto.request.RefundPaymentRequest;
+import com.fintech.payment.dto.request.VerifyPaymentRequest;
 import com.fintech.payment.dto.response.OpsDtos.PagedResponse;
-import com.fintech.payment.dto.response.PaymentResponse;
-import com.fintech.payment.dto.response.PaymentStatusResponse;
+import com.fintech.payment.dto.response.PaymentOrderResponse;
+import com.fintech.payment.dto.response.PaymentTransactionResponse;
+import com.fintech.payment.dto.response.RefundResponse;
 import com.fintech.payment.security.SecurityUtils;
 import com.fintech.payment.service.PaymentService;
 import io.swagger.v3.oas.annotations.Operation;
@@ -23,7 +25,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/v1/payments")
-@Tag(name = "Payments", description = "Endpoints for initiating outgoing bank/UPI payouts and tracking transfer status")
+@Tag(name = "Payments", description = "Razorpay Orders creation, Checkout payment verification, payment history, and refunds")
 @SecurityRequirement(name = "BearerAuth")
 public class PaymentController {
 
@@ -33,70 +35,79 @@ public class PaymentController {
         this.paymentService = paymentService;
     }
 
-    @PostMapping("/transfers")
-    @Operation(summary = "Initiate Bank Transfer", description = "Initiate NEFT/IMPS/RTGS transfer from a FinBank account to a verified beneficiary")
+    @PostMapping("/orders")
+    @Operation(summary = "Create Razorpay Payment Order",
+            description = "Create an internal payment transaction and Razorpay Order for external collection via Razorpay Checkout")
     @ApiResponses({
-            @ApiResponse(responseCode = "202", description = "Payment transfer accepted and submitted"),
-            @ApiResponse(responseCode = "400", description = "Invalid transfer request"),
-            @ApiResponse(responseCode = "403", description = "KYC not approved, account ownership mismatch, or unverified beneficiary"),
+            @ApiResponse(responseCode = "201", description = "Razorpay order created"),
+            @ApiResponse(responseCode = "400", description = "Invalid order request or internal transfer attempted via Razorpay"),
+            @ApiResponse(responseCode = "403", description = "Account ownership mismatch"),
             @ApiResponse(responseCode = "409", description = "Duplicate or conflicting idempotency key"),
-            @ApiResponse(responseCode = "422", description = "Insufficient balance or limit exceeded")
+            @ApiResponse(responseCode = "422", description = "Limit exceeded or account ineligible")
     })
-    public ResponseEntity<PaymentResponse> initiateTransfer(
+    public ResponseEntity<PaymentOrderResponse> createOrder(
             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
             @Parameter(description = "Idempotency key UUID", example = "9b1deb4d-3b7d-4bad-9bdd-2b0d7b3dcb6d")
             @RequestHeader(PaymentConstants.HEADER_IDEMPOTENCY_KEY) String idempotencyKey,
-            @Valid @RequestBody InitiateTransferRequest request) {
-        String userId = SecurityUtils.getAuthenticatedSubject(jwt);
-        return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(paymentService.initiateTransfer(userId, idempotencyKey, request));
+            @Valid @RequestBody CreatePaymentOrderRequest request) {
+        String identitySubject = SecurityUtils.getAuthenticatedSubject(jwt);
+        return ResponseEntity.status(HttpStatus.CREATED)
+                .body(paymentService.createOrder(identitySubject, idempotencyKey, request));
     }
 
-    @PostMapping("/transfers/upi")
-    @Operation(summary = "Initiate UPI Payout", description = "Initiate a UPI transfer from a FinBank account to a verified UPI beneficiary")
-    public ResponseEntity<PaymentResponse> initiateUpiTransfer(
+    @PostMapping("/verify")
+    @Operation(summary = "Verify Razorpay Checkout Payment",
+            description = "Verify Razorpay Checkout signature, validate payment details against Razorpay API, capture if required, and trigger fulfillment")
+    @ApiResponses({
+            @ApiResponse(responseCode = "200", description = "Payment verified"),
+            @ApiResponse(responseCode = "400", description = "Invalid signature or mismatched order"),
+            @ApiResponse(responseCode = "403", description = "Order ownership mismatch"),
+            @ApiResponse(responseCode = "404", description = "Order not found")
+    })
+    public ResponseEntity<PaymentTransactionResponse> verifyCheckoutPayment(
             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
-            @RequestHeader(PaymentConstants.HEADER_IDEMPOTENCY_KEY) String idempotencyKey,
-            @Valid @RequestBody InitiateUpiTransferRequest request) {
-        String userId = SecurityUtils.getAuthenticatedSubject(jwt);
-        return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(paymentService.initiateUpiTransfer(userId, idempotencyKey, request));
+            @Valid @RequestBody VerifyPaymentRequest request) {
+        String identitySubject = SecurityUtils.getAuthenticatedSubject(jwt);
+        return ResponseEntity.ok(paymentService.verifyCheckoutPayment(identitySubject, request));
     }
 
-    @GetMapping("/transfers")
-    @Operation(summary = "List Transfer History", description = "Fetch paginated outgoing transfer history for the authenticated customer")
-    public ResponseEntity<PagedResponse<PaymentStatusResponse>> listTransfers(
+    @GetMapping
+    @Operation(summary = "List Payment History", description = "Fetch paginated external payment transactions for the authenticated customer")
+    public ResponseEntity<PagedResponse<PaymentTransactionResponse>> listPayments(
             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
             @RequestParam(defaultValue = "0") int page,
             @RequestParam(defaultValue = "20") int size) {
-        String userId = SecurityUtils.getAuthenticatedSubject(jwt);
-        return ResponseEntity.ok(paymentService.listTransfers(userId, page, size));
+        String identitySubject = SecurityUtils.getAuthenticatedSubject(jwt);
+        return ResponseEntity.ok(paymentService.listPayments(identitySubject, page, size));
     }
 
     @GetMapping("/{paymentId}")
-    @Operation(summary = "Get Transfer Details", description = "Query status, UTR, fees, and ledger linkage for a transfer")
-    public ResponseEntity<PaymentStatusResponse> getPaymentStatus(
+    @Operation(summary = "Get Payment Transaction", description = "Retrieve a single payment transaction owned by the authenticated customer")
+    public ResponseEntity<PaymentTransactionResponse> getPayment(
             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
             @PathVariable String paymentId) {
-        String userId = SecurityUtils.getAuthenticatedSubject(jwt);
-        return ResponseEntity.ok(paymentService.getPaymentStatus(userId, paymentId));
+        String identitySubject = SecurityUtils.getAuthenticatedSubject(jwt);
+        return ResponseEntity.ok(paymentService.getPayment(identitySubject, paymentId));
     }
 
     @GetMapping("/{paymentId}/status")
-    @Operation(summary = "Sync & Get Live Transfer Status", description = "Refresh status from RazorpayX if non-terminal and return current transfer status")
-    public ResponseEntity<PaymentStatusResponse> syncAndGetStatus(
+    @Operation(summary = "Sync & Get Payment Status", description = "Synchronize payment status from Razorpay Orders/Payments API if non-terminal")
+    public ResponseEntity<PaymentTransactionResponse> syncPaymentStatus(
             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
             @PathVariable String paymentId) {
-        String userId = SecurityUtils.getAuthenticatedSubject(jwt);
-        return ResponseEntity.ok(paymentService.syncTransferStatus(userId, paymentId, false));
+        String identitySubject = SecurityUtils.getAuthenticatedSubject(jwt);
+        return ResponseEntity.ok(paymentService.syncPaymentStatus(identitySubject, paymentId, false));
     }
 
-    @PostMapping("/{paymentId}/cancel")
-    @Operation(summary = "Cancel Queued Transfer", description = "Cancel a queued RazorpayX payout and reverse reserved ledger funds")
-    public ResponseEntity<PaymentStatusResponse> cancelQueuedTransfer(
+    @PostMapping("/{paymentId}/refund")
+    @Operation(summary = "Initiate Payment Refund", description = "Initiate a full or partial Razorpay refund for a captured/completed payment")
+    public ResponseEntity<RefundResponse> initiateRefund(
             @Parameter(hidden = true) @AuthenticationPrincipal Jwt jwt,
-            @PathVariable String paymentId) {
-        String userId = SecurityUtils.getAuthenticatedSubject(jwt);
-        return ResponseEntity.ok(paymentService.cancelQueuedTransfer(userId, paymentId));
+            @RequestHeader(PaymentConstants.HEADER_IDEMPOTENCY_KEY) String idempotencyKey,
+            @PathVariable String paymentId,
+            @Valid @RequestBody RefundPaymentRequest request) {
+        String identitySubject = SecurityUtils.getAuthenticatedSubject(jwt);
+        return ResponseEntity.status(HttpStatus.ACCEPTED)
+                .body(paymentService.initiateRefund(identitySubject, idempotencyKey, paymentId, request, false));
     }
 }

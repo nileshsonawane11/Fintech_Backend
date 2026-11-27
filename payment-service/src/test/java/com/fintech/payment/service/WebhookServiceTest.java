@@ -1,95 +1,92 @@
 package com.fintech.payment.service;
 
 import com.fasterxml.jackson.databind.ObjectMapper;
-import com.fintech.payment.entity.Payment;
+import com.fintech.payment.config.RazorpayProperties;
+import com.fintech.payment.dto.response.WebhookResponse;
+import com.fintech.payment.entity.WebhookEvent;
 import com.fintech.payment.exception.ApiException;
-import com.fintech.payment.repository.PaymentRepository;
+import com.fintech.payment.provider.razorpay.RazorpayWebhookSignatureVerifier;
 import com.fintech.payment.repository.WebhookEventRepository;
-import jakarta.validation.Validation;
-import jakarta.validation.ValidatorFactory;
-import org.junit.jupiter.api.AfterAll;
+import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.mockito.Mock;
+import org.mockito.junit.jupiter.MockitoExtension;
+import org.springframework.http.HttpStatus;
 
 import javax.crypto.Mac;
 import javax.crypto.spec.SecretKeySpec;
+import java.math.BigDecimal;
 import java.nio.charset.StandardCharsets;
-import java.time.Instant;
 import java.util.HexFormat;
-import java.util.Optional;
 
-import static org.junit.jupiter.api.Assertions.assertEquals;
-import static org.junit.jupiter.api.Assertions.assertThrows;
+import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.any;
-import static org.mockito.Mockito.mock;
-import static org.mockito.Mockito.verify;
-import static org.mockito.Mockito.when;
+import static org.mockito.Mockito.*;
 
+@ExtendWith(MockitoExtension.class)
 class WebhookServiceTest {
 
-    private static final String SECRET = "payment-webhook-test-secret-at-least-32-bytes";
-    private static final ValidatorFactory VALIDATOR_FACTORY = Validation.buildDefaultValidatorFactory();
+    @Mock private WebhookEventRepository webhookEventRepository;
+    @Mock private PaymentService paymentService;
 
-    private final WebhookEventRepository webhookEventRepository = mock(WebhookEventRepository.class);
-    private final PaymentRepository paymentRepository = mock(PaymentRepository.class);
-    private final WebhookService webhookService = new WebhookService(
-            webhookEventRepository,
-            paymentRepository,
-            new ObjectMapper().findAndRegisterModules(),
-            VALIDATOR_FACTORY.getValidator(),
-            SECRET);
+    private RazorpayProperties properties;
+    private WebhookService webhookService;
 
-    @AfterAll
-    static void closeValidatorFactory() {
-        VALIDATOR_FACTORY.close();
+    @BeforeEach
+    void setUp() {
+        properties = new RazorpayProperties();
+        properties.getWebhook().setSecret("whsec_test_secret");
+        webhookService = new WebhookService(
+                webhookEventRepository,
+                new ObjectMapper(),
+                properties,
+                new RazorpayWebhookSignatureVerifier(),
+                paymentService
+        );
     }
 
     @Test
-    void acceptsDocumentedSha256SignaturePrefixAndUpdatesPendingPayment() throws Exception {
-        String timestamp = Long.toString(Instant.now().getEpochSecond());
-        byte[] payload = ("{\"railReference\":\"RAIL-123\",\"paymentReference\":\"PAY-123\","
-                + "\"status\":\"SUCCESS\",\"statusReason\":\"COMPLETED\","
-                + "\"completedAt\":\"" + Instant.now() + "\"}").getBytes(StandardCharsets.UTF_8);
-        Payment payment = new Payment();
-        payment.setPaymentId("PAY-123");
-        payment.setStatus("PENDING");
-        when(webhookEventRepository.existsByRailReference("RAIL-123")).thenReturn(false);
-        when(paymentRepository.findByPaymentId("PAY-123")).thenReturn(Optional.of(payment));
-        when(webhookEventRepository.saveAndFlush(any())).thenAnswer(invocation -> invocation.getArgument(0));
-
-        String signature = "sha256=" + sign(timestamp, payload);
-        webhookService.processWebhook(signature, timestamp, payload);
-
-        assertEquals("SUCCESS", payment.getStatus());
-        verify(webhookEventRepository).saveAndFlush(any());
-        verify(paymentRepository).save(payment);
+    void processWebhook_invalidSignatureRejected() {
+        byte[] body = "{\"event\":\"payment.captured\"}".getBytes(StandardCharsets.UTF_8);
+        ApiException ex = assertThrows(ApiException.class,
+                () -> webhookService.processRazorpayWebhook("0".repeat(64), "evt_1", body));
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
+        assertEquals("INVALID_WEBHOOK_SIGNATURE", ex.getCode());
+        verifyNoInteractions(paymentService);
     }
 
     @Test
-    void rejectsTimestampAtLongMinimumInsteadOfAcceptingOverflow() {
-        ApiException exception = assertThrows(ApiException.class,
-                () -> webhookService.processWebhook("sha256=" + "0".repeat(64),
-                        Long.toString(Long.MIN_VALUE), "{}".getBytes(StandardCharsets.UTF_8)));
+    void processWebhook_duplicateEventIgnoredIdempotently() throws Exception {
+        byte[] body = "{\"event\":\"payment.captured\"}".getBytes(StandardCharsets.UTF_8);
+        String sig = sign(body, "whsec_test_secret");
+        when(webhookEventRepository.existsByEventId("evt_dup")).thenReturn(true);
 
-        assertEquals("WEBHOOK_TIMESTAMP_EXPIRED", exception.getCode());
+        WebhookResponse res = webhookService.processRazorpayWebhook(sig, "evt_dup", body);
+        assertEquals("DUPLICATE_IGNORED", res.status());
+        verifyNoInteractions(paymentService);
     }
 
     @Test
-    void rejectsIncorrectSignatureWithDocumentedBadRequestStatus() {
-        String timestamp = Long.toString(Instant.now().getEpochSecond());
+    void processWebhook_paymentCaptured_dispatchesToPaymentService() throws Exception {
+        String json = """
+                {"event":"payment.captured","payload":{"payment":{"entity":{"id":"pay_1","order_id":"order_1","amount":250000,"currency":"INR","method":"upi"}}}}
+                """;
+        byte[] body = json.getBytes(StandardCharsets.UTF_8);
+        String sig = sign(body, "whsec_test_secret");
+        when(webhookEventRepository.existsByEventId("evt_cap_1")).thenReturn(false);
+        when(webhookEventRepository.saveAndFlush(any(WebhookEvent.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(webhookEventRepository.save(any(WebhookEvent.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        ApiException exception = assertThrows(ApiException.class,
-                () -> webhookService.processWebhook("sha256=" + "0".repeat(64), timestamp,
-                        "{}".getBytes(StandardCharsets.UTF_8)));
+        WebhookResponse res = webhookService.processRazorpayWebhook(sig, "evt_cap_1", body);
 
-        assertEquals("INVALID_WEBHOOK_SIGNATURE", exception.getCode());
-        assertEquals(400, exception.getHttpStatus().value());
+        assertEquals("PROCESSED", res.status());
+        verify(paymentService).applyCapturedWebhook("order_1", "pay_1", "upi", new BigDecimal("2500.00"), "INR");
     }
 
-    private static String sign(String timestamp, byte[] payload) throws Exception {
+    private String sign(byte[] payload, String secret) throws Exception {
         Mac mac = Mac.getInstance("HmacSHA256");
-        mac.init(new SecretKeySpec(SECRET.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
-        mac.update(timestamp.getBytes(StandardCharsets.UTF_8));
-        mac.update((byte) '.');
+        mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
         return HexFormat.of().formatHex(mac.doFinal(payload));
     }
 }

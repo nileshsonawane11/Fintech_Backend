@@ -1,39 +1,33 @@
 package com.fintech.payment.service;
 
+import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fintech.payment.client.AccountServiceClient;
 import com.fintech.payment.client.CustomerServiceClient;
-import com.fintech.payment.client.LedgerServiceClient;
 import com.fintech.payment.client.dto.CustomerProfileDto;
-import com.fintech.payment.client.dto.InternalAccountDto;
-import com.fintech.payment.client.dto.LedgerBalanceDto;
-import com.fintech.payment.client.dto.LedgerDtos.LedgerPostingResponseDto;
-import com.fintech.payment.client.dto.LedgerDtos.MultiLinePostingRequest;
-import com.fintech.payment.client.dto.LedgerDtos.PostingEntryRequest;
-import com.fintech.payment.client.dto.LedgerDtos.ReversalResponseDto;
+import com.fintech.payment.config.RazorpayProperties;
 import com.fintech.payment.constants.PaymentConstants;
-import com.fintech.payment.dto.request.InitiateTransferRequest;
-import com.fintech.payment.dto.request.InitiateUpiTransferRequest;
-import com.fintech.payment.dto.response.ChargeDto;
+import com.fintech.payment.dto.request.CreatePaymentOrderRequest;
+import com.fintech.payment.dto.request.RefundPaymentRequest;
+import com.fintech.payment.dto.request.VerifyPaymentRequest;
 import com.fintech.payment.dto.response.OpsDtos.PagedResponse;
-import com.fintech.payment.dto.response.PaymentResponse;
-import com.fintech.payment.dto.response.PaymentStatusResponse;
-import com.fintech.payment.entity.Beneficiary;
+import com.fintech.payment.dto.response.PaymentOrderResponse;
+import com.fintech.payment.dto.response.PaymentTransactionResponse;
+import com.fintech.payment.dto.response.RefundResponse;
 import com.fintech.payment.entity.Payment;
-import com.fintech.payment.enums.BeneficiaryType;
-import com.fintech.payment.enums.OutgoingTransferStatus;
-import com.fintech.payment.enums.TransferMode;
+import com.fintech.payment.entity.PaymentRefund;
+import com.fintech.payment.enums.PaymentPurpose;
+import com.fintech.payment.enums.PaymentTransactionStatus;
 import com.fintech.payment.event.model.PaymentEvents.*;
 import com.fintech.payment.exception.ApiException;
-import com.fintech.payment.provider.PayoutProvider;
-import com.fintech.payment.provider.model.ProviderModels.CreatePayoutCommand;
-import com.fintech.payment.provider.model.ProviderModels.PayoutResult;
-import com.fintech.payment.repository.PaymentIdempotencyKeyRepository;
+import com.fintech.payment.provider.RazorpayOrdersProvider;
+import com.fintech.payment.provider.model.ProviderModels.*;
+import com.fintech.payment.provider.razorpay.RazorpayCheckoutSignatureVerifier;
+import com.fintech.payment.provider.razorpay.RazorpayMoneyUtils;
+import com.fintech.payment.repository.PaymentRefundRepository;
 import com.fintech.payment.repository.PaymentRepository;
-import com.fintech.payment.service.PaymentFeeAndLimitService.FeeCalculation;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.slf4j.MDC;
-import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.http.HttpStatus;
@@ -41,9 +35,9 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.math.BigDecimal;
+import java.math.RoundingMode;
 import java.time.Instant;
-import java.time.temporal.ChronoUnit;
-import java.util.ArrayList;
+import java.util.LinkedHashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -55,565 +49,801 @@ public class PaymentService {
     private static final Logger log = LoggerFactory.getLogger(PaymentService.class);
 
     private final PaymentRepository paymentRepository;
-    private final PaymentIdempotencyKeyRepository idempotencyKeyRepository;
-    private final BeneficiaryService beneficiaryService;
-    private final CustomerServiceClient customerServiceClient;
+    private final PaymentRefundRepository refundRepository;
+    private final RazorpayOrdersProvider razorpayOrdersProvider;
+    private final RazorpayCheckoutSignatureVerifier checkoutSignatureVerifier;
+    private final RazorpayProperties razorpayProperties;
     private final AccountServiceClient accountServiceClient;
-    private final LedgerServiceClient ledgerServiceClient;
-    private final PayoutProvider payoutProvider;
+    private final CustomerServiceClient customerServiceClient;
+    private final PaymentFeeAndLimitService limitService;
     private final PaymentIdempotencyService idempotencyService;
-    private final PaymentFeeAndLimitService feeAndLimitService;
     private final PaymentOutboxService outboxService;
     private final PaymentAuditService auditService;
+    private final ObjectMapper objectMapper;
 
-    public PaymentService(PaymentRepository paymentRepository,
-                          PaymentIdempotencyKeyRepository idempotencyKeyRepository,
-                          BeneficiaryService beneficiaryService) {
-        this(paymentRepository, idempotencyKeyRepository, beneficiaryService,
-                null, null, null, null,
-                new PaymentIdempotencyService(idempotencyKeyRepository, new com.fasterxml.jackson.databind.ObjectMapper(), 24L),
-                null, null, null);
-    }
-
-    @Autowired
     public PaymentService(
             PaymentRepository paymentRepository,
-            PaymentIdempotencyKeyRepository idempotencyKeyRepository,
-            BeneficiaryService beneficiaryService,
-            CustomerServiceClient customerServiceClient,
+            PaymentRefundRepository refundRepository,
+            RazorpayOrdersProvider razorpayOrdersProvider,
+            RazorpayCheckoutSignatureVerifier checkoutSignatureVerifier,
+            RazorpayProperties razorpayProperties,
             AccountServiceClient accountServiceClient,
-            LedgerServiceClient ledgerServiceClient,
-            PayoutProvider payoutProvider,
+            CustomerServiceClient customerServiceClient,
+            PaymentFeeAndLimitService limitService,
             PaymentIdempotencyService idempotencyService,
-            PaymentFeeAndLimitService feeAndLimitService,
             PaymentOutboxService outboxService,
-            PaymentAuditService auditService) {
+            PaymentAuditService auditService,
+            ObjectMapper objectMapper) {
         this.paymentRepository = paymentRepository;
-        this.idempotencyKeyRepository = idempotencyKeyRepository;
-        this.beneficiaryService = beneficiaryService;
-        this.customerServiceClient = customerServiceClient;
+        this.refundRepository = refundRepository;
+        this.razorpayOrdersProvider = razorpayOrdersProvider;
+        this.checkoutSignatureVerifier = checkoutSignatureVerifier;
+        this.razorpayProperties = razorpayProperties;
         this.accountServiceClient = accountServiceClient;
-        this.ledgerServiceClient = ledgerServiceClient;
-        this.payoutProvider = payoutProvider;
+        this.customerServiceClient = customerServiceClient;
+        this.limitService = limitService;
         this.idempotencyService = idempotencyService;
-        this.feeAndLimitService = feeAndLimitService;
         this.outboxService = outboxService;
         this.auditService = auditService;
+        this.objectMapper = objectMapper;
     }
 
     @Transactional
-    public PaymentResponse initiateUpiTransfer(
-            String userId, String idempotencyKey, InitiateUpiTransferRequest upiRequest) {
-        InitiateTransferRequest req = new InitiateTransferRequest();
-        req.setDebitAccountId(upiRequest.debitAccountId());
-        req.setBeneficiaryId(upiRequest.beneficiaryId());
-        req.setAmount(upiRequest.amount());
-        req.setCurrency(upiRequest.currency());
-        req.setRemarks(upiRequest.remarks());
-        req.setTransferMode(TransferMode.UPI.name());
-        return initiateTransfer(userId, idempotencyKey, req);
-    }
+    public PaymentOrderResponse createOrder(
+            String identitySubject,
+            String idempotencyKey,
+            CreatePaymentOrderRequest request) {
+        if (request.purpose() == null || !request.purpose().isExternalRazorpaySupported()) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INTERNAL_TRANSFER_NOT_RAZORPAY",
+                    "Internal transfers must use FinBank internal transfer APIs, not Razorpay");
+        }
 
-    @Transactional
-    public PaymentResponse initiateTransfer(String userId, String idempotencyKey, InitiateTransferRequest request) {
-        String pendingId = "PAY-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase();
-        Optional<PaymentResponse> cached = idempotencyService.checkOrLock(
-                idempotencyKey, "OUTGOING_TRANSFER", userId, pendingId, request, PaymentResponse.class);
+        String currency = request.currency().trim().toUpperCase();
+        BigDecimal scaledAmount = request.amount().setScale(4, RoundingMode.HALF_UP);
+
+        Optional<PaymentOrderResponse> cached = idempotencyService.checkOrLock(
+                idempotencyKey, "CREATE_PAYMENT_ORDER", identitySubject, "PENDING", request, PaymentOrderResponse.class);
         if (cached.isPresent()) {
             return cached.get();
         }
 
-        boolean debitCommitted = false;
         try {
-            // 1. Validate customer KYC
-            CustomerProfileDto customer = customerServiceClient.verifyKycApproved(userId);
+            limitService.validateOrderLimits(identitySubject, scaledAmount, currency);
 
-            // 2. Validate debit account ownership, active state, and currency
-            String currency = request.getCurrency() != null ? request.getCurrency() : PaymentConstants.DEFAULT_CURRENCY;
-            InternalAccountDto debitAccount = accountServiceClient.validateCustomerAccountEligible(
-                    request.getDebitAccountId(), userId, currency);
-
-            // 3. Validate beneficiary ownership, verification status, and mode compatibility
-            Beneficiary beneficiary = beneficiaryService.findEligibleBeneficiaryForTransfer(
-                    userId, request.getBeneficiaryId());
-            validateModeCompatibility(request.getTransferMode(), beneficiary);
-
-            // 4. Validate limits & compute fees
-            feeAndLimitService.validateTransferLimits(userId, request.getTransferMode(), request.getAmount());
-            FeeCalculation fees = feeAndLimitService.calculateFee(request.getTransferMode(), request.getAmount());
-
-            // 5. Check live available balance (accounting for active holds)
-            LedgerBalanceDto balance = ledgerServiceClient.getAccountBalance(debitAccount.accountId());
-            if (balance.availableBalance() == null || balance.availableBalance().compareTo(fees.totalDebit()) < 0) {
-                throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "INSUFFICIENT_BALANCE",
-                        "Insufficient available balance (including holds) to cover transfer and fees");
+            if (request.purpose() == PaymentPurpose.ACCOUNT_DEPOSIT) {
+                if (request.destinationAccountId() == null || request.destinationAccountId().isBlank()) {
+                    throw new ApiException(HttpStatus.BAD_REQUEST, "DESTINATION_ACCOUNT_REQUIRED",
+                            "destinationAccountId is required for ACCOUNT_DEPOSIT");
+                }
+                accountServiceClient.validateCustomerAccountEligible(
+                        request.destinationAccountId(), identitySubject, currency);
+            } else if ((request.purpose() == PaymentPurpose.LOAN_REPAYMENT
+                    || request.purpose() == PaymentPurpose.INVESTMENT_PAYMENT)
+                    && (request.businessReference() == null || request.businessReference().isBlank())) {
+                throw new ApiException(HttpStatus.BAD_REQUEST, "BUSINESS_REFERENCE_REQUIRED",
+                        "businessReference is required for " + request.purpose());
             }
 
-            // 6. Ensure RazorpayX payout capability & fund account ID
-            if (!payoutProvider.isPayoutAvailable()) {
-                throw new ApiException(HttpStatus.SERVICE_UNAVAILABLE, "PAYOUT_PROVIDER_UNAVAILABLE",
-                        "RazorpayX Payouts is not configured or enabled");
-            }
-            String fundAccountId = beneficiaryService.ensureFundAccountForTransfer(beneficiary, customer);
+            String customerId = resolveCustomerId(identitySubject);
+            String paymentId = "PAY-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
 
-            // 7. Create Payment record
-            String transactionId = "TXN-" + UUID.randomUUID().toString().replace("-", "").substring(0, 16).toUpperCase();
             Payment payment = new Payment();
-            payment.setPaymentId(pendingId);
-            payment.setTransactionId(transactionId);
-            payment.setUserId(userId);
-            payment.setCustomerId(customer.customerId());
-            payment.setDebitAccountId(debitAccount.accountId());
-            payment.setBeneficiaryId(beneficiary.getBeneficiaryId());
-            payment.setAmount(request.getAmount());
-            payment.setFeeAmount(fees.baseFee());
-            payment.setTaxAmount(fees.taxAmount());
-            payment.setTotalDebitAmount(fees.totalDebit());
+            payment.setPaymentId(paymentId);
+            payment.setIdentitySubject(identitySubject);
+            payment.setCustomerId(customerId);
+            payment.setDestinationAccountId(request.destinationAccountId());
+            payment.setPurpose(request.purpose());
+            payment.setSourceService(PaymentConstants.SERVICE_PAYMENT);
+            payment.setBusinessReference(
+                    request.businessReference() != null ? request.businessReference() : request.destinationAccountId());
+            payment.setAmount(scaledAmount);
             payment.setCurrency(currency);
-            payment.setRemarks(request.getRemarks());
-            payment.setTransferMode(request.getTransferMode());
-            payment.setTransferType(beneficiary.getBeneficiaryType());
-            payment.setProviderName(payoutProvider.providerName());
-            payment.setProviderFundAccountId(fundAccountId);
-            payment.setStatus(OutgoingTransferStatus.INITIATED.name());
+            payment.setStatus(PaymentTransactionStatus.INITIATED);
+            payment.setReceipt(paymentId);
             payment.setIdempotencyKey(idempotencyKey);
             payment.setCorrelationId(MDC.get(PaymentConstants.MDC_CORRELATION_ID));
-            paymentRepository.save(payment);
+            payment.setMetadataJson(serializeNotes(request.notes()));
+            payment = paymentRepository.save(payment);
 
-            enqueueTransferEvent(payment, PaymentConstants.EVT_TRANSFER_INITIATED,
-                    new TransferInitiatedPayload(
-                            pendingId, transactionId, debitAccount.accountId(), beneficiary.getBeneficiaryId(),
-                            request.getAmount(), fees.baseFee(), fees.taxAmount(), currency,
-                            request.getTransferMode(), Instant.now()));
+            Map<String, String> orderNotes = new LinkedHashMap<>();
+            if (request.notes() != null) {
+                orderNotes.putAll(request.notes());
+            }
+            orderNotes.put("paymentId", paymentId);
+            orderNotes.put("purpose", request.purpose().name());
+            if (request.destinationAccountId() != null) {
+                orderNotes.put("destinationAccountId", request.destinationAccountId());
+            }
+            if (payment.getBusinessReference() != null) {
+                orderNotes.put("businessReference", payment.getBusinessReference());
+            }
 
-            enqueuePaymentNotification(payment, "PAYMENT_INITIATED", "Payment Initiated",
-                    "Your transfer of " + request.getAmount() + " " + currency + " (Ref: " + pendingId + ") has been initiated.",
-                    "NORMAL");
+            RazorpayOrderResult rzpOrder = razorpayOrdersProvider.createOrder(new CreateOrderCommand(
+                    scaledAmount,
+                    currency,
+                    paymentId,
+                    razorpayProperties.isAutoCapture(),
+                    orderNotes
+            ));
 
-            // 8. Atomic ledger reservation/debit: DEBIT customer (amount + fees), CREDIT CLEARING + FEE_REVENUE
-            LedgerPostingResponseDto debitPosting = ledgerServiceClient.postBatch(
-                    "debit-" + pendingId,
-                    buildDebitJournal(payment, fees)
+            transitionStatus(payment, PaymentTransactionStatus.ORDER_CREATED);
+            payment.setRazorpayOrderId(rzpOrder.orderId());
+            payment = paymentRepository.save(payment);
+
+            outboxService.enqueueEvent(
+                    PaymentConstants.TOPIC_INCOMING_EVENTS,
+                    payment.getPaymentId(),
+                    "Payment",
+                    PaymentConstants.EVT_PAYMENT_ORDER_CREATED,
+                    payment.getIdentitySubject(),
+                    payment.getRazorpayOrderId(),
+                    new PaymentOrderCreatedPayload(
+                            payment.getPaymentId(),
+                            payment.getIdentitySubject(),
+                            payment.getDestinationAccountId(),
+                            payment.getRazorpayOrderId(),
+                            payment.getAmount(),
+                            payment.getCurrency(),
+                            payment.getPurpose(),
+                            payment.getBusinessReference(),
+                            Instant.now()
+                    )
             );
-            debitCommitted = true;
 
-            payment.setLedgerTransactionId(debitPosting.transactionId());
-            payment.setStatus(OutgoingTransferStatus.DEBITED_PENDING_SUBMISSION.name());
-            paymentRepository.save(payment);
+            auditService.record(identitySubject, "CUSTOMER", "PAYMENT_ORDER_CREATED",
+                    "Payment", payment.getPaymentId(),
+                    "purpose=" + payment.getPurpose() + ", orderId=" + payment.getRazorpayOrderId());
 
-            // 9. Submit payout to RazorpayX with X-Payout-Idempotency
-            PayoutResult payoutResult;
-            try {
-                payoutResult = payoutProvider.createPayout(new CreatePayoutCommand(
-                        idempotencyKey,
-                        fundAccountId,
-                        request.getAmount(),
-                        currency,
-                        request.getTransferMode(),
-                        null,
-                        pendingId,
-                        request.getRemarks() != null && !request.getRemarks().isBlank()
-                                ? request.getRemarks() : "FinBank Transfer " + pendingId,
-                        Map.of(
-                                "payment_id", pendingId,
-                                "finbank_customer_id", customer.customerId(),
-                                "ledger_tx_id", debitPosting.transactionId()
-                        )
-                ));
-            } catch (ApiException providerRejected) {
-                reverseDebitedTransfer(payment, "PROVIDER_SUBMISSION_REJECTED", providerRejected.getMessage());
-                throw providerRejected;
-            }
-
-            if (payoutResult.timedOut()) {
-                // CRITICAL: Do NOT blindly retry or reverse on timeout; enter reconciliation state.
-                payment.setStatus(OutgoingTransferStatus.UNKNOWN_PENDING_RECONCILIATION.name());
-                payment.setSubmittedAt(Instant.now());
-                payment.setFailureCode("PROVIDER_TIMEOUT");
-                payment.setFailureReason("Provider payout request timed out; awaiting reconciliation");
-                paymentRepository.save(payment);
-                auditService.record(userId, "CUSTOMER", "TRANSFER_TIMEOUT_PENDING_RECON",
-                        "Payment", pendingId, "RazorpayX payout timed out; awaiting reconciliation");
-            } else {
-                payment.setProviderPayoutId(payoutResult.providerPayoutId());
-                payment.setRailReference(payoutResult.providerPayoutId());
-                payment.setProviderUtr(payoutResult.utr());
-                payment.setSubmittedAt(Instant.now());
-                applyProviderPayoutResult(payment, payoutResult);
-                enqueueTransferEvent(payment, PaymentConstants.EVT_TRANSFER_SUBMITTED,
-                        new TransferSubmittedPayload(pendingId, payoutResult.providerPayoutId(),
-                                debitPosting.transactionId(), payment.getSubmittedAt()));
-                auditService.record(userId, "CUSTOMER", "TRANSFER_SUBMITTED",
-                        "Payment", pendingId,
-                        "Submitted payout=" + payoutResult.providerPayoutId() + " mode=" + request.getTransferMode());
-            }
-
-            PaymentResponse response = toPaymentResponse(payment, fees);
-            idempotencyService.markCompleted(idempotencyKey, pendingId, HttpStatus.ACCEPTED.value(), response);
+            PaymentOrderResponse response = new PaymentOrderResponse(
+                    payment.getPaymentId(),
+                    payment.getRazorpayOrderId(),
+                    razorpayProperties.getKeyId(),
+                    payment.getAmount(),
+                    RazorpayMoneyUtils.toPaise(payment.getAmount()),
+                    payment.getCurrency(),
+                    payment.getPurpose(),
+                    payment.getDestinationAccountId(),
+                    payment.getBusinessReference(),
+                    payment.getStatus(),
+                    payment.getReceipt(),
+                    payment.getCreatedAt()
+            );
+            idempotencyService.markCompleted(idempotencyKey, payment.getPaymentId(), 201, response);
             return response;
         } catch (RuntimeException ex) {
-            if (!debitCommitted) {
-                idempotencyService.releaseOnFailure(idempotencyKey);
-            }
+            idempotencyService.releaseOnFailure(idempotencyKey);
             throw ex;
         }
     }
 
     @Transactional
-    public void handlePayoutWebhookUpdate(
-            String providerPayoutId, String providerStatus, String utr, String failureCode, String failureReason) {
-        if (providerPayoutId == null || providerPayoutId.isBlank()) {
-            return;
+    public PaymentTransactionResponse verifyCheckoutPayment(String identitySubject, VerifyPaymentRequest request) {
+        Payment payment = paymentRepository.findByRazorpayOrderId(request.razorpayOrderId().trim())
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PAYMENT_ORDER_NOT_FOUND",
+                        "Payment transaction not found for Razorpay order: " + request.razorpayOrderId()));
+
+        if (!identitySubject.equals(payment.getIdentitySubject())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "PAYMENT_OWNERSHIP_MISMATCH",
+                    "You do not own this payment order");
         }
-        Payment payment = paymentRepository.findByProviderPayoutId(providerPayoutId)
-                .or(() -> paymentRepository.findByRailReference(providerPayoutId))
-                .orElse(null);
-        if (payment == null) {
-            log.warn("Received payout webhook for unknown providerPayoutId={}", providerPayoutId);
-            return;
+
+        if (payment.isRazorpaySignatureVerified()
+                && request.razorpayPaymentId().trim().equals(payment.getRazorpayPaymentId())
+                && (payment.getStatus() == PaymentTransactionStatus.CAPTURED
+                    || payment.getStatus() == PaymentTransactionStatus.PROCESSING
+                    || payment.getStatus() == PaymentTransactionStatus.COMPLETED)) {
+            return toResponse(payment);
         }
-        PayoutResult result = new PayoutResult(
-                providerPayoutId,
-                payment.getProviderFundAccountId(),
-                providerStatus,
-                payment.getAmount(),
-                payment.getCurrency(),
-                payment.getTransferMode(),
-                utr,
-                null,
-                null,
-                null,
-                failureCode,
-                failureReason,
-                false
+
+        boolean signatureValid = checkoutSignatureVerifier.verifyCheckoutSignature(
+                request.razorpayOrderId(),
+                request.razorpayPaymentId(),
+                request.razorpaySignature(),
+                razorpayProperties.getKeySecret()
         );
-        applyProviderPayoutResult(payment, result);
+        if (!signatureValid) {
+            auditService.record(identitySubject, "CUSTOMER", "PAYMENT_SIGNATURE_FAILED",
+                    "Payment", payment.getPaymentId(), "razorpayPaymentId=" + request.razorpayPaymentId());
+            throw new ApiException(HttpStatus.BAD_REQUEST, "INVALID_PAYMENT_SIGNATURE",
+                    "Razorpay Checkout signature verification failed");
+        }
+
+        RazorpayPaymentResult rzpPayment = razorpayOrdersProvider.fetchPayment(request.razorpayPaymentId().trim());
+        validateRazorpayPaymentMatchesOrder(payment, rzpPayment);
+
+        payment.setRazorpayPaymentId(rzpPayment.paymentId());
+        payment.setRazorpaySignatureVerified(true);
+        payment.setPaymentMethod(rzpPayment.method());
+
+        if ("failed".equalsIgnoreCase(rzpPayment.status())) {
+            markFailed(payment, rzpPayment.errorCode(), rzpPayment.errorDescription());
+            throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "PAYMENT_FAILED",
+                    rzpPayment.errorDescription() != null ? rzpPayment.errorDescription() : "Payment failed at Razorpay");
+        }
+
+        if ("authorized".equalsIgnoreCase(rzpPayment.status()) && !rzpPayment.captured()) {
+            applyAuthorizedState(payment, rzpPayment);
+            if (!razorpayProperties.isAutoCapture()) {
+                rzpPayment = razorpayOrdersProvider.capturePayment(new CapturePaymentCommand(
+                        rzpPayment.paymentId(), payment.getAmount(), payment.getCurrency()));
+            }
+        }
+
+        if ("captured".equalsIgnoreCase(rzpPayment.status()) || rzpPayment.captured()) {
+            payment = applyCapturedAndTriggerFulfillment(payment, rzpPayment);
+        } else if (payment.getStatus() == PaymentTransactionStatus.ORDER_CREATED) {
+            transitionStatus(payment, PaymentTransactionStatus.PAYMENT_PENDING);
+            payment = paymentRepository.save(payment);
+        }
+
+        return toResponse(payment);
     }
 
-    @Transactional
-    public PaymentStatusResponse syncTransferStatus(String userId, String paymentId, boolean opsOverride) {
-        Payment payment = opsOverride
-                ? paymentRepository.findByPaymentId(paymentId)
-                        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND",
-                                "Payment not found: " + paymentId))
-                : paymentRepository.findByPaymentIdAndUserId(paymentId, userId)
-                        .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND",
-                                "Payment not found: " + paymentId));
-
-        if (payment.getProviderPayoutId() != null && !isTerminal(payment.getStatus())
-                && payoutProvider != null && payoutProvider.isPayoutAvailable()) {
-            PayoutResult refreshed = payoutProvider.fetchPayout(payment.getProviderPayoutId());
-            applyProviderPayoutResult(payment, refreshed);
-        }
-        return toStatusResponse(payment);
-    }
-
-    @Transactional
-    public PaymentStatusResponse cancelQueuedTransfer(String userId, String paymentId) {
-        Payment payment = paymentRepository.findByPaymentIdAndUserId(paymentId, userId)
-                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND",
-                        "Payment not found: " + paymentId));
-
-        if (!OutgoingTransferStatus.QUEUED.name().equals(payment.getStatus())) {
-            throw new ApiException(HttpStatus.CONFLICT, "TRANSFER_CANNOT_BE_CANCELLED",
-                    "Only QUEUED transfers can be cancelled. Current status: " + payment.getStatus());
-        }
-        if (payment.getProviderPayoutId() != null && payoutProvider.isPayoutAvailable()) {
-            PayoutResult cancelled = payoutProvider.cancelPayout(payment.getProviderPayoutId());
-            applyProviderPayoutResult(payment, cancelled);
-        }
-        return toStatusResponse(payment);
-    }
-
-    @Transactional
-    public PaymentStatusResponse reverseTransferByOps(
-            String paymentId, String reasonCode, String remarks, String opsActorId) {
+    @Transactional(readOnly = true)
+    public PaymentTransactionResponse getPayment(String identitySubject, String paymentId) {
         Payment payment = paymentRepository.findByPaymentId(paymentId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND",
-                        "Payment not found: " + paymentId));
-
-        if (payment.getLedgerReversalTxId() != null) {
-            return toStatusResponse(payment);
+                        "Payment transaction not found: " + paymentId));
+        if (!identitySubject.equals(payment.getIdentitySubject())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "PAYMENT_OWNERSHIP_MISMATCH",
+                    "You do not have access to this payment transaction");
         }
-        if (OutgoingTransferStatus.COMPLETED.name().equals(payment.getStatus())) {
-            throw new ApiException(HttpStatus.CONFLICT, "COMPLETED_PAYOUT_REQUIRES_BANK_REVERSAL",
-                    "Completed RazorpayX payouts cannot be arbitrarily reversed unless reversed by bank/rail");
-        }
-        reverseDebitedTransfer(payment, reasonCode, remarks);
-        auditService.record(opsActorId, "OPERATIONS", "OPS_TRANSFER_REVERSED", "Payment", paymentId,
-                "Ops reversal executed: " + reasonCode);
-        return toStatusResponse(payment);
+        return toResponse(payment);
     }
 
     @Transactional(readOnly = true)
-    public PaymentStatusResponse getPaymentStatus(String userId, String paymentId) {
-        Payment payment = paymentRepository.findByPaymentIdAndUserId(paymentId, userId)
+    public PagedResponse<PaymentTransactionResponse> listPayments(String identitySubject, int page, int size) {
+        int safeSize = Math.min(Math.max(size, 1), PaymentConstants.MAX_PAGE_SIZE);
+        Page<Payment> result = paymentRepository.findByIdentitySubjectOrderByCreatedAtDesc(
+                identitySubject, PageRequest.of(Math.max(page, 0), safeSize));
+        List<PaymentTransactionResponse> items = result.getContent().stream().map(this::toResponse).toList();
+        return new PagedResponse<>(items, result.getNumber(), result.getSize(),
+                result.getTotalElements(), result.hasNext());
+    }
+
+    @Transactional
+    public PaymentTransactionResponse syncPaymentStatus(String identitySubject, String paymentId, boolean opsActor) {
+        Payment payment = paymentRepository.findByPaymentId(paymentId)
                 .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND",
-                        "Payment not found: " + paymentId));
-        return toStatusResponse(payment);
-    }
-
-    @Transactional(readOnly = true)
-    public PagedResponse<PaymentStatusResponse> listTransfers(String userId, int page, int size) {
-        int clampedSize = Math.min(Math.max(size, 1), PaymentConstants.MAX_PAGE_SIZE);
-        Page<Payment> result = paymentRepository.findByUserIdOrderByCreatedAtDesc(
-                userId, PageRequest.of(Math.max(page, 0), clampedSize));
-        return new PagedResponse<>(
-                result.getContent().stream().map(this::toStatusResponse).toList(),
-                result.getNumber(),
-                result.getSize(),
-                result.getTotalElements(),
-                result.hasNext()
-        );
-    }
-
-    public void applyProviderPayoutResult(Payment payment, PayoutResult result) {
-        if (result == null || result.status() == null) {
-            return;
+                        "Payment transaction not found: " + paymentId));
+        if (!opsActor && !identitySubject.equals(payment.getIdentitySubject())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "PAYMENT_OWNERSHIP_MISMATCH",
+                    "You do not have access to this payment transaction");
         }
-        if (result.utr() != null && !result.utr().isBlank()) {
-            payment.setProviderUtr(result.utr());
-        }
-        String normalized = result.status().trim().toLowerCase();
-
-        if (isTerminal(payment.getStatus()) && !"reversed".equals(normalized)) {
-            return;
+        if (payment.getStatus().isTerminal() || payment.getRazorpayOrderId() == null) {
+            return toResponse(payment);
         }
 
-        switch (normalized) {
-            case "queued" -> {
-                payment.setStatus(OutgoingTransferStatus.QUEUED.name());
-                paymentRepository.save(payment);
-                enqueueTransferEvent(payment, PaymentConstants.EVT_TRANSFER_PROCESSING,
-                        new TransferProcessingPayload(payment.getPaymentId(), payment.getProviderPayoutId(),
-                                normalized, payment.getProviderUtr(), Instant.now()));
+        List<RazorpayPaymentResult> orderPayments = razorpayOrdersProvider.fetchOrderPayments(payment.getRazorpayOrderId());
+        for (RazorpayPaymentResult rzpPayment : orderPayments) {
+            if ("captured".equalsIgnoreCase(rzpPayment.status()) || rzpPayment.captured()) {
+                validateRazorpayPaymentMatchesOrder(payment, rzpPayment);
+                payment.setRazorpayPaymentId(rzpPayment.paymentId());
+                payment.setPaymentMethod(rzpPayment.method());
+                payment = applyCapturedAndTriggerFulfillment(payment, rzpPayment);
+                payment.setReconciledAt(Instant.now());
+                return toResponse(paymentRepository.save(payment));
             }
-            case "pending", "initiated", "processing" -> {
-                payment.setStatus(OutgoingTransferStatus.PROCESSING.name());
-                paymentRepository.save(payment);
-                enqueueTransferEvent(payment, PaymentConstants.EVT_TRANSFER_PROCESSING,
-                        new TransferProcessingPayload(payment.getPaymentId(), payment.getProviderPayoutId(),
-                                normalized, payment.getProviderUtr(), Instant.now()));
-            }
-            case "processed" -> {
-                if (payment.getLedgerSettlementTxId() == null && ledgerServiceClient != null) {
-                    LedgerPostingResponseDto settleTx = ledgerServiceClient.postBatch(
-                            "settle-" + payment.getPaymentId(),
-                            new MultiLinePostingRequest(
-                                    "BANK_TRANSFER",
-                                    payment.getCurrency(),
-                                    MDC.get(PaymentConstants.MDC_CORRELATION_ID),
-                                    "Payout settled for " + payment.getPaymentId(),
-                                    payment.getPaymentId(),
-                                    List.of(
-                                            new PostingEntryRequest(PaymentConstants.LEDGER_SYSTEM_CLEARING_INR, "DEBIT",
-                                                    payment.getAmount(), "Clear outgoing payout " + payment.getPaymentId(),
-                                                    payment.getPaymentId()),
-                                            new PostingEntryRequest(PaymentConstants.LEDGER_SYSTEM_SETTLEMENT_INR, "CREDIT",
-                                                    payment.getAmount(), "Settle outgoing payout " + payment.getPaymentId(),
-                                                    payment.getPaymentId())
-                                    )
-                            )
-                    );
-                    payment.setLedgerSettlementTxId(settleTx.transactionId());
+        }
+        for (RazorpayPaymentResult rzpPayment : orderPayments) {
+            if ("authorized".equalsIgnoreCase(rzpPayment.status())) {
+                validateRazorpayPaymentMatchesOrder(payment, rzpPayment);
+                payment.setRazorpayPaymentId(rzpPayment.paymentId());
+                payment.setPaymentMethod(rzpPayment.method());
+                payment = applyAuthorizedState(payment, rzpPayment);
+                if (!razorpayProperties.isAutoCapture()) {
+                    RazorpayPaymentResult captured = razorpayOrdersProvider.capturePayment(new CapturePaymentCommand(
+                            rzpPayment.paymentId(), payment.getAmount(), payment.getCurrency()));
+                    payment = applyCapturedAndTriggerFulfillment(payment, captured);
                 }
-                payment.setStatus(OutgoingTransferStatus.COMPLETED.name());
-                payment.setCompletedAt(Instant.now());
-                paymentRepository.save(payment);
-                enqueueTransferEvent(payment, PaymentConstants.EVT_TRANSFER_COMPLETED,
-                        new TransferCompletedPayload(payment.getPaymentId(), payment.getProviderPayoutId(),
-                                payment.getProviderUtr(), payment.getLedgerSettlementTxId(),
-                                payment.getAmount(), payment.getCurrency(), payment.getCompletedAt()));
-                enqueuePaymentNotification(payment, "PAYMENT_SUCCESSFUL", "Payment Successful",
-                        "Your transfer of " + payment.getAmount() + " " + payment.getCurrency() + " (Ref: " + payment.getPaymentId() + ") was completed successfully.",
-                        "HIGH");
+                payment.setReconciledAt(Instant.now());
+                return toResponse(paymentRepository.save(payment));
             }
-            case "failed", "rejected", "cancelled", "reversed" -> {
-                String reason = result.failureDescription() != null
-                        ? result.failureDescription()
-                        : "Provider reported status: " + normalized;
-                String code = result.failureReason() != null
-                        ? result.failureReason() : "PAYOUT_" + normalized.toUpperCase();
-                payment.setFailureCode(code);
-                payment.setFailureReason(reason);
-                if (payment.getLedgerTransactionId() != null && payment.getLedgerReversalTxId() == null) {
-                    reverseDebitedTransfer(payment, code, reason);
-                } else {
-                    payment.setStatus(OutgoingTransferStatus.FAILED.name());
-                    payment.setCompletedAt(Instant.now());
-                    paymentRepository.save(payment);
-                    enqueuePaymentNotification(payment, "PAYMENT_FAILED", "Payment Failed",
-                            "Your transfer of " + payment.getAmount() + " " + payment.getCurrency() + " (Ref: " + payment.getPaymentId() + ") failed.",
-                            "HIGH");
-                }
-            }
-            default -> log.warn("Unhandled RazorpayX payout status={} for paymentId={}",
-                    normalized, payment.getPaymentId());
         }
+        if (!orderPayments.isEmpty()) {
+            RazorpayPaymentResult latest = orderPayments.get(orderPayments.size() - 1);
+            if ("failed".equalsIgnoreCase(latest.status())
+                    && payment.getStatus() != PaymentTransactionStatus.FAILED) {
+                payment.setRazorpayPaymentId(latest.paymentId());
+                payment = markFailed(payment, latest.errorCode(), latest.errorDescription());
+            }
+        }
+        return toResponse(payment);
     }
 
-    private void reverseDebitedTransfer(Payment payment, String reasonCode, String remarks) {
-        if (payment.getLedgerTransactionId() != null && payment.getLedgerReversalTxId() == null
-                && ledgerServiceClient != null) {
-            ReversalResponseDto rev = ledgerServiceClient.reverseTransaction(
-                    payment.getLedgerTransactionId(),
-                    "rev-" + payment.getPaymentId(),
-                    reasonCode,
-                    remarks
-            );
-            payment.setLedgerReversalTxId(rev.reversalTransactionId());
+    @Transactional
+    public RefundResponse initiateRefund(
+            String identitySubject,
+            String idempotencyKey,
+            String paymentId,
+            RefundPaymentRequest request,
+            boolean opsActor) {
+        if (idempotencyKey != null && !idempotencyKey.isBlank()) {
+            Optional<PaymentRefund> existing = refundRepository.findByIdempotencyKey(idempotencyKey);
+            if (existing.isPresent()) {
+                return toRefundResponse(existing.get());
+            }
         }
-        payment.setFailureCode(reasonCode);
-        payment.setFailureReason(remarks);
-        payment.setStatus(OutgoingTransferStatus.REVERSED.name());
-        payment.setCompletedAt(Instant.now());
+
+        Payment payment = paymentRepository.findByPaymentId(paymentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND",
+                        "Payment transaction not found: " + paymentId));
+        if (!opsActor && !identitySubject.equals(payment.getIdentitySubject())) {
+            throw new ApiException(HttpStatus.FORBIDDEN, "PAYMENT_OWNERSHIP_MISMATCH",
+                    "You do not have access to refund this payment");
+        }
+        if (payment.getRazorpayPaymentId() == null || payment.getRazorpayPaymentId().isBlank()) {
+            throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "REFUND_NOT_ALLOWED",
+                    "Payment has no captured Razorpay payment ID to refund");
+        }
+        if (payment.getStatus() != PaymentTransactionStatus.CAPTURED
+                && payment.getStatus() != PaymentTransactionStatus.COMPLETED
+                && payment.getStatus() != PaymentTransactionStatus.PARTIALLY_REFUNDED) {
+            throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "REFUND_NOT_ALLOWED",
+                    "Payment in status " + payment.getStatus() + " cannot be refunded");
+        }
+
+        BigDecimal remaining = payment.getAmount().subtract(payment.getRefundedAmount());
+        BigDecimal refundAmount = request.amount() != null
+                ? request.amount().setScale(4, RoundingMode.HALF_UP)
+                : remaining;
+        if (refundAmount.compareTo(BigDecimal.ZERO) <= 0 || refundAmount.compareTo(remaining) > 0) {
+            throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "INVALID_REFUND_AMOUNT",
+                    "Refund amount must be positive and not exceed remaining refundable amount: " + remaining);
+        }
+
+        String refundId = "RFND-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
+        PaymentRefund refund = new PaymentRefund();
+        refund.setRefundId(refundId);
+        refund.setPaymentId(payment.getPaymentId());
+        refund.setRazorpayPaymentId(payment.getRazorpayPaymentId());
+        refund.setAmount(refundAmount);
+        refund.setCurrency(payment.getCurrency());
+        refund.setStatus("REFUND_PENDING");
+        refund.setReason(request.reason());
+        refund.setIdempotencyKey(idempotencyKey);
+        refund = refundRepository.save(refund);
+
+        transitionStatus(payment, PaymentTransactionStatus.REFUND_PENDING);
         paymentRepository.save(payment);
 
-        enqueueTransferEvent(payment, PaymentConstants.EVT_TRANSFER_FAILED,
-                new TransferFailedPayload(payment.getPaymentId(), payment.getProviderPayoutId(),
-                        reasonCode, remarks, payment.getCompletedAt()));
-        enqueueTransferEvent(payment, PaymentConstants.EVT_TRANSFER_REVERSED,
-                new TransferReversedPayload(payment.getPaymentId(), payment.getProviderPayoutId(),
-                        payment.getLedgerReversalTxId(), payment.getTotalDebitAmount(),
-                        payment.getCurrency(), reasonCode, payment.getCompletedAt()));
-        enqueuePaymentNotification(payment, "PAYMENT_REVERSED", "Payment Failed & Reversed",
-                "Your transfer of " + payment.getAmount() + " " + payment.getCurrency() + " (Ref: " + payment.getPaymentId() + ") could not be completed and funds have been reversed.",
-                "HIGH");
+        RazorpayRefundResult rzpRefund = razorpayOrdersProvider.refundPayment(new RefundPaymentCommand(
+                payment.getRazorpayPaymentId(),
+                refundAmount,
+                refundId,
+                Map.of("paymentId", payment.getPaymentId(), "refundId", refundId, "reason", request.reason())
+        ));
+
+        refund.setRazorpayRefundId(rzpRefund.refundId());
+        if ("processed".equalsIgnoreCase(rzpRefund.status())) {
+            refund.setStatus("PROCESSED");
+            refund = refundRepository.save(refund);
+            applyRefundProcessed(payment, refund);
+        } else {
+            refund.setStatus(rzpRefund.status().toUpperCase());
+            refund = refundRepository.save(refund);
+        }
+        return toRefundResponse(refund);
     }
 
-    private MultiLinePostingRequest buildDebitJournal(Payment payment, FeeCalculation fees) {
-        List<PostingEntryRequest> entries = new ArrayList<>();
-        entries.add(new PostingEntryRequest(
-                payment.getDebitAccountId(), "DEBIT", fees.totalDebit(),
-                "Outgoing " + payment.getTransferMode() + " transfer " + payment.getPaymentId(),
-                payment.getPaymentId()));
-        entries.add(new PostingEntryRequest(
-                PaymentConstants.LEDGER_SYSTEM_CLEARING_INR, "CREDIT", payment.getAmount(),
-                "Clearing reserve for " + payment.getPaymentId(),
-                payment.getPaymentId()));
-        if (fees.totalFee().compareTo(BigDecimal.ZERO) > 0) {
-            entries.add(new PostingEntryRequest(
-                    PaymentConstants.LEDGER_SYSTEM_FEE_INR, "CREDIT", fees.totalFee(),
-                    "Transfer fee + GST for " + payment.getPaymentId(),
-                    payment.getPaymentId()));
+    @Transactional
+    public Payment applyAuthorizedWebhook(
+            String razorpayOrderId, String razorpayPaymentId, String method, BigDecimal amount, String currency) {
+        Payment payment = findByOrderOrPayment(razorpayOrderId, razorpayPaymentId);
+        validateWebhookAmountCurrency(payment, amount, currency);
+        payment.setRazorpayPaymentId(razorpayPaymentId);
+        if (method != null) {
+            payment.setPaymentMethod(method);
         }
-        return new MultiLinePostingRequest(
-                "BANK_TRANSFER",
-                payment.getCurrency(),
-                payment.getCorrelationId(),
-                "Outgoing transfer " + payment.getPaymentId(),
+        return applyAuthorizedState(payment, new RazorpayPaymentResult(
+                razorpayPaymentId, razorpayOrderId, amount, currency, "authorized", method, false,
+                null, null, null, null, Instant.now()));
+    }
+
+    @Transactional
+    public Payment applyCapturedWebhook(
+            String razorpayOrderId, String razorpayPaymentId, String method, BigDecimal amount, String currency) {
+        Payment payment = findByOrderOrPayment(razorpayOrderId, razorpayPaymentId);
+        validateWebhookAmountCurrency(payment, amount, currency);
+        payment.setRazorpayPaymentId(razorpayPaymentId);
+        if (method != null) {
+            payment.setPaymentMethod(method);
+        }
+        return applyCapturedAndTriggerFulfillment(payment, new RazorpayPaymentResult(
+                razorpayPaymentId, razorpayOrderId, amount, currency, "captured", method, true,
+                null, null, null, null, Instant.now()));
+    }
+
+    @Transactional
+    public Payment applyFailedWebhook(
+            String razorpayOrderId, String razorpayPaymentId, String failureCode, String failureReason) {
+        Payment payment = findByOrderOrPayment(razorpayOrderId, razorpayPaymentId);
+        if (payment.getStatus() == PaymentTransactionStatus.CAPTURED
+                || payment.getStatus() == PaymentTransactionStatus.PROCESSING
+                || payment.getStatus() == PaymentTransactionStatus.COMPLETED
+                || payment.getStatus() == PaymentTransactionStatus.REFUNDED) {
+            log.info("Ignoring late payment.failed webhook for already settled paymentId={}", payment.getPaymentId());
+            return payment;
+        }
+        payment.setRazorpayPaymentId(razorpayPaymentId);
+        return markFailed(payment, failureCode, failureReason);
+    }
+
+    @Transactional
+    public void applyRefundWebhook(
+            String razorpayPaymentId, String razorpayRefundId, BigDecimal amount, String eventType) {
+        Payment payment = paymentRepository.findByRazorpayPaymentId(razorpayPaymentId)
+                .orElseThrow(() -> new ApiException(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND",
+                        "Payment not found for Razorpay paymentId: " + razorpayPaymentId));
+
+        PaymentRefund refund = refundRepository.findByRazorpayRefundId(razorpayRefundId)
+                .orElseGet(() -> {
+                    PaymentRefund created = new PaymentRefund();
+                    created.setRefundId("RFND-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase());
+                    created.setPaymentId(payment.getPaymentId());
+                    created.setRazorpayPaymentId(razorpayPaymentId);
+                    created.setRazorpayRefundId(razorpayRefundId);
+                    created.setAmount(amount != null ? amount.setScale(4, RoundingMode.HALF_UP) : payment.getAmount());
+                    created.setCurrency(payment.getCurrency());
+                    created.setStatus("REFUND_PENDING");
+                    return refundRepository.save(created);
+                });
+
+        if ("PROCESSED".equalsIgnoreCase(refund.getStatus())) {
+            return;
+        }
+
+        if (PaymentConstants.RZP_EVENT_REFUND_FAILED.equals(eventType)) {
+            refund.setStatus("FAILED");
+            refundRepository.save(refund);
+            if (payment.getStatus() == PaymentTransactionStatus.REFUND_PENDING) {
+                transitionStatus(payment, payment.getRefundedAmount().compareTo(BigDecimal.ZERO) > 0
+                        ? PaymentTransactionStatus.PARTIALLY_REFUNDED
+                        : PaymentTransactionStatus.COMPLETED);
+                paymentRepository.save(payment);
+            }
+            return;
+        }
+
+        if (PaymentConstants.RZP_EVENT_REFUND_PROCESSED.equals(eventType)) {
+            refund.setStatus("PROCESSED");
+            refundRepository.save(refund);
+            applyRefundProcessed(payment, refund);
+        }
+    }
+
+    @Transactional
+    public void markLedgerPosted(String paymentId, String ledgerTransactionId) {
+        paymentRepository.findByPaymentId(paymentId).ifPresent(payment -> {
+            if (payment.getStatus() == PaymentTransactionStatus.COMPLETED
+                    && ledgerTransactionId != null
+                    && ledgerTransactionId.equals(payment.getLedgerTransactionId())) {
+                return;
+            }
+            if (payment.getStatus() == PaymentTransactionStatus.CAPTURED
+                    || payment.getStatus() == PaymentTransactionStatus.PROCESSING) {
+                transitionStatus(payment, PaymentTransactionStatus.COMPLETED);
+                payment.setLedgerTransactionId(ledgerTransactionId);
+                payment.setCompletedAt(Instant.now());
+                paymentRepository.save(payment);
+            }
+        });
+    }
+
+    private Payment applyAuthorizedState(Payment payment, RazorpayPaymentResult rzpPayment) {
+        if (payment.getStatus() == PaymentTransactionStatus.AUTHORIZED
+                || payment.getStatus() == PaymentTransactionStatus.CAPTURED
+                || payment.getStatus() == PaymentTransactionStatus.PROCESSING
+                || payment.getStatus() == PaymentTransactionStatus.COMPLETED) {
+            return payment;
+        }
+        transitionStatus(payment, PaymentTransactionStatus.AUTHORIZED);
+        payment = paymentRepository.save(payment);
+        outboxService.enqueueEvent(
+                PaymentConstants.TOPIC_INCOMING_EVENTS,
                 payment.getPaymentId(),
-                entries
+                "Payment",
+                PaymentConstants.EVT_PAYMENT_AUTHORIZED,
+                payment.getIdentitySubject(),
+                payment.getRazorpayPaymentId(),
+                new PaymentAuthorizedPayload(
+                        payment.getPaymentId(),
+                        payment.getIdentitySubject(),
+                        payment.getDestinationAccountId(),
+                        payment.getRazorpayOrderId(),
+                        payment.getRazorpayPaymentId(),
+                        payment.getAmount(),
+                        payment.getCurrency(),
+                        payment.getPurpose(),
+                        payment.getBusinessReference(),
+                        Instant.now()
+                )
         );
+        return payment;
     }
 
-    private void validateModeCompatibility(String transferMode, Beneficiary beneficiary) {
-        boolean isUpiBeneficiary = BeneficiaryType.UPI.name().equalsIgnoreCase(beneficiary.getBeneficiaryType());
-        if (TransferMode.UPI.name().equalsIgnoreCase(transferMode) && !isUpiBeneficiary) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "TRANSFER_MODE_MISMATCH",
-                    "UPI transfer mode requires a UPI beneficiary");
+    private Payment applyCapturedAndTriggerFulfillment(Payment payment, RazorpayPaymentResult rzpPayment) {
+        if (payment.getStatus() == PaymentTransactionStatus.CAPTURED
+                || payment.getStatus() == PaymentTransactionStatus.PROCESSING
+                || payment.getStatus() == PaymentTransactionStatus.COMPLETED) {
+            return payment;
         }
-        if (!TransferMode.UPI.name().equalsIgnoreCase(transferMode) && isUpiBeneficiary) {
-            throw new ApiException(HttpStatus.BAD_REQUEST, "TRANSFER_MODE_MISMATCH",
-                    "Bank transfer modes (NEFT/IMPS/RTGS) require a bank account beneficiary");
-        }
-    }
 
-    private boolean isTerminal(String status) {
-        return OutgoingTransferStatus.COMPLETED.name().equals(status)
-                || OutgoingTransferStatus.FAILED.name().equals(status)
-                || OutgoingTransferStatus.REVERSED.name().equals(status);
-    }
+        transitionStatus(payment, PaymentTransactionStatus.CAPTURED);
+        payment.setCapturedAt(Instant.now());
+        payment = paymentRepository.save(payment);
 
-    private <T> void enqueueTransferEvent(Payment p, String eventType, T payload) {
-        if (outboxService == null) {
-            return;
-        }
         outboxService.enqueueEvent(
-                PaymentConstants.TOPIC_TRANSFER_EVENTS,
-                p.getPaymentId(),
-                "OutgoingTransfer",
-                eventType,
-                p.getCustomerId(),
-                p.getProviderPayoutId(),
-                payload
+                PaymentConstants.TOPIC_INCOMING_EVENTS,
+                payment.getPaymentId(),
+                "Payment",
+                PaymentConstants.EVT_PAYMENT_CAPTURED,
+                payment.getIdentitySubject(),
+                payment.getRazorpayPaymentId(),
+                new PaymentCapturedPayload(
+                        payment.getPaymentId(),
+                        payment.getIdentitySubject(),
+                        payment.getDestinationAccountId(),
+                        payment.getRazorpayOrderId(),
+                        payment.getRazorpayPaymentId(),
+                        payment.getPaymentMethod(),
+                        payment.getAmount(),
+                        payment.getCurrency(),
+                        payment.getPurpose(),
+                        payment.getBusinessReference(),
+                        Instant.now()
+                )
         );
+
+        transitionStatus(payment, PaymentTransactionStatus.PROCESSING);
+        payment = paymentRepository.save(payment);
+
+        if (payment.getPurpose() == PaymentPurpose.ACCOUNT_DEPOSIT) {
+            outboxService.enqueueEvent(
+                    PaymentConstants.TOPIC_INCOMING_EVENTS,
+                    payment.getPaymentId(),
+                    "Payment",
+                    PaymentConstants.EVT_EXTERNAL_DEPOSIT_CONFIRMED,
+                    payment.getIdentitySubject(),
+                    payment.getRazorpayPaymentId(),
+                    new ExternalAccountDepositConfirmedPayload(
+                            payment.getPaymentId(),
+                            payment.getIdentitySubject(),
+                            payment.getDestinationAccountId(),
+                            payment.getRazorpayOrderId(),
+                            payment.getRazorpayPaymentId(),
+                            payment.getPaymentMethod(),
+                            payment.getAmount(),
+                            payment.getCurrency(),
+                            payment.getPurpose(),
+                            Instant.now()
+                    )
+            );
+        } else if (payment.getPurpose() == PaymentPurpose.LOAN_REPAYMENT) {
+            outboxService.enqueueEvent(
+                    PaymentConstants.TOPIC_INCOMING_EVENTS,
+                    payment.getPaymentId(),
+                    "Payment",
+                    PaymentConstants.EVT_LOAN_REPAYMENT_CONFIRMED,
+                    payment.getIdentitySubject(),
+                    payment.getRazorpayPaymentId(),
+                    new LoanRepaymentPaymentConfirmedPayload(
+                            payment.getPaymentId(),
+                            payment.getIdentitySubject(),
+                            payment.getBusinessReference(),
+                            payment.getRazorpayOrderId(),
+                            payment.getRazorpayPaymentId(),
+                            payment.getPaymentMethod(),
+                            payment.getAmount(),
+                            payment.getCurrency(),
+                            payment.getPurpose(),
+                            Instant.now()
+                    )
+            );
+        } else if (payment.getPurpose() == PaymentPurpose.INVESTMENT_PAYMENT) {
+            outboxService.enqueueEvent(
+                    PaymentConstants.TOPIC_INCOMING_EVENTS,
+                    payment.getPaymentId(),
+                    "Payment",
+                    PaymentConstants.EVT_INVESTMENT_PAYMENT_CONFIRMED,
+                    payment.getIdentitySubject(),
+                    payment.getRazorpayPaymentId(),
+                    new InvestmentPaymentConfirmedPayload(
+                            payment.getPaymentId(),
+                            payment.getIdentitySubject(),
+                            payment.getBusinessReference(),
+                            payment.getRazorpayOrderId(),
+                            payment.getRazorpayPaymentId(),
+                            payment.getPaymentMethod(),
+                            payment.getAmount(),
+                            payment.getCurrency(),
+                            payment.getPurpose(),
+                            Instant.now()
+                    )
+            );
+        } else {
+            transitionStatus(payment, PaymentTransactionStatus.COMPLETED);
+            payment.setCompletedAt(Instant.now());
+            payment = paymentRepository.save(payment);
+        }
+
+        return payment;
     }
 
-    private void enqueuePaymentNotification(Payment p, String eventType, String title, String message, String priority) {
-        if (outboxService == null || p.getUserId() == null || p.getUserId().isBlank()) {
-            return;
+    private Payment markFailed(Payment payment, String failureCode, String failureReason) {
+        if (payment.getStatus() == PaymentTransactionStatus.FAILED) {
+            return payment;
         }
+        transitionStatus(payment, PaymentTransactionStatus.FAILED);
+        payment.setFailureCode(failureCode);
+        payment.setFailureReason(failureReason);
+        payment = paymentRepository.save(payment);
+
         outboxService.enqueueEvent(
-                PaymentConstants.TOPIC_NOTIFICATION_EVENTS,
-                p.getUserId(),
-                "NOTIFICATION",
-                "NOTIFICATION_REQUESTED",
-                p.getCustomerId(),
-                p.getPaymentId(),
-                com.fintech.payment.event.model.NotificationEvent.of(
-                        eventType,
-                        p.getUserId(),
-                        p.getPaymentId(),
-                        "PAYMENT",
-                        title,
-                        message,
-                        "PAYMENT",
-                        priority,
-                        java.util.Map.of("paymentId", p.getPaymentId(),
-                                "amount", p.getAmount() != null ? p.getAmount().toPlainString() : "0",
-                                "currency", p.getCurrency() != null ? p.getCurrency() : "INR",
-                                "status", p.getStatus() != null ? p.getStatus() : "")
+                PaymentConstants.TOPIC_INCOMING_EVENTS,
+                payment.getPaymentId(),
+                "Payment",
+                PaymentConstants.EVT_PAYMENT_FAILED,
+                payment.getIdentitySubject(),
+                payment.getRazorpayPaymentId(),
+                new PaymentFailedPayload(
+                        payment.getPaymentId(),
+                        payment.getIdentitySubject(),
+                        payment.getDestinationAccountId(),
+                        payment.getRazorpayOrderId(),
+                        payment.getRazorpayPaymentId(),
+                        payment.getAmount(),
+                        payment.getCurrency(),
+                        payment.getPurpose(),
+                        payment.getBusinessReference(),
+                        failureCode,
+                        failureReason,
+                        Instant.now()
+                )
+        );
+        return payment;
+    }
+
+    private void applyRefundProcessed(Payment payment, PaymentRefund refund) {
+        BigDecimal totalRefunded = payment.getRefundedAmount().add(refund.getAmount());
+        boolean fullRefund = totalRefunded.compareTo(payment.getAmount()) >= 0;
+        payment.setRefundedAmount(fullRefund ? payment.getAmount() : totalRefunded);
+        transitionStatus(payment, fullRefund
+                ? PaymentTransactionStatus.REFUNDED
+                : PaymentTransactionStatus.PARTIALLY_REFUNDED);
+        paymentRepository.save(payment);
+
+        outboxService.enqueueEvent(
+                PaymentConstants.TOPIC_INCOMING_EVENTS,
+                payment.getPaymentId(),
+                "Payment",
+                PaymentConstants.EVT_PAYMENT_REFUNDED,
+                payment.getIdentitySubject(),
+                refund.getRazorpayRefundId(),
+                new PaymentRefundedPayload(
+                        payment.getPaymentId(),
+                        refund.getRefundId(),
+                        payment.getIdentitySubject(),
+                        payment.getDestinationAccountId(),
+                        payment.getRazorpayOrderId(),
+                        payment.getRazorpayPaymentId(),
+                        refund.getRazorpayRefundId(),
+                        refund.getAmount(),
+                        refund.getCurrency(),
+                        payment.getPurpose(),
+                        payment.getBusinessReference(),
+                        fullRefund,
+                        Instant.now()
                 )
         );
     }
 
-    private PaymentResponse toPaymentResponse(Payment p, FeeCalculation fees) {
-        List<ChargeDto> charges = new ArrayList<>();
-        charges.add(new ChargeDto("TRANSFER_FEE", fees.baseFee(), p.getCurrency()));
-        if (fees.taxAmount().compareTo(BigDecimal.ZERO) > 0) {
-            charges.add(new ChargeDto("GST", fees.taxAmount(), p.getCurrency()));
+    private Payment findByOrderOrPayment(String razorpayOrderId, String razorpayPaymentId) {
+        if (razorpayOrderId != null && !razorpayOrderId.isBlank()) {
+            Optional<Payment> byOrder = paymentRepository.findByRazorpayOrderId(razorpayOrderId);
+            if (byOrder.isPresent()) {
+                return byOrder.get();
+            }
         }
-        PaymentResponse response = new PaymentResponse();
-        response.setPaymentId(p.getPaymentId());
-        response.setTransactionId(p.getTransactionId());
-        response.setLedgerTransactionId(p.getLedgerTransactionId());
-        response.setStatus(p.getStatus());
-        response.setAmount(p.getAmount());
-        response.setFeeAmount(p.getFeeAmount());
-        response.setTaxAmount(p.getTaxAmount());
-        response.setTotalDebitAmount(p.getTotalDebitAmount());
-        response.setCurrency(p.getCurrency());
-        response.setTransferMode(p.getTransferMode());
-        response.setTransferType(p.getTransferType());
-        response.setProviderPayoutId(p.getProviderPayoutId());
-        response.setCharges(charges);
-        response.setEstimatedCompletionTime(Instant.now().plus(3, ChronoUnit.MINUTES));
-        return response;
+        if (razorpayPaymentId != null && !razorpayPaymentId.isBlank()) {
+            Optional<Payment> byPayment = paymentRepository.findByRazorpayPaymentId(razorpayPaymentId);
+            if (byPayment.isPresent()) {
+                return byPayment.get();
+            }
+        }
+        throw new ApiException(HttpStatus.NOT_FOUND, "PAYMENT_NOT_FOUND",
+                "Payment transaction not found for Razorpay order/payment");
     }
 
-    private PaymentStatusResponse toStatusResponse(Payment p) {
-        PaymentStatusResponse response = new PaymentStatusResponse();
-        response.setPaymentId(p.getPaymentId());
-        response.setTransactionId(p.getTransactionId());
-        response.setStatus(p.getStatus());
-        response.setAmount(p.getAmount());
-        response.setFeeAmount(p.getFeeAmount());
-        response.setTaxAmount(p.getTaxAmount());
-        response.setTotalDebitAmount(p.getTotalDebitAmount());
-        response.setCurrency(p.getCurrency());
-        response.setTransferMode(p.getTransferMode());
-        response.setTransferType(p.getTransferType());
-        response.setDebitAccountId(p.getDebitAccountId());
-        response.setBeneficiaryId(p.getBeneficiaryId());
-        response.setRailReference(p.getRailReference());
-        response.setProviderUtr(p.getProviderUtr());
-        response.setLedgerTransactionId(p.getLedgerTransactionId());
-        response.setLedgerReversalTxId(p.getLedgerReversalTxId());
-        response.setFailureCode(p.getFailureCode());
-        response.setFailureReason(p.getFailureReason());
-        response.setCreatedAt(p.getCreatedAt());
-        response.setCompletedAt(p.getCompletedAt());
-        return response;
+    private void validateRazorpayPaymentMatchesOrder(Payment payment, RazorpayPaymentResult rzpPayment) {
+        if (rzpPayment.orderId() != null && !rzpPayment.orderId().equals(payment.getRazorpayOrderId())) {
+            throw new ApiException(HttpStatus.BAD_REQUEST, "ORDER_PAYMENT_MISMATCH",
+                    "Razorpay payment does not belong to the expected Razorpay order");
+        }
+        validateWebhookAmountCurrency(payment, rzpPayment.amount(), rzpPayment.currency());
+    }
+
+    private void validateWebhookAmountCurrency(Payment payment, BigDecimal amount, String currency) {
+        if (amount != null && payment.getAmount().compareTo(amount.setScale(4, RoundingMode.HALF_UP)) != 0) {
+            throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "PAYMENT_AMOUNT_MISMATCH",
+                    "Razorpay payment amount does not match internal order amount");
+        }
+        if (currency != null && !payment.getCurrency().equalsIgnoreCase(currency)) {
+            throw new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "PAYMENT_CURRENCY_MISMATCH",
+                    "Razorpay payment currency does not match internal order currency");
+        }
+    }
+
+    private void transitionStatus(Payment payment, PaymentTransactionStatus target) {
+        if (!payment.getStatus().canTransitionTo(target)) {
+            throw new ApiException(HttpStatus.CONFLICT, "INVALID_PAYMENT_STATE_TRANSITION",
+                    "Cannot transition payment " + payment.getPaymentId()
+                            + " from " + payment.getStatus() + " to " + target);
+        }
+        payment.setStatus(target);
+    }
+
+    private String resolveCustomerId(String identitySubject) {
+        try {
+            CustomerProfileDto profile = customerServiceClient.getCustomerProfile(identitySubject);
+            return profile != null ? profile.customerId() : null;
+        } catch (Exception ex) {
+            log.debug("Customer profile lookup skipped/unavailable for subject={}: {}", identitySubject, ex.getMessage());
+            return null;
+        }
+    }
+
+    private String serializeNotes(Map<String, String> notes) {
+        if (notes == null || notes.isEmpty()) {
+            return null;
+        }
+        try {
+            return objectMapper.writeValueAsString(notes);
+        } catch (Exception ex) {
+            return null;
+        }
+    }
+
+    public PaymentTransactionResponse toResponse(Payment p) {
+        return new PaymentTransactionResponse(
+                p.getPaymentId(),
+                p.getIdentitySubject(),
+                p.getCustomerId(),
+                p.getDestinationAccountId(),
+                p.getPurpose(),
+                p.getBusinessReference(),
+                p.getAmount(),
+                p.getRefundedAmount(),
+                p.getCurrency(),
+                p.getStatus(),
+                p.getRazorpayOrderId(),
+                p.getRazorpayPaymentId(),
+                p.isRazorpaySignatureVerified(),
+                p.getPaymentMethod(),
+                p.getLedgerTransactionId(),
+                p.getLedgerReversalTxId(),
+                p.getFailureCode(),
+                p.getFailureReason(),
+                p.getCapturedAt(),
+                p.getCompletedAt(),
+                p.getCreatedAt(),
+                p.getUpdatedAt()
+        );
+    }
+
+    public RefundResponse toRefundResponse(PaymentRefund r) {
+        return new RefundResponse(
+                r.getRefundId(),
+                r.getPaymentId(),
+                r.getRazorpayPaymentId(),
+                r.getRazorpayRefundId(),
+                r.getAmount(),
+                r.getCurrency(),
+                r.getStatus(),
+                r.getReason(),
+                r.getLedgerReversalTxId(),
+                r.getCreatedAt(),
+                r.getUpdatedAt()
+        );
     }
 }

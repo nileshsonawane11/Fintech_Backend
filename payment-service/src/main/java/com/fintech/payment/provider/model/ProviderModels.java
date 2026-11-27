@@ -2,159 +2,67 @@ package com.fintech.payment.provider.model;
 
 import java.math.BigDecimal;
 import java.time.Instant;
-import java.util.List;
 import java.util.Map;
 
 public final class ProviderModels {
 
-    private ProviderModels() {}
+    private ProviderModels() {
+    }
 
-    public record ProviderCustomerRequest(
-            String name,
-            String email,
-            String contact,
-            String referenceId,
+    public record CreateOrderCommand(
+            BigDecimal amount,
+            String currency,
+            String receipt,
+            boolean autoCapture,
             Map<String, String> notes
     ) {}
 
-    public record ProviderCustomerResult(
-            String providerCustomerId,
-            String name,
-            String email
-    ) {}
-
-    public record CreateVirtualAccountCommand(
-            String providerCustomerId,
-            List<String> receiverTypes,
-            String description,
-            Instant closeBy,
-            Map<String, String> notes
-    ) {}
-
-    public record VirtualAccountResult(
-            String providerVaId,
-            String providerCustomerId,
+    public record RazorpayOrderResult(
+            String orderId,
+            BigDecimal amount,
+            BigDecimal amountPaid,
+            BigDecimal amountDue,
+            String currency,
+            String receipt,
             String status,
-            String name,
-            String description,
-            String bankAccountNumber,
-            String bankIfsc,
-            String bankName,
-            String vpaAddress,
-            Instant closeBy
+            int attempts,
+            Instant createdAt
     ) {}
 
-    public record ProviderPaymentResult(
-            String providerPaymentId,
-            String providerVaId,
+    public record RazorpayPaymentResult(
+            String paymentId,
+            String orderId,
             BigDecimal amount,
             String currency,
             String status,
             String method,
-            String payerName,
-            String payerVpa,
-            String payerBank,
-            String utr,
+            boolean captured,
+            String email,
+            String contact,
             String errorCode,
             String errorDescription,
             Instant createdAt
     ) {}
 
+    public record CapturePaymentCommand(
+            String razorpayPaymentId,
+            BigDecimal amount,
+            String currency
+    ) {}
+
     public record RefundPaymentCommand(
-            String providerPaymentId,
+            String razorpayPaymentId,
             BigDecimal amount,
             String receipt,
             Map<String, String> notes
     ) {}
 
-    public record RefundPaymentResult(
+    public record RazorpayRefundResult(
             String refundId,
-            String providerPaymentId,
+            String paymentId,
             BigDecimal amount,
             String currency,
-            String status
-    ) {}
-
-    public record CreateContactCommand(
-            String name,
-            String email,
-            String contact,
-            String type,
-            String referenceId,
-            Map<String, String> notes
-    ) {}
-
-    public record ContactResult(
-            String providerContactId,
-            String name,
-            String type
-    ) {}
-
-    public record CreateBankFundAccountCommand(
-            String providerContactId,
-            String accountHolderName,
-            String ifscCode,
-            String accountNumber
-    ) {}
-
-    public record CreateVpaFundAccountCommand(
-            String providerContactId,
-            String vpaAddress
-    ) {}
-
-    public record FundAccountResult(
-            String providerFundAccountId,
-            String providerContactId,
-            String accountType,
-            boolean active
-    ) {}
-
-    public record ValidateFundAccountCommand(
-            String providerFundAccountId,
-            String validationMode,
-            long amountPaise,
-            String currency,
-            String referenceId,
-            Map<String, String> notes
-    ) {}
-
-    public record ValidationResult(
-            String providerValidationId,
-            String providerFundAccountId,
             String status,
-            String providerAccountStatus,
-            String registeredName,
-            String utr,
-            String failureSource,
-            String failureReason,
-            String failureDescription
-    ) {}
-
-    public record CreatePayoutCommand(
-            String idempotencyKey,
-            String providerFundAccountId,
-            BigDecimal amount,
-            String currency,
-            String mode,
-            String purpose,
-            String referenceId,
-            String narration,
-            Map<String, String> notes
-    ) {}
-
-    public record PayoutResult(
-            String providerPayoutId,
-            String providerFundAccountId,
-            String status,
-            BigDecimal amount,
-            String currency,
-            String mode,
-            String utr,
-            BigDecimal fees,
-            BigDecimal tax,
-            String failureSource,
-            String failureReason,
-            String failureDescription,
-            boolean timedOut
+            Instant createdAt
     ) {}
 }

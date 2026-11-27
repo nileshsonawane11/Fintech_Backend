@@ -1,14 +1,15 @@
 package com.fintech.payment.dto.response;
 
-public class WebhookResponse {
-    private boolean received;
+import java.time.Instant;
 
-    public WebhookResponse() { }
-
-    public WebhookResponse(boolean received) {
-        this.received = received;
+public record WebhookResponse(
+        String eventId,
+        String eventType,
+        String status,
+        String message,
+        Instant processedAt
+) {
+    public boolean isReceived() {
+        return true;
     }
-
-    public boolean isReceived() { return received; }
-    public void setReceived(boolean received) { this.received = received; }
 }

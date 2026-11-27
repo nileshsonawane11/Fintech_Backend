@@ -448,19 +448,6 @@ public class InvestmentApplicationService {
 
         generateInstallmentScheduleIfRecurring(inv, txId);
 
-        if (product.getProductType() == ProductType.RD || product.getProductType() == ProductType.SIP) {
-            paymentClient.registerMandateBestEffort("MND-" + invId, new RegisterMandateRequest(
-                    "investment-service",
-                    "MND-" + invId,
-                    app.getCustomerId(),
-                    "NACH",
-                    app.getRequestedAmount(),
-                    "MONTHLY",
-                    start.plusMonths(1),
-                    maturityDate
-            ));
-        }
-
         outboxService.enqueueNotification(
                 inv.getIdentitySubject(),
                 "INVESTMENT_BOOKED",

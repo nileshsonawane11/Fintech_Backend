@@ -21,6 +21,7 @@ import {
   Field,
   FormError,
   Input,
+  Modal,
   PageLoading,
   SectionHeader,
   Select,
@@ -33,6 +34,8 @@ import { formatDate, formatINR, formatINRWhole, maskAccount } from '../../../lib
 import { LOANS, getLoanBySlug } from '../../../data/products.js';
 import { calculateEMI } from '../../../lib/finance.js';
 import { applyLoan, listMyLoanApplications, listMyLoans } from '../../../services/portalBridge.js';
+import { loanService } from '../../../services/loanService.js';
+import { executeRazorpayCheckoutFlow } from '../../../services/paymentService.js';
 import { listAccounts } from '../../../services/portalBridge.js';
 import { useAuth, useDbTick } from '../../../context/AuthContext.jsx';
 
@@ -69,6 +72,12 @@ export default function LoansPage() {
   const [accounts, setAccounts] = useState([]);
   const [applications, setApplications] = useState([]);
   const [loans, setLoans] = useState([]);
+  const [repayTarget, setRepayTarget] = useState(null);
+  const [repaySource, setRepaySource] = useState('INTERNAL_ACCOUNT');
+  const [repayAccountId, setRepayAccountId] = useState('');
+  const [repayAmount, setRepayAmount] = useState('');
+  const [repayBusy, setRepayBusy] = useState(false);
+  const [repayError, setRepayError] = useState('');
   const dataKeyRef = useRef('');
 
   // Form default product is Home Loan (catalogue lead)
@@ -705,7 +714,7 @@ export default function LoansPage() {
                     </div>
                   </dl>
 
-                  <div className="mt-4 border-t border-ink-100 pt-4">
+                  <div className="mt-4 flex flex-wrap items-center gap-2 border-t border-ink-100 pt-4">
                     <Button
                       type="button"
                       variant="ghost"
@@ -719,6 +728,22 @@ export default function LoansPage() {
                         <>View EMI schedule <ChevronDown className="h-4 w-4" aria-hidden /></>
                       )}
                     </Button>
+                    {String(loan.status || 'ACTIVE').toUpperCase() === 'ACTIVE' && (
+                      <Button
+                        type="button"
+                        variant="secondary"
+                        size="sm"
+                        onClick={() => {
+                          setRepayError('');
+                          setRepaySource('INTERNAL_ACCOUNT');
+                          setRepayAccountId(accounts[0]?.id || '');
+                          setRepayAmount(String(loan.emi || 1000));
+                          setRepayTarget(loan);
+                        }}
+                      >
+                        <Wallet className="h-4 w-4" aria-hidden /> Pay EMI
+                      </Button>
+                    )}
                   </div>
 
                   {expanded && (
@@ -751,6 +776,90 @@ export default function LoansPage() {
           </div>
         )}
       </section>
+
+      <Modal
+        open={Boolean(repayTarget)}
+        onClose={() => { if (!repayBusy) setRepayTarget(null); }}
+        title="Loan EMI Repayment"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" disabled={repayBusy} onClick={() => setRepayTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              disabled={repayBusy}
+              onClick={async () => {
+                const amt = Number(repayAmount);
+                if (!Number.isFinite(amt) || amt < 1) {
+                  setRepayError('Enter a valid repayment amount of at least ₹1.');
+                  return;
+                }
+                const loanId = repayTarget.loanAccountId || repayTarget.id;
+                setRepayError('');
+                setRepayBusy(true);
+                try {
+                  if (repaySource === 'INTERNAL_ACCOUNT') {
+                    await loanService.repayLoan(loanId, {
+                      amount: amt,
+                      paymentMethod: 'INTERNAL_ACCOUNT',
+                      repaymentAccountId: repayAccountId || undefined,
+                    });
+                    toast({ variant: 'success', title: 'Repayment processed', description: 'Internal account repayment completed.' });
+                  } else {
+                    const verified = await executeRazorpayCheckoutFlow({
+                      purpose: 'LOAN_REPAYMENT',
+                      businessReference: loanId,
+                      amount: amt,
+                      currency: 'INR',
+                      description: `Loan EMI Repayment (${loanId})`,
+                      prefill: { name: user?.fullName || '', email: user?.email || '' },
+                    });
+                    toast({ variant: 'success', title: 'Payment verified', description: `Razorpay payment ${verified.paymentId} verified.` });
+                  }
+                  setRepayTarget(null);
+                  loadData();
+                } catch (err) {
+                  setRepayError(err.message || 'Repayment failed.');
+                } finally {
+                  setRepayBusy(false);
+                }
+              }}
+            >
+              {repayBusy ? 'Processing...' : repaySource === 'RAZORPAY' ? 'Pay via Razorpay' : 'Pay from FinBank Account'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <Field label="Payment Source" required>
+            <Select value={repaySource} onChange={(e) => setRepaySource(e.target.value)} disabled={repayBusy}>
+              <option value="INTERNAL_ACCOUNT">Existing FinBank Account (Internal)</option>
+              <option value="RAZORPAY">External Payment via Razorpay (UPI / Card / Net Banking)</option>
+            </Select>
+          </Field>
+          {repaySource === 'INTERNAL_ACCOUNT' && (
+            <Field label="Debit Account" required>
+              <Select value={repayAccountId} onChange={(e) => setRepayAccountId(e.target.value)} disabled={repayBusy}>
+                {accounts.map((a) => (
+                  <option key={a.id} value={a.id}>{accountLabel(a)}</option>
+                ))}
+              </Select>
+            </Field>
+          )}
+          <Field label="Amount (INR)" required>
+            <Input
+              type="number"
+              min="1"
+              step="0.01"
+              value={repayAmount}
+              onChange={(e) => setRepayAmount(e.target.value)}
+              disabled={repayBusy}
+            />
+          </Field>
+          {repayError && <FormError error={repayError} />}
+        </div>
+      </Modal>
     </div>
   );
 }
