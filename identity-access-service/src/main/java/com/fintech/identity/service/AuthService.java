@@ -3,6 +3,7 @@ package com.fintech.identity.service;
 import com.fintech.identity.dto.request.*;
 import com.fintech.identity.dto.response.*;
 import com.fintech.events.CustomerRegisteredEvent;
+import com.fintech.identity.events.NotificationEvent;
 import com.fintech.identity.exception.ApiException;
 import com.fintech.identity.model.*;
 import com.fintech.identity.model.enums.Role;
@@ -27,6 +28,7 @@ import java.security.SecureRandom;
 import java.time.Instant;
 import java.util.Base64;
 import java.util.Locale;
+import java.util.Map;
 import java.util.Optional;
 import java.util.UUID;
 
@@ -125,6 +127,20 @@ public class AuthService {
                         saved.getEmail(),
                         saved.getMobileNumber(),
                         Instant.now()
+                )
+        );
+
+        applicationEventPublisher.publishEvent(
+                NotificationEvent.of(
+                        "USER_REGISTERED",
+                        saved.getId().toString(),
+                        saved.getId().toString(),
+                        "IDENTITY",
+                        "Welcome to FinBank",
+                        "Your FinBank account registration has been completed successfully.",
+                        "SECURITY",
+                        "NORMAL",
+                        Map.of("status", saved.getStatus().name())
                 )
         );
 
@@ -233,6 +249,19 @@ public class AuthService {
             customerRepository.saveAndFlush(customer);
 
             if (customer.isLockedNow()) {
+                applicationEventPublisher.publishEvent(
+                        NotificationEvent.of(
+                                "ACCOUNT_LOCKED",
+                                customer.getId().toString(),
+                                customer.getId().toString(),
+                                "IDENTITY",
+                                "Account Temporarily Locked",
+                                "Your account has been temporarily locked due to multiple failed login attempts.",
+                                "SECURITY",
+                                "CRITICAL",
+                                Map.of("lockedUntil", customer.getLockedUntil().toString())
+                        )
+                );
                 throw new ApiException(
                         HttpStatus.LOCKED,
                         "ACCOUNT_LOCKED",
@@ -588,6 +617,20 @@ public class AuthService {
         // 8. Revoke all existing refresh tokens
         refreshTokenRepository.findAllByCustomer_Id(customerId)
                 .forEach(RefreshToken::revoke);
+
+        applicationEventPublisher.publishEvent(
+                NotificationEvent.of(
+                        "PASSWORD_CHANGED",
+                        customer.getId().toString(),
+                        customer.getId().toString(),
+                        "IDENTITY",
+                        "Password Changed",
+                        "Your FinBank password was changed successfully. All active sessions have been signed out.",
+                        "SECURITY",
+                        "HIGH",
+                        Map.of("changedAt", Instant.now().toString())
+                )
+        );
 
         return new PasswordChangedResponse(
                 "Password changed successfully.",

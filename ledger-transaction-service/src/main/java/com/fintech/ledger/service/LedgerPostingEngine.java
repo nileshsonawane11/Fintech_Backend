@@ -12,6 +12,7 @@ import com.fintech.ledger.enums.TransactionStatus;
 import com.fintech.ledger.enums.TransactionType;
 import com.fintech.ledger.event.LedgerEventProducer;
 import com.fintech.ledger.event.LedgerEvents;
+import com.fintech.ledger.event.NotificationEvent;
 import com.fintech.ledger.exception.LedgerException;
 import com.fintech.ledger.repository.LedgerBalanceSnapshotRepository;
 import com.fintech.ledger.repository.LedgerEntryRepository;
@@ -292,6 +293,8 @@ public class LedgerPostingEngine {
                 )
         );
 
+        enqueueLedgerNotifications(publicTxId, transactionType, currency, correlationId, entries);
+
         log.info("Ledger posting committed successfully: txId={}, totalAmount={} {}", publicTxId, totalDebit, currency);
 
         return new LedgerPostingResponse(
@@ -304,6 +307,74 @@ public class LedgerPostingEngine {
                 entryIds,
                 now
         );
+    }
+
+    private void enqueueLedgerNotifications(String publicTxId,
+                                            TransactionType transactionType,
+                                            String currency,
+                                            String correlationId,
+                                            List<PostingEntryItem> entries) {
+        if (accountServiceClient == null) {
+            return;
+        }
+        for (PostingEntryItem item : entries) {
+            if (isSystemAccount(item.accountId())) {
+                continue;
+            }
+            try {
+                AccountDetailsDto account = accountServiceClient.getAccount(item.accountId());
+                if (account == null || account.identitySubject() == null || account.identitySubject().isBlank()) {
+                    log.warn("Skipping ledger notification for txId={}, accountId={}: unable to resolve identitySubject",
+                            publicTxId, item.accountId());
+                    continue;
+                }
+                boolean isCredit = item.entryType() == EntryType.CREDIT;
+                String eventType;
+                String title;
+                if (transactionType == TransactionType.REVERSAL) {
+                    eventType = "TRANSACTION_REVERSED";
+                    title = "Transaction Reversed";
+                } else if (transactionType == TransactionType.REFUND && isCredit) {
+                    eventType = "REFUND_PROCESSED";
+                    title = "Refund Credited";
+                } else if (transactionType == TransactionType.TRANSFER) {
+                    eventType = isCredit ? "MONEY_CREDITED" : "TRANSFER_COMPLETED";
+                    title = isCredit ? "Money Credited" : "Transfer Completed";
+                } else {
+                    eventType = isCredit ? "MONEY_CREDITED" : "MONEY_DEBITED";
+                    title = isCredit ? "Money Credited" : "Money Debited";
+                }
+                String action = isCredit ? "credited to" : "debited from";
+                String message = String.format("%s %s has been %s your account (%s). Ref: %s",
+                        item.amount().toPlainString(), currency, action, item.accountId(), publicTxId);
+
+                eventProducer.enqueueEvent(
+                        account.identitySubject(),
+                        "NOTIFICATION",
+                        "NOTIFICATION_REQUESTED",
+                        correlationId,
+                        NotificationEvent.of(
+                                eventType,
+                                account.identitySubject(),
+                                publicTxId,
+                                "LEDGER_TRANSACTION",
+                                title,
+                                message,
+                                "TRANSACTION",
+                                "NORMAL",
+                                Map.of("transactionId", publicTxId,
+                                        "transactionType", transactionType.name(),
+                                        "accountId", item.accountId(),
+                                        "entryType", item.entryType().name(),
+                                        "amount", item.amount().toPlainString(),
+                                        "currency", currency)
+                        )
+                );
+            } catch (Exception ex) {
+                log.warn("Failed to resolve recipient for ledger notification txId={}, accountId={}: {}",
+                        publicTxId, item.accountId(), ex.getMessage());
+            }
+        }
     }
 
     private boolean isSystemAccount(String accountId) {

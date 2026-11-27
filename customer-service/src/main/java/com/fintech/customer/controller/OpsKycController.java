@@ -4,6 +4,7 @@ import com.fintech.customer.dto.request.ApproveKycRequest;
 import com.fintech.customer.dto.response.KycApplicationDetailsResponse;
 import com.fintech.customer.dto.response.KycApprovalResponse;
 import com.fintech.customer.dto.response.OpsKycApplicationResponse;
+import com.fintech.customer.events.NotificationEvent;
 import com.fintech.customer.exception.ApiException;
 import com.fintech.customer.model.CustomerProfile;
 import com.fintech.customer.model.KycCase;
@@ -19,6 +20,8 @@ import io.swagger.v3.oas.annotations.responses.ApiResponses;
 import io.swagger.v3.oas.annotations.security.SecurityRequirement;
 import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.access.prepost.PreAuthorize;
@@ -40,6 +43,9 @@ public class OpsKycController {
     private final KycCaseRepository kycCaseRepository;
     private final CustomerProfileRepository customerProfileRepository;
     private final KycOperationsService kycOperationsService;
+
+    @Autowired(required = false)
+    private ApplicationEventPublisher applicationEventPublisher;
 
     public OpsKycController(KycCaseRepository kycCaseRepository,
                             CustomerProfileRepository customerProfileRepository,
@@ -144,6 +150,20 @@ public class OpsKycController {
             profile.setKycStatus("APPROVED");
             profile.setRiskCategory(risk.name());
             customerProfileRepository.save(profile);
+
+            if (applicationEventPublisher != null && profile.getIdentitySubject() != null && !profile.getIdentitySubject().isBlank()) {
+                applicationEventPublisher.publishEvent(NotificationEvent.of(
+                        "KYC_APPROVED",
+                        profile.getIdentitySubject(),
+                        kycCase.getKycCaseId(),
+                        "KYC",
+                        "KYC Verification Approved",
+                        "Congratulations! Your KYC verification (" + kycCase.getKycCaseId() + ") has been approved.",
+                        "KYC",
+                        "HIGH",
+                        java.util.Map.of("kycCaseId", kycCase.getKycCaseId(), "status", "APPROVED")
+                ));
+            }
         }
 
         String approvedBy = principal != null && principal.getName() != null ? principal.getName() : "OPS-2001";
@@ -183,6 +203,20 @@ public class OpsKycController {
         if (profile != null) {
             profile.setKycStatus("REJECTED");
             customerProfileRepository.save(profile);
+
+            if (applicationEventPublisher != null && profile.getIdentitySubject() != null && !profile.getIdentitySubject().isBlank()) {
+                applicationEventPublisher.publishEvent(NotificationEvent.of(
+                        "KYC_REJECTED",
+                        profile.getIdentitySubject(),
+                        kycCase.getKycCaseId(),
+                        "KYC",
+                        "KYC Verification Rejected",
+                        "Your KYC verification (" + kycCase.getKycCaseId() + ") was not approved. Please review and resubmit your details.",
+                        "KYC",
+                        "HIGH",
+                        java.util.Map.of("kycCaseId", kycCase.getKycCaseId(), "status", "REJECTED")
+                ));
+            }
         }
 
         String rejectedBy = principal != null && principal.getName() != null ? principal.getName() : "OPS-2001";

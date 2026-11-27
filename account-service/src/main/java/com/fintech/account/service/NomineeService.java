@@ -6,6 +6,7 @@ import com.fintech.account.entity.Account;
 import com.fintech.account.entity.AccountNominee;
 import com.fintech.account.enums.AccountStatus;
 import com.fintech.account.event.model.AccountEvents.*;
+import com.fintech.account.event.model.NotificationEvent;
 import com.fintech.account.exception.AccountException;
 import com.fintech.account.repository.AccountNomineeRepository;
 import com.fintech.account.repository.AccountRepository;
@@ -88,6 +89,9 @@ public class NomineeService {
         auditLogger.logAudit("ADD_NOMINEE", "AccountNominee", saved.getId().toString(), actor,
                 "Added nominee " + saved.getFullName() + " to account " + accountId);
 
+        enqueueNomineeNotification(account, saved.getId().toString(), "ACCOUNT_NOMINEE_ADDED",
+                "Nominee Added", "A nominee (" + saved.getFullName() + ") has been added to your account (" + accountId + ").");
+
         return toResponse(saved, request.mobileNumber());
     }
 
@@ -165,6 +169,9 @@ public class NomineeService {
         auditLogger.logAudit("UPDATE_NOMINEE", "AccountNominee", saved.getId().toString(), actor,
                 "Updated nominee " + saved.getId() + " on account " + accountId);
 
+        enqueueNomineeNotification(account, saved.getId().toString(), "ACCOUNT_NOMINEE_UPDATED",
+                "Nominee Updated", "Nominee details for your account (" + accountId + ") have been updated.");
+
         return toResponse(saved, request.mobileNumber());
     }
 
@@ -190,6 +197,31 @@ public class NomineeService {
 
         auditLogger.logAudit("DELETE_NOMINEE", "AccountNominee", nomineeId.toString(), actor,
                 "Deleted nominee from account " + accountId);
+
+        enqueueNomineeNotification(account, nomineeId.toString(), "ACCOUNT_NOMINEE_REMOVED",
+                "Nominee Removed", "A nominee has been removed from your account (" + accountId + ").");
+    }
+
+    private void enqueueNomineeNotification(Account account, String nomineeId, String eventType, String title, String message) {
+        if (account == null || account.getIdentitySubject() == null || account.getIdentitySubject().isBlank()) {
+            return;
+        }
+        outboxEventService.enqueueEvent(
+                account.getIdentitySubject(),
+                "NOTIFICATION",
+                "NotificationRequested",
+                NotificationEvent.of(
+                        eventType,
+                        account.getIdentitySubject(),
+                        nomineeId,
+                        "ACCOUNT_NOMINEE",
+                        title,
+                        message,
+                        "ACCOUNT",
+                        "NORMAL",
+                        java.util.Map.of("accountId", account.getAccountId(), "nomineeId", nomineeId)
+                )
+        );
     }
 
     private Account getAccountAndValidateOwnership(String identitySubject, String accountId) {

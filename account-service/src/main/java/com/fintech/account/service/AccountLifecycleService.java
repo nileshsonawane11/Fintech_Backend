@@ -8,6 +8,7 @@ import com.fintech.account.entity.AccountLifecycleHistory;
 import com.fintech.account.enums.AccountStatus;
 import com.fintech.account.enums.HoldStatus;
 import com.fintech.account.event.model.AccountEvents.*;
+import com.fintech.account.event.model.NotificationEvent;
 import com.fintech.account.exception.AccountException;
 import com.fintech.account.repository.AccountHoldRepository;
 import com.fintech.account.repository.AccountLifecycleHistoryRepository;
@@ -75,6 +76,9 @@ public class AccountLifecycleService {
                 new AccountFrozenPayload(accountId, request.reasonCode(), request.remarks(), actor, Instant.now())
         );
 
+        enqueueLifecycleNotification(account, "ACCOUNT_FROZEN", "Account Frozen",
+                "Your account (" + accountId + ") has been frozen.", "HIGH", request.reasonCode());
+
         auditLogger.logAudit("FREEZE_ACCOUNT", "Account", accountId, actor, "Reason: " + request.reasonCode());
     }
 
@@ -110,6 +114,9 @@ public class AccountLifecycleService {
                 new AccountUnfrozenPayload(accountId, request.reasonCode(), request.remarks(), actor, Instant.now())
         );
 
+        enqueueLifecycleNotification(account, "ACCOUNT_UNFROZEN", "Account Unfrozen",
+                "Your account (" + accountId + ") has been unfrozen and is active again.", "HIGH", request.reasonCode());
+
         auditLogger.logAudit("UNFREEZE_ACCOUNT", "Account", accountId, actor, "Reason: " + request.reasonCode());
     }
 
@@ -137,6 +144,9 @@ public class AccountLifecycleService {
                 "AccountBlockedEvent",
                 new AccountBlockedPayload(accountId, request.reasonCode(), request.remarks(), actor, Instant.now())
         );
+
+        enqueueLifecycleNotification(account, "ACCOUNT_BLOCKED", "Account Blocked",
+                "Your account (" + accountId + ") has been blocked. Please contact support for assistance.", "CRITICAL", request.reasonCode());
 
         auditLogger.logAudit("BLOCK_ACCOUNT", "Account", accountId, actor, "Reason: " + request.reasonCode());
     }
@@ -193,6 +203,9 @@ public class AccountLifecycleService {
                 new AccountClosedPayload(accountId, request.reasonCode(), request.remarks(), actor, now)
         );
 
+        enqueueLifecycleNotification(account, "ACCOUNT_CLOSED", "Account Closed",
+                "Your account (" + accountId + ") has been closed.", "HIGH", request.reasonCode());
+
         auditLogger.logAudit("CLOSE_ACCOUNT", "Account", accountId, actor, "Closed reason: " + request.reasonCode());
     }
 
@@ -212,6 +225,29 @@ public class AccountLifecycleService {
                         h.getChangedAt()
                 ))
                 .toList();
+    }
+
+    private void enqueueLifecycleNotification(Account account, String eventType, String title,
+                                              String message, String priority, String reasonCode) {
+        if (account.getIdentitySubject() == null || account.getIdentitySubject().isBlank()) {
+            return;
+        }
+        outboxEventService.enqueueEvent(
+                account.getIdentitySubject(),
+                "NOTIFICATION",
+                "NotificationRequested",
+                NotificationEvent.of(
+                        eventType,
+                        account.getIdentitySubject(),
+                        account.getAccountId(),
+                        "ACCOUNT",
+                        title,
+                        message,
+                        "ACCOUNT",
+                        priority,
+                        java.util.Map.of("accountId", account.getAccountId(), "reasonCode", reasonCode != null ? reasonCode : "")
+                )
+        );
     }
 
     private Account getAccountOrThrow(String accountId) {

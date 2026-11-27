@@ -186,6 +186,10 @@ public class PaymentService {
                             request.getAmount(), fees.baseFee(), fees.taxAmount(), currency,
                             request.getTransferMode(), Instant.now()));
 
+            enqueuePaymentNotification(payment, "PAYMENT_INITIATED", "Payment Initiated",
+                    "Your transfer of " + request.getAmount() + " " + currency + " (Ref: " + pendingId + ") has been initiated.",
+                    "NORMAL");
+
             // 8. Atomic ledger reservation/debit: DEBIT customer (amount + fees), CREDIT CLEARING + FEE_REVENUE
             LedgerPostingResponseDto debitPosting = ledgerServiceClient.postBatch(
                     "debit-" + pendingId,
@@ -420,6 +424,9 @@ public class PaymentService {
                         new TransferCompletedPayload(payment.getPaymentId(), payment.getProviderPayoutId(),
                                 payment.getProviderUtr(), payment.getLedgerSettlementTxId(),
                                 payment.getAmount(), payment.getCurrency(), payment.getCompletedAt()));
+                enqueuePaymentNotification(payment, "PAYMENT_SUCCESSFUL", "Payment Successful",
+                        "Your transfer of " + payment.getAmount() + " " + payment.getCurrency() + " (Ref: " + payment.getPaymentId() + ") was completed successfully.",
+                        "HIGH");
             }
             case "failed", "rejected", "cancelled", "reversed" -> {
                 String reason = result.failureDescription() != null
@@ -435,6 +442,9 @@ public class PaymentService {
                     payment.setStatus(OutgoingTransferStatus.FAILED.name());
                     payment.setCompletedAt(Instant.now());
                     paymentRepository.save(payment);
+                    enqueuePaymentNotification(payment, "PAYMENT_FAILED", "Payment Failed",
+                            "Your transfer of " + payment.getAmount() + " " + payment.getCurrency() + " (Ref: " + payment.getPaymentId() + ") failed.",
+                            "HIGH");
                 }
             }
             default -> log.warn("Unhandled RazorpayX payout status={} for paymentId={}",
@@ -466,6 +476,9 @@ public class PaymentService {
                 new TransferReversedPayload(payment.getPaymentId(), payment.getProviderPayoutId(),
                         payment.getLedgerReversalTxId(), payment.getTotalDebitAmount(),
                         payment.getCurrency(), reasonCode, payment.getCompletedAt()));
+        enqueuePaymentNotification(payment, "PAYMENT_REVERSED", "Payment Failed & Reversed",
+                "Your transfer of " + payment.getAmount() + " " + payment.getCurrency() + " (Ref: " + payment.getPaymentId() + ") could not be completed and funds have been reversed.",
+                "HIGH");
     }
 
     private MultiLinePostingRequest buildDebitJournal(Payment payment, FeeCalculation fees) {
@@ -524,6 +537,34 @@ public class PaymentService {
                 p.getCustomerId(),
                 p.getProviderPayoutId(),
                 payload
+        );
+    }
+
+    private void enqueuePaymentNotification(Payment p, String eventType, String title, String message, String priority) {
+        if (outboxService == null || p.getUserId() == null || p.getUserId().isBlank()) {
+            return;
+        }
+        outboxService.enqueueEvent(
+                PaymentConstants.TOPIC_NOTIFICATION_EVENTS,
+                p.getUserId(),
+                "NOTIFICATION",
+                "NOTIFICATION_REQUESTED",
+                p.getCustomerId(),
+                p.getPaymentId(),
+                com.fintech.payment.event.model.NotificationEvent.of(
+                        eventType,
+                        p.getUserId(),
+                        p.getPaymentId(),
+                        "PAYMENT",
+                        title,
+                        message,
+                        "PAYMENT",
+                        priority,
+                        java.util.Map.of("paymentId", p.getPaymentId(),
+                                "amount", p.getAmount() != null ? p.getAmount().toPlainString() : "0",
+                                "currency", p.getCurrency() != null ? p.getCurrency() : "INR",
+                                "status", p.getStatus() != null ? p.getStatus() : "")
+                )
         );
     }
 

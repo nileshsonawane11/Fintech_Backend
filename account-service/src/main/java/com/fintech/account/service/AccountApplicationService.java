@@ -20,6 +20,7 @@ import com.fintech.account.entity.AccountProduct;
 import com.fintech.account.enums.AccountStatus;
 import com.fintech.account.enums.ApplicationStatus;
 import com.fintech.account.event.model.AccountEvents.*;
+import com.fintech.account.event.model.NotificationEvent;
 import com.fintech.account.exception.AccountException;
 import com.fintech.account.repository.AccountApplicationRepository;
 import com.fintech.account.repository.AccountNomineeRepository;
@@ -259,6 +260,25 @@ public class AccountApplicationService {
                 payload
         );
 
+        if (saved.getIdentitySubject() != null && !saved.getIdentitySubject().isBlank()) {
+            outboxEventService.enqueueEvent(
+                    saved.getIdentitySubject(),
+                    "NOTIFICATION",
+                    "NotificationRequested",
+                    NotificationEvent.of(
+                            "ACCOUNT_APPLICATION_SUBMITTED",
+                            saved.getIdentitySubject(),
+                            saved.getApplicationNumber(),
+                            "ACCOUNT_APPLICATION",
+                            "Account Application Submitted",
+                            "Your application (" + saved.getApplicationNumber() + ") for " + saved.getProductCode() + " has been submitted.",
+                            "ACCOUNT",
+                            "NORMAL",
+                            java.util.Map.of("applicationNumber", saved.getApplicationNumber(), "productCode", saved.getProductCode())
+                    )
+            );
+        }
+
         auditLogger.logAudit("SUBMIT_APPLICATION", "AccountApplication", saved.getApplicationNumber(),
                 identitySubject, "Submitted unregistered application for " + saved.getProductCode());
 
@@ -370,6 +390,25 @@ public class AccountApplicationService {
                 "AccountApplicationSubmittedEvent",
                 payload
         );
+
+        if (saved.getIdentitySubject() != null && !saved.getIdentitySubject().isBlank()) {
+            outboxEventService.enqueueEvent(
+                    saved.getIdentitySubject(),
+                    "NOTIFICATION",
+                    "NotificationRequested",
+                    NotificationEvent.of(
+                            "ACCOUNT_APPLICATION_SUBMITTED",
+                            saved.getIdentitySubject(),
+                            saved.getApplicationNumber(),
+                            "ACCOUNT_APPLICATION",
+                            "Account Application Submitted",
+                            "Your application (" + saved.getApplicationNumber() + ") for " + saved.getProductCode() + " has been submitted.",
+                            "ACCOUNT",
+                            "NORMAL",
+                            java.util.Map.of("applicationNumber", saved.getApplicationNumber(), "productCode", saved.getProductCode())
+                    )
+            );
+        }
 
         auditLogger.logAudit("SUBMIT_APPLICATION", "AccountApplication", saved.getApplicationNumber(),
                 identitySubject, "Submitted application for " + saved.getProductCode());
@@ -585,6 +624,25 @@ public class AccountApplicationService {
                 accPayload
         );
 
+        if (savedAccount.getIdentitySubject() != null && !savedAccount.getIdentitySubject().isBlank()) {
+            outboxEventService.enqueueEvent(
+                    savedAccount.getIdentitySubject(),
+                    "NOTIFICATION",
+                    "NotificationRequested",
+                    NotificationEvent.of(
+                            "ACCOUNT_OPENED",
+                            savedAccount.getIdentitySubject(),
+                            savedAccount.getAccountId(),
+                            "ACCOUNT",
+                            "Bank Account Opened",
+                            "Your " + savedAccount.getAccountType() + " account (" + SecurityUtils.maskAccountNumber(savedAccount.getAccountNumber()) + ") is now active.",
+                            "ACCOUNT",
+                            "HIGH",
+                            java.util.Map.of("accountId", savedAccount.getAccountId(), "accountType", savedAccount.getAccountType().name())
+                    )
+            );
+        }
+
         auditLogger.logAudit("APPROVE_APPLICATION", "AccountApplication", application.getApplicationNumber(),
                 approvedBy, "Approved application, created account " + accountId);
 
@@ -640,6 +698,25 @@ public class AccountApplicationService {
                 "AccountApplicationRejectedEvent",
                 payload
         );
+
+        if (application.getIdentitySubject() != null && !application.getIdentitySubject().isBlank()) {
+            outboxEventService.enqueueEvent(
+                    application.getIdentitySubject(),
+                    "NOTIFICATION",
+                    "NotificationRequested",
+                    NotificationEvent.of(
+                            "ACCOUNT_APPLICATION_REJECTED",
+                            application.getIdentitySubject(),
+                            application.getApplicationNumber(),
+                            "ACCOUNT_APPLICATION",
+                            "Account Application Rejected",
+                            "Your account application (" + application.getApplicationNumber() + ") was not approved.",
+                            "ACCOUNT",
+                            "HIGH",
+                            java.util.Map.of("applicationNumber", application.getApplicationNumber(), "reasonCode", request.reasonCode())
+                    )
+            );
+        }
 
         auditLogger.logAudit("REJECT_APPLICATION", "AccountApplication", application.getApplicationNumber(),
                 rejectedBy, "Rejected with reason: " + request.reasonCode());

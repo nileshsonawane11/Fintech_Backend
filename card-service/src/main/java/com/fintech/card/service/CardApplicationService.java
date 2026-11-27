@@ -218,6 +218,17 @@ public class CardApplicationService {
                 submittedEvent
         );
 
+        enqueueCardNotification(
+                application.getIdentitySubject(),
+                "CARD_APPLICATION_SUBMITTED",
+                cardApplicationId,
+                "CARD_APPLICATION",
+                "Card Application Submitted",
+                "Your " + canonical.cardType() + " card application (" + cardApplicationId + ") has been submitted.",
+                "NORMAL",
+                java.util.Map.of("cardApplicationId", cardApplicationId, "cardType", canonical.cardType())
+        );
+
         CardApplicationResponse response = toResponse(application, canonical);
 
         // 8. Store idempotency record with request hash and response payload
@@ -356,6 +367,18 @@ public class CardApplicationService {
                 issuedEvent
         );
 
+        enqueueCardNotification(
+                app.getIdentitySubject(),
+                "CARD_ISSUED",
+                newCardId,
+                "CARD",
+                "Card Approved & Issued",
+                "Your " + card.getCardType() + " card (" + card.getMaskedCardNumber() + ") has been approved and issued.",
+                "HIGH",
+                java.util.Map.of("cardId", newCardId, "cardApplicationId", app.getCardApplicationId(),
+                        "maskedCardNumber", card.getMaskedCardNumber())
+        );
+
         log.info("Card application {} approved. Issued card {} for customer {}",
                 app.getCardApplicationId(), newCardId, app.getCustomerId());
 
@@ -399,11 +422,47 @@ public class CardApplicationService {
                 rejectedEvent
         );
 
+        enqueueCardNotification(
+                app.getIdentitySubject(),
+                "CARD_APPLICATION_REJECTED",
+                app.getCardApplicationId(),
+                "CARD_APPLICATION",
+                "Card Application Rejected",
+                "Your card application (" + app.getCardApplicationId() + ") was not approved.",
+                "HIGH",
+                java.util.Map.of("cardApplicationId", app.getCardApplicationId())
+        );
+
         log.info("Card application {} rejected. Reason: {}", app.getCardApplicationId(), reason);
 
         OpsCardApplicationResponse res = toOpsResponse(app);
         res.setRejectionReason(reason);
         return res;
+    }
+
+    private void enqueueCardNotification(String recipientId, String eventType, String aggregateId,
+                                         String aggregateType, String title, String message,
+                                         String priority, java.util.Map<String, Object> metadata) {
+        if (recipientId == null || recipientId.isBlank()) {
+            log.warn("Skipping card notification {} for aggregateId={}: missing identitySubject", eventType, aggregateId);
+            return;
+        }
+        outboxEventService.enqueueEvent(
+                recipientId,
+                "NOTIFICATION",
+                "NOTIFICATION_REQUESTED",
+                com.fintech.card.event.model.NotificationEvent.of(
+                        eventType,
+                        recipientId,
+                        aggregateId,
+                        aggregateType,
+                        title,
+                        message,
+                        "CARD",
+                        priority,
+                        metadata
+                )
+        );
     }
 
     private CardApplication findApplicationOrThrow(String idOrAppId) {

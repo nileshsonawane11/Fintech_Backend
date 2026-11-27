@@ -1,6 +1,5 @@
 package com.fintech.card.event.producer;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fintech.card.entity.CardOutboxEvent;
 import com.fintech.card.repository.CardOutboxEventRepository;
@@ -14,6 +13,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.util.List;
+import java.util.Map;
 
 @Component
 public class CardOutboxPublisherTask {
@@ -30,6 +30,9 @@ public class CardOutboxPublisherTask {
 
     @Value("${app.kafka.topics.card-events:card.events.v1}")
     private String lifecycleEventsTopic;
+
+    @Value("${app.kafka.topics.notification-events:notification.events.v1}")
+    private String notificationEventsTopic;
 
     public CardOutboxPublisherTask(CardOutboxEventRepository outboxEventRepository,
                                    KafkaEventProducer kafkaEventProducer,
@@ -55,8 +58,8 @@ public class CardOutboxPublisherTask {
         for (CardOutboxEvent event : pendingEvents) {
             String topic = resolveTopic(event.getEventType());
             try {
-                JsonNode payloadNode = objectMapper.readTree(event.getPayload());
-                kafkaEventProducer.send(topic, event.getAggregateId(), payloadNode).get();
+                Map<?, ?> payloadMap = objectMapper.readValue(event.getPayload(), Map.class);
+                kafkaEventProducer.send(topic, event.getAggregateId(), payloadMap).get();
 
                 event.setPublishingStatus("PUBLISHED");
                 event.setPublishedAt(LocalDateTime.now());
@@ -77,6 +80,9 @@ public class CardOutboxPublisherTask {
     }
 
     private String resolveTopic(String eventType) {
+        if (eventType != null && eventType.startsWith("NOTIFICATION")) {
+            return notificationEventsTopic;
+        }
         if (eventType != null && eventType.startsWith("CARD_APPLICATION")) {
             return applicationEventsTopic;
         }

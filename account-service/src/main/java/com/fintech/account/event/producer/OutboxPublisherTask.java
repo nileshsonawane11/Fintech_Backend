@@ -1,6 +1,5 @@
 package com.fintech.account.event.producer;
 
-import com.fasterxml.jackson.databind.JsonNode;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fintech.account.entity.OutboxEvent;
 import com.fintech.account.enums.PublishingStatus;
@@ -15,6 +14,7 @@ import org.springframework.transaction.annotation.Transactional;
 
 import java.time.Instant;
 import java.util.List;
+import java.util.Map;
 
 @Component
 public class OutboxPublisherTask {
@@ -37,6 +37,9 @@ public class OutboxPublisherTask {
 
     @Value("${app.kafka.topics.nominee-events:account.nominee-events.v1}")
     private String nomineeEventsTopic;
+
+    @Value("${app.kafka.topics.notification-events:notification.events.v1}")
+    private String notificationEventsTopic;
 
     public OutboxPublisherTask(OutboxEventRepository outboxEventRepository,
                               KafkaEventProducer kafkaEventProducer,
@@ -62,8 +65,8 @@ public class OutboxPublisherTask {
         for (OutboxEvent event : pendingEvents) {
             String topic = resolveTopic(event.getEventType());
             try {
-                JsonNode payloadNode = objectMapper.readTree(event.getPayload());
-                kafkaEventProducer.send(topic, event.getAggregateId(), payloadNode).get();
+                Map<?, ?> payloadMap = objectMapper.readValue(event.getPayload(), Map.class);
+                kafkaEventProducer.send(topic, event.getAggregateId(), payloadMap).get();
 
                 event.setPublishingStatus(PublishingStatus.PUBLISHED);
                 event.setPublishedAt(Instant.now());
@@ -85,7 +88,9 @@ public class OutboxPublisherTask {
         if (eventType == null) {
             return lifecycleEventsTopic;
         }
-        if (eventType.startsWith("AccountApplication")) {
+        if (eventType.startsWith("Notification")) {
+            return notificationEventsTopic;
+        } else if (eventType.startsWith("AccountApplication")) {
             return applicationEventsTopic;
         } else if (eventType.startsWith("AccountHold")) {
             return holdEventsTopic;

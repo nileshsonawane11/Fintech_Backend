@@ -66,6 +66,12 @@
             <artifactId>spring-kafka</artifactId>
         </dependency>
 
+        <!-- Springdoc OpenAPI -->
+        <dependency>
+            <groupId>org.springdoc</groupId>
+            <artifactId>springdoc-openapi-starter-webmvc-api</artifactId>
+        </dependency>
+
         <!-- PostgreSQL Driver -->
         <dependency>
             <groupId>org.postgresql</groupId>

@@ -59,6 +59,7 @@ app:
     topics:
       card-events: ${CARD_EVENTS_TOPIC:card.events.v1}
       card-application-events: ${CARD_APPLICATION_EVENTS_TOPIC:card.application-events.v1}
+      notification-events: ${KAFKA_TOPIC_NOTIFICATION_EVENTS:notification.events.v1}
   outbox:
     poll-interval-ms: 3000
 

@@ -438,6 +438,9 @@ public class IncomingPaymentService {
         enqueueIncomingEvent(payment, PaymentConstants.EVT_INCOMING_PAYMENT_REFUNDED,
                 new IncomingPaymentRefundedPayload(payment.getIncomingPaymentId(), providerRefund.refundId(),
                         debitResult.transactionId(), refundAmount, payment.getCurrency(), payment.getRefundedAt()));
+        enqueueIncomingNotification(payment, "PAYMENT_REFUNDED", "Payment Refunded",
+                "A refund of " + refundAmount + " " + payment.getCurrency() + " for payment (" + payment.getIncomingPaymentId() + ") has been processed.",
+                "HIGH");
         auditService.record(actorId, "OPERATIONS", "INCOMING_PAYMENT_REFUNDED",
                 "IncomingPayment", payment.getIncomingPaymentId(),
                 "Refunded " + refundAmount + " " + payment.getCurrency() + " refundId=" + providerRefund.refundId());
@@ -458,6 +461,9 @@ public class IncomingPaymentService {
                 payment.setStatus(IncomingPaymentStatus.REFUNDED.name());
                 payment.setRefundedAt(Instant.now());
                 incomingPaymentRepository.save(payment);
+                enqueueIncomingNotification(payment, "PAYMENT_REFUNDED", "Payment Refunded",
+                        "A refund of " + amount + " " + payment.getCurrency() + " for payment (" + payment.getIncomingPaymentId() + ") has been processed.",
+                        "HIGH");
             }
         });
     }
@@ -566,6 +572,9 @@ public class IncomingPaymentService {
         enqueueIncomingEvent(payment, PaymentConstants.EVT_INCOMING_PAYMENT_CREDITED,
                 new IncomingPaymentCreditedPayload(payment.getIncomingPaymentId(), payment.getFinbankAccountId(),
                         posted.transactionId(), payment.getNetCreditAmount(), payment.getCurrency(), payment.getCreditedAt()));
+        enqueueIncomingNotification(payment, "PAYMENT_CREDITED", "Incoming Payment Credited",
+                payment.getNetCreditAmount() + " " + payment.getCurrency() + " has been credited to your account (" + payment.getFinbankAccountId() + ").",
+                "HIGH");
         auditService.record(actorId, "SYSTEM", "INCOMING_PAYMENT_CREDITED",
                 "IncomingPayment", payment.getIncomingPaymentId(),
                 "Credited " + payment.getNetCreditAmount() + " " + payment.getCurrency()
@@ -579,6 +588,9 @@ public class IncomingPaymentService {
         enqueueIncomingEvent(payment, PaymentConstants.EVT_INCOMING_PAYMENT_FAILED,
                 new IncomingPaymentFailedPayload(payment.getIncomingPaymentId(), payment.getFinbankAccountId(),
                         payment.getFailureReason(), Instant.now()));
+        enqueueIncomingNotification(payment, "PAYMENT_FAILED", "Incoming Payment Failed",
+                "An incoming payment (" + payment.getIncomingPaymentId() + ") failed: " + payment.getFailureReason(),
+                "HIGH");
     }
 
     private PaymentCustomer ensureSmartCollectCustomer(String userId, CustomerProfileDto customer) {
@@ -617,6 +629,34 @@ public class IncomingPaymentService {
                 p.getCustomerId(),
                 p.getProviderPaymentId(),
                 payload
+        );
+    }
+
+    private void enqueueIncomingNotification(IncomingPayment p, String eventType, String title, String message, String priority) {
+        if (outboxService == null || p.getUserId() == null || p.getUserId().isBlank() || "UNKNOWN".equalsIgnoreCase(p.getUserId())) {
+            return;
+        }
+        outboxService.enqueueEvent(
+                PaymentConstants.TOPIC_NOTIFICATION_EVENTS,
+                p.getUserId(),
+                "NOTIFICATION",
+                "NOTIFICATION_REQUESTED",
+                p.getCustomerId(),
+                p.getIncomingPaymentId(),
+                com.fintech.payment.event.model.NotificationEvent.of(
+                        eventType,
+                        p.getUserId(),
+                        p.getIncomingPaymentId(),
+                        "INCOMING_PAYMENT",
+                        title,
+                        message,
+                        "PAYMENT",
+                        priority,
+                        java.util.Map.of("incomingPaymentId", p.getIncomingPaymentId(),
+                                "accountId", p.getFinbankAccountId() != null ? p.getFinbankAccountId() : "",
+                                "amount", p.getNetCreditAmount() != null ? p.getNetCreditAmount().toPlainString() : "0",
+                                "currency", p.getCurrency() != null ? p.getCurrency() : "INR")
+                )
         );
     }
 

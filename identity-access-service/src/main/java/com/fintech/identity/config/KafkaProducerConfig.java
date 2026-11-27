@@ -1,6 +1,7 @@
 package com.fintech.identity.config;
 
 import com.fintech.events.CustomerRegisteredEvent;
+import com.fintech.identity.events.NotificationEvent;
 
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.serialization.StringSerializer;
@@ -58,5 +59,26 @@ public class KafkaProducerConfig {
         return new KafkaTemplate<>(
                 customerRegisteredProducerFactory
         );
+    }
+
+    @Bean
+    public ProducerFactory<String, NotificationEvent> notificationProducerFactory(Environment environment) {
+        Map<String, Object> properties = new HashMap<>();
+        properties.put(
+                ProducerConfig.BOOTSTRAP_SERVERS_CONFIG,
+                environment.getProperty("spring.kafka.bootstrap-servers", "localhost:9092")
+        );
+        properties.put(ProducerConfig.KEY_SERIALIZER_CLASS_CONFIG, StringSerializer.class);
+        properties.put(ProducerConfig.VALUE_SERIALIZER_CLASS_CONFIG, JacksonJsonSerializer.class);
+        properties.put(ProducerConfig.MAX_BLOCK_MS_CONFIG, 2000);
+        properties.put(ProducerConfig.REQUEST_TIMEOUT_MS_CONFIG, 2000);
+        properties.put(ProducerConfig.DELIVERY_TIMEOUT_MS_CONFIG, 3000);
+        return new DefaultKafkaProducerFactory<>(properties);
+    }
+
+    @Bean
+    public KafkaTemplate<String, NotificationEvent> notificationKafkaTemplate(
+            ProducerFactory<String, NotificationEvent> notificationProducerFactory) {
+        return new KafkaTemplate<>(notificationProducerFactory);
     }
 }

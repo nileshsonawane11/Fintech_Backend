@@ -89,6 +89,7 @@ app:
       beneficiary-events: ${KAFKA_TOPIC_PAYMENT_BENEFICIARY:payment.beneficiary-events.v1}
       reconciliation-events: ${KAFKA_TOPIC_PAYMENT_RECONCILIATION:payment.reconciliation-events.v1}
       account-lifecycle-events: ${KAFKA_TOPIC_ACCOUNT_LIFECYCLE:account.lifecycle-events.v1}
+      notification-events: ${KAFKA_TOPIC_NOTIFICATION_EVENTS:notification.events.v1}
 
 razorpay:
   environment: ${RAZORPAY_ENV:test}
