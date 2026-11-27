@@ -30,6 +30,27 @@ public class Notification {
     @Column(name = "reference_id", length = 100)
     private String referenceId;
 
+    @Column(name = "source_service", length = 100)
+    private String sourceService;
+
+    @Column(name = "event_type", length = 100)
+    private String eventType;
+
+    @Column(name = "category", length = 50)
+    private String category;
+
+    @Column(name = "priority", length = 20)
+    private String priority;
+
+    @Column(name = "aggregate_type", length = 50)
+    private String aggregateType;
+
+    @Column(name = "aggregate_id", length = 100)
+    private String aggregateId;
+
+    @Column(name = "metadata", columnDefinition = "TEXT")
+    private String metadata;
+
     @Column(name = "template_code", nullable = false)
     private String templateCode;
 
@@ -47,6 +68,9 @@ public class Notification {
 
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
+
+    @Column(name = "read_at")
+    private Instant readAt;
 
     public Notification() {
     }
@@ -86,4 +110,28 @@ public class Notification {
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    public String getSourceService() { return sourceService; }
+    public void setSourceService(String sourceService) { this.sourceService = sourceService; }
+
+    public String getEventType() { return eventType; }
+    public void setEventType(String eventType) { this.eventType = eventType; }
+
+    public String getCategory() { return category; }
+    public void setCategory(String category) { this.category = category; }
+
+    public String getPriority() { return priority; }
+    public void setPriority(String priority) { this.priority = priority; }
+
+    public String getAggregateType() { return aggregateType; }
+    public void setAggregateType(String aggregateType) { this.aggregateType = aggregateType; }
+
+    public String getAggregateId() { return aggregateId; }
+    public void setAggregateId(String aggregateId) { this.aggregateId = aggregateId; }
+
+    public String getMetadata() { return metadata; }
+    public void setMetadata(String metadata) { this.metadata = metadata; }
+
+    public Instant getReadAt() { return readAt; }
+    public void setReadAt(Instant readAt) { this.readAt = readAt; }
 }

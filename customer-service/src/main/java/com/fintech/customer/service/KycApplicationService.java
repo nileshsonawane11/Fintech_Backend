@@ -2,6 +2,7 @@ package com.fintech.customer.service;
 
 import com.fintech.customer.dto.request.KycApplicationRequest;
 import com.fintech.customer.dto.response.KycApplicationResponse;
+import com.fintech.customer.events.NotificationEvent;
 import com.fintech.customer.exception.ApiException;
 import com.fintech.customer.model.CustomerAddress;
 import com.fintech.customer.model.CustomerProfile;
@@ -11,6 +12,7 @@ import com.fintech.customer.repository.CustomerAddressRepository;
 import com.fintech.customer.repository.CustomerProfileRepository;
 import com.fintech.customer.repository.KycCaseRepository;
 import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import com.fintech.customer.security.FieldEncryptionService;
 import org.springframework.dao.DataIntegrityViolationException;
 import org.springframework.http.HttpStatus;
@@ -30,6 +32,9 @@ public class KycApplicationService {
     private final KycCaseRepository kycCaseRepository;
     private final FieldEncryptionService encryptionService;
     private final CustomerAddressRepository customerAddressRepository;
+
+    @Autowired(required = false)
+    private ApplicationEventPublisher applicationEventPublisher;
 
     public KycApplicationService(CustomerProfileRepository customerProfileRepository,
                                  KycCaseRepository kycCaseRepository,
@@ -117,6 +122,19 @@ public class KycApplicationService {
 
         try {
             KycCase savedCase = kycCaseRepository.save(kycCase);
+            if (applicationEventPublisher != null && profile.getIdentitySubject() != null) {
+                applicationEventPublisher.publishEvent(NotificationEvent.of(
+                        "KYC_APPLICATION_SUBMITTED",
+                        profile.getIdentitySubject(),
+                        savedCase.getKycCaseId(),
+                        "KYC",
+                        "KYC Application Submitted",
+                        "Your KYC verification application (" + savedCase.getKycCaseId() + ") has been submitted and is under review.",
+                        "KYC",
+                        "NORMAL",
+                        java.util.Map.of("kycCaseId", savedCase.getKycCaseId(), "status", savedCase.getStatus().name())
+                ));
+            }
             return toResponse(savedCase);
         } catch (DataIntegrityViolationException e) {
             throw new ApiException(
@@ -171,6 +189,20 @@ public class KycApplicationService {
         kycCase.setStatus(KycStatus.CANCELLED);
         // Note: updatedAt is handled automatically by the @PreUpdate lifecycle hook in your entity
         kycCaseRepository.save(kycCase);
+
+        if (applicationEventPublisher != null && identitySubject != null) {
+            applicationEventPublisher.publishEvent(NotificationEvent.of(
+                    "KYC_APPLICATION_CANCELLED",
+                    identitySubject,
+                    kycCase.getKycCaseId(),
+                    "KYC",
+                    "KYC Application Cancelled",
+                    "Your KYC verification application (" + kycCase.getKycCaseId() + ") has been cancelled.",
+                    "KYC",
+                    "NORMAL",
+                    java.util.Map.of("kycCaseId", kycCase.getKycCaseId(), "status", KycStatus.CANCELLED.name())
+            ));
+        }
     }
 
     // --- Helper Methods ---

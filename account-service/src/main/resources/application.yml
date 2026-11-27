@@ -59,7 +59,7 @@ app:
   kafka:
     topics:
       account-events: account-events
-      notification-events: notification-events
+      notification-events: ${KAFKA_TOPIC_NOTIFICATION_EVENTS:notification.events.v1}
   services:
     customer-service:
       service-id: ${CUSTOMER_SERVICE_ID:CUSTOMER-SERVICE}

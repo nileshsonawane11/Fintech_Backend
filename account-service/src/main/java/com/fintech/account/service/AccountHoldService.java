@@ -11,6 +11,7 @@ import com.fintech.account.entity.AccountHold;
 import com.fintech.account.enums.AccountStatus;
 import com.fintech.account.enums.HoldStatus;
 import com.fintech.account.event.model.AccountEvents.*;
+import com.fintech.account.event.model.NotificationEvent;
 import com.fintech.account.exception.AccountException;
 import com.fintech.account.repository.AccountHoldRepository;
 import com.fintech.account.repository.AccountRepository;
@@ -124,6 +125,10 @@ public class AccountHoldService {
         auditLogger.logAudit("PLACE_HOLD", "AccountHold", saved.getHoldId(), createdBy,
                 "Hold of " + saved.getAmount() + " " + saved.getCurrency() + " placed on " + accountId);
 
+        enqueueHoldNotification(account, saved, "ACCOUNT_HOLD_PLACED", "Account Hold Placed",
+                "A hold of " + saved.getAmount() + " " + saved.getCurrency() + " has been placed on your account (" + accountId + ").",
+                "HIGH");
+
         return toResponse(saved);
     }
 
@@ -205,6 +210,11 @@ public class AccountHoldService {
         auditLogger.logAudit("RELEASE_HOLD", "AccountHold", saved.getHoldId(), releasedBy,
                 "Hold released for reason: " + request.reasonCode());
 
+        accountRepository.findByAccountId(saved.getAccountId()).ifPresent(acc ->
+                enqueueHoldNotification(acc, saved, "ACCOUNT_HOLD_RELEASED", "Account Hold Released",
+                        "A hold of " + saved.getAmount() + " " + saved.getCurrency() + " on your account (" + saved.getAccountId() + ") has been released.",
+                        "NORMAL"));
+
         return toResponse(saved);
     }
 
@@ -232,6 +242,35 @@ public class AccountHoldService {
         holdRepository.save(hold);
 
         auditLogger.logAudit("CANCEL_HOLD", "AccountHold", holdId, cancelledBy, "Cancelled hold: " + request.remarks());
+
+        accountRepository.findByAccountId(hold.getAccountId()).ifPresent(acc ->
+                enqueueHoldNotification(acc, hold, "ACCOUNT_HOLD_CANCELLED", "Account Hold Cancelled",
+                        "A hold of " + hold.getAmount() + " " + hold.getCurrency() + " on your account (" + hold.getAccountId() + ") has been cancelled.",
+                        "NORMAL"));
+    }
+
+    private void enqueueHoldNotification(Account account, AccountHold hold, String eventType,
+                                         String title, String message, String priority) {
+        if (account == null || account.getIdentitySubject() == null || account.getIdentitySubject().isBlank()) {
+            return;
+        }
+        outboxEventService.enqueueEvent(
+                account.getIdentitySubject(),
+                "NOTIFICATION",
+                "NotificationRequested",
+                NotificationEvent.of(
+                        eventType,
+                        account.getIdentitySubject(),
+                        hold.getHoldId(),
+                        "ACCOUNT_HOLD",
+                        title,
+                        message,
+                        "ACCOUNT",
+                        priority,
+                        java.util.Map.of("holdId", hold.getHoldId(), "accountId", hold.getAccountId(),
+                                "amount", hold.getAmount().toPlainString(), "currency", hold.getCurrency())
+                )
+        );
     }
 
     @Transactional(readOnly = true)

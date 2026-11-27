@@ -41,6 +41,7 @@ spring:
 app:
   kafka:
     topics:
+      notification-events: ${KAFKA_TOPIC_NOTIFICATION_EVENTS:notification.events.v1}
       loan-notifications: ${KAFKA_TOPIC_LOAN_NOTIFICATIONS:loan.notification.events.v1}
 
 security:

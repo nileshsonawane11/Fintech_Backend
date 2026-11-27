@@ -65,6 +65,7 @@ app:
       balance-events: ${LEDGER_TOPIC_BALANCES:ledger.balance-events.v1}
       hold-events: ${LEDGER_TOPIC_HOLDS:ledger.hold-events.v1}
       reconciliation-events: ${LEDGER_TOPIC_RECONCILIATION:ledger.reconciliation-events.v1}
+      notification-events: ${KAFKA_TOPIC_NOTIFICATION_EVENTS:notification.events.v1}
       account-lifecycle: ${ACCOUNT_TOPIC_LIFECYCLE:account.lifecycle-events.v1}
       account-holds: ${ACCOUNT_TOPIC_HOLD:account.hold-events.v1}
   services:

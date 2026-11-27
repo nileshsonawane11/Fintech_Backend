@@ -42,6 +42,7 @@ app:
     enabled: ${APP_KAFKA_ENABLED:false}
     topics:
       customer-registered: identity.customer-events.v1
+      notification-events: ${KAFKA_TOPIC_NOTIFICATION_EVENTS:notification.events.v1}
 
 eureka:
   client:

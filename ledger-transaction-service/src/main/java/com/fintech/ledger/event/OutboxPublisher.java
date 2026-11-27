@@ -37,6 +37,9 @@ public class OutboxPublisher {
     @Value("${app.kafka.topics.reconciliation-events:ledger.reconciliation-events.v1}")
     private String reconciliationEventsTopic;
 
+    @Value("${app.kafka.topics.notification-events:notification.events.v1}")
+    private String notificationEventsTopic;
+
     public OutboxPublisher(OutboxEventRepository outboxEventRepository,
                            KafkaTemplate<String, Object> kafkaTemplate) {
         this.outboxEventRepository = outboxEventRepository;
@@ -73,6 +76,9 @@ public class OutboxPublisher {
     private String resolveTopic(String eventType) {
         if (eventType == null) {
             return transactionEventsTopic;
+        }
+        if (eventType.startsWith("NOTIFICATION_")) {
+            return notificationEventsTopic;
         }
         if (eventType.startsWith("TRANSACTION_")) {
             return transactionEventsTopic;

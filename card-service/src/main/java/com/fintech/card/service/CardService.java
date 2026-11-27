@@ -6,8 +6,13 @@ import com.fintech.card.dto.request.UpdateCardControlsRequest;
 import com.fintech.card.dto.response.*;
 import com.fintech.card.entity.Card;
 import com.fintech.card.entity.CardControl;
+import com.fintech.card.event.model.NotificationEvent;
+import com.fintech.card.event.producer.CardOutboxEventService;
 import com.fintech.card.exception.ApiException;
 import com.fintech.card.repository.CardRepository;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -22,8 +27,13 @@ import java.util.stream.Collectors;
 @Service
 public class CardService {
 
+    private static final Logger log = LoggerFactory.getLogger(CardService.class);
+
     private final CardRepository cardRepository;
     private final Random random = new Random();
+
+    @Autowired(required = false)
+    private CardOutboxEventService outboxEventService;
 
     public CardService(CardRepository cardRepository) {
         this.cardRepository = cardRepository;
@@ -63,6 +73,17 @@ public class CardService {
         card.setBlockReason(request.getReason());
         card.setBlockRemarks(request.getRemarks());
         cardRepository.save(card);
+
+        enqueueCardNotification(
+                resolveRecipient(card, identitySubject),
+                "CARD_BLOCKED",
+                card.getCardId(),
+                "Card Blocked",
+                "Your card (" + card.getMaskedCardNumber() + ") has been blocked.",
+                "CRITICAL",
+                java.util.Map.of("cardId", card.getCardId(), "maskedCardNumber", card.getMaskedCardNumber(),
+                        "reason", request.getReason() != null ? request.getReason() : "")
+        );
 
         BlockCardResponse response = new BlockCardResponse();
         response.setId(card.getCardId());
@@ -119,6 +140,16 @@ public class CardService {
 
         cardRepository.save(card);
 
+        enqueueCardNotification(
+                resolveRecipient(card, identitySubject),
+                "CARD_CONTROLS_UPDATED",
+                card.getCardId(),
+                "Card Controls Updated",
+                "Security controls and spending limits for your card (" + card.getMaskedCardNumber() + ") have been updated.",
+                "NORMAL",
+                java.util.Map.of("cardId", card.getCardId(), "maskedCardNumber", card.getMaskedCardNumber())
+        );
+
         CardControlsDto controlsDto = new CardControlsDto();
         controlsDto.setOnline(ctrl.getOnlineEnabled());
         controlsDto.setOnlineEnabled(ctrl.getOnlineEnabled());
@@ -154,7 +185,52 @@ public class CardService {
         String paymentRef = "PAY-CARD-" + (100000 + random.nextInt(900000));
         BigDecimal remainingOutstanding = BigDecimal.ZERO;
 
+        enqueueCardNotification(
+                card.getIdentitySubject(),
+                "CARD_BILL_PAID",
+                card.getCardId(),
+                "Card Payment Received",
+                "Payment of " + request.getAmount() + " for card (" + card.getMaskedCardNumber() + ") succeeded (Ref: " + paymentRef + ").",
+                "NORMAL",
+                java.util.Map.of("cardId", card.getCardId(), "paymentRef", paymentRef, "amount", request.getAmount().toPlainString())
+        );
+
         return new PayCardResponse(true, paymentRef, request.getAmount(), remainingOutstanding);
+    }
+
+    private String resolveRecipient(Card card, String fallbackSubject) {
+        if (card.getIdentitySubject() != null && !card.getIdentitySubject().isBlank()) {
+            return card.getIdentitySubject();
+        }
+        return fallbackSubject;
+    }
+
+    private void enqueueCardNotification(String recipientId, String eventType, String cardId,
+                                         String title, String message, String priority,
+                                         java.util.Map<String, Object> metadata) {
+        if (outboxEventService == null) {
+            return;
+        }
+        if (recipientId == null || recipientId.isBlank()) {
+            log.warn("Skipping card notification {} for cardId={}: missing identitySubject", eventType, cardId);
+            return;
+        }
+        outboxEventService.enqueueEvent(
+                recipientId,
+                "NOTIFICATION",
+                "NOTIFICATION_REQUESTED",
+                NotificationEvent.of(
+                        eventType,
+                        recipientId,
+                        cardId,
+                        "CARD",
+                        title,
+                        message,
+                        "CARD",
+                        priority,
+                        metadata
+                )
+        );
     }
 
     public Card findActiveCard(String identitySubject, String cardId) {

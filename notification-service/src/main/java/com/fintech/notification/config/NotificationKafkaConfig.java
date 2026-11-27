@@ -4,6 +4,7 @@ import com.fasterxml.jackson.databind.DeserializationFeature;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fasterxml.jackson.databind.SerializationFeature;
 import com.fasterxml.jackson.datatype.jsr310.JavaTimeModule;
+import org.apache.kafka.clients.admin.NewTopic;
 import org.apache.kafka.clients.consumer.ConsumerConfig;
 import org.apache.kafka.clients.producer.ProducerConfig;
 import org.apache.kafka.common.TopicPartition;
@@ -13,7 +14,9 @@ import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.autoconfigure.condition.ConditionalOnMissingBean;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.kafka.annotation.EnableKafka;
 import org.springframework.kafka.config.ConcurrentKafkaListenerContainerFactory;
+import org.springframework.kafka.config.TopicBuilder;
 import org.springframework.kafka.core.*;
 import org.springframework.kafka.listener.ContainerProperties;
 import org.springframework.kafka.listener.DeadLetterPublishingRecoverer;
@@ -25,6 +28,7 @@ import java.util.Map;
 import java.util.TimeZone;
 
 @Configuration
+@EnableKafka
 public class NotificationKafkaConfig {
 
     @Value("${spring.kafka.bootstrap-servers:localhost:9092}")
@@ -32,6 +36,32 @@ public class NotificationKafkaConfig {
 
     @Value("${spring.kafka.consumer.group-id:notification-service-group}")
     private String consumerGroupId;
+
+    @Value("${app.kafka.topics.notification-events:notification.events.v1}")
+    private String notificationEventsTopic;
+
+    @Value("${app.kafka.topics.loan-notifications:loan.notification.events.v1}")
+    private String loanNotificationsTopic;
+
+    @Bean
+    public NewTopic notificationEventsTopic() {
+        return TopicBuilder.name(notificationEventsTopic).partitions(3).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic notificationEventsDlqTopic() {
+        return TopicBuilder.name(notificationEventsTopic + ".dlq").partitions(1).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic loanNotificationsTopic() {
+        return TopicBuilder.name(loanNotificationsTopic).partitions(3).replicas(1).build();
+    }
+
+    @Bean
+    public NewTopic loanNotificationsDlqTopic() {
+        return TopicBuilder.name(loanNotificationsTopic + ".dlq").partitions(1).replicas(1).build();
+    }
 
     @Bean
     @ConditionalOnMissingBean(ObjectMapper.class)

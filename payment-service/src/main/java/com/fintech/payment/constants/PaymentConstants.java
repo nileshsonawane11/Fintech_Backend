@@ -106,6 +106,7 @@ public final class PaymentConstants {
     public static final String TOPIC_BENEFICIARY_EVENTS = "payment.beneficiary-events.v1";
     public static final String TOPIC_RECONCILIATION_EVENTS = "payment.reconciliation-events.v1";
     public static final String TOPIC_ACCOUNT_LIFECYCLE = "account.lifecycle-events.v1";
+    public static final String TOPIC_NOTIFICATION_EVENTS = "notification.events.v1";
     public static final String CONSUMER_GROUP_PAYMENT = "payment-service-group";
     public static final String EVENT_SCHEMA_VERSION = "1.0";
 

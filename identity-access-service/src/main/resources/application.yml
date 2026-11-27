@@ -29,6 +29,11 @@ spring:
       properties:
         "[spring.json.add.type.headers]": false
 
+app:
+  kafka:
+    topics:
+      notification-events: ${KAFKA_TOPIC_NOTIFICATION_EVENTS:notification.events.v1}
+
   flyway:
     enabled: true
     locations: classpath:db/migration

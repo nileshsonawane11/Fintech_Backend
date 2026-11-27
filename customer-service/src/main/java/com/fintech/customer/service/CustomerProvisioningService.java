@@ -1,7 +1,10 @@
 package com.fintech.customer.service;
 
+import com.fintech.customer.events.NotificationEvent;
 import com.fintech.customer.model.CustomerProfile;
 import com.fintech.customer.repository.CustomerProfileRepository;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.context.ApplicationEventPublisher;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -12,6 +15,9 @@ import java.util.UUID;
 public class CustomerProvisioningService {
 
     private final CustomerProfileRepository repository;
+
+    @Autowired(required = false)
+    private ApplicationEventPublisher applicationEventPublisher;
 
     public CustomerProvisioningService(
             CustomerProfileRepository repository) {
@@ -36,6 +42,19 @@ public class CustomerProvisioningService {
         profile.setKycStatus("NOT_STARTED");
         profile.setRiskCategory("UNASSESSED");
 
-        repository.save(profile);
+        CustomerProfile saved = repository.save(profile);
+        if (applicationEventPublisher != null) {
+            applicationEventPublisher.publishEvent(NotificationEvent.of(
+                    "CUSTOMER_PROFILE_CREATED",
+                    saved.getIdentitySubject(),
+                    saved.getCustomerId(),
+                    "CUSTOMER",
+                    "Customer Profile Created",
+                    "Your FinBank customer profile has been created. Complete KYC to unlock all banking features.",
+                    "PROFILE",
+                    "NORMAL",
+                    Map.of("customerId", saved.getCustomerId(), "kycStatus", saved.getKycStatus())
+            ));
+        }
     }
 }
