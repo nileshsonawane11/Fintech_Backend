@@ -10,6 +10,10 @@ spring:
     username: ${CUSTOMER_DB_USERNAME:postgres}
     password: ${CUSTOMER_DB_PASSWORD:root}
     driver-class-name: org.postgresql.Driver
+    hikari:
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 5000
 
   jpa:
     hibernate:
@@ -87,11 +91,11 @@ springdoc:
 
 logging:
   level:
-    org.hibernate.SQL: DEBUG
-    org.hibernate.orm.jdbc.bind: TRACE
-    org.springframework.orm.jpa: DEBUG
-    org.springframework.transaction: TRACE
-    com.fintech.customer: DEBUG
+    org.hibernate.SQL: WARN
+    org.hibernate.orm.jdbc.bind: WARN
+    org.springframework.orm.jpa: WARN
+    org.springframework.transaction: WARN
+    com.fintech.customer: INFO
     org.springframework.kafka: INFO
     org.apache.kafka.clients.consumer: WARN
     org.apache.kafka.clients.NetworkClient: ERROR

@@ -72,6 +72,8 @@ public class JwtSecurityConfig {
                                 "/public/api/v1/card-products/**",
                                 "/loan/v3/api-docs",
                                 "/loan/v3/api-docs/**",
+                                "/investment/v3/api-docs",
+                                "/investment/v3/api-docs/**",
                                 "/notification/v3/api-docs",
                                 "/notification/v3/api-docs/**"
                         ).permitAll()
@@ -85,7 +87,10 @@ public class JwtSecurityConfig {
                                 "/api/v1/customers/",
                                 "/api/v1/loans/products",
                                 "/api/v1/loans/products/**",
-                                "/api/v1/loans/webhooks/**"
+                                "/api/v1/loans/webhooks/**",
+                                "/api/v1/investments/products",
+                                "/api/v1/investments/products/**",
+                                "/api/v1/investments/calculators/**"
                         ).permitAll()
 
                         // Health endpoint

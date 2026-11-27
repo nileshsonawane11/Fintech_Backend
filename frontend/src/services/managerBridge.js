@@ -1,6 +1,8 @@
 // Manager Bridge Service
 // Connects manager sections to managerService and real DB engine with canonical normalization contract
 import { managerService } from './managerService.js';
+import { investmentService } from './investmentService.js';
+import { getMode } from '../lib/serverMode.js';
 import {
   getDb,
   saveDb,
@@ -70,14 +72,14 @@ export const ROLE_TEMPLATES = {
 export const ROLE_ALLOWED_SECTIONS = {
   BANK_MANAGER: ['dashboard', 'kyc', 'accounts', 'loans', 'investments', 'cards', 'tickets', 'customers', 'audit', 'reports', 'staff'],
   KYC_OFFICER: ['dashboard', 'kyc', 'customers', 'audit'],
-  ACCOUNT_OPS: ['dashboard', 'accounts', 'cards', 'customers', 'audit'],
+  ACCOUNT_OPS: ['dashboard', 'accounts', 'investments', 'cards', 'customers', 'audit'],
   AUDIT_COMPLIANCE: ['dashboard', 'customers', 'audit', 'reports'],
   CUSTOMER_SUPPORT: ['dashboard', 'tickets', 'customers'],
   // Legacy aliases
   AUDITOR: ['dashboard', 'customers', 'audit', 'reports'],
   OFFICER: ['dashboard', 'kyc', 'customers', 'audit'],
   MANAGER: ['dashboard', 'kyc', 'accounts', 'loans', 'investments', 'cards', 'tickets', 'customers', 'audit', 'reports', 'staff'],
-  OPERATIONS: ['dashboard', 'kyc', 'accounts', 'cards', 'tickets', 'customers', 'audit'],
+  OPERATIONS: ['dashboard', 'kyc', 'accounts', 'investments', 'cards', 'tickets', 'customers', 'audit'],
   ADMIN: ['dashboard', 'kyc', 'accounts', 'loans', 'investments', 'cards', 'tickets', 'customers', 'audit', 'reports', 'staff', 'user-management', 'roles-permissions', 'product-catalogue']
 };
 
@@ -1032,6 +1034,34 @@ export async function disburseLoan(appId, options = {}) {
 // ============================================================================
 
 export async function listInvestmentApplications({ status, query } = {}) {
+  if (getMode() === 'server') {
+    try {
+      const dash = await investmentService.getOpsDashboard();
+      const apps = (dash?.pendingApplications || []).map((a) => ({
+        id: a.applicationId,
+        applicationId: a.applicationId,
+        customerId: a.customerId || a.identitySubject,
+        customerName: a.ssyGuardianName || a.customerId || 'Customer',
+        productName: a.productCode,
+        kind: a.productType,
+        amount: a.requestedAmount,
+        depositAmount: a.requestedAmount,
+        rate: a.appliedRate,
+        appliedRate: a.appliedRate,
+        tenureMonths: a.tenureMonths,
+        maturityAmount: a.projectedMaturityAmount,
+        maturityValue: a.projectedMaturityAmount,
+        submittedAt: a.createdAt,
+        status: a.status,
+      }));
+      if (status && status !== 'ALL') {
+        return apps.filter((i) => String(i.status).toUpperCase() === status.toUpperCase());
+      }
+      return apps;
+    } catch (err) {
+      console.warn('Falling back to local investment applications:', err?.message);
+    }
+  }
   const db = getDb();
   let list = db.investmentApplications || [];
   const normalized = list.map(i => normalizeInvestmentApplication(i, db));
@@ -1055,6 +1085,12 @@ export async function listInvestmentApplications({ status, query } = {}) {
 
 export async function decideInvestmentApplication(appId, { decision, reasonCode, note, actor, actorRole, actorEmail }) {
   const staff = assertStaffPermission('investments.review', { actor, actorRole, actorEmail });
+  if (getMode() === 'server') {
+    if (decision === 'APPROVED') {
+      return investmentService.approveApplication(appId, { remarks: note || reasonCode });
+    }
+    return investmentService.rejectApplication(appId, { rejectionReason: note || reasonCode, remarks: note });
+  }
   const db = getDb();
   const app = (db.investmentApplications || []).find(i => (i.applicationId || i.id) === appId);
   if (!app) throw { status: 404, message: 'Investment application not found.' };
