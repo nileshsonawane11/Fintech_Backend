@@ -23,23 +23,13 @@ public class PaymentKafkaConfig {
     }
 
     @Bean
-    public NewTopic transferEventsTopic() {
-        return TopicBuilder.name(PaymentConstants.TOPIC_TRANSFER_EVENTS).partitions(3).replicas(1).build();
-    }
-
-    @Bean
-    public NewTopic beneficiaryEventsTopic() {
-        return TopicBuilder.name(PaymentConstants.TOPIC_BENEFICIARY_EVENTS).partitions(3).replicas(1).build();
-    }
-
-    @Bean
     public NewTopic reconciliationEventsTopic() {
         return TopicBuilder.name(PaymentConstants.TOPIC_RECONCILIATION_EVENTS).partitions(3).replicas(1).build();
     }
 
     @Bean
-    public NewTopic accountLifecycleDlqTopic() {
-        return TopicBuilder.name(PaymentConstants.TOPIC_ACCOUNT_LIFECYCLE + ".dlq").partitions(1).replicas(1).build();
+    public NewTopic ledgerTransactionEventsDlqTopic() {
+        return TopicBuilder.name(PaymentConstants.TOPIC_LEDGER_TRANSACTION_EVENTS + ".dlq").partitions(1).replicas(1).build();
     }
 
     @Bean

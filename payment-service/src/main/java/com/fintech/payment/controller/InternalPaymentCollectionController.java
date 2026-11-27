@@ -13,7 +13,7 @@ import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/internal/api/v1/payments")
-@Tag(name = "Internal Payment Collections & Mandates", description = "Internal service APIs for external payment collection and recurring mandates")
+@Tag(name = "Internal Payment Collections", description = "Internal service APIs for Razorpay Orders external payment collection")
 public class InternalPaymentCollectionController {
 
     private final InternalPaymentCollectionService collectionService;
@@ -24,7 +24,8 @@ public class InternalPaymentCollectionController {
 
     @PostMapping("/collections")
     @PreAuthorize("hasAnyRole('SYSTEM','INTERNAL')")
-    @Operation(summary = "Initiate External Collection", description = "Initiate UPI/NetBanking/Card/AutoPay/eNACH collection; returns PENDING until webhook/status confirmation")
+    @Operation(summary = "Initiate External Collection Order",
+            description = "Create a Razorpay Order for external collection; returns PENDING until Checkout verification/webhook confirmation")
     public ResponseEntity<CollectionOrderResponse> initiateCollection(
             @RequestHeader(value = PaymentConstants.HEADER_IDEMPOTENCY_KEY, required = false) String idempotencyKey,
             @Valid @RequestBody InitiateCollectionRequest request) {
@@ -46,39 +47,5 @@ public class InternalPaymentCollectionController {
             @PathVariable String collectionReference,
             @Valid @RequestBody RefundCollectionRequest request) {
         return ResponseEntity.ok(collectionService.refundCollection(collectionReference, request));
-    }
-
-    @PostMapping("/mandates")
-    @PreAuthorize("hasAnyRole('SYSTEM','INTERNAL')")
-    @Operation(summary = "Register External Recurring Mandate", description = "Register UPI AutoPay or eNACH mandate in PENDING state pending provider confirmation")
-    public ResponseEntity<MandateRegistrationResponse> registerMandate(
-            @RequestHeader(value = PaymentConstants.HEADER_IDEMPOTENCY_KEY, required = false) String idempotencyKey,
-            @Valid @RequestBody RegisterMandateRequest request) {
-        return ResponseEntity.status(HttpStatus.ACCEPTED)
-                .body(collectionService.registerMandate(idempotencyKey, request));
-    }
-
-    @GetMapping("/mandates/{providerReference}/status")
-    @PreAuthorize("hasAnyRole('SYSTEM','INTERNAL')")
-    public ResponseEntity<MandateRegistrationResponse> getMandateStatus(@PathVariable String providerReference) {
-        return ResponseEntity.ok(collectionService.getMandateStatus(providerReference));
-    }
-
-    @PostMapping("/mandates/{providerReference}/pause")
-    @PreAuthorize("hasAnyRole('SYSTEM','INTERNAL')")
-    public ResponseEntity<MandateRegistrationResponse> pauseMandate(@PathVariable String providerReference) {
-        return ResponseEntity.ok(collectionService.pauseMandate(providerReference));
-    }
-
-    @PostMapping("/mandates/{providerReference}/resume")
-    @PreAuthorize("hasAnyRole('SYSTEM','INTERNAL')")
-    public ResponseEntity<MandateRegistrationResponse> resumeMandate(@PathVariable String providerReference) {
-        return ResponseEntity.ok(collectionService.resumeMandate(providerReference));
-    }
-
-    @PostMapping("/mandates/{providerReference}/revoke")
-    @PreAuthorize("hasAnyRole('SYSTEM','INTERNAL')")
-    public ResponseEntity<MandateRegistrationResponse> revokeMandate(@PathVariable String providerReference) {
-        return ResponseEntity.ok(collectionService.revokeMandate(providerReference));
     }
 }

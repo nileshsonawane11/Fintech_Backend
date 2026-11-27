@@ -88,6 +88,7 @@ public class JwtSecurityConfig {
                                 "/api/v1/loans/products",
                                 "/api/v1/loans/products/**",
                                 "/api/v1/loans/webhooks/**",
+                                "/api/v1/payments/webhooks/**",
                                 "/api/v1/investments/products",
                                 "/api/v1/investments/products/**",
                                 "/api/v1/investments/calculators/**"

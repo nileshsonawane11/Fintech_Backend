@@ -3,7 +3,7 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { useSearchParams } from 'react-router-dom';
 import { CalendarClock, Info, Landmark, PiggyBank, ShieldCheck, TrendingUp } from 'lucide-react';
 import {
-  Button, Card, EmptyState, Field, FormError, Input, PageLoading,
+  Button, Card, EmptyState, Field, FormError, Input, Modal, PageLoading,
   SectionHeader, Select, StatusChip, Table, Tabs, useToast,
 } from '../../../components/ui.jsx';
 import { useAuth, useDbTick } from '../../../context/AuthContext.jsx';
@@ -13,6 +13,7 @@ import { FD, RD, SIP, SSY } from '../../../data/products.js';
 import { listAccounts, getMyProfile } from '../../../services/portalBridge.js';
 import { bookFd, bookRd, listHoldings, openSsy, startSip } from '../../../services/portalBridge.js';
 import { investmentService } from '../../../services/investmentService.js';
+import { executeRazorpayCheckoutFlow } from '../../../services/paymentService.js';
 import { getMode } from '../../../lib/serverMode.js';
 
 const KIND_META = {
@@ -69,6 +70,12 @@ function PreviewBox({ rows, note }) {
 
 function FdForm({ customerId, accounts, profile, onBooked }) {
   const { toast } = useToast();
+  const [contributeTarget, setContributeTarget] = useState(null);
+  const [contributeSource, setContributeSource] = useState('RAZORPAY');
+  const [contributeAccountId, setContributeAccountId] = useState('');
+  const [contributeAmount, setContributeAmount] = useState('5000');
+  const [contributeBusy, setContributeBusy] = useState(false);
+  const [contributeError, setContributeError] = useState('');
   const [accountId, setAccountId] = useState('');
   const [amount, setAmount] = useState('100000');
   const [gridIdx, setGridIdx] = useState(4);
@@ -194,6 +201,12 @@ function FdForm({ customerId, accounts, profile, onBooked }) {
 
 function RdForm({ customerId, accounts, onBooked }) {
   const { toast } = useToast();
+  const [contributeTarget, setContributeTarget] = useState(null);
+  const [contributeSource, setContributeSource] = useState('RAZORPAY');
+  const [contributeAccountId, setContributeAccountId] = useState('');
+  const [contributeAmount, setContributeAmount] = useState('5000');
+  const [contributeBusy, setContributeBusy] = useState(false);
+  const [contributeError, setContributeError] = useState('');
   const [accountId, setAccountId] = useState('');
   const [monthly, setMonthly] = useState('5000');
   const [bandIdx, setBandIdx] = useState(1);
@@ -293,6 +306,12 @@ function RdForm({ customerId, accounts, onBooked }) {
 
 function SipForm({ customerId, accounts, onBooked }) {
   const { toast } = useToast();
+  const [contributeTarget, setContributeTarget] = useState(null);
+  const [contributeSource, setContributeSource] = useState('RAZORPAY');
+  const [contributeAccountId, setContributeAccountId] = useState('');
+  const [contributeAmount, setContributeAmount] = useState('5000');
+  const [contributeBusy, setContributeBusy] = useState(false);
+  const [contributeError, setContributeError] = useState('');
   const [accountId, setAccountId] = useState('');
   const [monthly, setMonthly] = useState('5000');
   const [fundName, setFundName] = useState(SIP.fundCategories[0]?.name || '');
@@ -413,6 +432,12 @@ function SipForm({ customerId, accounts, onBooked }) {
 
 function SsyForm({ customerId, accounts, profile, onBooked }) {
   const { toast } = useToast();
+  const [contributeTarget, setContributeTarget] = useState(null);
+  const [contributeSource, setContributeSource] = useState('RAZORPAY');
+  const [contributeAccountId, setContributeAccountId] = useState('');
+  const [contributeAmount, setContributeAmount] = useState('5000');
+  const [contributeBusy, setContributeBusy] = useState(false);
+  const [contributeError, setContributeError] = useState('');
   const [accountId, setAccountId] = useState('');
   const [amount, setAmount] = useState('25000');
   const [childName, setChildName] = useState('');
@@ -601,6 +626,12 @@ export default function InvestmentsPage() {
   }, [holdings]);
 
   const { toast } = useToast();
+  const [contributeTarget, setContributeTarget] = useState(null);
+  const [contributeSource, setContributeSource] = useState('RAZORPAY');
+  const [contributeAccountId, setContributeAccountId] = useState('');
+  const [contributeAmount, setContributeAmount] = useState('5000');
+  const [contributeBusy, setContributeBusy] = useState(false);
+  const [contributeError, setContributeError] = useState('');
 
   async function handleSipAction(invId, action) {
     try {
@@ -671,6 +702,15 @@ export default function InvestmentsPage() {
         { key: 'start', label: 'Start date', render: (h) => formatDate(h.startDate || h.bookingDate) },
         { key: 'mat', label: 'Maturity date', render: (h) => formatDate(h.maturityDate) },
         { key: 'status', label: 'Status', render: (h) => <StatusChip status={h.status} /> },
+        { key: 'actions', label: 'Actions', render: (h) => h.status === 'ACTIVE' ? (
+          <Button size="xs" variant="secondary" onClick={() => {
+            setContributeError('');
+            setContributeSource('INTERNAL_ACCOUNT');
+            setContributeAccountId(accounts[0]?.id || '');
+            setContributeAmount(String(h.annualDeposit || 5000));
+            setContributeTarget(h);
+          }}>Contribute</Button>
+        ) : null },
       ];
     }
     // SIP
@@ -758,6 +798,86 @@ export default function InvestmentsPage() {
           </div>
         </Card>
       </section>
+
+      <Modal
+        open={Boolean(contributeTarget)}
+        onClose={() => { if (!contributeBusy) setContributeTarget(null); }}
+        title="Investment Contribution"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" disabled={contributeBusy} onClick={() => setContributeTarget(null)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              disabled={contributeBusy}
+              onClick={async () => {
+                const amt = Number(contributeAmount);
+                if (!Number.isFinite(amt) || amt < 1) {
+                  setContributeError('Enter a valid contribution amount of at least ₹1.');
+                  return;
+                }
+                const invId = contributeTarget.investmentId || contributeTarget.id;
+                setContributeError('');
+                setContributeBusy(true);
+                try {
+                  if (contributeSource === 'INTERNAL_ACCOUNT') {
+                    await investmentService.depositSsy(invId, {
+                      fundingAccountId: contributeAccountId,
+                      amount: amt,
+                    });
+                    toast({ variant: 'success', title: 'Contribution processed', description: 'Internal FinBank contribution completed.' });
+                  } else {
+                    const verified = await executeRazorpayCheckoutFlow({
+                      purpose: 'INVESTMENT_PAYMENT',
+                      businessReference: invId,
+                      amount: amt,
+                      currency: 'INR',
+                      description: `Investment Contribution (${invId})`,
+                    });
+                    toast({ variant: 'success', title: 'Payment verified', description: `Razorpay payment ${verified.paymentId} verified.` });
+                  }
+                  setContributeTarget(null);
+                  setRefresh((r) => r + 1);
+                } catch (err) {
+                  setContributeError(err.message || 'Contribution failed.');
+                } finally {
+                  setContributeBusy(false);
+                }
+              }}
+            >
+              {contributeBusy ? 'Processing...' : contributeSource === 'RAZORPAY' ? 'Pay via Razorpay' : 'Pay from FinBank Account'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <Field label="Payment Source" required>
+            <Select value={contributeSource} onChange={(e) => setContributeSource(e.target.value)} disabled={contributeBusy}>
+              <option value="INTERNAL_ACCOUNT">Existing FinBank Account (Internal)</option>
+              <option value="RAZORPAY">External Payment via Razorpay (UPI / Card / Net Banking)</option>
+            </Select>
+          </Field>
+          {contributeSource === 'INTERNAL_ACCOUNT' && (
+            <Field label="Funding Account" required>
+              <Select value={contributeAccountId} onChange={(e) => setContributeAccountId(e.target.value)} disabled={contributeBusy}>
+                <AccountOptions accounts={accounts} />
+              </Select>
+            </Field>
+          )}
+          <Field label="Amount (INR)" required>
+            <Input
+              type="number"
+              min="1"
+              step="0.01"
+              value={contributeAmount}
+              onChange={(e) => setContributeAmount(e.target.value)}
+              disabled={contributeBusy}
+            />
+          </Field>
+          {contributeError && <FormError error={contributeError} />}
+        </div>
+      </Modal>
     </div>
   );
 }

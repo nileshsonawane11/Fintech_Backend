@@ -1,100 +1,100 @@
 package com.fintech.payment.entity;
 
+import com.fintech.payment.enums.PaymentPurpose;
+import com.fintech.payment.enums.PaymentTransactionStatus;
 import jakarta.persistence.*;
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
+
 import java.math.BigDecimal;
 import java.time.Instant;
+import java.util.UUID;
 
 @Entity
 @Table(name = "payments")
 public class Payment {
 
     @Id
-    @GeneratedValue(strategy = GenerationType.UUID)
-    private String id;
+    @JdbcTypeCode(SqlTypes.VARCHAR)
+    @Column(name = "id", length = 36)
+    private UUID id;
 
     @Column(name = "payment_id", nullable = false, unique = true, length = 50)
     private String paymentId;
 
-    @Column(name = "transaction_id", nullable = false, unique = true, length = 50)
-    private String transactionId;
-
     @Column(name = "user_id", nullable = false, length = 100)
-    private String userId;
+    private String identitySubject;
 
     @Column(name = "customer_id", length = 100)
     private String customerId;
 
-    @Column(name = "debit_account_id", nullable = false, length = 50)
-    private String debitAccountId;
+    @Column(name = "source_account_id", length = 100)
+    private String sourceAccountId;
 
-    @Column(name = "beneficiary_id", nullable = false, length = 50)
-    private String beneficiaryId;
+    @Column(name = "destination_account_id", length = 100)
+    private String destinationAccountId;
+
+    @Enumerated(EnumType.STRING)
+    @Column(name = "purpose", nullable = false, length = 40)
+    private PaymentPurpose purpose;
+
+    @Column(name = "source_service", nullable = false, length = 50)
+    private String sourceService = "PAYMENT-SERVICE";
+
+    @Column(name = "business_reference", length = 100)
+    private String businessReference;
 
     @Column(name = "amount", nullable = false, precision = 19, scale = 4)
     private BigDecimal amount;
 
-    @Column(name = "fee_amount", nullable = false, precision = 19, scale = 4)
-    private BigDecimal feeAmount = BigDecimal.ZERO;
-
-    @Column(name = "tax_amount", nullable = false, precision = 19, scale = 4)
-    private BigDecimal taxAmount = BigDecimal.ZERO;
-
-    @Column(name = "total_debit_amount", nullable = false, precision = 19, scale = 4)
-    private BigDecimal totalDebitAmount = BigDecimal.ZERO;
-
     @Column(name = "currency", nullable = false, length = 3)
-    private String currency;
+    private String currency = "INR";
 
-    @Column(name = "remarks", length = 500)
-    private String remarks;
-
-    @Column(name = "transfer_mode", nullable = false, length = 20)
-    private String transferMode;
-
-    @Column(name = "transfer_type", nullable = false, length = 30)
-    private String transferType = "BANK_ACCOUNT";
-
+    @Enumerated(EnumType.STRING)
     @Column(name = "status", nullable = false, length = 40)
-    private String status;
+    private PaymentTransactionStatus status;
 
-    @Column(name = "rail_reference", length = 100)
-    private String railReference;
+    @Column(name = "razorpay_order_id", unique = true, length = 100)
+    private String razorpayOrderId;
 
-    @Column(name = "provider_name", length = 50)
-    private String providerName;
+    @Column(name = "razorpay_payment_id", unique = true, length = 100)
+    private String razorpayPaymentId;
 
-    @Column(name = "provider_payout_id", length = 100)
-    private String providerPayoutId;
+    @Column(name = "razorpay_signature_verified", nullable = false)
+    private boolean razorpaySignatureVerified = false;
 
-    @Column(name = "provider_fund_account_id", length = 100)
-    private String providerFundAccountId;
+    @Column(name = "payment_method", length = 40)
+    private String paymentMethod;
 
-    @Column(name = "provider_utr", length = 100)
-    private String providerUtr;
+    @Column(name = "receipt", length = 80)
+    private String receipt;
 
     @Column(name = "ledger_transaction_id", length = 100)
     private String ledgerTransactionId;
 
-    @Column(name = "ledger_settlement_tx_id", length = 100)
-    private String ledgerSettlementTxId;
-
     @Column(name = "ledger_reversal_tx_id", length = 100)
     private String ledgerReversalTxId;
 
-    @Column(name = "failure_code", length = 100)
-    private String failureCode;
+    @Column(name = "refunded_amount", nullable = false, precision = 19, scale = 4)
+    private BigDecimal refundedAmount = BigDecimal.ZERO;
 
-    @Column(name = "failure_reason", length = 500)
-    private String failureReason;
-
-    @Column(name = "idempotency_key", length = 100)
+    @Column(name = "idempotency_key", unique = true, length = 100)
     private String idempotencyKey;
 
     @Column(name = "correlation_id", length = 100)
     private String correlationId;
 
-    @Column(name = "submitted_at")
-    private Instant submittedAt;
+    @Column(name = "failure_code", length = 80)
+    private String failureCode;
+
+    @Column(name = "failure_reason", length = 500)
+    private String failureReason;
+
+    @Column(name = "metadata_json", columnDefinition = "TEXT")
+    private String metadataJson;
+
+    @Column(name = "captured_at")
+    private Instant capturedAt;
 
     @Column(name = "completed_at")
     private Instant completedAt;
@@ -102,21 +102,31 @@ public class Payment {
     @Column(name = "reconciled_at")
     private Instant reconciledAt;
 
-    @Column(name = "created_at", nullable = false)
+    @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
     @Column(name = "updated_at", nullable = false)
     private Instant updatedAt;
 
     @Version
-    @Column(name = "version", nullable = false)
-    private Long version = 0L;
+    @Column(name = "version")
+    private Long version;
 
     @PrePersist
     public void prePersist() {
+        if (id == null) {
+            id = UUID.randomUUID();
+        }
         Instant now = Instant.now();
-        if (createdAt == null) createdAt = now;
-        updatedAt = now;
+        if (createdAt == null) {
+            createdAt = now;
+        }
+        if (updatedAt == null) {
+            updatedAt = now;
+        }
+        if (refundedAmount == null) {
+            refundedAmount = BigDecimal.ZERO;
+        }
     }
 
     @PreUpdate
@@ -124,72 +134,63 @@ public class Payment {
         updatedAt = Instant.now();
     }
 
-    public String getId() { return id; }
-    public void setId(String id) { this.id = id; }
+    public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
     public String getPaymentId() { return paymentId; }
     public void setPaymentId(String paymentId) { this.paymentId = paymentId; }
-    public String getTransactionId() { return transactionId; }
-    public void setTransactionId(String transactionId) { this.transactionId = transactionId; }
-    public String getUserId() { return userId; }
-    public void setUserId(String userId) { this.userId = userId; }
+    public String getIdentitySubject() { return identitySubject; }
+    public void setIdentitySubject(String identitySubject) { this.identitySubject = identitySubject; }
     public String getCustomerId() { return customerId; }
     public void setCustomerId(String customerId) { this.customerId = customerId; }
-    public String getDebitAccountId() { return debitAccountId; }
-    public void setDebitAccountId(String debitAccountId) { this.debitAccountId = debitAccountId; }
-    public String getBeneficiaryId() { return beneficiaryId; }
-    public void setBeneficiaryId(String beneficiaryId) { this.beneficiaryId = beneficiaryId; }
+    public String getSourceAccountId() { return sourceAccountId; }
+    public void setSourceAccountId(String sourceAccountId) { this.sourceAccountId = sourceAccountId; }
+    public String getDestinationAccountId() { return destinationAccountId; }
+    public void setDestinationAccountId(String destinationAccountId) { this.destinationAccountId = destinationAccountId; }
+    public PaymentPurpose getPurpose() { return purpose; }
+    public void setPurpose(PaymentPurpose purpose) { this.purpose = purpose; }
+    public String getSourceService() { return sourceService; }
+    public void setSourceService(String sourceService) { this.sourceService = sourceService; }
+    public String getBusinessReference() { return businessReference; }
+    public void setBusinessReference(String businessReference) { this.businessReference = businessReference; }
     public BigDecimal getAmount() { return amount; }
     public void setAmount(BigDecimal amount) { this.amount = amount; }
-    public BigDecimal getFeeAmount() { return feeAmount; }
-    public void setFeeAmount(BigDecimal feeAmount) { this.feeAmount = feeAmount; }
-    public BigDecimal getTaxAmount() { return taxAmount; }
-    public void setTaxAmount(BigDecimal taxAmount) { this.taxAmount = taxAmount; }
-    public BigDecimal getTotalDebitAmount() { return totalDebitAmount; }
-    public void setTotalDebitAmount(BigDecimal totalDebitAmount) { this.totalDebitAmount = totalDebitAmount; }
     public String getCurrency() { return currency; }
     public void setCurrency(String currency) { this.currency = currency; }
-    public String getRemarks() { return remarks; }
-    public void setRemarks(String remarks) { this.remarks = remarks; }
-    public String getTransferMode() { return transferMode; }
-    public void setTransferMode(String transferMode) { this.transferMode = transferMode; }
-    public String getTransferType() { return transferType; }
-    public void setTransferType(String transferType) { this.transferType = transferType; }
-    public String getStatus() { return status; }
-    public void setStatus(String status) { this.status = status; }
-    public String getRailReference() { return railReference; }
-    public void setRailReference(String railReference) { this.railReference = railReference; }
-    public String getProviderName() { return providerName; }
-    public void setProviderName(String providerName) { this.providerName = providerName; }
-    public String getProviderPayoutId() { return providerPayoutId; }
-    public void setProviderPayoutId(String providerPayoutId) { this.providerPayoutId = providerPayoutId; }
-    public String getProviderFundAccountId() { return providerFundAccountId; }
-    public void setProviderFundAccountId(String providerFundAccountId) { this.providerFundAccountId = providerFundAccountId; }
-    public String getProviderUtr() { return providerUtr; }
-    public void setProviderUtr(String providerUtr) { this.providerUtr = providerUtr; }
+    public PaymentTransactionStatus getStatus() { return status; }
+    public void setStatus(PaymentTransactionStatus status) { this.status = status; }
+    public String getRazorpayOrderId() { return razorpayOrderId; }
+    public void setRazorpayOrderId(String razorpayOrderId) { this.razorpayOrderId = razorpayOrderId; }
+    public String getRazorpayPaymentId() { return razorpayPaymentId; }
+    public void setRazorpayPaymentId(String razorpayPaymentId) { this.razorpayPaymentId = razorpayPaymentId; }
+    public boolean isRazorpaySignatureVerified() { return razorpaySignatureVerified; }
+    public void setRazorpaySignatureVerified(boolean razorpaySignatureVerified) { this.razorpaySignatureVerified = razorpaySignatureVerified; }
+    public String getPaymentMethod() { return paymentMethod; }
+    public void setPaymentMethod(String paymentMethod) { this.paymentMethod = paymentMethod; }
+    public String getReceipt() { return receipt; }
+    public void setReceipt(String receipt) { this.receipt = receipt; }
     public String getLedgerTransactionId() { return ledgerTransactionId; }
     public void setLedgerTransactionId(String ledgerTransactionId) { this.ledgerTransactionId = ledgerTransactionId; }
-    public String getLedgerSettlementTxId() { return ledgerSettlementTxId; }
-    public void setLedgerSettlementTxId(String ledgerSettlementTxId) { this.ledgerSettlementTxId = ledgerSettlementTxId; }
     public String getLedgerReversalTxId() { return ledgerReversalTxId; }
     public void setLedgerReversalTxId(String ledgerReversalTxId) { this.ledgerReversalTxId = ledgerReversalTxId; }
-    public String getFailureCode() { return failureCode; }
-    public void setFailureCode(String failureCode) { this.failureCode = failureCode; }
-    public String getFailureReason() { return failureReason; }
-    public void setFailureReason(String failureReason) { this.failureReason = failureReason; }
+    public BigDecimal getRefundedAmount() { return refundedAmount; }
+    public void setRefundedAmount(BigDecimal refundedAmount) { this.refundedAmount = refundedAmount; }
     public String getIdempotencyKey() { return idempotencyKey; }
     public void setIdempotencyKey(String idempotencyKey) { this.idempotencyKey = idempotencyKey; }
     public String getCorrelationId() { return correlationId; }
     public void setCorrelationId(String correlationId) { this.correlationId = correlationId; }
-    public Instant getSubmittedAt() { return submittedAt; }
-    public void setSubmittedAt(Instant submittedAt) { this.submittedAt = submittedAt; }
+    public String getFailureCode() { return failureCode; }
+    public void setFailureCode(String failureCode) { this.failureCode = failureCode; }
+    public String getFailureReason() { return failureReason; }
+    public void setFailureReason(String failureReason) { this.failureReason = failureReason; }
+    public String getMetadataJson() { return metadataJson; }
+    public void setMetadataJson(String metadataJson) { this.metadataJson = metadataJson; }
+    public Instant getCapturedAt() { return capturedAt; }
+    public void setCapturedAt(Instant capturedAt) { this.capturedAt = capturedAt; }
     public Instant getCompletedAt() { return completedAt; }
     public void setCompletedAt(Instant completedAt) { this.completedAt = completedAt; }
     public Instant getReconciledAt() { return reconciledAt; }
     public void setReconciledAt(Instant reconciledAt) { this.reconciledAt = reconciledAt; }
     public Instant getCreatedAt() { return createdAt; }
-    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
     public Instant getUpdatedAt() { return updatedAt; }
-    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
     public Long getVersion() { return version; }
-    public void setVersion(Long version) { this.version = version; }
 }

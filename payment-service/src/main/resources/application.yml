@@ -50,16 +50,8 @@ payment:
   jwt:
     public-key-location: ${PAYMENT_JWT_PUBLIC_KEY:classpath:keys/public.pem}
     issuer: ${JWT_ISSUER:identity-service}
-  pii:
-    encryption-key: ${PAYMENT_PII_ENCRYPTION_KEY:gHa6a4D/F8978H9Wyy7awreeWn6gZ1fp81x9dZjt0fw=}
-    hash-salt: ${PAYMENT_PII_HASH_SALT:af05452e-16c9-4416-bbc8-fd9575f83f45}
-  webhook:
-    secret: ${PAYMENT_WEBHOOK_SECRET:}
   idempotency:
     ttl-hours: ${PAYMENT_IDEMPOTENCY_TTL_HOURS:24}
-  validation:
-    name-match-threshold: ${PAYMENT_NAME_MATCH_THRESHOLD:0.65}
-    allow-unverified-payouts: ${PAYMENT_ALLOW_UNVERIFIED_PAYOUTS:false}
   outbox:
     poll-interval-ms: ${PAYMENT_OUTBOX_POLL_INTERVAL_MS:3000}
     max-retries: ${PAYMENT_OUTBOX_MAX_RETRIES:5}
@@ -85,42 +77,22 @@ app:
   kafka:
     topics:
       incoming-events: ${KAFKA_TOPIC_PAYMENT_INCOMING:payment.incoming-events.v1}
-      transfer-events: ${KAFKA_TOPIC_PAYMENT_TRANSFER:payment.transfer-events.v1}
-      beneficiary-events: ${KAFKA_TOPIC_PAYMENT_BENEFICIARY:payment.beneficiary-events.v1}
       reconciliation-events: ${KAFKA_TOPIC_PAYMENT_RECONCILIATION:payment.reconciliation-events.v1}
+      ledger-transaction-events: ${KAFKA_TOPIC_LEDGER_TRANSACTIONS:ledger.transaction-events.v1}
       account-lifecycle-events: ${KAFKA_TOPIC_ACCOUNT_LIFECYCLE:account.lifecycle-events.v1}
       notification-events: ${KAFKA_TOPIC_NOTIFICATION_EVENTS:notification.events.v1}
 
 razorpay:
-  environment: ${RAZORPAY_ENV:test}
+  environment: ${RAZORPAY_ENVIRONMENT:test}
   base-url: ${RAZORPAY_BASE_URL:https://api.razorpay.com/v1}
   key-id: ${RAZORPAY_KEY_ID:rzp_test_S4sX5okSKuRRvq}
   key-secret: ${RAZORPAY_KEY_SECRET:ESSc6xxF6BAGZ21PFNWso9Dn}
   connect-timeout-ms: ${RAZORPAY_CONNECT_TIMEOUT_MS:5000}
   read-timeout-ms: ${RAZORPAY_READ_TIMEOUT_MS:15000}
   max-get-retries: ${RAZORPAY_MAX_GET_RETRIES:2}
-  smart-collect:
-    enabled: ${RAZORPAY_SMART_COLLECT_ENABLED:true}
-    default-receiver-types:
-      - bank_account
-      - vpa
-    require-settlement-confirmation: ${RAZORPAY_SMART_COLLECT_REQUIRE_SETTLEMENT_CONFIRMATION:false}
-    auto-credit-eligible-payments: ${RAZORPAY_SMART_COLLECT_AUTO_CREDIT:true}
-  razorpayx:
-    enabled: ${RAZORPAYX_ENABLED:true}
-    base-url: ${RAZORPAYX_BASE_URL:https://api.razorpay.com/v1}
-    key-id: ${RAZORPAYX_KEY_ID:${RAZORPAY_KEY_ID:}}
-    key-secret: ${RAZORPAYX_KEY_SECRET:${RAZORPAY_KEY_SECRET:}}
-    source-account-number: ${RAZORPAYX_ACCOUNT_NUMBER:}
-    payout-purpose: ${RAZORPAYX_PAYOUT_PURPOSE:payout}
-    queue-if-low-balance: ${RAZORPAYX_QUEUE_IF_LOW_BALANCE:false}
-    validation:
-      enabled: ${RAZORPAYX_VALIDATION_ENABLED:true}
-      penny-drop-amount-paise: ${RAZORPAYX_PENNY_DROP_AMOUNT_PAISE:100}
-      penniless-enabled: ${RAZORPAYX_PENNILESS_ENABLED:false}
+  auto-capture: ${RAZORPAY_AUTO_CAPTURE:true}
   webhook:
-    secret: ${RAZORPAY_WEBHOOK_SECRET:${PAYMENT_WEBHOOK_SECRET:}}
-    payout-secret: ${RAZORPAYX_WEBHOOK_SECRET:${RAZORPAY_WEBHOOK_SECRET:${PAYMENT_WEBHOOK_SECRET:}}}
+    secret: ${RAZORPAY_WEBHOOK_SECRET:}
 
 eureka:
   client:

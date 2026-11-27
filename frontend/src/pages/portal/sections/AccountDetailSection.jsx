@@ -5,6 +5,7 @@ import { ArrowLeft, CreditCard, Download, FileText, Landmark, Layers, Plus, Sear
 import { Button, Card, EmptyState, Field, FormError, Input, Modal, PageLoading, SectionHeader, StatusChip, Table, useToast } from '../../../components/ui.jsx';
 import { formatDate, formatINR, maskAccount } from '../../../lib/format.js';
 import { getAccount, listAccounts, listMyCards, listTransactions, statementCsv } from '../../../services/portalBridge.js';
+import { executeRazorpayCheckoutFlow } from '../../../services/paymentService.js';
 import { useAuth, useDbTick } from '../../../context/AuthContext.jsx';
 import { accountLabel } from './AccountsSection.jsx';
 import { InPortalAccountApplyModal } from '../../../components/common/InPortalAccountApplyModal.jsx';
@@ -36,6 +37,10 @@ export default function AccountDetailPage({ accountId }) {
   const [allAccounts, setAllAccounts] = useState([]);
   const [applyModalOpen, setApplyModalOpen] = useState(false);
   const [allAccountsModalOpen, setAllAccountsModalOpen] = useState(false);
+  const [addMoneyOpen, setAddMoneyOpen] = useState(false);
+  const [addMoneyAmount, setAddMoneyAmount] = useState('1000');
+  const [addMoneyBusy, setAddMoneyBusy] = useState(false);
+  const [addMoneyError, setAddMoneyError] = useState('');
 
   // Preference-driven format default (Fix 78)
   const preferredFormat = (() => {
@@ -181,6 +186,11 @@ export default function AccountDetailPage({ accountId }) {
           <ArrowLeft className="h-4 w-4" aria-hidden /> Back to accounts
         </Link>
         <div className="flex flex-wrap items-center gap-2">
+          {String(account.status || '').toUpperCase() === 'ACTIVE' && (
+            <Button variant="secondary" size="sm" onClick={() => { setAddMoneyError(''); setAddMoneyOpen(true); }}>
+              <Plus className="h-4 w-4" aria-hidden /> Add Money (Razorpay)
+            </Button>
+          )}
           {/* Part 9: All-accounts balance view affordance */}
           <Button variant="secondary" size="sm" onClick={() => setAllAccountsModalOpen(true)}>
             <Layers className="h-4 w-4" aria-hidden /> View All Accounts Balance
@@ -418,6 +428,73 @@ export default function AccountDetailPage({ accountId }) {
         onClose={() => setApplyModalOpen(false)}
         onApplied={() => loadAccountAndCards()}
       />
+
+      <Modal
+        open={addMoneyOpen}
+        onClose={() => { if (!addMoneyBusy) setAddMoneyOpen(false); }}
+        title="Add Money via Razorpay Checkout"
+        footer={
+          <div className="flex justify-end gap-2">
+            <Button variant="secondary" disabled={addMoneyBusy} onClick={() => setAddMoneyOpen(false)}>
+              Cancel
+            </Button>
+            <Button
+              variant="primary"
+              disabled={addMoneyBusy}
+              onClick={async () => {
+                const amt = Number(addMoneyAmount);
+                if (!Number.isFinite(amt) || amt < 1) {
+                  setAddMoneyError('Enter a valid amount of at least ₹1.');
+                  return;
+                }
+                setAddMoneyError('');
+                setAddMoneyBusy(true);
+                try {
+                  const verified = await executeRazorpayCheckoutFlow({
+                    purpose: 'ACCOUNT_DEPOSIT',
+                    destinationAccountId: account.id || account.accountId,
+                    amount: amt,
+                    currency: account.currency || 'INR',
+                    description: `Add Money to ${maskAccount(account.accountNumber)}`,
+                    prefill: { name: user?.fullName || '', email: user?.email || '' },
+                  });
+                  toast({
+                    variant: 'success',
+                    title: 'Payment verified',
+                    description: `Payment ${verified.paymentId} verified (${verified.status}). Account balance will reflect after ledger posting.`,
+                  });
+                  setAddMoneyOpen(false);
+                  loadAccountAndCards();
+                  loadTransactions();
+                } catch (err) {
+                  setAddMoneyError(err.message || 'Razorpay payment could not be completed.');
+                } finally {
+                  setAddMoneyBusy(false);
+                }
+              }}
+            >
+              {addMoneyBusy ? 'Processing...' : 'Proceed to Razorpay'}
+            </Button>
+          </div>
+        }
+      >
+        <div className="space-y-4">
+          <p className="text-xs text-ink-500">
+            Fund your FinBank account ({maskAccount(account.accountNumber)}) via UPI, Card, or Net Banking using Razorpay Checkout.
+          </p>
+          <Field label="Amount (INR)" required>
+            <Input
+              type="number"
+              min="1"
+              step="0.01"
+              value={addMoneyAmount}
+              onChange={(e) => setAddMoneyAmount(e.target.value)}
+              disabled={addMoneyBusy}
+            />
+          </Field>
+          {addMoneyError && <FormError error={addMoneyError} />}
+        </div>
+      </Modal>
     </div>
   );
 }

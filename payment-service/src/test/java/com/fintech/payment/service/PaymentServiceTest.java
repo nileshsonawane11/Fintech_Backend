@@ -3,24 +3,25 @@ package com.fintech.payment.service;
 import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fintech.payment.client.AccountServiceClient;
 import com.fintech.payment.client.CustomerServiceClient;
-import com.fintech.payment.client.LedgerServiceClient;
-import com.fintech.payment.client.dto.CustomerProfileDto;
 import com.fintech.payment.client.dto.InternalAccountDto;
-import com.fintech.payment.client.dto.LedgerBalanceDto;
-import com.fintech.payment.client.dto.LedgerDtos.LedgerPostingResponseDto;
-import com.fintech.payment.client.dto.LedgerDtos.ReversalResponseDto;
-import com.fintech.payment.dto.request.InitiateTransferRequest;
-import com.fintech.payment.dto.request.InitiateUpiTransferRequest;
-import com.fintech.payment.dto.response.PaymentResponse;
-import com.fintech.payment.entity.Beneficiary;
+import com.fintech.payment.config.RazorpayProperties;
+import com.fintech.payment.constants.PaymentConstants;
+import com.fintech.payment.dto.request.CreatePaymentOrderRequest;
+import com.fintech.payment.dto.request.RefundPaymentRequest;
+import com.fintech.payment.dto.request.VerifyPaymentRequest;
+import com.fintech.payment.dto.response.PaymentOrderResponse;
+import com.fintech.payment.dto.response.PaymentTransactionResponse;
+import com.fintech.payment.dto.response.RefundResponse;
 import com.fintech.payment.entity.Payment;
-import com.fintech.payment.entity.PaymentIdempotencyKey;
+import com.fintech.payment.entity.PaymentRefund;
+import com.fintech.payment.enums.PaymentPurpose;
+import com.fintech.payment.enums.PaymentTransactionStatus;
 import com.fintech.payment.exception.ApiException;
-import com.fintech.payment.provider.PayoutProvider;
-import com.fintech.payment.provider.model.ProviderModels.PayoutResult;
-import com.fintech.payment.repository.PaymentIdempotencyKeyRepository;
+import com.fintech.payment.provider.RazorpayOrdersProvider;
+import com.fintech.payment.provider.model.ProviderModels.*;
+import com.fintech.payment.provider.razorpay.RazorpayCheckoutSignatureVerifier;
+import com.fintech.payment.repository.PaymentRefundRepository;
 import com.fintech.payment.repository.PaymentRepository;
-import com.fintech.payment.service.PaymentFeeAndLimitService.FeeCalculation;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.api.extension.ExtendWith;
@@ -28,12 +29,14 @@ import org.mockito.Mock;
 import org.mockito.junit.jupiter.MockitoExtension;
 import org.springframework.http.HttpStatus;
 
+import javax.crypto.Mac;
+import javax.crypto.spec.SecretKeySpec;
 import java.math.BigDecimal;
+import java.nio.charset.StandardCharsets;
 import java.time.Instant;
-import java.time.LocalDate;
-import java.util.List;
+import java.util.HexFormat;
+import java.util.Map;
 import java.util.Optional;
-import java.util.UUID;
 
 import static org.junit.jupiter.api.Assertions.*;
 import static org.mockito.ArgumentMatchers.*;
@@ -43,217 +46,171 @@ import static org.mockito.Mockito.*;
 class PaymentServiceTest {
 
     @Mock private PaymentRepository paymentRepository;
-    @Mock private PaymentIdempotencyKeyRepository idempotencyKeyRepository;
-    @Mock private BeneficiaryService beneficiaryService;
-    @Mock private CustomerServiceClient customerServiceClient;
+    @Mock private PaymentRefundRepository refundRepository;
+    @Mock private RazorpayOrdersProvider razorpayOrdersProvider;
     @Mock private AccountServiceClient accountServiceClient;
-    @Mock private LedgerServiceClient ledgerServiceClient;
-    @Mock private PayoutProvider payoutProvider;
-    @Mock private PaymentFeeAndLimitService feeAndLimitService;
+    @Mock private CustomerServiceClient customerServiceClient;
+    @Mock private PaymentFeeAndLimitService limitService;
+    @Mock private PaymentIdempotencyService idempotencyService;
     @Mock private PaymentOutboxService outboxService;
     @Mock private PaymentAuditService auditService;
 
-    private PaymentIdempotencyService idempotencyService;
+    private RazorpayProperties properties;
+    private RazorpayCheckoutSignatureVerifier signatureVerifier;
     private PaymentService paymentService;
 
     @BeforeEach
     void setUp() {
-        idempotencyService = new PaymentIdempotencyService(
-                idempotencyKeyRepository, new ObjectMapper().findAndRegisterModules(), 24L);
+        properties = new RazorpayProperties();
+        properties.setKeyId("rzp_test_public");
+        properties.setKeySecret("rzp_test_secret");
+        properties.setAutoCapture(true);
+        signatureVerifier = new RazorpayCheckoutSignatureVerifier();
+
         paymentService = new PaymentService(
-                paymentRepository, idempotencyKeyRepository, beneficiaryService,
-                customerServiceClient, accountServiceClient, ledgerServiceClient,
-                payoutProvider, idempotencyService, feeAndLimitService, outboxService, auditService);
+                paymentRepository,
+                refundRepository,
+                razorpayOrdersProvider,
+                signatureVerifier,
+                properties,
+                accountServiceClient,
+                customerServiceClient,
+                limitService,
+                idempotencyService,
+                outboxService,
+                auditService,
+                new ObjectMapper()
+        );
     }
 
     @Test
-    void rejectsMissingIdempotencyKeyAsBadRequest() {
-        ApiException exception = assertThrows(ApiException.class,
-                () -> paymentService.initiateTransfer("customer-1", null, new InitiateTransferRequest()));
-
-        assertEquals("VALIDATION_FAILED", exception.getCode());
-        assertEquals(400, exception.getHttpStatus().value());
-        verify(idempotencyKeyRepository, never()).findByIdempotencyKey(anyString());
-    }
-
-    @Test
-    void rejectsMalformedIdempotencyKeyAsBadRequest() {
-        ApiException exception = assertThrows(ApiException.class,
-                () -> paymentService.initiateTransfer("customer-1", "not-a-uuid", new InitiateTransferRequest()));
-
-        assertEquals("VALIDATION_FAILED", exception.getCode());
-        assertEquals(400, exception.getHttpStatus().value());
-    }
-
-    @Test
-    void returnsConflictWhenIdempotencyKeyReusedWithDifferentPayload() {
-        String idempotencyKey = UUID.randomUUID().toString();
-        PaymentIdempotencyKey existing = new PaymentIdempotencyKey();
-        existing.setIdempotencyKey(idempotencyKey);
-        existing.setRequestHash("different-hash");
-        existing.setProcessingStatus("COMPLETED");
-        when(idempotencyKeyRepository.findByIdempotencyKey(idempotencyKey)).thenReturn(Optional.of(existing));
-
-        ApiException exception = assertThrows(ApiException.class,
-                () -> paymentService.initiateTransfer("customer-1", idempotencyKey, new InitiateTransferRequest()));
-
-        assertEquals("IDEMPOTENCY_KEY_REUSED", exception.getCode());
-        assertEquals(409, exception.getHttpStatus().value());
-    }
-
-    @Test
-    void initiatesBankImpsPayoutWithAtomicLedgerDebitAndPayoutSubmission() {
-        String idemp = UUID.randomUUID().toString();
-        InitiateTransferRequest req = bankTransferRequest("IMPS", new BigDecimal("1000.00"));
-        stubHappyPathPrerequisites("user-1", "BANK_ACCOUNT", "IMPS", new BigDecimal("1000.00"),
-                new BigDecimal("5.00"), new BigDecimal("0.90"), new BigDecimal("5000.00"));
-
-        when(payoutProvider.createPayout(any())).thenReturn(new PayoutResult(
-                "pout_123", "fa_1", "processing", new BigDecimal("1000.00"), "INR", "IMPS",
-                null, null, null, null, null, null, false));
-
-        PaymentResponse res = paymentService.initiateTransfer("user-1", idemp, req);
-
-        assertEquals("PROCESSING", res.getStatus());
-        assertEquals("pout_123", res.getProviderPayoutId());
-        assertEquals("TXN-LEDGER-1", res.getLedgerTransactionId());
-        assertEquals(new BigDecimal("1005.90"), res.getTotalDebitAmount());
-        verify(ledgerServiceClient).postBatch(startsWith("debit-"), any());
-        verify(payoutProvider).createPayout(argThat(cmd -> idemp.equals(cmd.idempotencyKey())));
-    }
-
-    @Test
-    void initiatesUpiPayoutSuccessfully() {
-        String idemp = UUID.randomUUID().toString();
-        stubHappyPathPrerequisites("user-1", "UPI", "UPI", new BigDecimal("500.00"),
-                BigDecimal.ZERO, BigDecimal.ZERO, new BigDecimal("5000.00"));
-        when(payoutProvider.createPayout(any())).thenReturn(new PayoutResult(
-                "pout_upi_1", "fa_upi", "processed", new BigDecimal("500.00"), "INR", "UPI",
-                "UTR888", null, null, null, null, null, false));
-
-        PaymentResponse res = paymentService.initiateUpiTransfer("user-1", idemp,
-                new InitiateUpiTransferRequest("ACC-1001", "BEN-1", new BigDecimal("500.00"), "INR", "Dinner"));
-
-        assertEquals("COMPLETED", res.getStatus());
-        verify(ledgerServiceClient, times(2)).postBatch(anyString(), any());
-    }
-
-    @Test
-    void rejectsTransferWhenAvailableBalanceIsInsufficient() {
-        String idemp = UUID.randomUUID().toString();
-        InitiateTransferRequest req = bankTransferRequest("IMPS", new BigDecimal("1000.00"));
-        stubHappyPathPrerequisites("user-1", "BANK_ACCOUNT", "IMPS", new BigDecimal("1000.00"),
-                new BigDecimal("5.00"), new BigDecimal("0.90"), new BigDecimal("500.00"));
+    void createOrder_internalTransferRejected() {
+        CreatePaymentOrderRequest req = new CreatePaymentOrderRequest(
+                PaymentPurpose.INTERNAL_TRANSFER, "ACC-2", null, new BigDecimal("500.00"), "INR", null);
 
         ApiException ex = assertThrows(ApiException.class,
-                () -> paymentService.initiateTransfer("user-1", idemp, req));
-        assertEquals("INSUFFICIENT_BALANCE", ex.getCode());
-        assertEquals(422, ex.getStatus().value());
-        verify(ledgerServiceClient, never()).postBatch(anyString(), any());
-        verify(payoutProvider, never()).createPayout(any());
+                () -> paymentService.createOrder("sub-1", "11111111-1111-1111-1111-111111111111", req));
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
+        assertEquals("INTERNAL_TRANSFER_NOT_RAZORPAY", ex.getCode());
+        verifyNoInteractions(razorpayOrdersProvider);
     }
 
     @Test
-    void placesTransferIntoUnknownPendingReconciliationOnProviderTimeoutWithoutReversing() {
-        String idemp = UUID.randomUUID().toString();
-        InitiateTransferRequest req = bankTransferRequest("NEFT", new BigDecimal("2000.00"));
-        stubHappyPathPrerequisites("user-1", "BANK_ACCOUNT", "NEFT", new BigDecimal("2000.00"),
-                new BigDecimal("2.50"), new BigDecimal("0.45"), new BigDecimal("5000.00"));
+    void createOrder_accountDeposit_success_doesNotExposeSecret() {
+        String idemKey = "11111111-1111-1111-1111-111111111111";
+        when(idempotencyService.checkOrLock(eq(idemKey), eq("CREATE_PAYMENT_ORDER"), eq("sub-1"),
+                eq("PENDING"), any(), eq(PaymentOrderResponse.class)))
+                .thenReturn(Optional.empty());
+        when(accountServiceClient.validateCustomerAccountEligible("ACC-100", "sub-1", "INR"))
+                .thenReturn(new InternalAccountDto("ACC-100", "XXXX1234", "CUST-1", "sub-1",
+                        "SAVINGS", "SAV_REG", "ACTIVE", "INR", Instant.now()));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(razorpayOrdersProvider.createOrder(any())).thenReturn(new RazorpayOrderResult(
+                "order_RZP_001", new BigDecimal("2500.00"), BigDecimal.ZERO, new BigDecimal("2500.00"),
+                "INR", "PAY-1", "created", 0, Instant.now()));
 
-        when(payoutProvider.createPayout(any())).thenReturn(new PayoutResult(
-                null, "fa_1", "UNKNOWN", new BigDecimal("2000.00"), "INR", "NEFT",
-                null, null, null, "gateway", "timeout", "Timed out", true));
+        PaymentOrderResponse res = paymentService.createOrder("sub-1", idemKey,
+                new CreatePaymentOrderRequest(PaymentPurpose.ACCOUNT_DEPOSIT, "ACC-100", null,
+                        new BigDecimal("2500.00"), "INR", Map.of()));
 
-        PaymentResponse res = paymentService.initiateTransfer("user-1", idemp, req);
-
-        assertEquals("UNKNOWN_PENDING_RECONCILIATION", res.getStatus());
-        verify(ledgerServiceClient, never()).reverseTransaction(any(), any(), any(), any());
-        verify(payoutProvider, times(1)).createPayout(any());
+        assertEquals("order_RZP_001", res.razorpayOrderId());
+        assertEquals("rzp_test_public", res.keyId());
+        assertEquals(250000L, res.amountPaise());
+        assertEquals(PaymentTransactionStatus.ORDER_CREATED, res.status());
+        verify(outboxService).enqueueEvent(eq(PaymentConstants.TOPIC_INCOMING_EVENTS),
+                anyString(), eq("Payment"), eq(PaymentConstants.EVT_PAYMENT_ORDER_CREATED),
+                eq("sub-1"), eq("order_RZP_001"), any());
     }
 
     @Test
-    void reversesLedgerDebitWhenProviderExplicitlyRejectsPayoutSubmission() {
-        String idemp = UUID.randomUUID().toString();
-        InitiateTransferRequest req = bankTransferRequest("IMPS", new BigDecimal("1000.00"));
-        stubHappyPathPrerequisites("user-1", "BANK_ACCOUNT", "IMPS", new BigDecimal("1000.00"),
-                new BigDecimal("5.00"), new BigDecimal("0.90"), new BigDecimal("5000.00"));
+    void verifyCheckoutPayment_crossCustomerAccessForbidden() {
+        Payment p = sampleOrder("PAY-1", "sub-owner", "order_1", new BigDecimal("1000.00"));
+        when(paymentRepository.findByRazorpayOrderId("order_1")).thenReturn(Optional.of(p));
 
-        when(payoutProvider.createPayout(any()))
-                .thenThrow(new ApiException(HttpStatus.UNPROCESSABLE_ENTITY, "RZP_BAD_REQUEST", "IFSC invalid"));
-        when(ledgerServiceClient.reverseTransaction(eq("TXN-LEDGER-1"), anyString(), anyString(), anyString()))
-                .thenReturn(new ReversalResponseDto("TXN-LEDGER-1", "TXN-REV-1", "SUCCESS",
-                        "PROVIDER_SUBMISSION_REJECTED", "IFSC invalid", "SYSTEM", Instant.now()));
-
-        assertThrows(ApiException.class, () -> paymentService.initiateTransfer("user-1", idemp, req));
-        verify(ledgerServiceClient).reverseTransaction(eq("TXN-LEDGER-1"), anyString(), anyString(), anyString());
+        ApiException ex = assertThrows(ApiException.class,
+                () -> paymentService.verifyCheckoutPayment("sub-attacker",
+                        new VerifyPaymentRequest("order_1", "pay_1", "0".repeat(64))));
+        assertEquals(HttpStatus.FORBIDDEN, ex.getStatus());
+        assertEquals("PAYMENT_OWNERSHIP_MISMATCH", ex.getCode());
     }
 
     @Test
-    void reversesLedgerDebitWhenPayoutFailedOrReversedWebhookArrives() {
-        Payment payment = new Payment();
-        payment.setPaymentId("PAY-1");
-        payment.setCustomerId("CUS-1");
-        payment.setDebitAccountId("ACC-1001");
-        payment.setAmount(new BigDecimal("1000.00"));
-        payment.setTotalDebitAmount(new BigDecimal("1005.90"));
-        payment.setCurrency("INR");
-        payment.setProviderPayoutId("pout_1");
-        payment.setLedgerTransactionId("TXN-LEDGER-1");
-        payment.setStatus("PROCESSING");
+    void verifyCheckoutPayment_incorrectSignatureRejected() {
+        Payment p = sampleOrder("PAY-1", "sub-1", "order_1", new BigDecimal("1000.00"));
+        when(paymentRepository.findByRazorpayOrderId("order_1")).thenReturn(Optional.of(p));
 
-        when(paymentRepository.findByProviderPayoutId("pout_1")).thenReturn(Optional.of(payment));
-        when(ledgerServiceClient.reverseTransaction(eq("TXN-LEDGER-1"), eq("rev-PAY-1"), anyString(), anyString()))
-                .thenReturn(new ReversalResponseDto("TXN-LEDGER-1", "TXN-REV-1", "SUCCESS",
-                        "insufficient_funds", "Reversed", "SYSTEM", Instant.now()));
-
-        paymentService.handlePayoutWebhookUpdate("pout_1", "reversed", null, "insufficient_funds", "Reversed by bank");
-
-        assertEquals("REVERSED", payment.getStatus());
-        assertEquals("TXN-REV-1", payment.getLedgerReversalTxId());
-
-        // Duplicate webhook after terminal state does not reverse again
-        paymentService.handlePayoutWebhookUpdate("pout_1", "reversed", null, "insufficient_funds", "Duplicate");
-        verify(ledgerServiceClient, times(1)).reverseTransaction(any(), any(), any(), any());
+        ApiException ex = assertThrows(ApiException.class,
+                () -> paymentService.verifyCheckoutPayment("sub-1",
+                        new VerifyPaymentRequest("order_1", "pay_1", "0".repeat(64))));
+        assertEquals(HttpStatus.BAD_REQUEST, ex.getStatus());
+        assertEquals("INVALID_PAYMENT_SIGNATURE", ex.getCode());
     }
 
-    private void stubHappyPathPrerequisites(
-            String userId, String beneficiaryType, String mode,
-            BigDecimal amount, BigDecimal baseFee, BigDecimal tax, BigDecimal availableBalance) {
-        CustomerProfileDto customer = new CustomerProfileDto(
-                "CUS-1", "Aarav", LocalDate.of(1995, 1, 1), "+919876543210",
-                "aarav@example.com", "ABCDE1234F", "APPROVED", "LOW", Instant.now(), "MALE");
-        InternalAccountDto account = new InternalAccountDto(
-                "ACC-1001", "FINB****1001", "CUS-1", userId, "SAVINGS", "SAVINGS_REGULAR",
-                "ACTIVE", "INR", Instant.now());
-        Beneficiary beneficiary = new Beneficiary();
-        beneficiary.setBeneficiaryId("BEN-1");
-        beneficiary.setUserId(userId);
-        beneficiary.setBeneficiaryType(beneficiaryType);
-        beneficiary.setStatus("VERIFIED");
+    @Test
+    void verifyCheckoutPayment_manualCapture_capturesAuthorizedAndPublishesDepositEvent() throws Exception {
+        properties.setAutoCapture(false);
+        Payment p = sampleOrder("PAY-1", "sub-1", "order_1", new BigDecimal("1000.00"));
+        when(paymentRepository.findByRazorpayOrderId("order_1")).thenReturn(Optional.of(p));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
 
-        when(customerServiceClient.verifyKycApproved(userId)).thenReturn(customer);
-        when(accountServiceClient.validateCustomerAccountEligible("ACC-1001", userId, "INR")).thenReturn(account);
-        when(beneficiaryService.findEligibleBeneficiaryForTransfer(userId, "BEN-1")).thenReturn(beneficiary);
-        when(feeAndLimitService.calculateFee(mode, amount))
-                .thenReturn(new FeeCalculation(baseFee, tax, baseFee.add(tax), amount.add(baseFee).add(tax)));
-        when(ledgerServiceClient.getAccountBalance("ACC-1001")).thenReturn(new LedgerBalanceDto(
-                "ACC-1001", availableBalance, availableBalance, BigDecimal.ZERO, "INR", Instant.now()));
-        lenient().when(payoutProvider.isPayoutAvailable()).thenReturn(true);
-        lenient().when(payoutProvider.providerName()).thenReturn("RAZORPAYX");
-        lenient().when(beneficiaryService.ensureFundAccountForTransfer(beneficiary, customer)).thenReturn("fa_1");
-        lenient().when(ledgerServiceClient.postBatch(anyString(), any())).thenReturn(new LedgerPostingResponseDto(
-                "TXN-LEDGER-1", "SUCCESS", amount.add(baseFee).add(tax), "INR", "LE-1", "LE-2",
-                List.of("LE-1", "LE-2"), Instant.now()));
+        String sig = sign("order_1|pay_1", properties.getKeySecret());
+        when(razorpayOrdersProvider.fetchPayment("pay_1")).thenReturn(new RazorpayPaymentResult(
+                "pay_1", "order_1", new BigDecimal("1000.00"), "INR", "authorized", "card", false,
+                null, null, null, null, Instant.now()));
+        when(razorpayOrdersProvider.capturePayment(any())).thenReturn(new RazorpayPaymentResult(
+                "pay_1", "order_1", new BigDecimal("1000.00"), "INR", "captured", "card", true,
+                null, null, null, null, Instant.now()));
+
+        PaymentTransactionResponse res = paymentService.verifyCheckoutPayment("sub-1",
+                new VerifyPaymentRequest("order_1", "pay_1", sig));
+
+        assertEquals(PaymentTransactionStatus.PROCESSING, res.status());
+        assertTrue(res.razorpaySignatureVerified());
+        verify(razorpayOrdersProvider).capturePayment(any());
+        verify(outboxService).enqueueEvent(eq(PaymentConstants.TOPIC_INCOMING_EVENTS),
+                eq("PAY-1"), eq("Payment"), eq(PaymentConstants.EVT_EXTERNAL_DEPOSIT_CONFIRMED),
+                eq("sub-1"), eq("pay_1"), any());
     }
 
-    private InitiateTransferRequest bankTransferRequest(String mode, BigDecimal amount) {
-        InitiateTransferRequest req = new InitiateTransferRequest();
-        req.setDebitAccountId("ACC-1001");
-        req.setBeneficiaryId("BEN-1");
-        req.setAmount(amount);
-        req.setCurrency("INR");
-        req.setTransferMode(mode);
-        req.setRemarks("Test transfer");
-        return req;
+    @Test
+    void initiateRefund_partialRefund_success() {
+        Payment p = sampleOrder("PAY-1", "sub-1", "order_1", new BigDecimal("1000.00"));
+        p.setRazorpayPaymentId("pay_1");
+        p.setStatus(PaymentTransactionStatus.COMPLETED);
+        when(refundRepository.findByIdempotencyKey("ref-1")).thenReturn(Optional.empty());
+        when(paymentRepository.findByPaymentId("PAY-1")).thenReturn(Optional.of(p));
+        when(refundRepository.save(any(PaymentRefund.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(paymentRepository.save(any(Payment.class))).thenAnswer(inv -> inv.getArgument(0));
+        when(razorpayOrdersProvider.refundPayment(any())).thenReturn(new RazorpayRefundResult(
+                "rfnd_99", "pay_1", new BigDecimal("400.00"), "INR", "processed", Instant.now()));
+
+        RefundResponse res = paymentService.initiateRefund("sub-1", "ref-1", "PAY-1",
+                new RefundPaymentRequest(new BigDecimal("400.00"), "Customer partial refund"), false);
+
+        assertEquals("PROCESSED", res.status());
+        assertEquals(PaymentTransactionStatus.PARTIALLY_REFUNDED, p.getStatus());
+        assertEquals(new BigDecimal("400.0000"), p.getRefundedAmount());
+        verify(outboxService).enqueueEvent(eq(PaymentConstants.TOPIC_INCOMING_EVENTS),
+                eq("PAY-1"), eq("Payment"), eq(PaymentConstants.EVT_PAYMENT_REFUNDED),
+                eq("sub-1"), eq("rfnd_99"), any());
+    }
+
+    private Payment sampleOrder(String paymentId, String subject, String orderId, BigDecimal amount) {
+        Payment p = new Payment();
+        p.setPaymentId(paymentId);
+        p.setIdentitySubject(subject);
+        p.setDestinationAccountId("ACC-100");
+        p.setPurpose(PaymentPurpose.ACCOUNT_DEPOSIT);
+        p.setAmount(amount.setScale(4));
+        p.setCurrency("INR");
+        p.setStatus(PaymentTransactionStatus.ORDER_CREATED);
+        p.setRazorpayOrderId(orderId);
+        return p;
+    }
+
+    private String sign(String data, String secret) throws Exception {
+        Mac mac = Mac.getInstance("HmacSHA256");
+        mac.init(new SecretKeySpec(secret.getBytes(StandardCharsets.UTF_8), "HmacSHA256"));
+        return HexFormat.of().formatHex(mac.doFinal(data.getBytes(StandardCharsets.UTF_8)));
     }
 }

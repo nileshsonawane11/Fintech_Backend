@@ -2,6 +2,8 @@ package com.fintech.investment.constants;
 
 public final class InvestmentConstants {
 
+    public static final String CONSUMER_GROUP_INVESTMENT = "investment-service-group";
+
     private InvestmentConstants() {}
 
     public static final String HEADER_CORRELATION_ID = "X-Correlation-Id";

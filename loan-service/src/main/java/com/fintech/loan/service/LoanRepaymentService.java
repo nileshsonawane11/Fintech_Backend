@@ -417,6 +417,58 @@ public class LoanRepaymentService {
     }
 
     @Transactional
+    public void applyRazorpayRepaymentConfirmed(
+            String loanAccountId,
+            String paymentId,
+            BigDecimal amount,
+            String currency,
+            String razorpayPaymentId) {
+        if (paymentId == null || paymentId.isBlank() || loanAccountId == null || loanAccountId.isBlank()) {
+            return;
+        }
+        Optional<LoanRepayment> existingOpt = repaymentRepository.findByPaymentReference(paymentId)
+                .or(() -> repaymentRepository.findByRepaymentReference(paymentId));
+        if (existingOpt.isPresent()) {
+            processExternalCollectionOutcome(paymentId, "CAPTURED", razorpayPaymentId, null, null);
+            return;
+        }
+
+        LoanAccount loan = loanAccountRepository.findWithLockByLoanAccountId(loanAccountId)
+                .orElse(null);
+        if (loan == null) {
+            log.warn("Loan account not found for Razorpay repayment confirmation: loanAccountId={}, paymentId={}",
+                    loanAccountId, paymentId);
+            return;
+        }
+
+        BigDecimal payAmount = amount.setScale(2, RoundingMode.HALF_UP);
+        String repaymentId = "RPM-" + UUID.randomUUID().toString().replace("-", "").substring(0, 12).toUpperCase();
+        LoanRepayment repayment = new LoanRepayment();
+        repayment.setRepaymentId(repaymentId);
+        repayment.setRepaymentReference(paymentId);
+        repayment.setPaymentReference(paymentId);
+        repayment.setIdempotencyKey("RZP-" + paymentId);
+        repayment.setLoanAccountId(loan.getLoanAccountId());
+        repayment.setCustomerId(loan.getCustomerId());
+        repayment.setIdentitySubject(loan.getIdentitySubject());
+        repayment.setRepaymentType(RepaymentType.EMI);
+        repayment.setPaymentMethod(RepaymentMethod.UPI);
+        repayment.setAmount(payAmount);
+        repayment.setCurrency(currency != null && !currency.isBlank() ? currency : loan.getCurrency());
+        repayment.setRepaymentStatus(RepaymentStatus.PENDING);
+        repayment.setAutoCollection(false);
+        repayment = repaymentRepository.save(repayment);
+
+        AllocationBreakdown preview = allocationService.previewEmiAllocation(loan, null, payAmount);
+        MultiLinePostingRequest ledgerReq = buildRepaymentLedgerRequest(
+                repayment, LoanConstants.LEDGER_SYSTEM_SETTLEMENT_INR, preview);
+        LedgerPostingResponseDto ledgerResp = ledgerServiceClient.postBatch("RZP-LOAN-" + paymentId, ledgerReq);
+        repayment.setLedgerTransactionReference(ledgerResp.transactionId());
+        repayment.setTransactionReference(razorpayPaymentId != null ? razorpayPaymentId : ledgerResp.transactionId());
+        finalizeSettledRepayment(loan, repayment);
+    }
+
+    @Transactional
     public RepaymentResponse reverseSettledRepayment(LoanAccount loan, LoanRepayment repayment, String reason) {
         if (repayment.getRepaymentStatus() == RepaymentStatus.REVERSED) {
             return mapper.toRepaymentResponse(repayment);

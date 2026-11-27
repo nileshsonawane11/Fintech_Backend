@@ -5,7 +5,7 @@ import com.fasterxml.jackson.databind.ObjectMapper;
 import com.fintech.payment.constants.PaymentConstants;
 import com.fintech.payment.entity.PaymentInboxEvent;
 import com.fintech.payment.repository.PaymentInboxEventRepository;
-import com.fintech.payment.service.IncomingPaymentService;
+import com.fintech.payment.service.PaymentService;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.dao.DataIntegrityViolationException;
@@ -24,24 +24,24 @@ public class PaymentKafkaConsumer {
     private static final Logger log = LoggerFactory.getLogger(PaymentKafkaConsumer.class);
 
     private final PaymentInboxEventRepository inboxRepository;
-    private final IncomingPaymentService incomingPaymentService;
+    private final PaymentService paymentService;
     private final ObjectMapper objectMapper;
 
     public PaymentKafkaConsumer(
             PaymentInboxEventRepository inboxRepository,
-            IncomingPaymentService incomingPaymentService,
+            PaymentService paymentService,
             ObjectMapper objectMapper) {
         this.inboxRepository = inboxRepository;
-        this.incomingPaymentService = incomingPaymentService;
+        this.paymentService = paymentService;
         this.objectMapper = objectMapper;
     }
 
     @KafkaListener(
-            topics = "${app.kafka.topics.account-lifecycle-events:" + PaymentConstants.TOPIC_ACCOUNT_LIFECYCLE + "}",
+            topics = "${app.kafka.topics.ledger-transaction-events:" + PaymentConstants.TOPIC_LEDGER_TRANSACTION_EVENTS + "}",
             groupId = "${spring.kafka.consumer.group-id:" + PaymentConstants.CONSUMER_GROUP_PAYMENT + "}"
     )
     @Transactional
-    public void onAccountLifecycleEvent(String rawPayload) {
+    public void onLedgerTransactionEvent(String rawPayload) {
         if (rawPayload == null || rawPayload.isBlank()) {
             return;
         }
@@ -49,7 +49,7 @@ public class PaymentKafkaConsumer {
         try {
             root = objectMapper.readTree(rawPayload);
         } catch (Exception ex) {
-            throw new IllegalArgumentException("Invalid JSON in account lifecycle event", ex);
+            throw new IllegalArgumentException("Invalid JSON in ledger transaction event", ex);
         }
 
         String eventId = root.path("eventId").asText("");
@@ -64,7 +64,7 @@ public class PaymentKafkaConsumer {
         String eventType = root.path("eventType").asText("UNKNOWN");
         PaymentInboxEvent inbox = new PaymentInboxEvent();
         inbox.setEventId(eventId);
-        inbox.setTopic(PaymentConstants.TOPIC_ACCOUNT_LIFECYCLE);
+        inbox.setTopic(PaymentConstants.TOPIC_LEDGER_TRANSACTION_EVENTS);
         inbox.setEventType(eventType);
         inbox.setConsumerGroup(PaymentConstants.CONSUMER_GROUP_PAYMENT);
         inbox.setPayload(rawPayload);
@@ -76,10 +76,12 @@ public class PaymentKafkaConsumer {
         }
 
         try {
-            if ("AccountClosedEvent".equals(eventType) || "AccountBlockedEvent".equals(eventType)) {
-                String accountId = root.path("payload").path("accountId").asText(root.path("aggregateId").asText(""));
-                if (!accountId.isBlank()) {
-                    incomingPaymentService.suspendReceiversForAccount(accountId, eventType);
+            if ("TRANSACTION_EXTERNAL_DEPOSIT_POSTED".equals(eventType)) {
+                JsonNode payload = root.path("payload");
+                String paymentId = payload.path("paymentId").asText("");
+                String ledgerTxId = payload.path("ledgerTransactionId").asText("");
+                if (!paymentId.isBlank() && !ledgerTxId.isBlank()) {
+                    paymentService.markLedgerPosted(paymentId, ledgerTxId);
                 }
             }
             inbox.setStatus("PROCESSED");

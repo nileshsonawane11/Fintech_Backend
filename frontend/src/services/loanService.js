@@ -50,6 +50,18 @@ export const loanService = {
 
   async getRepaymentSchedule(loanAccountId) {
     return apiRequest(`/api/v1/loans/${loanAccountId}/schedule`);
+  },
+
+  async repayLoan(loanAccountId, { amount, paymentMethod = 'INTERNAL_ACCOUNT', repaymentAccountId, installmentId }) {
+    return apiRequest(`/api/v1/loans/${encodeURIComponent(loanAccountId)}/repayments`, {
+      method: 'POST',
+      body: JSON.stringify({
+        amount: Number(amount),
+        paymentMethod,
+        repaymentAccountId: repaymentAccountId || undefined,
+        installmentId: installmentId || undefined,
+      })
+    });
   }
 };
 
