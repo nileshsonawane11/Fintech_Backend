@@ -9,6 +9,9 @@ spring:
     gateway:
       server:
         webflux:
+          httpclient:
+            connect-timeout: 2000
+            response-timeout: 10s
           discovery:
             locator:
               enabled: false
@@ -65,6 +68,13 @@ spring:
               filters:
                 - RewritePath=/loan/(?<segment>.*), /$\{segment}
 
+            - id: investment-service-docs
+              uri: lb://INVESTMENT-SERVICE
+              predicates:
+                - Path=/investment/v3/api-docs, /investment/v3/api-docs/**
+              filters:
+                - RewritePath=/investment/(?<segment>.*), /$\{segment}
+
             - id: notification-service-docs
               uri: lb://NOTIFICATION-SERVICE
               predicates:
@@ -116,6 +126,12 @@ spring:
               predicates:
                 - Path=/api/v1/loans/**
 
+            # Investment Service
+            - id: investment-service
+              uri: lb://INVESTMENT-SERVICE
+              predicates:
+                - Path=/api/v1/investments/**
+
             # Notification and Support Service
             - id: notification-service
               uri: lb://NOTIFICATION-SERVICE
@@ -158,6 +174,8 @@ springdoc:
         url: /card/v3/api-docs
       - name: Loan Service
         url: /loan/v3/api-docs
+      - name: Investment Service
+        url: /investment/v3/api-docs
       - name: Notification and Support Service
         url: /notification/v3/api-docs
 
@@ -175,8 +193,8 @@ logging:
   level:
     org.springframework.cloud.gateway: INFO
     com.netflix.discovery: INFO
-    org.springframework.security: TRACE
-    org.springframework.security.oauth2: TRACE
+    org.springframework.security: WARN
+    org.springframework.security.oauth2: WARN
 
 jwt:
   public-key-path: ${JWT_PUBLIC_KEY_PATH:./keys/public.pem}

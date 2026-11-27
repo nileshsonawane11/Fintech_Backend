@@ -147,8 +147,6 @@ public class JwtService {
                 .claim("permissions", permissions != null ? List.copyOf(permissions) : List.of())
                 .build();
 
-        System.out.println(Optional.ofNullable(claims.getClaim("roles")));
-
         return encode(claims);
     }
 

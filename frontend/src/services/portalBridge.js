@@ -15,6 +15,7 @@ import { accountService } from './accountService.js';
 import { customerService } from './customerService.js';
 import { cardService } from './cardService.js';
 import { loanService } from './loanService.js';
+import { investmentService } from './investmentService.js';
 import { notificationService } from './notificationService.js';
 import { getMode } from '../lib/serverMode.js';
 
@@ -1068,7 +1069,61 @@ export async function applyLoan(customerId, payload = {}) {
   return newApp;
 }
 
+function mapBackendInvestmentToHolding(inv) {
+  return {
+    id: inv.investmentId,
+    investmentId: inv.investmentId,
+    applicationId: inv.applicationId,
+    customerId: inv.customerId,
+    kind: inv.productType,
+    productCode: inv.productCode,
+    productName: inv.productCode === 'FD_CLASSIC_001' ? 'FinEdge Term Fixed Deposit'
+      : inv.productCode === 'RD_FLEXI_001' ? 'FinEdge Recurring Deposit'
+      : inv.productCode === 'SIP_EQUITY_001' ? 'FinEdge Systematic Investment Plan (SIP)'
+      : inv.productCode === 'SSY_GOV_001' ? 'Sukanya Samriddhi Yojana (SSY)'
+      : inv.productCode,
+    principal: inv.principalAmount,
+    depositAmount: inv.principalAmount,
+    monthly: inv.monthlyAmount,
+    monthlyAmount: inv.monthlyAmount,
+    monthlyInstallment: inv.monthlyAmount,
+    totalInvested: inv.totalInvested,
+    rate: inv.interestRate,
+    interestRate: inv.interestRate,
+    appliedRate: inv.interestRate,
+    tenureMonths: inv.tenureMonths,
+    startDate: inv.startDate,
+    maturityDate: inv.maturityDate,
+    maturityAmount: inv.maturityAmount,
+    maturityValue: inv.maturityAmount,
+    interestEarned: inv.accruedInterest || inv.projectedGain,
+    projectedGain: inv.projectedGain,
+    returnsGuaranteed: inv.returnsGuaranteed,
+    isMarketLinked: inv.isMarketLinked,
+    isGovernmentScheme: inv.isGovernmentScheme,
+    disclosure: inv.disclosure,
+    autoRenewal: inv.autoRenewal,
+    sipFundCategory: inv.sipFundCategory,
+    debitDate: inv.sipDebitDay,
+    childName: inv.ssyGirlChildName,
+    girlChildName: inv.ssyGirlChildName,
+    certificateNumber: inv.certificateNumber,
+    status: inv.status,
+    createdAt: inv.createdAt,
+  };
+}
+
 export async function listHoldings(customerId) {
+  if (isLiveBackendActive()) {
+    try {
+      const list = await investmentService.listMyInvestments();
+      if (Array.isArray(list)) {
+        return list.map(mapBackendInvestmentToHolding);
+      }
+    } catch (err) {
+      console.warn('Falling back to local holdings after live error:', err?.message);
+    }
+  }
   const db = getDb();
   const effCustId = getEffectiveCustomerId(customerId) || customerId;
   const invs = (db.investments || []).filter(i => !effCustId || i.customerId === effCustId);
@@ -1098,8 +1153,24 @@ export async function bookFd(customerId, payload = {}) {
     err.status = 401;
     throw err;
   }
+  if (isLiveBackendActive()) {
+    const res = await investmentService.submitApplication({
+      productCode: effPayload.productCode || 'FD_CLASSIC_001',
+      amount: Number(effPayload.amount ?? effPayload.depositAmount ?? 5000),
+      tenureMonths: Number(effPayload.tenureMonths || 12),
+      compoundingFrequency: effPayload.compoundingFrequency || 'QUARTERLY',
+      payoutFrequency: effPayload.payoutFrequency || 'MATURITY',
+      autoRenewal: Boolean(effPayload.autoRenewal),
+      fundingAccountId: effPayload.accountId || effPayload.sourceAccountId,
+      nomineeName: effPayload.nomineeName || null,
+      nomineeRelationship: effPayload.nomineeRelationship || null,
+      consentAccepted: true,
+      disclosureVersion: 'v1.0',
+      immediateBook: true,
+    });
+    return { ...res, id: res.applicationId, kind: 'FD' };
+  }
   const db = getDb();
-  if (!db.idempotencyKeys) db.idempotencyKeys = {};
 
   const idemKey = effPayload.idempotencyKey;
   if (idemKey && db.idempotencyKeys[`${effCustId}:${idemKey}`]) {
@@ -1221,6 +1292,21 @@ export async function bookRd(customerId, payload = {}) {
     err.status = 401;
     throw err;
   }
+  if (isLiveBackendActive()) {
+    const amt = Number(effPayload.monthlyInstallment ?? effPayload.monthly ?? effPayload.amount ?? 500);
+    const res = await investmentService.submitApplication({
+      productCode: effPayload.productCode || 'RD_FLEXI_001',
+      amount: amt,
+      tenureMonths: Number(effPayload.tenureMonths || 12),
+      compoundingFrequency: 'QUARTERLY',
+      payoutFrequency: 'MATURITY',
+      fundingAccountId: effPayload.accountId || effPayload.sourceAccountId,
+      consentAccepted: true,
+      disclosureVersion: 'v1.0',
+      immediateBook: true,
+    });
+    return { ...res, id: res.applicationId, kind: 'RD' };
+  }
   const db = getDb();
   const details = effPayload.investmentDetails || {};
   const amt = Number(effPayload.monthlyInstallment ?? effPayload.monthly ?? effPayload.amount ?? details.monthlyDeposit ?? 5000);
@@ -1313,6 +1399,22 @@ export async function startSip(customerId, payload = {}) {
     err.status = 401;
     throw err;
   }
+  if (isLiveBackendActive()) {
+    const amt = Number(effPayload.monthly ?? effPayload.monthlyAmount ?? 2000);
+    const res = await investmentService.submitApplication({
+      productCode: effPayload.productCode || 'SIP_EQUITY_001',
+      amount: amt,
+      tenureMonths: Number(effPayload.tenureMonths || 24),
+      sipFundCategory: effPayload.sipFundCategory || 'LARGE_CAP_EQUITY',
+      sipDebitDay: Number(effPayload.debitDate || effPayload.sipDebitDay) || 5,
+      sipAssumedReturnPct: Number(effPayload.rate || effPayload.expectedReturnPct || 12),
+      fundingAccountId: effPayload.accountId || effPayload.sourceAccountId,
+      consentAccepted: true,
+      disclosureVersion: 'v1.0',
+      immediateBook: true,
+    });
+    return { ...res, id: res.applicationId, kind: 'SIP' };
+  }
   const db = getDb();
   const details = effPayload.investmentDetails || {};
   const amt = Number(effPayload.monthly ?? effPayload.monthlyAmount ?? details.monthlyInvestment ?? 2000);
@@ -1386,6 +1488,24 @@ export async function openSsy(customerId, payload = {}) {
     const err = new Error('Authentication required: a valid customer session is required to invest.');
     err.status = 401;
     throw err;
+  }
+  if (isLiveBackendActive()) {
+    const amt = Number(effPayload.amount || effPayload.annualDeposit || 10000);
+    const res = await investmentService.submitApplication({
+      productCode: effPayload.productCode || 'SSY_GOV_001',
+      amount: amt,
+      tenureMonths: 252,
+      fundingAccountId: effPayload.accountId || effPayload.sourceAccountId,
+      ssyGirlChildName: effPayload.childName || effPayload.girlChildName,
+      ssyGirlChildDob: effPayload.childDob || effPayload.girlChildDob,
+      ssyGuardianName: effPayload.guardianName,
+      ssyGuardianRelationship: effPayload.guardianRelationship || 'FATHER',
+      ssyFamilyException: Boolean(effPayload.ssyFamilyException),
+      consentAccepted: true,
+      disclosureVersion: 'v1.0',
+      immediateBook: false,
+    });
+    return { ...res, id: res.applicationId, kind: 'SSY' };
   }
   const db = getDb();
   const details = effPayload.investmentDetails || {};

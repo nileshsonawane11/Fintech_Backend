@@ -12,6 +12,8 @@ import { calculateFD, calculateRD, calculateSIP, calculateSSY } from '../../../l
 import { FD, RD, SIP, SSY } from '../../../data/products.js';
 import { listAccounts, getMyProfile } from '../../../services/portalBridge.js';
 import { bookFd, bookRd, listHoldings, openSsy, startSip } from '../../../services/portalBridge.js';
+import { investmentService } from '../../../services/investmentService.js';
+import { getMode } from '../../../lib/serverMode.js';
 
 const KIND_META = {
   FD: { label: 'Fixed Deposits', icon: Landmark },
@@ -598,6 +600,37 @@ export default function InvestmentsPage() {
     return map;
   }, [holdings]);
 
+  const { toast } = useToast();
+
+  async function handleSipAction(invId, action) {
+    try {
+      if (getMode() === 'server') {
+        if (action === 'pause') await investmentService.pauseSip(invId);
+        else if (action === 'resume') await investmentService.resumeSip(invId);
+        else if (action === 'cancel') await investmentService.cancelSip(invId);
+      }
+      toast({ title: `SIP ${action}d`, description: `SIP ${invId} updated.`, variant: 'success' });
+      setRefresh((r) => r + 1);
+    } catch (err) {
+      toast({ title: 'Action failed', description: err?.message || 'Unable to update SIP.', variant: 'danger' });
+    }
+  }
+
+  async function handlePrematureClosure(invId) {
+    try {
+      if (getMode() === 'server') {
+        await investmentService.requestWithdrawal(invId, {
+          requestType: 'PREMATURE_CLOSURE',
+          reason: 'Customer requested premature closure via NetBanking',
+        });
+      }
+      toast({ title: 'Premature closure processed', description: `Closure submitted for ${invId}.`, variant: 'success' });
+      setRefresh((r) => r + 1);
+    } catch (err) {
+      toast({ title: 'Closure failed', description: err?.message || 'Unable to process closure.', variant: 'danger' });
+    }
+  }
+
   if (loading) return <PageLoading />;
 
   const columnsFor = (kind) => {
@@ -613,6 +646,9 @@ export default function InvestmentsPage() {
         { key: 'mat', label: 'Maturity date', render: (h) => formatDate(h.maturityDate) },
         { key: 'matVal', label: 'Maturity value', align: 'right', render: (h) => <span className="tnum font-semibold">{formatINR(h.maturityValue ?? h.maturityAmount)}</span> },
         { key: 'status', label: 'Status', render: (h) => <StatusChip status={h.status} /> },
+        { key: 'actions', label: 'Actions', render: (h) => h.status === 'ACTIVE' ? (
+          <Button size="xs" variant="secondary" onClick={() => handlePrematureClosure(h.investmentId || h.id)}>Close Early</Button>
+        ) : null },
       ];
     }
     if (kind === 'RD') {
@@ -641,9 +677,16 @@ export default function InvestmentsPage() {
     return [
       ...base,
       { key: 'monthly', label: 'Monthly', align: 'right', render: (h) => <span className="tnum">{formatINR(monthlyOf(h))}</span> },
-      { key: 'invested', label: 'Invested so far', align: 'right', render: (h) => <span className="tnum">{formatINR(h.investedToDate ?? h.principal ?? monthlyOf(h))}</span> },
+      { key: 'invested', label: 'Invested so far', align: 'right', render: (h) => <span className="tnum">{formatINR(h.totalInvested ?? h.investedToDate ?? h.principal ?? monthlyOf(h))}</span> },
       { key: 'start', label: 'Start date', render: (h) => formatDate(h.startDate || h.bookingDate) },
       { key: 'status', label: 'Status', render: (h) => <StatusChip status={h.status} /> },
+      { key: 'actions', label: 'Manage', render: (h) => (
+        <div className="flex gap-1.5">
+          {h.status === 'ACTIVE' && <Button size="xs" variant="secondary" onClick={() => handleSipAction(h.investmentId || h.id, 'pause')}>Pause</Button>}
+          {h.status === 'PAUSED' && <Button size="xs" variant="secondary" onClick={() => handleSipAction(h.investmentId || h.id, 'resume')}>Resume</Button>}
+          {(h.status === 'ACTIVE' || h.status === 'PAUSED') && <Button size="xs" variant="ghost" onClick={() => handleSipAction(h.investmentId || h.id, 'cancel')}>Cancel</Button>}
+        </div>
+      ) },
     ];
   };
 
@@ -675,7 +718,13 @@ export default function InvestmentsPage() {
               {kind === 'SIP' && (
                 <p className="flex items-start gap-2 text-[13px] leading-relaxed text-ink-500">
                   <Info className="mt-0.5 h-4 w-4 shrink-0 text-midnight-600" aria-hidden />
-                  Market-linked — returns are not guaranteed. The value of a SIP depends on the performance of the underlying mutual fund scheme.
+                  Market-linked — returns are not guaranteed. Illustrative projections are hypothetical and depend on market performance.
+                </p>
+              )}
+              {kind === 'SSY' && (
+                <p className="flex items-start gap-2 text-[13px] leading-relaxed text-ink-500">
+                  <Info className="mt-0.5 h-4 w-4 shrink-0 text-midnight-600" aria-hidden />
+                  Sukanya Samriddhi Yojana (SSY) is a Government of India scheme with quarterly-notified rates (15-year deposit, 21-year maturity).
                 </p>
               )}
             </section>

@@ -5,10 +5,23 @@ import org.springframework.cloud.client.loadbalancer.LoadBalanced;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Primary;
+import org.springframework.http.client.JdkClientHttpRequestFactory;
 import org.springframework.web.client.RestClient;
+
+import java.net.http.HttpClient;
+import java.time.Duration;
 
 @Configuration
 public class RestClientConfig {
+
+    private JdkClientHttpRequestFactory requestFactory() {
+        HttpClient client = HttpClient.newBuilder()
+                .connectTimeout(Duration.ofMillis(2500))
+                .build();
+        JdkClientHttpRequestFactory factory = new JdkClientHttpRequestFactory(client);
+        factory.setReadTimeout(Duration.ofMillis(4000));
+        return factory;
+    }
 
     /**
      * Default HTTP client.
@@ -18,7 +31,7 @@ public class RestClientConfig {
     @Bean
     @Primary
     public RestClient.Builder restClientBuilder() {
-        return RestClient.builder();
+        return RestClient.builder().requestFactory(requestFactory());
     }
 
     /**
@@ -29,6 +42,6 @@ public class RestClientConfig {
     @Bean
     @LoadBalanced
     public RestClient.Builder loadBalancedRestClientBuilder() {
-        return RestClient.builder();
+        return RestClient.builder().requestFactory(requestFactory());
     }
 }

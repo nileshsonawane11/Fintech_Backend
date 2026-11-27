@@ -1,0 +1,129 @@
+server:
+  port: ${INVESTMENT_SERVICE_PORT:8088}
+
+spring:
+  application:
+    name: INVESTMENT-SERVICE
+
+  servlet:
+    multipart:
+      max-file-size: 10MB
+      max-request-size: 12MB
+
+  datasource:
+    url: ${INVESTMENT_DB_URL:jdbc:postgresql://localhost:5432/fintech_investment}
+    username: ${DB_USERNAME:postgres}
+    password: ${DB_PASSWORD:root}
+    driver-class-name: org.postgresql.Driver
+    hikari:
+      pool-name: investment-hikari-pool
+      maximum-pool-size: 20
+      minimum-idle: 5
+      connection-timeout: 5000
+      idle-timeout: 300000
+      max-lifetime: 1200000
+
+  jpa:
+    open-in-view: false
+    hibernate:
+      ddl-auto: validate
+    properties:
+      hibernate:
+        dialect: org.hibernate.dialect.PostgreSQLDialect
+        jdbc:
+          time_zone: UTC
+          batch_size: 25
+        order_inserts: true
+        order_updates: true
+
+  flyway:
+    enabled: true
+    locations: classpath:db/migration
+    baseline-on-migrate: true
+    create-schemas: true
+
+  kafka:
+    bootstrap-servers: ${KAFKA_BOOTSTRAP_SERVERS:localhost:9092}
+    producer:
+      key-serializer: org.apache.kafka.common.serialization.StringSerializer
+      value-serializer: org.springframework.kafka.support.serializer.StringSerializer
+      acks: all
+      retries: 3
+    consumer:
+      group-id: ${INVESTMENT_KAFKA_GROUP_ID:investment-service-group}
+      auto-offset-reset: earliest
+      enable-auto-commit: false
+      key-deserializer: org.apache.kafka.common.serialization.StringDeserializer
+      value-deserializer: org.springframework.kafka.support.serializer.StringDeserializer
+
+security:
+  jwt:
+    public-key-location: ${JWT_PUBLIC_KEY_LOCATION:classpath:keys/public.pem}
+    issuer: ${JWT_ISSUER:identity-service}
+
+eureka:
+  client:
+    service-url:
+      defaultZone: ${EUREKA_URL:http://localhost:8761/eureka/}
+    register-with-eureka: true
+    fetch-registry: true
+  instance:
+    prefer-ip-address: true
+    instance-id: ${spring.application.name}:${server.port}
+
+app:
+  services:
+    customer-service:
+      service-id: ${CUSTOMER_SERVICE_ID:CUSTOMER-SERVICE}
+    account-service:
+      service-id: ${ACCOUNT_SERVICE_ID:ACCOUNT-SERVICE}
+    ledger-service:
+      service-id: ${LEDGER_SERVICE_ID:LEDGER-TRANSACTION-SERVICE}
+    payment-service:
+      service-id: ${PAYMENT_SERVICE_ID:PAYMENT-SERVICE}
+    notification-service:
+      service-id: ${NOTIFICATION_SERVICE_ID:NOTIFICATION-SERVICE}
+    internal-secret-token: ${INTERNAL_SERVICE_SECRET:finbank-internal-secret-token}
+    connect-timeout-ms: 2500
+    read-timeout-ms: 4000
+    max-retries: 1
+  outbox:
+    poll-interval-ms: 3000
+    max-retries: 5
+    batch-size: 50
+  investment:
+    default-currency: INR
+    idempotency-ttl-hours: 24
+    fd-loan-max-ltv-pct: 90.00
+    ssy-max-girl-child-age-years: 10
+    ssy-max-accounts-per-family: 2
+    ssy-annual-min-deposit: 250.00
+    ssy-annual-max-deposit: 150000.00
+    ssy-deposit-period-years: 15
+    ssy-maturity-period-years: 21
+    sip-execution-mode: SIMULATED_BOUNDARY
+    ssy-execution-mode: DEMONSTRATION_BOUNDARY
+    document-storage-path: ${INVESTMENT_DOCUMENT_STORAGE_PATH:./data/investment-documents}
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health,info,metrics,prometheus
+  endpoint:
+    health:
+      show-details: never
+
+springdoc:
+  api-docs:
+    path: /v3/api-docs
+    enabled: true
+  swagger-ui:
+    path: /swagger-ui.html
+    enabled: true
+
+logging:
+  level:
+    com.fintech.investment: INFO
+    org.springframework.security: WARN
+    org.hibernate.SQL: WARN
